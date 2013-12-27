@@ -1,7 +1,7 @@
 part of dart_archive;
 
 
-abstract class Archive {
+abstract class ArchiveDecoder {
   void open(List<int> data);
 
   bool isValidFile();

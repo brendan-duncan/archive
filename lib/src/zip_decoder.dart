@@ -1,6 +1,6 @@
 part of dart_archive;
 
-class TarArchive extends Archive {
+class ZipDecoder extends ArchiveDecoder {
   void open(List<int> data) {
 
   }
