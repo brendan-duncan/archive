@@ -1,27 +1,31 @@
 part of dart_archive;
 
-class ZipDecoder extends ArchiveDecoder {
-  void open(List<int> data) {
+class ZipDecoder {
+  ZipDirectory directory;
 
+  ZipDecoder(List<int> data) {
+    _ByteBuffer input = new _ByteBuffer.read(data,
+                                        byteOrder: _ByteBuffer.LITTLE_ENDIAN);
+    directory = new ZipDirectory(input);
   }
 
   bool isValidFile() {
-    return false;
+    return directory != null;
   }
 
   int numberOfFiles() {
-    return 0;
+    return directory.fileHeaders.length;
   }
 
   String fileName(int index) {
-    return '';
+    return directory.fileHeaders[index].filename;
   }
 
   int fileSize(int index) {
-    return 0;
+    return directory.fileHeaders[index].uncompressedSize;
   }
 
   List<int> fileData(int index) {
-    return null;
+    return directory.fileHeaders[index].file.content;
   }
 }

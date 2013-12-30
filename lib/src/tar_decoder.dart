@@ -1,8 +1,8 @@
 part of dart_archive;
 
-class TarDecoder extends ArchiveDecoder {
-  void open(List<int> data) {
-
+class TarDecoder {
+  TarDecoder(List<int> data) {
+    _ByteBuffer input = new _ByteBuffer.read(data);
   }
 
   bool isValidFile() {
