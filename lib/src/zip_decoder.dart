@@ -4,8 +4,7 @@ class ZipDecoder {
   ZipDirectory directory;
 
   ZipDecoder(List<int> data) {
-    _ByteBuffer input = new _ByteBuffer.read(data,
-                                        byteOrder: _ByteBuffer.LITTLE_ENDIAN);
+    InputBuffer input = new InputBuffer(data);
     directory = new ZipDirectory(input);
   }
 

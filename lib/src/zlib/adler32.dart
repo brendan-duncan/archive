@@ -1,6 +1,6 @@
 part of dart_archive;
 
-int _adler32(List<int> array, [int adler = 1]) {
+int getAdler32(List<int> array, [int adler = 1]) {
   const int OptimizationParameter = 1024;
 
   int s1 = adler & 0xffff;

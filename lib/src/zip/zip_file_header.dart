@@ -20,7 +20,7 @@ class ZipFileHeader {
   String fileComment = '';
   ZipFile file;
 
-  ZipFileHeader([_ByteBuffer input, _ByteBuffer bytes]) {
+  ZipFileHeader([InputBuffer input, InputBuffer bytes]) {
     if (input != null) {
       versionMadeBy = input.readUint16();
       versionNeededToExtract = input.readUint16();

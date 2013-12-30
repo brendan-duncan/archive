@@ -14,7 +14,7 @@ class ZipDirectory {
   // Central Directory
   List<ZipFileHeader> fileHeaders = [];
 
-  ZipDirectory([_ByteBuffer input]) {
+  ZipDirectory([InputBuffer input]) {
     if (input != null) {
       // End Of
       filePosition = _findSignature(input);
@@ -31,7 +31,7 @@ class ZipDirectory {
         zipFileComment = new String.fromCharCodes(input.readBytes(len));
       }
 
-      _ByteBuffer dirContent = input.subset(centralDirectoryOffset,
+      InputBuffer dirContent = input.subset(centralDirectoryOffset,
                                             centralDirectorySize);
 
       while (!dirContent.isEOF) {
@@ -44,7 +44,7 @@ class ZipDirectory {
     }
   }
 
-  int _findSignature(_ByteBuffer input) {
+  int _findSignature(InputBuffer input) {
     const int maxLength = 65536;
     int pos = input.position;
     int length = input.length;

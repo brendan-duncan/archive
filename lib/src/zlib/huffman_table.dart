@@ -1,11 +1,11 @@
 part of dart_archive;
 
-class _HuffmanTable {
+class HuffmanTable {
   Data.Uint32List table;
   int maxCodeLength = 0;
   int minCodeLength = 0x7fffffff;
 
-  _HuffmanTable(List<int> lengths) {
+  HuffmanTable(List<int> lengths) {
     int listSize = lengths.length;
 
     for (int i = 0; i < listSize; ++i) {

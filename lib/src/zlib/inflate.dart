@@ -1,21 +1,22 @@
 part of dart_archive;
 
-class _Inflate {
-  final _ByteBuffer input;
-  final _ByteBuffer output;
+class Inflate {
+  final InputBuffer input;
+  final OutputBuffer output;
 
-  int bitsbuf = 0;
-  int bitsbuflen = 0;
+  Inflate(this.input) :
+    output = new OutputBuffer();
 
-  _Inflate(this.input) :
-    output = new _ByteBuffer();
-
-  List<int> decompress() {
+  OutputBuffer decompress() {
+    input.position = 0;
+    _bitBuffer = 0;
+    _bitBufferLen = 0;
     output.clear();
+
     while (_parseBlock()) {
     }
-    print('${input.length} -> ${output.length} : ${input.position}');
-    return output.buffer;
+
+    return output;
   }
 
   /**
@@ -55,7 +56,7 @@ class _Inflate {
    */
   int _readBits(int length) {
     // not enough buffer
-    while (bitsbuflen < length) {
+    while (_bitBufferLen < length) {
       if (input.isEOF) {
         throw new Exception('input buffer is broken');
       }
@@ -64,14 +65,14 @@ class _Inflate {
       int octet = input.readByte();
 
       // concat octet
-      bitsbuf |= octet << bitsbuflen;
-      bitsbuflen += 8;
+      _bitBuffer |= octet << _bitBufferLen;
+      _bitBufferLen += 8;
     }
 
     // output byte
-    int octet = bitsbuf & /* MASK */ ((1 << length) - 1);
-    bitsbuf >>= length;
-    bitsbuflen -= length;
+    int octet = _bitBuffer & ((1 << length) - 1);
+    _bitBuffer >>= length;
+    _bitBufferLen -= length;
 
     return octet;
   }
@@ -79,28 +80,28 @@ class _Inflate {
   /**
    * Read huffman code using table
    */
-  int _readCodeByTable(_HuffmanTable table) {
+  int _readCodeByTable(HuffmanTable table) {
     List<int> codeTable = table.table;
     int maxCodeLength = table.maxCodeLength;
 
     // Not enough buffer
-    while (bitsbuflen < maxCodeLength) {
+    while (_bitBufferLen < maxCodeLength) {
       if (input.isEOF) {
         break;
       }
 
       int octet = input.readByte();
 
-      bitsbuf |= octet << bitsbuflen;
-      bitsbuflen += 8;
+      _bitBuffer |= octet << _bitBufferLen;
+      _bitBufferLen += 8;
     }
 
     // read max length
-    int codeWithLength = codeTable[bitsbuf & ((1 << maxCodeLength) - 1)];
+    int codeWithLength = codeTable[_bitBuffer & ((1 << maxCodeLength) - 1)];
     int codeLength = codeWithLength >> 16;
 
-    bitsbuf >>= codeLength;
-    bitsbuflen -= codeLength;
+    _bitBuffer >>= codeLength;
+    _bitBufferLen -= codeLength;
 
     return codeWithLength & 0xffff;
   }
@@ -110,27 +111,23 @@ class _Inflate {
    */
   void _parseUncompressedBlock() {
     // skip buffered header bits
-    bitsbuf = 0;
-    bitsbuflen = 0;
+    _bitBuffer = 0;
+    _bitBufferLen = 0;
 
-    // len (1st)
-    int len = input.readByte();
-    // len (2nd)
-    len |= input.readByte() << 8;
+    // len
+    int len = input.readUint16();
 
-    // nlen (1st)
-    int nlen = input.readByte();
-    // nlen (2nd)
-    nlen |= input.readByte() << 8;
+    // nlen
+    int nlen = input.readUint16();
 
     // check len & nlen
     if (len == ~nlen) {
-      throw new Exception('invalid uncompressed block header: length verify');
+      throw new Exception('Invalid uncompressed block header: length verify');
     }
 
     // check size
     if (input.position + len > input.length) {
-      throw new Exception('input buffer is broken');
+      throw new Exception('Input buffer is broken');
     }
 
     output.writeBytes(input.readBytes(len));
@@ -154,7 +151,7 @@ class _Inflate {
       codeLengths[_ORDER[i]] = _readBits(3);
     }
 
-    _HuffmanTable codeLengthsTable = new _HuffmanTable(codeLengths);
+    HuffmanTable codeLengthsTable = new HuffmanTable(codeLengths);
 
     // literal and length code
     Data.Uint8List litlenLengths = new Data.Uint8List(numLitLengthCodes);
@@ -162,12 +159,15 @@ class _Inflate {
     // distance code
     Data.Uint8List distLengths = new Data.Uint8List(numDistanceCodes);
 
-    _decodeHuffman(
-        new _HuffmanTable(_decode(numLitLengthCodes, codeLengthsTable, litlenLengths)),
-        new _HuffmanTable(_decode(numDistanceCodes, codeLengthsTable, distLengths)));
+    List<int> litlen = _decode(numLitLengthCodes, codeLengthsTable,
+                               litlenLengths);
+
+    List<int> dist = _decode(numDistanceCodes, codeLengthsTable, distLengths);
+
+    _decodeHuffman(new HuffmanTable(litlen), new HuffmanTable(dist));
   }
 
-  void _decodeHuffman(_HuffmanTable litlen, _HuffmanTable dist) {
+  void _decodeHuffman(HuffmanTable litlen, HuffmanTable dist) {
     int code;
     while ((code = _readCodeByTable(litlen)) != 256) {
       // literal
@@ -196,8 +196,8 @@ class _Inflate {
       }
     }
 
-    while (bitsbuflen >= 8) {
-      bitsbuflen -= 8;
+    while (_bitBufferLen >= 8) {
+      _bitBufferLen -= 8;
       input.position--;
     }
   }
@@ -205,7 +205,7 @@ class _Inflate {
   /**
    * decode function
    */
-  List<int> _decode(int num, _HuffmanTable table, List<int> lengths) {
+  List<int> _decode(int num, HuffmanTable table, List<int> lengths) {
     int prev;
 
     for (int i = 0; i < num;) {
@@ -241,6 +241,9 @@ class _Inflate {
     return lengths;
   }
 
+  int _bitBuffer = 0;
+  int _bitBufferLen = 0;
+
   // enum BlockType
   static const int _BLOCK_UNCOMPRESSED = 0;
   static const int _BLOCK_FIXED_HUFFMAN = 1;
@@ -260,15 +263,15 @@ class _Inflate {
       9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9,
       9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 7, 7, 7, 7, 7, 7, 7, 7,
       7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 8, 8, 8, 8, 8, 8, 8, 8];
-  final _HuffmanTable _fixedLiteralLengthTable =
-      new _HuffmanTable(_FIXED_LITERAL_LENGTHS);
+  final HuffmanTable _fixedLiteralLengthTable =
+      new HuffmanTable(_FIXED_LITERAL_LENGTHS);
 
   /// Fixed huffman distance code table
   static const List<int> _FIXED_DISTANCE_TABLE = const [
       5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
       5, 5, 5, 5, 5, 5 ];
-  final _HuffmanTable _fixedDistanceTable =
-      new _HuffmanTable(_FIXED_DISTANCE_TABLE);
+  final HuffmanTable _fixedDistanceTable =
+      new HuffmanTable(_FIXED_DISTANCE_TABLE);
 
   /// Buffer block size.
   static const int _RAW_INFLATE_BUFFER_SIZE = 0x8000;

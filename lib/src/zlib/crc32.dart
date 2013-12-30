@@ -1,7 +1,7 @@
 part of dart_archive;
 
-class _Crc32 {
-  static int update(List<int> data, int crc, [int pos = 0, int length]) {
+class Crc32 {
+  static int compute(List<int> data, int crc, [int pos = 0, int length]) {
     if (length == null) {
       length = data.length;
     }

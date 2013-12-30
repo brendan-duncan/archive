@@ -14,9 +14,9 @@ class ZipFile {
   int uncompressedSize; // 4 bytes
   String filename = ''; // 2 bytes length, n-bytes data
   List<int> extraField = []; // 2 bytes length, n-bytes data
-  _ByteBuffer _content;
+  InputBuffer _content;
 
-  ZipFile([_ByteBuffer input]) {
+  ZipFile([InputBuffer input]) {
     if (input != null) {
       signature = input.readUint32();
       if (signature != SIGNATURE) {
@@ -43,8 +43,7 @@ class ZipFile {
 
   List<int> get content {
     if (_decompressed == null) {
-      _decompressed = new ZLibDecoder().decode(_content.buffer,
-                                               readHeader: false);
+      _decompressed = new Inflate(_content).decompress().getBytes();
       _content = null;
     }
     return _decompressed;

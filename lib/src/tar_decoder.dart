@@ -1,27 +1,44 @@
 part of dart_archive;
 
 class TarDecoder {
+  List<TarFile> files = [];
+
   TarDecoder(List<int> data) {
-    _ByteBuffer input = new _ByteBuffer.read(data);
+    InputBuffer input = new InputBuffer(data);
+    while (!input.isEOF) {
+      try {
+        // End of archive.
+        if (input.buffer[input.position] == 0 &&
+            input.buffer[input.position + 1] == 0) {
+          break;
+        }
+
+        TarFile file = new TarFile(input);
+
+        files.add(file);
+      } catch (error) {
+        break;
+      }
+    }
   }
 
   bool isValidFile() {
-    return false;
+    return files.isNotEmpty;
   }
 
   int numberOfFiles() {
-    return 0;
+    return files.length;
   }
 
   String fileName(int index) {
-    return '';
+    return files[index].filename;
   }
 
   int fileSize(int index) {
-    return 0;
+    return files[index].fileSize;
   }
 
   List<int> fileData(int index) {
-    return null;
+    return files[index].data;
   }
 }
