@@ -16,11 +16,23 @@ void compare_bytes(List<int> a, List<int> b) {
   }
 }
 
+const String a_txt = """this is a test
+of the
+zip archive
+format.
+this is a test
+of the
+zip archive
+format.
+this is a test
+of the
+zip archive
+format.
+""";
+
 void main() {
   group('archive', () {
-    /*var a = new Io.File('res/a.txt');
-    a.openSync();
-    List<int> a_bytes = a.readAsBytesSync();*/
+    List<int> a_bytes = a_txt.codeUnits;
 
     var b = new Io.File('res/cat.jpg');
     b.openSync();
@@ -47,9 +59,9 @@ void main() {
       for (int i = 0; i < archive.numberOfFiles(); ++i) {
         List<int> z_bytes = archive.fileData(i);
         if (archive.fileName(i) == 'a.txt') {
-          //compare_bytes(zip.fileData(i), a_bytes);
+          compare_bytes(z_bytes, a_bytes);
         } else if (archive.fileName(i) == 'cat.jpg') {
-          compare_bytes(archive.fileData(i), b_bytes);
+          compare_bytes(z_bytes, b_bytes);
         } else {
           throw new TestFailure('Invalid file found');
         }
@@ -71,7 +83,7 @@ void main() {
         String t_file = archive.fileName(i);
 
         if (t_file == 'a.txt') {
-          //compare_bytes(tar.fileData(i), a_bytes);
+          compare_bytes(t_bytes, a_bytes);
         } else if (t_file == 'cat.jpg') {
           compare_bytes(t_bytes, b_bytes);
         } else {
@@ -89,7 +101,7 @@ void main() {
         String t_file = archive2.fileName(i);
 
         if (t_file == 'a.txt') {
-          //compare_bytes(tar.fileData(i), a_bytes);
+          compare_bytes(t_bytes, a_bytes);
         } else if (t_file == 'cat.jpg') {
           compare_bytes(t_bytes, b_bytes);
         } else {
@@ -97,15 +109,11 @@ void main() {
         }
       }
     });
-
-    test('tar', () {
-      tar_test();
-    });
-
-    test('zip', () {
-      zip_test();
-    });
   });
 
   defineAdlerTests();
+
+  defineTarTests();
+
+  defineZipTests();
 }

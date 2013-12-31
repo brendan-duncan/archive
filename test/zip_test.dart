@@ -193,38 +193,40 @@ var zipTests = [
   },*/
 ];
 
-void zip_test() {
-  ZipArchive zip = new ZipArchive();
+void defineZipTests() {
+  group('zip', () {
+    ZipArchive zip = new ZipArchive();
 
-  for (Map z in zipTests) {
-    test('unzip ${z['Name']}', () {
-      var file = new Io.File(z['Name']);
-      file.openSync();
-      var bytes = file.readAsBytesSync();
+    for (Map z in zipTests) {
+      test('unzip ${z['Name']}', () {
+        var file = new Io.File(z['Name']);
+        file.openSync();
+        var bytes = file.readAsBytesSync();
 
-      Archive archive = zip.decode(bytes);
-      List<ZipFileHeader> zipFiles = zip.directory.fileHeaders;
+        Archive archive = zip.decode(bytes);
+        List<ZipFileHeader> zipFiles = zip.directory.fileHeaders;
 
-      expect(zipFiles.length, equals(z['File'].length));
+        expect(zipFiles.length, equals(z['File'].length));
 
-      if (z.containsKey('Comment')) {
-        expect(zip.directory.zipFileComment, z['Comment']);
-      }
-
-      for (int i = 0; i < zipFiles.length; ++i) {
-        ZipFileHeader zipFileHeader = zipFiles[i];
-        ZipFile zipFile = zipFileHeader.file;
-
-        var hdr = z['File'][i];
-
-        if (hdr.containsKey('Name')) {
-          expect(zipFile.filename, equals(hdr['Name']));
+        if (z.containsKey('Comment')) {
+          expect(zip.directory.zipFileComment, z['Comment']);
         }
 
-        if (hdr.containsKey('Mode')) {
-          //expect(zipFileHeader.internalFileAttributes, equals(hdr['Mode']));
+        for (int i = 0; i < zipFiles.length; ++i) {
+          ZipFileHeader zipFileHeader = zipFiles[i];
+          ZipFile zipFile = zipFileHeader.file;
+
+          var hdr = z['File'][i];
+
+          if (hdr.containsKey('Name')) {
+            expect(zipFile.filename, equals(hdr['Name']));
+          }
+
+          if (hdr.containsKey('Mode')) {
+            //expect(zipFileHeader.internalFileAttributes, equals(hdr['Mode']));
+          }
         }
-      }
-    });
-  }
+      });
+    }
+  });
 }

@@ -138,50 +138,52 @@ var tarTests = [
   },
 ];
 
-void tar_test() {
-  TarArchive tar = new TarArchive();
+void defineTarTests() {
+  group('tar', () {
+    TarArchive tar = new TarArchive();
 
-  for (Map t in tarTests) {
-    test('untar ${t['file']}', () {
-      var file = new Io.File(t['file']);
-      file.openSync();
-      var bytes = file.readAsBytesSync();
+    for (Map t in tarTests) {
+      test('untar ${t['file']}', () {
+        var file = new Io.File(t['file']);
+        file.openSync();
+        var bytes = file.readAsBytesSync();
 
-      Archive archive = tar.decode(bytes);
-      expect(tar.files.length, equals(t['headers'].length));
+        Archive archive = tar.decode(bytes);
+        expect(tar.files.length, equals(t['headers'].length));
 
-      for (int i = 0; i < tar.files.length; ++i) {
-        TarFile file = tar.files[i];
-        var hdr = t['headers'][i];
+        for (int i = 0; i < tar.files.length; ++i) {
+          TarFile file = tar.files[i];
+          var hdr = t['headers'][i];
 
-        if (hdr.containsKey('Name')) {
-          expect(file.filename, equals(hdr['Name']));
+          if (hdr.containsKey('Name')) {
+            expect(file.filename, equals(hdr['Name']));
+          }
+          if (hdr.containsKey('Mode')) {
+            expect(file.mode, equals(hdr['Mode']));
+          }
+          if (hdr.containsKey('Uid')) {
+            expect(file.ownerId, equals(hdr['Uid']));
+          }
+          if (hdr.containsKey('Gid')) {
+            expect(file.groupId, equals(hdr['Gid']));
+          }
+          if (hdr.containsKey('Size')) {
+            expect(file.fileSize, equals(hdr['Size']));
+          }
+          if (hdr.containsKey('ModTime')) {
+            expect(file.lastModTime, equals(hdr['ModTime']));
+          }
+          if (hdr.containsKey('Typeflag')) {
+            expect(file.typeFlag, equals(hdr['Typeflag']));
+          }
+          if (hdr.containsKey('Uname')) {
+            expect(file.ownerUserName, equals(hdr['Uname']));
+          }
+          if (hdr.containsKey('Gname')) {
+            expect(file.ownerGroupName, equals(hdr['Gname']));
+          }
         }
-        if (hdr.containsKey('Mode')) {
-          expect(file.mode, equals(hdr['Mode']));
-        }
-        if (hdr.containsKey('Uid')) {
-          expect(file.ownerId, equals(hdr['Uid']));
-        }
-        if (hdr.containsKey('Gid')) {
-          expect(file.groupId, equals(hdr['Gid']));
-        }
-        if (hdr.containsKey('Size')) {
-          expect(file.fileSize, equals(hdr['Size']));
-        }
-        if (hdr.containsKey('ModTime')) {
-          expect(file.lastModTime, equals(hdr['ModTime']));
-        }
-        if (hdr.containsKey('Typeflag')) {
-          expect(file.typeFlag, equals(hdr['Typeflag']));
-        }
-        if (hdr.containsKey('Uname')) {
-          expect(file.ownerUserName, equals(hdr['Uname']));
-        }
-        if (hdr.containsKey('Gname')) {
-          expect(file.ownerGroupName, equals(hdr['Gname']));
-        }
-      }
-    });
-  }
+      });
+    }
+  });
 }
