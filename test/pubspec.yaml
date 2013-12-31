@@ -1,0 +1,4 @@
+name: archive_test
+description: Unit tests for the archive library.
+dependencies:
+  unittest: any

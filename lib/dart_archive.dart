@@ -3,6 +3,7 @@ library dart_archive;
 import 'dart:typed_data' as Data;
 
 part 'src/tar/tar_file.dart';
+part 'src/util/archive_exception.dart';
 part 'src/util/input_buffer.dart';
 part 'src/util/output_buffer.dart';
 part 'src/zip/zip_directory.dart';

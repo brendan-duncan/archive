@@ -14,14 +14,14 @@ class ZipFile {
   int uncompressedSize; // 4 bytes
   String filename = ''; // 2 bytes length, n-bytes data
   List<int> extraField = []; // 2 bytes length, n-bytes data
-  InputBuffer _content;
 
   ZipFile([InputBuffer input]) {
     if (input != null) {
       signature = input.readUint32();
       if (signature != SIGNATURE) {
-        throw 'Invalid Zip Signature';
+        throw new ArchiveException('Invalid Zip Signature');
       }
+
       version = input.readUint16();
       flags = input.readUint16();
       compressionMethod = input.readUint16();
@@ -41,13 +41,19 @@ class ZipFile {
     }
   }
 
+  /**
+   * Get the decompressed content from the file.  The file isn't decompressed
+   * until it is requested.
+   */
   List<int> get content {
     if (_decompressed == null) {
-      _decompressed = new Inflate(_content).decompress().getBytes();
+      _decompressed = new Inflate(_content).getBytes();
       _content = null;
     }
     return _decompressed;
   }
 
+  /// Compressed content of the file
+  InputBuffer _content;
   List<int> _decompressed;
 }

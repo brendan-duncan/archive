@@ -4,6 +4,7 @@ part of dart_archive;
  * Decompress data with the gzip format decoder.
  */
 class GZipDecoder {
+  static const int SIGNATURE = 0x8b1f;
   static const int DEFLATE = 8;
   static const int FLAG_TEXT = 0x01;
   static const int FLAG_HCRC = 0x02;
@@ -55,7 +56,15 @@ class GZipDecoder {
     //        4 bytes  uncompressed input size modulo 2^32
 
     int signature = input.readUint16();
+    if (signature != SIGNATURE) {
+      throw new ArchiveException('Invalid GZip Signature');
+    }
+
     int compressionMethod = input.readByte();
+    if (compressionMethod != DEFLATE) {
+      throw new ArchiveException('Invalid GZip Compression Methos');
+    }
+
     int flags = input.readByte();
     int fileModTime = input.readUint32();
     int extraFlags = input.readByte();
@@ -66,12 +75,10 @@ class GZipDecoder {
       input.readBytes(t);
     }
 
-    // just throw away for now
     if (flags & FLAG_NAME != 0) {
       input.readString();
     }
 
-    // just throw away for now
     if (flags & FLAG_COMMENT != 0) {
       input.readString();;
     }
@@ -81,18 +88,19 @@ class GZipDecoder {
       input.readUint16();
     }
 
-    // Inflate
-    OutputBuffer output = new Inflate(input).decompress();
-    List<int> buffer = output.getBytes();
+    InputBuffer contents = input.subset();
 
-    int crc = input.readUint32();
+    // Inflate
+    List<int> buffer = new Inflate(contents).getBytes();
+
+    int crc = contents.readUint32();
     /*if (crc !== parseInt(crc32(res), 16)) {
-      throw 'Checksum does not match';
+      throw new ArchiveException('Checksum does not match');
     }*/
 
-    int size = input.readUint32();
+    int size = contents.readUint32();
     /*if (size !== res.length) {
-      throw 'Size of decompressed file not correct';
+      throw new ArchiveException('Size of decompressed file not correct');
     }*/
 
     return buffer;

@@ -32,7 +32,7 @@ class TarFile {
   int fileSize;
   int lastModTime;
   int checksum;
-  int typeFlag;
+  String typeFlag;
   String nameOfLinkedFile;
   // UStar Format
   String ustarIndicator = '';
@@ -42,6 +42,7 @@ class TarFile {
   int deviceMajorNumber = 0;
   int deviceMinorNumber = 0;
   String filenamePrefix = '';
+  bool isFile;
   List<int> data;
 
   TarFile(InputBuffer input) {
@@ -51,13 +52,12 @@ class TarFile {
     mode = _parseInt(header, 8);
     ownerId = _parseInt(header, 8);
     groupId = _parseInt(header, 8);
-    fileSize = _parseInt(header, 12);
+    fileSize = _parseInt(header, 12, 8);
     lastModTime = _parseInt(header, 12);
     checksum = _parseInt(header, 8);
-    typeFlag = _parseInt(header, 1);
+    typeFlag = _parseString(header, 1);
     nameOfLinkedFile = _parseString(header, 100);
 
-    int ip = input.position;
     ustarIndicator = _parseString(header, 6);
     if (ustarIndicator == 'ustar') {
       ustarVersion = _parseString(header, 2);
@@ -67,14 +67,29 @@ class TarFile {
       deviceMinorNumber = _parseInt(header, 8);
     }
 
-    data = input.readBytes(this.fileSize);
+    isFile = typeFlag != '5'; // DIRECTORY
+
+    data = input.readBytes(fileSize);
+
+    if (isFile && fileSize > 0) {
+      int remainder = fileSize % 512;
+      int skiplen = 0;
+      if (remainder != 0) {
+        skiplen = 512 - remainder;
+        input.skip(skiplen);
+      }
+    }
   }
 
-  int _parseInt(InputBuffer input, int numBytes) {
-    return int.parse(new String.fromCharCodes(input.readBytes(numBytes)));
+  int _parseInt(InputBuffer input, int numBytes, [int radix]) {
+    String s = _parseString(input, numBytes);
+    return int.parse('0' + s, radix: radix);
   }
 
   String _parseString(InputBuffer input, int numBytes) {
-    return new String.fromCharCodes(input.readBytes(numBytes));
+    List<int> codes = input.readBytes(numBytes);
+    int r = codes.indexOf(0);
+    List<int> s = codes.sublist(0, r < 0 ? null : r);
+    return new String.fromCharCodes(s).trim();
   }
 }

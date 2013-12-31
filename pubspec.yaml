@@ -3,3 +3,5 @@ author: Brendan Duncan <brendanduncan@gmail.com>
 version: 1.0.0
 homepage: http://bitbucket.org/brendan_duncan/dart_archive
 description: Provides encoders and decoders for various archive and compression formats, such as zip and tar.
+dependencies:
+  unittest: any

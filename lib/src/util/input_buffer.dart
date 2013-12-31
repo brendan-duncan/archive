@@ -1,16 +1,13 @@
 part of dart_archive;
 
 class InputBuffer {
-  static const int LITTLE_ENDIAN = 0;
-  static const int BIG_ENDIAN = 1;
-  int byteOrder;
   List<int> buffer;
   int position = 0;
 
   /**
    * Create a InputBuffer for reading from a List<int>
    */
-  InputBuffer(this.buffer, {this.byteOrder: LITTLE_ENDIAN}) :
+  InputBuffer(this.buffer) :
     position = 0;
 
   /**
@@ -50,8 +47,7 @@ class InputBuffer {
       length = this.length - position;
     }
 
-    return new InputBuffer(buffer.sublist(position, position + length),
-                           byteOrder: this.byteOrder);
+    return new InputBuffer(buffer.sublist(position, position + length));
   }
 
   /**
@@ -96,14 +92,9 @@ class InputBuffer {
    * Read a 16-bit word from the buffer.
    */
   int readUint16() {
-    if (byteOrder == LITTLE_ENDIAN) {
-      int value = (buffer[position + 1] << 8) | buffer[position];
-      position += 2;
-      return value;
-    }
-    int value = (buffer[position] << 8) | buffer[position + 1];
-    position += 2;
-    return value;
+    int b1 = buffer[position++] & 0xff;
+    int b2 = buffer[position++] & 0xff;
+    return (b2 << 8) | b1;
   }
 
   /**
@@ -114,9 +105,6 @@ class InputBuffer {
     int b2 = buffer[position++] & 0xff;
     int b3 = buffer[position++] & 0xff;
     int b4 = buffer[position++] & 0xff;
-    if (byteOrder == LITTLE_ENDIAN) {
-      return (b4 << 24) | (b3 << 16) | (b2 << 8) | b1;
-    }
-    return (b1 << 24) | (b2 << 16) | (b3 << 8) | b4;
+    return (b4 << 24) | (b3 << 16) | (b2 << 8) | b1;
   }
 }

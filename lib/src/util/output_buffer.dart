@@ -76,6 +76,26 @@ class OutputBuffer {
   }
 
   /**
+   * Return the subset of the buffer in the range [start:end].
+   * If [start] or [end] are < 0 then it is relative to the end of the buffer.
+   * If [end] is not specified (or null), then it is the end of the buffer.
+   * This is equivalent to the python list range operator.
+   */
+  List<int> subset(int start, [int end]) {
+    if (start < 0) {
+      start = (_buffer.length) + start;
+    }
+
+    if (end == null) {
+      end = _buffer.length;
+    } else if (end < 0) {
+      end = (_buffer.length) + end;
+    }
+
+    return _buffer.sublist(start, end);
+  }
+
+  /**
    * Look at a byte relative to the current position without moving the
    * read position.
    */

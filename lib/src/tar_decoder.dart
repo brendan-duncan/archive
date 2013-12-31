@@ -7,7 +7,7 @@ class TarDecoder {
     InputBuffer input = new InputBuffer(data);
     while (!input.isEOF) {
       try {
-        // End of archive.
+        // End of archive when two consecutive 0's are found.
         if (input.buffer[input.position] == 0 &&
             input.buffer[input.position + 1] == 0) {
           break;
