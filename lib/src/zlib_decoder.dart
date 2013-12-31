@@ -2,22 +2,6 @@ part of archive;
 
 /**
  * Decompress data with the zlib format decoder.
- * The zlib format has the following format:
- * CMF  1 byte
- * FLG 1 byte
- * [DICT_ID 4 bytes]? (if FLAG has FDICT (bit 5) set)
- * <compressed data>
- * ADLER32 4 bytes
- *
- * ----
- * CMF:
- *    bits [0, 3] Compression Method, DEFLATE = 8
- *    bits [4, 7] Compression Info, base-2 logarithm of the LZ77 window
- *                size, minus eight (CINFO=7 indicates a 32K window size).
- * FLG:
- *    bits [0, 4] FCHECK (check bits for CMF and FLG)
- *    bits [5]    FDICT (preset dictionary)
- *    bits [6, 7] FLEVEL (compression level)
  */
 class ZLibDecoder {
   static const int DEFLATE = 8;
@@ -25,6 +9,23 @@ class ZLibDecoder {
   List<int> decode(List<int> data, {bool verify: false}) {
     InputBuffer input = new InputBuffer(data);
 
+    /*
+     * The zlib format has the following structure:
+     * CMF  1 byte
+     * FLG 1 byte
+     * [DICT_ID 4 bytes]? (if FLAG has FDICT (bit 5) set)
+     * <compressed data>
+     * ADLER32 4 bytes
+     * ----
+     * CMF:
+     *    bits [0, 3] Compression Method, DEFLATE = 8
+     *    bits [4, 7] Compression Info, base-2 logarithm of the LZ77 window
+     *                size, minus eight (CINFO=7 indicates a 32K window size).
+     * FLG:
+     *    bits [0, 4] FCHECK (check bits for CMF and FLG)
+     *    bits [5]    FDICT (preset dictionary)
+     *    bits [6, 7] FLEVEL (compression level)
+     */
     int cmf = input.readByte();
     int flg = input.readByte();
 

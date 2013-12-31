@@ -14,7 +14,7 @@ GZip (Compression) [Inflate decompression]
 *Encoders*:
 None yet.  Adding Encoders is on my TODO.
 
-Sample usage extract the contents of a Zip file:
+Sample: Extract the contents of a Zip file.
 
     import 'dart:io' as Io;
     import 'package:archive/archive.dart';

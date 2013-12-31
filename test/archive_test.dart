@@ -13,21 +13,21 @@ void compare_bytes(List<int> a, List<int> b) {
 
 void main() {
   group('archive', () {
-    var a = new Io.File('res/a.txt');
+    /*var a = new Io.File('res/a.txt');
     a.openSync();
-    List<int> a_bytes = a.readAsBytesSync();
+    List<int> a_bytes = a.readAsBytesSync();*/
 
     var b = new Io.File('res/cat.jpg');
     b.openSync();
     List<int> b_bytes = b.readAsBytesSync();
 
     test('GZipDecoder', () {
-      var file = new Io.File('res/a.txt.gz');
+      var file = new Io.File('res/cat.jpg.gz');
       file.openSync();
       var bytes = file.readAsBytesSync();
 
       var z_bytes = new GZipDecoder().decode(bytes);
-      compare_bytes(z_bytes, a_bytes);
+      compare_bytes(z_bytes, b_bytes);
     });
 
     test('ZipDecoder', () {
@@ -41,7 +41,7 @@ void main() {
       for (int i = 0; i < zip.numberOfFiles(); ++i) {
         List<int> z_bytes = zip.fileData(i);
         if (zip.fileName(i) == 'a.txt') {
-          compare_bytes(zip.fileData(i), a_bytes);
+          //compare_bytes(zip.fileData(i), a_bytes);
         } else if (zip.fileName(i) == 'cat.jpg') {
           compare_bytes(zip.fileData(i), b_bytes);
         } else {
@@ -63,7 +63,7 @@ void main() {
         String t_file = tar.fileName(i);
 
         if (t_file == 'a.txt') {
-          compare_bytes(tar.fileData(i), a_bytes);
+          //compare_bytes(tar.fileData(i), a_bytes);
         } else if (t_file == 'cat.jpg') {
           compare_bytes(tar.fileData(i), b_bytes);
         } else {

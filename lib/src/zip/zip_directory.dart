@@ -61,8 +61,8 @@ class ZipDirectory {
       }
     }
 
-    throw new Exception('The Zip file seems to be corrupted.'
-                        ' Could not find End of Central Directory Record'
-                        ' location.');
+    throw new ArchiveException('The Zip file seems to be corrupted.'
+                               ' Could not find End of Central Directory Record'
+                               ' location.');
   }
 }

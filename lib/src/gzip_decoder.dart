@@ -15,6 +15,7 @@ class GZipDecoder {
   List<int> decode(List<int> data, {bool verify: false}) {
     InputBuffer input = new InputBuffer(data);
 
+    // The GZip format has the following structure:
     // Offset   Length   Contents
     // 0      2 bytes  magic header  0x1f, 0x8b (\037 \213)
     // 2      1 byte   compression method
