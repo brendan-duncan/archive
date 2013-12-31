@@ -4,6 +4,7 @@ import 'dart:io' as Io;
 import 'package:unittest/unittest.dart';
 import '../lib/archive.dart';
 
+part 'adler32_test.dart';
 part 'tar_test.dart';
 part 'zip_test.dart';
 
@@ -105,4 +106,6 @@ void main() {
       zip_test();
     });
   });
+
+  defineAdlerTests();
 }
