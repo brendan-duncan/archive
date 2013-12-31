@@ -1,4 +1,4 @@
-part of dart_archive;
+part of archive;
 
 /**
  * Decompress data with the gzip format decoder.

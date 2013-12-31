@@ -1,4 +1,4 @@
-part of dart_archive;
+part of archive;
 
 class Crc32 {
   static int compute(List<int> data, int crc, [int pos = 0, int length]) {

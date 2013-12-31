@@ -1,4 +1,4 @@
-part of dart_archive;
+part of archive;
 
 class ZipFile {
   static const int SIGNATURE = 0x04034b50;

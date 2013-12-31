@@ -1,4 +1,4 @@
-part of dart_archive;
+part of archive;
 
 class ZipDirectory {
   // End of Central Directory Record

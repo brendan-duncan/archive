@@ -1,4 +1,4 @@
-library dart_archive;
+library archive;
 
 import 'dart:typed_data' as Data;
 

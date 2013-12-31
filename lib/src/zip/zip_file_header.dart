@@ -1,4 +1,4 @@
-part of dart_archive;
+part of archive;
 
 class ZipFileHeader {
   static const int SIGNATURE = 0x02014b50;

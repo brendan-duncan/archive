@@ -1,11 +1,10 @@
-part of dart_archive;
+part of archive;
 
 class Inflate {
   final InputBuffer input;
   final OutputBuffer output;
 
   Inflate(this.input) :
-    //this.input = new InputBuffer(input.buffer, byteOrder: InputBuffer.BIG_ENDIAN),
     output = new OutputBuffer() {
     _bitBuffer = 0;
     _bitBufferLen = 0;

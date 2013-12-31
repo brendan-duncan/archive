@@ -1,6 +1,6 @@
 import 'dart:io' as Io;
 import 'package:unittest/unittest.dart';
-import '../lib/dart_archive.dart';
+import '../lib/archive.dart';
 
 void compare_bytes(List<int> a, List<int> b) {
   expect(a.length, equals(b.length));

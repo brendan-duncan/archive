@@ -1,4 +1,4 @@
-part of dart_archive;
+part of archive;
 
 class OutputBuffer {
   static const int LITTLE_ENDIAN = 0;

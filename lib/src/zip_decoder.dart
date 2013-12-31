@@ -1,4 +1,4 @@
-part of dart_archive;
+part of archive;
 
 class ZipDecoder {
   ZipDirectory directory;
