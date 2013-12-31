@@ -1,9 +1,11 @@
 part of archive;
 
 class ZipArchive {
+  ZipDirectory directory;
+
   Archive decode(List<int> data) {
     InputBuffer input = new InputBuffer(data);
-    ZipDirectory directory = new ZipDirectory(input);
+    directory = new ZipDirectory(input);
 
     Archive archive = new Archive();
 

@@ -16,7 +16,6 @@ class ZipDirectory {
 
   ZipDirectory([InputBuffer input]) {
     if (input != null) {
-      // End Of
       filePosition = _findSignature(input);
       input.position = filePosition;
       int signature = input.readUint32();
@@ -45,14 +44,13 @@ class ZipDirectory {
   }
 
   int _findSignature(InputBuffer input) {
-    const int maxLength = 65536;
     int pos = input.position;
     int length = input.length;
 
     // The directory and archive contents are written to the end of the zip
     // file.  We need to search from the end to find these structures,
     // starting with the 'End of central directory' record (EOCD).
-    for (int ip = length - 4; ip > length - maxLength && ip > 0; --ip) {
+    for (int ip = length - 4; ip > 0; --ip) {
       input.position = ip;
       int sig = input.readUint32();
       if (sig == SIGNATURE) {
@@ -61,8 +59,6 @@ class ZipDirectory {
       }
     }
 
-    throw new ArchiveException('The Zip file seems to be corrupted.'
-                               ' Could not find End of Central Directory Record'
-                               ' location.');
+    throw new ArchiveException('Could not find End of Central Directory Record');
   }
 }

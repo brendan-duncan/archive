@@ -1,9 +1,11 @@
 part of archive;
 
 class TarArchive {
+  List<TarFile> files = [];
+
   Archive decode(List<int> data) {
     Archive archive = new Archive();
-
+    files.clear();
     InputBuffer input = new InputBuffer(data);
     while (!input.isEOF) {
       try {
@@ -13,14 +15,15 @@ class TarArchive {
           break;
         }
 
-        TarFile file = new TarFile(input);
+        TarFile tf = new TarFile(input);
+        files.add(tf);
 
-        File f = new File(file.filename, file.fileSize, file.content);
-        f.mode = file.mode;
-        f.ownerId = file.ownerId;
-        f.groupId = file.groupId;
+        File file = new File(tf.filename, tf.fileSize, tf.content);
+        file.mode = tf.mode;
+        file.ownerId = tf.ownerId;
+        file.groupId = tf.groupId;
 
-        archive.addFile(f);
+        archive.addFile(file);
       } catch (error) {
         break;
       }

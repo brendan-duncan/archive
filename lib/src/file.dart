@@ -20,7 +20,6 @@ class File {
   List<int> get content {
     if (_compressionType == DEFLATE) {
       if (_decompressed == null) {
-        print('DECOMPRESSING $filename / ${_content.length}');
         _decompressed = new Inflate(new InputBuffer(_content)).getBytes();
         _content = null;
       }

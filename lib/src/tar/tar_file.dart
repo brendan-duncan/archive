@@ -55,22 +55,13 @@ class TarFile {
 
       filename = _parseString(header, 100);
       mode = _parseInt(header, 8);
-      ownerId = _parseInt(header, 8);
-      groupId = _parseInt(header, 8);
+      ownerId = _parseInt(header, 8, 8);
+      groupId = _parseInt(header, 8, 8);
       fileSize = _parseInt(header, 12, 8);
       lastModTime = _parseInt(header, 12, 8);
       checksum = _parseInt(header, 8, 8);
       typeFlag = _parseString(header, 1);
       nameOfLinkedFile = _parseString(header, 100);
-
-      /*print(mode);
-      print(ownerId);
-      print(groupId);
-      print(fileSize);
-      print(lastModTime);
-      print(checksum);
-      print(typeFlag);
-      print(nameOfLinkedFile);*/
 
       ustarIndicator = _parseString(header, 6);
       if (ustarIndicator == 'ustar') {

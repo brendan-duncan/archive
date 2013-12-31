@@ -1,6 +1,11 @@
+library archive_test;
+
 import 'dart:io' as Io;
 import 'package:unittest/unittest.dart';
 import '../lib/archive.dart';
+
+part 'tar_test.dart';
+part 'zip_test.dart';
 
 void compare_bytes(List<int> a, List<int> b) {
   expect(a.length, equals(b.length));
@@ -9,7 +14,6 @@ void compare_bytes(List<int> a, List<int> b) {
     expect(a[i], equals(b[i]), verbose: false);
   }
 }
-
 
 void main() {
   group('archive', () {
@@ -40,7 +44,6 @@ void main() {
       expect(archive.numberOfFiles(), equals(2));
 
       for (int i = 0; i < archive.numberOfFiles(); ++i) {
-        print(archive.fileName(i));
         List<int> z_bytes = archive.fileData(i);
         if (archive.fileName(i) == 'a.txt') {
           //compare_bytes(zip.fileData(i), a_bytes);
@@ -92,6 +95,14 @@ void main() {
           throw new TestFailure('Unexpected file found: $t_file');
         }
       }
+    });
+
+    test('tar', () {
+      tar_test();
+    });
+
+    test('zip', () {
+      zip_test();
     });
   });
 }
