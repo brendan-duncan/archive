@@ -53,7 +53,7 @@ class ZipFileHeader {
 
       if (bytes != null) {
         bytes.position = localHeaderOffset;
-        file = new ZipFile(bytes);
+        file = new ZipFile(bytes, this);
       }
     }
   }

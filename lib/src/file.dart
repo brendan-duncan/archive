@@ -1,8 +1,8 @@
 part of archive;
 
 class File {
-  static const int UNCOMPRESSED = 0;
-  static const int DEFLATE = 1;
+  static const int STORE = 0;
+  static const int DEFLATE = 8;
 
   String filename;
   int fileSize;
@@ -12,24 +12,19 @@ class File {
   int lastModTime = 0; // 12 bytes
 
   File(this.filename, this.fileSize, this._content,
-       [this._compressionType = UNCOMPRESSED]);
+       [this._compressionType = STORE]);
 
   /**
    * Get the contents of the file, decompressing on demand as necessary.
    */
   List<int> get content {
     if (_compressionType == DEFLATE) {
-      if (_decompressed == null) {
-        _decompressed = new Inflate(new InputBuffer(_content)).getBytes();
-        _content = null;
-      }
-      return _decompressed;
+      _content = new Inflate(new InputBuffer(_content)).getBytes();
+      _compressionType = STORE;
     }
-
     return _content;
   }
 
   int _compressionType;
   List<int> _content;
-  List<int> _decompressed;
 }

@@ -13,7 +13,7 @@ class ZipArchive {
       ZipFile zf = zfh.file;
 
       File file = new File(zf.filename, zf.uncompressedSize,
-                           zf._content.buffer, File.DEFLATE);
+                           zf._content, zf.compressionMethod);
       archive.addFile(file);
     }
 

@@ -1,7 +1,9 @@
 part of archive;
 
 /**
- * Get the Adler-32 checksum for the given array.
+ * Get the Adler-32 checksum for the given array.  You can append bytes
+ * to an already computed adler checksum by specifying the previous [adler]
+ * value.
  */
 int getAdler32(List<int> array, [int adler = 1]) {
   // largest prime smaller than 65536

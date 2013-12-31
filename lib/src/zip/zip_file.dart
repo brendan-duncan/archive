@@ -1,6 +1,9 @@
 part of archive;
 
 class ZipFile {
+  static const int STORE = 0;
+  static const int DEFLATE = 8;
+
   static const int SIGNATURE = 0x04034b50;
 
   int signature = SIGNATURE; // 4 bytes
@@ -14,8 +17,9 @@ class ZipFile {
   int uncompressedSize; // 4 bytes
   String filename = ''; // 2 bytes length, n-bytes data
   List<int> extraField = []; // 2 bytes length, n-bytes data
+  ZipFileHeader fileHeader;
 
-  ZipFile([InputBuffer input]) {
+  ZipFile([InputBuffer input, this.fileHeader]) {
     if (input != null) {
       signature = input.readUint32();
       if (signature != SIGNATURE) {
@@ -33,12 +37,40 @@ class ZipFile {
       int fn_len = input.readUint16();
       int ex_len = input.readUint16();
       filename = new String.fromCharCodes(input.readBytes(fn_len));
-      if (ex_len > 0) {
-        extraField = input.readBytes(ex_len);
-      }
+      extraField = input.readBytes(ex_len);
 
-      _content = input.subset(null, compressedSize);
+      // Read compressedSize bytes for the compressed data.
+      _content = input.readBytes(fileHeader.compressedSize);
+
+      // If bit 3 (0x08) of the flags field is set, then the CRC-32 and file
+      // sizes are not known when the header is written. The fields in the
+      // local header are filled with zero, and the CRC-32 and size are
+      // appended in a 12-byte structure (optionally preceded by a 4-byte
+      // signature) immediately after the compressed data:
+      if (flags & 0x08 != 0) {
+        int sigOrCrc = input.readUint32();
+        if (sigOrCrc == 0x08074b50) {
+          crc32 = input.readUint32();
+        } else {
+          crc32 = sigOrCrc;
+        }
+
+        compressedSize = input.readUint32();
+        uncompressedSize = input.readUint32();
+      }
     }
+  }
+
+  /**
+   * This will decompress the data (if necessary) in order to calculate the
+   * crc32 checksum for the decompressed data and verify it with the value
+   * stored in the zip.
+   */
+  bool verifyCrc32() {
+    if (_computedCrc32 == null) {
+      _computedCrc32 = getCrc32(content);
+    }
+    return _computedCrc32 == crc32;
   }
 
   /**
@@ -46,14 +78,15 @@ class ZipFile {
    * until it is requested.
    */
   List<int> get content {
-    if (_decompressed == null) {
-      _decompressed = new Inflate(_content).getBytes();
-      _content = null;
+    if (compressionMethod == DEFLATE) {
+      _content = new Inflate(new InputBuffer(_content)).getBytes();
+      compressionMethod = STORE;
     }
-    return _decompressed;
+    return _content;
   }
 
-  /// Compressed content of the file
-  InputBuffer _content;
-  List<int> _decompressed;
+  /// Content of the file.  If compressionMethod is not STORE, then it is
+  /// still compressed.
+  List<int> _content;
+  int _computedCrc32;
 }
