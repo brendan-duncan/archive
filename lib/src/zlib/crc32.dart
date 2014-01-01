@@ -54,7 +54,7 @@ int getCrc32(List<int> array, [int crc = 0xffffffff]) {
   int len = array.length;
   int c = crc;
   for (int n = 0; n < len; n++) {
-    c = _CRC32_TABLE[(c ^ array[n]) & 0xff] ^ ((c & 0xffffffff) >> 8);
+    c = _CRC32_TABLE[(c ^ array[n]) & 0xff] ^ (c >> 8);
   }
 
   return c ^ 0xffffffff;
