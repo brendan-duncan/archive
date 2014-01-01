@@ -7,6 +7,7 @@ import 'package:unittest/unittest.dart';
 
 part 'adler32_test.dart';
 part 'crc32_test.dart';
+part 'output_buffer_test.dart';
 part 'tar_test.dart';
 part 'zip_test.dart';
 
@@ -33,6 +34,8 @@ format.
 """;
 
 void main() {
+  defineOutputBufferTests();
+
   group('archive', () {
     List<int> a_bytes = a_txt.codeUnits;
 

@@ -1,78 +1,99 @@
 part of archive;
 
 class OutputBuffer {
-  static const int LITTLE_ENDIAN = 0;
-  static const int BIG_ENDIAN = 1;
-  int byteOrder;
+  int length;
 
   /**
    * Create a byte buffer for writing.
    */
   OutputBuffer() :
-    _buffer = new List<int>();
-
-  List<int> getBytes() => _buffer;
+    _buffer = new Data.Uint8List(_BLOCK_SIZE),
+    length = 0,
+    _bitIndex = 0;
 
   /**
-   * Change the buffer that's being read from.
+   * Get the resulting bytes from the buffer.
    */
-  void resetTo(List<int> buffer) {
-    this._buffer = buffer;
-  }
+  List<int> getBytes() =>
+      new Data.Uint8List.view(_buffer.buffer, 0, length);
 
   /**
    * Clear the buffer.
    */
-  void clear() =>
-      resetTo(new List<int>());
+  void clear() {
+    _buffer = new Data.Uint8List(_BLOCK_SIZE);
+    length = 0;
+    _bitIndex = 0;
+  }
 
   /**
-   * How many bytes in the buffer.
+   * Write individual bits to the buffer.
    */
-  int get length => _buffer.length;
+  void writeBits(int value, int numBits) {
+    if (_bitIndex == 0) {
+      length++;
+    }
+
+    if (numBits + _bitIndex < 8) {
+      _buffer[length - 1] = (_buffer[length - 1] << numBits) | value;
+      _bitIndex += numBits;
+      return;
+    }
+
+    int pos = length - 1;
+    for (int i = 0; i < numBits; ++i) {
+      _buffer[pos] = (_buffer[pos] << 1) |
+          ((value >> numBits - i - 1) & 0x1);
+
+      _bitIndex++;
+      if (_bitIndex == 8) {
+        _bitIndex = 0;
+        if (length == _buffer.length) {
+          _expandBuffer();
+        }
+      }
+    }
+  }
 
   /**
    * Write a byte to the end of the buffer.
    */
   void writeByte(int value) {
-    _buffer.add(value & 0xff);
+    _bitIndex = 0;
+    _buffer[length++] = value & 0xff;
+    if (length == _buffer.length) {
+      _expandBuffer();
+    }
   }
 
   /**
    * Write a set of bytes to the end of the buffer.
    */
   void writeBytes(List<int> bytes) {
-    _buffer.addAll(bytes);
+    _bitIndex = 0;
+    while (length + bytes.length > _buffer.length) {
+      _expandBuffer();
+    }
+    _buffer.setRange(length, length + bytes.length, bytes);
+    length += bytes.length;
   }
 
   /**
    * Write a 16-bit word to the end of the buffer.
    */
   void writeUint16(int value) {
-    if (byteOrder == LITTLE_ENDIAN) {
-      writeByte((value) & 0xff);
-      writeByte((value >> 8) & 0xff);
-      return;
-    }
-    writeByte((value >> 8) & 0xff);
     writeByte((value) & 0xff);
+    writeByte((value >> 8) & 0xff);
   }
 
   /**
    * Write a 32-bit word to the end of the buffer.
    */
   void writeUint32(int value) {
-    if (byteOrder == LITTLE_ENDIAN) {
-      writeByte((value) & 0xff);
-      writeByte((value >> 8) & 0xff);
-      writeByte((value >> 16) & 0xff);
-      writeByte((value >> 24) & 0xff);
-      return;
-    }
-    writeByte((value >> 24) & 0xff);
-    writeByte((value >> 16) & 0xff);
-    writeByte((value >> 8) & 0xff);
     writeByte((value) & 0xff);
+    writeByte((value >> 8) & 0xff);
+    writeByte((value >> 16) & 0xff);
+    writeByte((value >> 24) & 0xff);
   }
 
   /**
@@ -83,29 +104,25 @@ class OutputBuffer {
    */
   List<int> subset(int start, [int end]) {
     if (start < 0) {
-      start = (_buffer.length) + start;
+      start = (length) + start;
     }
 
     if (end == null) {
-      end = _buffer.length;
+      end = length;
     } else if (end < 0) {
-      end = (_buffer.length) + end;
+      end = length + end;
     }
 
     return _buffer.sublist(start, end);
   }
 
-  /**
-   * Look at a byte relative to the current position without moving the
-   * read position.
-   */
-  int peakAtOffset(int offset) {
-    int iOffset = (_buffer.length - 1) + offset;
-    if (iOffset < 0 || iOffset >= _buffer.length) {
-      return 0;
-    }
-    return _buffer[iOffset];
+  void _expandBuffer() {
+    Data.Uint8List newBuffer = new Data.Uint8List(_buffer.length << 1);
+    newBuffer.setRange(0, _buffer.length, _buffer);
+    _buffer = newBuffer;
   }
 
-  List<int> _buffer;
+  static const int _BLOCK_SIZE = 0x4000; // 16k block-size
+  Data.Uint8List _buffer;
+  int _bitIndex;
 }

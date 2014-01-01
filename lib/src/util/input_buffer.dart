@@ -47,7 +47,12 @@ class InputBuffer {
       length = this.length - position;
     }
 
-    return new InputBuffer(buffer.sublist(position, position + length));
+    int end = position + length;
+    if (end > buffer.length) {
+      end = buffer.length;
+    }
+
+    return new InputBuffer(buffer.sublist(position, end));
   }
 
   /**
