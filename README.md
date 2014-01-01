@@ -1,18 +1,25 @@
 #archive - Dart library to encode and decode various archive and compression formats.
+![Build Status](https://drone.io/bitbucket.org/brendan_duncan/archive/status.png)
 
 The library has no reliance on *dart:io*, so it can be used for both server
 and web applications.
 
 The archive library currently supports:
 
-*Decoders*:
-Zip (Archive)
-Tar (Archive)
-ZLib (Compression) [Inflate decompression]
-GZip (Compression) [Inflate decompression]
+**Decoders**:
 
-*Encoders*:
+Zip (Archive) 
+
+Tar (Archive) 
+
+ZLib [Inflate decompression]
+
+GZip [Inflate decompression]
+
+**Encoders**:
+
 Tar (Archive)
+
 *TODO*: Zip, Zlib, GZip
 
 Sample: Extract the contents of a Zip file.  Encode the contents into a Tar file.
