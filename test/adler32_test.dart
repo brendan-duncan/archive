@@ -16,7 +16,7 @@ void defineAdlerTests() {
       expect(adlerVal, 0xDC002E);
     });
     test('100000 bytes', () {
-      int adlerVal = 1;
+      int adlerVal = getAdler32([]);
       for (int i = 0; i < 10000; i++) {
         adlerVal = getAdler32([1, 2, 3, 4, 5, 6, 7, 8, 9, 0], adlerVal);
       }
