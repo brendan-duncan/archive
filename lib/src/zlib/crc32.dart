@@ -46,16 +46,28 @@ const List<int> _CRC32_TABLE = const [
     601450431, 3009837614, 3294710456, 1567103746, 711928724, 3020668471,
     3272380065, 1510334235, 755167117];
 
+
 /**
  * Get the CRC-32 checksum of the given array.  You can append bytes
  * to an already computed crc by specifying the previous [crc] value.
  */
-int getCrc32(List<int> array, [int crc = 0xffffffff]) {
+int getCrc32(List<int> array, [int crc = 0]) {
   int len = array.length;
-  int c = crc;
-  for (int n = 0; n < len; n++) {
-    c = _CRC32_TABLE[(c ^ array[n]) & 0xff] ^ (c >> 8);
+  crc = crc ^ 0xffffffff;
+  int ip = 0;
+  while (len >= 8) {
+    crc = _CRC32_TABLE[(crc ^ array[ip++]) & 0xff] ^ (crc >> 8);
+    crc = _CRC32_TABLE[(crc ^ array[ip++]) & 0xff] ^ (crc >> 8);
+    crc = _CRC32_TABLE[(crc ^ array[ip++]) & 0xff] ^ (crc >> 8);
+    crc = _CRC32_TABLE[(crc ^ array[ip++]) & 0xff] ^ (crc >> 8);
+    crc = _CRC32_TABLE[(crc ^ array[ip++]) & 0xff] ^ (crc >> 8);
+    crc = _CRC32_TABLE[(crc ^ array[ip++]) & 0xff] ^ (crc >> 8);
+    crc = _CRC32_TABLE[(crc ^ array[ip++]) & 0xff] ^ (crc >> 8);
+    crc = _CRC32_TABLE[(crc ^ array[ip++]) & 0xff] ^ (crc >> 8);
+    len -= 8;
   }
-
-  return c ^ 0xffffffff;
+  if (len > 0) do {
+    crc = _CRC32_TABLE[(crc ^ array[ip++]) & 0xff] ^ (crc >> 8);
+  } while (--len > 0);
+  return crc ^ 0xffffffff;
 }
