@@ -17,9 +17,9 @@ class ZipFile {
   int uncompressedSize; // 4 bytes
   String filename = ''; // 2 bytes length, n-bytes data
   List<int> extraField = []; // 2 bytes length, n-bytes data
-  ZipFileHeader fileHeader;
+  ZipFileHeader header;
 
-  ZipFile([InputBuffer input, this.fileHeader]) {
+  ZipFile([InputBuffer input, this.header]) {
     if (input != null) {
       signature = input.readUint32();
       if (signature != SIGNATURE) {
@@ -40,7 +40,7 @@ class ZipFile {
       extraField = input.readBytes(ex_len);
 
       // Read compressedSize bytes for the compressed data.
-      _content = input.readBytes(fileHeader.compressedSize);
+      _content = input.readBytes(header.compressedSize);
 
       // If bit 3 (0x08) of the flags field is set, then the CRC-32 and file
       // sizes are not known when the header is written. The fields in the

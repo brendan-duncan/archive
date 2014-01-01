@@ -178,7 +178,7 @@ var zipTests = [
       },
     ],
   },
-  /*{
+  {
     'Name': "res/zip/zip64.zip",
     'File': [
       {
@@ -188,7 +188,7 @@ var zipTests = [
         'Mode':    0644,
       },
     ],
-  },*/
+  },
 ];
 
 void defineZipTests() {
@@ -215,7 +215,7 @@ void defineZipTests() {
         }
         expect(zipFiles.length, equals(z['File'].length));
 
-        print(z['Name']);
+
         for (int i = 0; i < zipFiles.length; ++i) {
           ZipFileHeader zipFileHeader = zipFiles[i];
           ZipFile zipFile = zipFileHeader.file;

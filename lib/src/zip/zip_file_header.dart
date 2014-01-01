@@ -45,6 +45,33 @@ class ZipFileHeader {
 
       if (extra_len > 0) {
         extraField = input.readBytes(extra_len);
+
+        InputBuffer extra = new InputBuffer(extraField);
+        int id = extra.readUint16();
+        int size = extra.readUint16();
+        if (id == 1) { // Zip64 extended information
+          // Original
+          // Size       8 bytes    Original uncompressed file size
+          // Compressed
+          // Size       8 bytes    Size of compressed data
+          // Relative Header
+          // Offset     8 bytes    Offset of local header record
+          // Disk Start
+          // Number     4 bytes    Number of the disk on which
+          // this file starts
+          if (size >= 8) {
+            uncompressedSize = extra.readUint64();
+          }
+          if (size >= 16) {
+            compressedSize = extra.readUint64();
+          }
+          if (size >= 24) {
+            localHeaderOffset = extra.readUint64();
+          }
+          if (size >= 28) {
+            diskNumberStart = extra.readUint32();
+          }
+        }
       }
 
       if (comment_len > 0) {

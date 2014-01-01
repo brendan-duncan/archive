@@ -107,4 +107,20 @@ class InputBuffer {
     int b4 = buffer[position++] & 0xff;
     return (b4 << 24) | (b3 << 16) | (b2 << 8) | b1;
   }
+
+  /**
+   * Read a 64-bit word form the buffer.
+   */
+  int readUint64() {
+    int b1 = buffer[position++] & 0xff;
+    int b2 = buffer[position++] & 0xff;
+    int b3 = buffer[position++] & 0xff;
+    int b4 = buffer[position++] & 0xff;
+    int b5 = buffer[position++] & 0xff;
+    int b6 = buffer[position++] & 0xff;
+    int b7 = buffer[position++] & 0xff;
+    int b8 = buffer[position++] & 0xff;
+    return (b8 << 56) | (b7 << 48) | (b6 << 40) | (b5 << 32) |
+           (b4 << 24) | (b3 << 16) | (b2 << 8) | b1;
+  }
 }
