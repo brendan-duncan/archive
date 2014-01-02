@@ -19,4 +19,3 @@ part 'src/gzip_decoder.dart';
 part 'src/tar_archive.dart';
 part 'src/zip_archive.dart';
 part 'src/zlib_decoder.dart';
-

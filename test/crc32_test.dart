@@ -20,7 +20,6 @@ void defineCrc32Tests() {
       for (int i = 0; i < 10000; i++) {
         crcVal = getCrc32([1, 2, 3, 4, 5, 6, 7, 8, 9, 0], crcVal);
       }
-      // TODO: this test fails - perhaps the int is overflowing 32 bits?
       expect(crcVal, 986086443);
     });
   });
