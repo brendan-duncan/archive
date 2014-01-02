@@ -5,7 +5,10 @@ import 'dart:io' as Io;
 import 'package:archive/archive.dart';
 import 'package:unittest/unittest.dart';
 
+import '../bin/tar.dart' as tar_command;
+
 part 'adler32_test.dart';
+part 'commands_test.dart';
 part 'crc32_test.dart';
 part 'output_buffer_test.dart';
 part 'tar_test.dart';
@@ -123,4 +126,6 @@ void main() {
   defineTarTests();
 
   defineZipTests();
+
+  defineCommandTests();
 }

@@ -3,6 +3,7 @@ part of archive;
 class TarArchive {
   List<TarFile> files = [];
 
+  // TODO: This should throw an exception on an error -
   Archive decode(List<int> data) {
     Archive archive = new Archive();
     files.clear();

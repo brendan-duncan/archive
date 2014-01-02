@@ -85,8 +85,9 @@ class TarFile {
     }
   }
 
-  bool get isFile =>
-      typeFlag != TYPE_DIRECTORY;
+  bool get isFile => typeFlag != TYPE_DIRECTORY;
+
+  String toString() => '[${filename}, ${mode}, ${fileSize}]';
 
   void write(OutputBuffer output) {
     fileSize = content.length;
