@@ -55,20 +55,5 @@ void defineOutputBufferTests() {
         expect(x, equals(0xffff + i));
       }
     });
-
-    test('writeBits', () {
-      OutputBuffer out = new OutputBuffer();
-
-      out.writeBits(0xa, 4);
-      out.writeBits(0xf, 4);
-      out.writeBits(0x8, 4);
-      out.writeBits(0xe, 4);
-
-      List<int> bytes = out.getBytes();
-      expect(bytes.length, equals(2));
-
-      expect(bytes[0], equals(0xaf));
-      expect(bytes[1], equals(0x8e));
-    });
   });
 }

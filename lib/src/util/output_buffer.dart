@@ -14,8 +14,9 @@ class OutputBuffer {
   /**
    * Get the resulting bytes from the buffer.
    */
-  List<int> getBytes() =>
-      new Data.Uint8List.view(_buffer.buffer, 0, length);
+  List<int> getBytes() {
+    return new Data.Uint8List.view(_buffer.buffer, 0, length);
+  }
 
   /**
    * Clear the buffer.
@@ -24,35 +25,6 @@ class OutputBuffer {
     _buffer = new Data.Uint8List(_BLOCK_SIZE);
     length = 0;
     _bitIndex = 0;
-  }
-
-  /**
-   * Write individual bits to the buffer.
-   */
-  void writeBits(int value, int numBits) {
-    if (_bitIndex == 0) {
-      length++;
-    }
-
-    if (numBits + _bitIndex < 8) {
-      _buffer[length - 1] = (_buffer[length - 1] << numBits) | value;
-      _bitIndex += numBits;
-      return;
-    }
-
-    int pos = length - 1;
-    for (int i = 0; i < numBits; ++i) {
-      _buffer[pos] = (_buffer[pos] << 1) |
-          ((value >> numBits - i - 1) & 0x1);
-
-      _bitIndex++;
-      if (_bitIndex == 8) {
-        _bitIndex = 0;
-        if (length == _buffer.length) {
-          _expandBuffer();
-        }
-      }
-    }
   }
 
   /**
@@ -116,6 +88,9 @@ class OutputBuffer {
     return _buffer.sublist(start, end);
   }
 
+  /**
+   * Grow the buffer to accomidate additional data.
+   */
   void _expandBuffer() {
     Data.Uint8List newBuffer = new Data.Uint8List(_buffer.length << 1);
     newBuffer.setRange(0, _buffer.length, _buffer);

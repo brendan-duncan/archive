@@ -10,9 +10,12 @@ import '../bin/tar.dart' as tar_command;
 part 'adler32_test.dart';
 part 'commands_test.dart';
 part 'crc32_test.dart';
+part 'deflate_test.dart';
+part 'gzip_test.dart';
 part 'output_buffer_test.dart';
 part 'tar_test.dart';
 part 'zip_test.dart';
+part 'zlib_test.dart';
 
 void compare_bytes(List<int> a, List<int> b) {
   expect(a.length, equals(b.length));
@@ -45,15 +48,6 @@ void main() {
     var b = new Io.File('res/cat.jpg');
     b.openSync();
     List<int> b_bytes = b.readAsBytesSync();
-
-    test('GZipDecoder', () {
-      var file = new Io.File('res/cat.jpg.gz');
-      file.openSync();
-      var bytes = file.readAsBytesSync();
-
-      var z_bytes = new GZipDecoder().decode(bytes);
-      compare_bytes(z_bytes, b_bytes);
-    });
 
     test('ZipArchive', () {
       var file = new Io.File('res/test.zip');
@@ -122,6 +116,12 @@ void main() {
   defineAdlerTests();
 
   defineCrc32Tests();
+
+  defineDeflateTests();
+
+  defineZlibTests();
+
+  defineGZipTests();
 
   defineTarTests();
 

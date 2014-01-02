@@ -1,9 +1,6 @@
 part of archive;
 
-/**
- * Decompress data with the gzip format decoder.
- */
-class GZipDecoder {
+class GZipEncoder {
   static const int SIGNATURE = 0x8b1f;
   static const int DEFLATE = 8;
   static const int FLAG_TEXT = 0x01;
@@ -12,8 +9,26 @@ class GZipDecoder {
   static const int FLAG_NAME = 0x08;
   static const int FLAG_COMMENT = 0x10;
 
-  List<int> decode(List<int> data, {bool verify: false}) {
+  // enum OperatingSystem
+  static const int OS_FAT = 0;
+  static const int OS_AMIGA = 1;
+  static const int OS_VMS = 2;
+  static const int OS_UNIX = 3;
+  static const int OS_VM_CMS = 4;
+  static const int OS_ATARI_TOS = 5;
+  static const int OS_HPFS = 6;
+  static const int OS_MACINTOSH = 7;
+  static const int OS_Z_SYSTEM = 8;
+  static const int OS_CP_M = 9;
+  static const int OS_TOPS_20 = 10;
+  static const int OS_NTFS = 11;
+  static const int OS_QDOS = 12;
+  static const int OS_ACORN_RISCOS = 13;
+  static const int OS_UNKNOWN = 25;
+
+  List<int> encode(List<int> data) {
     InputBuffer input = new InputBuffer(data);
+    OutputBuffer output = new OutputBuffer();
 
     // The GZip format has the following structure:
     // Offset   Length   Contents
@@ -56,58 +71,29 @@ class GZipDecoder {
     //        4 bytes  crc32
     //        4 bytes  uncompressed input size modulo 2^32
 
-    int signature = input.readUint16();
-    if (signature != SIGNATURE) {
-      throw new ArchiveException('Invalid GZip Signature');
-    }
+    output.writeUint16(SIGNATURE);
+    output.writeByte(DEFLATE);
 
-    int compressionMethod = input.readByte();
-    if (compressionMethod != DEFLATE) {
-      throw new ArchiveException('Invalid GZip Compression Methos');
-    }
+    int flags = 0;
+    int fileModTime = new DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    int extraFlags = 0;
+    int osType = OS_UNKNOWN;
 
-    int flags = input.readByte();
-    int fileModTime = input.readUint32();
-    int extraFlags = input.readByte();
-    int osType = input.readByte();
+    output.writeByte(flags);
+    output.writeUint32(fileModTime);
+    output.writeByte(extraFlags);
+    output.writeByte(osType);
 
-    if (flags & FLAG_EXTRA != 0) {
-      int t = input.readUint16();
-      input.readBytes(t);
-    }
+    List<int> compressed = new Deflate(input).getBytes();
+    output.writeBytes(compressed);
 
-    if (flags & FLAG_NAME != 0) {
-      input.readString();
-    }
+    int crc = getCrc32(data);
+    output.writeUint32(crc);
 
-    if (flags & FLAG_COMMENT != 0) {
-      input.readString();
-    }
+    output.writeUint32(data.length);
 
-    // just throw away for now
-    if (flags & FLAG_HCRC != 0) {
-      input.readUint16();
-    }
-
-    InputBuffer contents = input.subset();
-
-    // Inflate
-    List<int> buffer = new Inflate(contents).getBytes();
-
-
-    if (verify) {
-      int crc = contents.readUint32();
-      int computedCrc = getCrc32(buffer);
-      if (crc != computedCrc) {
-        throw new ArchiveException('Invalid CRC checksum');
-      }
-
-      int size = contents.readUint32();
-      if (size != buffer.length) {
-        throw new ArchiveException('Size of decompressed file not correct');
-      }
-    }
-
-    return buffer;
+    return output.getBytes();
   }
+
+  static const int _WINDOW_SIZE = 0x8000;
 }
