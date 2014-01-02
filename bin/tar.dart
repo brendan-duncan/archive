@@ -44,9 +44,7 @@ void main(List arguments) {
  */
 void listFiles(String path) {
   io.File file = new io.File(path);
-  if (!file.existsSync()) {
-    fail('${path} does not exist');
-  }
+  if (!file.existsSync()) fail('${path} does not exist');
 
   List<int> data = file.readAsBytesSync();
   if (path.endsWith('tar.gz') || path.endsWith('tgz')) {
@@ -65,9 +63,7 @@ void listFiles(String path) {
  */
 void extractFiles(String inputPath, String outputPath) {
   io.File inputFile = new io.File(inputPath);
-  if (!inputFile.existsSync()) {
-    fail('${inputPath} does not exist');
-  }
+  if (!inputFile.existsSync()) fail('${inputPath} does not exist');
 
   io.Directory outDir = new io.Directory(outputPath);
   if (!outDir.existsSync()) {
@@ -95,9 +91,7 @@ void extractFiles(String inputPath, String outputPath) {
 
 void createTarFile(String dirPath) {
   io.Directory dir = new io.Directory(dirPath);
-  if (!dir.existsSync()) {
-    fail('${dirPath} does not exist');
-  }
+  if (!dir.existsSync()) fail('${dirPath} does not exist');
 
   io.File outFile = new io.File('${dirPath}.tar');
   print('creating ${outFile.path}...');
