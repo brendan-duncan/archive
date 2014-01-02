@@ -25,6 +25,8 @@ class File {
     return _content;
   }
 
+  String toString() => filename;
+
   int _compressionType;
   List<int> _content;
 }

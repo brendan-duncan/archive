@@ -145,7 +145,6 @@ void defineTarTests() {
     for (Map t in tarTests) {
       test('untar ${t['file']}', () {
         var file = new Io.File(t['file']);
-        file.openSync();
         var bytes = file.readAsBytesSync();
 
         Archive archive = tar.decode(bytes);

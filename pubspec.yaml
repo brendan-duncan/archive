@@ -6,4 +6,5 @@ description: >
   Provides encoders and decoders for various archive and compression formats,
   such as zip and tar.
 dev_dependencies:
+  args: any
   unittest: any
