@@ -81,7 +81,7 @@ class GZipDecoder {
     }
 
     if (flags & FLAG_COMMENT != 0) {
-      input.readString();;
+      input.readString();
     }
 
     // just throw away for now
