@@ -5,8 +5,6 @@ part of archive;
  */
 class ZipEncoder {
   List<int> encode(Archive archive) {
-    OutputBuffer output = new OutputBuffer();
-
     DateTime date = new DateTime.now();
     int t1 = ((date.minute & 0x7) << 5) | (date.second ~/ 2);
     int t2 = (date.hour << 3) | (date.minute >> 3);
@@ -16,16 +14,64 @@ class ZipEncoder {
     int d2 = ((date.year - 1980 & 0x7f) << 1) | (date.month + 1 >> 3);
     int d = ((d2 & 0xff) << 8) | (d1 & 0xff);
 
+    int localFileSize = 0;
+    int centralDirectorySize = 0;
+    int endOfCentralDirectorySize = 0;
+
     Map<File, Map> fileData = {};
 
+    // Prepare the files, so we can no ahead of time how much space we need
+    // for the output buffer.
     for (File file in archive.files) {
       fileData[file] = {};
-      fileData[file]['pos'] = output.length;
       fileData[file]['time'] = t;
       fileData[file]['date'] = d;
+
+      List<int> compressedData;
+      int crc32;
+      // If the file is already compressed, no sense in uncompressing it and
+      // compressing it again, just pass along the already compressed data.
+      if (file.compressionType == File.DEFLATE) {
+        compressedData = file.rawContent;
+
+        if (file.crc32 != null) {
+          crc32 = file.crc32;
+          print('STORING PRE-COMPRESSED DATA');
+        } else {
+          crc32 = getCrc32(file.content);
+        }
+      } else {
+        // Otherwise we need to compress it now.
+        crc32 = getCrc32(file.content);
+
+        compressedData = new Deflate(file.content).getBytes();
+      }
+
+      localFileSize += 30 + file.filename.length + compressedData.length;
+
+      centralDirectorySize += 46 + file.filename.length +
+                             (file.comment != null ? file.comment.length : 0);
+
+      fileData[file]['crc'] = crc32;
+      fileData[file]['size'] = compressedData.length;
+      fileData[file]['data'] = compressedData;
+    }
+
+    endOfCentralDirectorySize = 46 +
+        (archive.comment != null ? archive.comment.length : 0);
+
+    int outputSize = localFileSize + centralDirectorySize +
+                     endOfCentralDirectorySize;
+
+    OutputBuffer output = new OutputBuffer(outputSize);
+
+    // Write Local File Headers
+    for (File file in archive.files) {
+      fileData[file]['pos'] = output.length;
       _writeFile(file, fileData, output);
     }
 
+    // Write Central Directory and End Of Central Directory
     _writeCentralDirectory(archive, fileData, output);
 
     return output.getBytes();
@@ -49,38 +95,18 @@ class ZipEncoder {
     // 30+n  m Extra field
     output.writeUint32(ZipFile.SIGNATURE);
 
-    int version = 20;
+    int version = VERSION;
     int flags = 0;
     int compressionMethod = ZipFile.DEFLATE;
     int lastModFileTime = fileData[file]['time'];
     int lastModFileDate = fileData[file]['date'];
-    int crc32 = 0;
-    int compressedSize = 0;
+    int crc32 = fileData[file]['crc'];
+    int compressedSize = fileData[file]['size'];
     int uncompressedSize = file.fileSize;
     String filename = file.filename;
     List<int> extra = [];
 
-    List<int> compressedData;
-
-    // If the file is already compressed, no sense in uncompressing it and
-    // compressing it again, just pass along the already compressed data.
-    if (file.compressionType == File.DEFLATE) {
-      compressedData = file.rawContent;
-
-      if (file.crc32 != null) {
-        crc32 = file.crc32;
-      } else {
-        crc32 = getCrc32(file.content);
-      }
-    } else {
-      crc32 = getCrc32(file.content);
-      compressedData = new Deflate(file.content).getBytes();
-    }
-
-    compressedSize = compressedData.length;
-
-    fileData[file]['crc'] = crc32;
-    fileData[file]['size'] = compressedSize;
+    List<int> compressedData = fileData[file]['data'];
 
     output.writeUint16(version);
     output.writeUint16(flags);
@@ -102,6 +128,9 @@ class ZipEncoder {
   void _writeCentralDirectory(Archive archive, Map fileData,
                               OutputBuffer output) {
     int centralDirPosition = output.length;
+
+    int version = VERSION;
+    int os = OS_MSDOS;
 
     for (File file in archive.files) {
       // Central directory file header
@@ -126,22 +155,22 @@ class ZipEncoder {
       //  46  n File name
       //  46+n  m Extra field
       //  46+n+m  k File comment
-      int versionMadeBy = 798; // 2 bytes
-      int versionNeededToExtract = 20; // 2 bytes
-      int generalPurposeBitFlag = 0; // 2 bytes
-      int compressionMethod = ZipFile.DEFLATE; // 2 bytes
-      int lastModifiedFileTime = fileData[file]['time']; // 2 bytes
-      int lastModifiedFileDate = fileData[file]['date']; // 2 bytes
-      int crc32 = fileData[file]['crc']; // 4 bytes
-      int compressedSize = fileData[file]['size']; // 4 bytes
-      int uncompressedSize = file.fileSize; // 4 bytes
-      int diskNumberStart = 0; // 2 bytes
-      int internalFileAttributes = 0; // 2 bytes
-      int externalFileAttributes = 0; // 4 bytes
-      int localHeaderOffset = fileData[file]['pos']; // 4 bytes
+      int versionMadeBy = (os << 8) | version;
+      int versionNeededToExtract = version;
+      int generalPurposeBitFlag = 0;
+      int compressionMethod = ZipFile.DEFLATE;
+      int lastModifiedFileTime = fileData[file]['time'];
+      int lastModifiedFileDate = fileData[file]['date'];
+      int crc32 = fileData[file]['crc'];
+      int compressedSize = fileData[file]['size'];
+      int uncompressedSize = file.fileSize;
+      int diskNumberStart = 0;
+      int internalFileAttributes = 0;
+      int externalFileAttributes = 0;
+      int localHeaderOffset = fileData[file]['pos'];
       String filename = file.filename;
       List<int> extraField = [];
-      String fileComment = file.comment == null ? '' : file.comment;
+      String fileComment = (file.comment == null ? '' : file.comment);
 
       output.writeUint32(ZipFileHeader.SIGNATURE);
       output.writeUint16(versionMadeBy);
@@ -182,7 +211,7 @@ class ZipEncoder {
     int totalCentralDirectoryEntries = archive.numberOfFiles();
     int centralDirectorySize = output.length - centralDirPosition;
     int centralDirectoryOffset = centralDirPosition;
-    String comment = archive.comment == null ? '' : archive.comment;
+    String comment = (archive.comment == null ? '' : archive.comment);
 
     output.writeUint32(ZipDirectory.SIGNATURE);
     output.writeUint16(numberOfThisDisk);
@@ -194,4 +223,11 @@ class ZipEncoder {
     output.writeUint16(comment.length);
     output.writeBytes(comment.codeUnits);
   }
+
+  static const int VERSION = 20;
+
+  // enum OS
+  static const int OS_MSDOS = 0;
+  static const int OS_UNIX = 3;
+  static const int OS_MACINTOSH = 7;
 }

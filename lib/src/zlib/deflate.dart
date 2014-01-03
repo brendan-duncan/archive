@@ -865,10 +865,7 @@ class _BitStream {
   }
 
   void writeBits(int number, int n, {bool reverse: false}) {
-    var buffer = this.buffer;
-    var index = this.index;
-    var bitindex = this.bitindex;
-    var current = buffer[index];
+    int current = buffer[index];
 
     int rev32_(int n) {
       return (_BitStream._REVERSE_TABLE[n & 0xFF] << 24) |
@@ -898,16 +895,12 @@ class _BitStream {
 
           // expand
           if (index == buffer.length) {
-            buffer = _expandBuffer();
+            _expandBuffer();
           }
         }
       }
     }
     buffer[index] = current;
-
-    this.buffer = buffer;
-    this.bitindex = bitindex;
-    this.index = index;
   }
 
   Data.Uint8List finish() {
