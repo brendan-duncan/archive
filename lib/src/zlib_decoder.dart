@@ -60,8 +60,9 @@ class ZLibDecoder {
     // verify adler-32
     int adler32 = input.readUint32();
     if (verify) {
-      if (adler32 != getAdler32(buffer)) {
-        throw new ArchiveException('invalid adler-32 checksum');
+      int a = getAdler32(buffer);
+      if (adler32 != a) {
+        throw new ArchiveException('Invalid adler-32 checksum');
       }
     }
 
