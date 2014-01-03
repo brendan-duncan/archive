@@ -20,7 +20,7 @@ class ZipEncoder {
 
     Map<File, Map> fileData = {};
 
-    // Prepare the files, so we can no ahead of time how much space we need
+    // Prepare the files, so we can know ahead of time how much space we need
     // for the output buffer.
     for (File file in archive.files) {
       fileData[file] = {};
