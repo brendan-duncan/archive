@@ -36,7 +36,6 @@ class ZipEncoder {
 
         if (file.crc32 != null) {
           crc32 = file.crc32;
-          print('STORING PRE-COMPRESSED DATA');
         } else {
           crc32 = getCrc32(file.content);
         }

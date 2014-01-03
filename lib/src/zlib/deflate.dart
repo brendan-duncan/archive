@@ -10,8 +10,10 @@ class Deflate {
 
   /**
    * [data] should be either a List<int> or InputBuffer.
+   * TODO compression is defaulted to FIXED_HUFFMAN since DYNAMIC_HUFFMAN
+   * is causing problems for some decompressors.  Need to fix DYNAMIC_HUFFMAN.
    */
-  Deflate(data, {int type: DYNAMIC_HUFFMAN, int blockSize: 0xffff}) :
+  Deflate(data, {int type: FIXED_HUFFMAN, int blockSize: 0xffff}) :
     input = data is InputBuffer ? data : new InputBuffer(data),
     output = new _BitStream(data.length) {
     int len = input.length;
