@@ -36,8 +36,7 @@ Extract the contents of a Zip file, and encode the contents into a Tar file:
       }
       
       // Decode the Zip file
-      var zip = new ZipArchive();
-      Archive archive = zip.decode(bytes);
+      Archive archive = new ZipDecoder().decode(bytes);
       
       // Extract the contents of the Zip archive to disk.
       for (int i = 0; i < archive.numberOfFiles(); ++i) {
@@ -49,8 +48,7 @@ Extract the contents of a Zip file, and encode the contents into a Tar file:
       }
       
       // Encode the archive as a Tar file.
-      var tar = new TarArchive();
-      List<int> tar_data = tar.encode(archive);
+      List<int> tar_data = new TarEncoder().encode(archive);
       
       // Write the tar file to disk.
       Io.File fp = new Io.File(filename + '.tar');
