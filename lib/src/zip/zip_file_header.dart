@@ -49,7 +49,8 @@ class ZipFileHeader {
         InputBuffer extra = new InputBuffer(extraField);
         int id = extra.readUint16();
         int size = extra.readUint16();
-        if (id == 1) { // Zip64 extended information
+        if (id == 1) {
+          // Zip64 extended information
           // Original
           // Size       8 bytes    Original uncompressed file size
           // Compressed

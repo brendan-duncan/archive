@@ -16,10 +16,10 @@ web applications. The archive library currently supports the following decoders:
 
 And the following encoders:
 
+- Zip (Archive)
 - Tar (Archive)
 - ZLib [Deflate compression]
 - GZip [Deflate compression]
-- **TODO:** Zip
 
 ##Sample
 
@@ -30,7 +30,6 @@ Extract the contents of a Zip file, and encode the contents into a Tar file:
     void main() {
       // Read the Zip file from disk.
       Io.File file = new Io.File('test.zip');
-      file.openSync();
       var bytes = file.readAsBytesSync();
       if (bytes == null) {
         return;

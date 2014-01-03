@@ -6,7 +6,7 @@ part of archive;
 class ZLibDecoder {
   static const int DEFLATE = 8;
 
-  List<int> decode(List<int> data, {bool verify: false}) {
+  List<int> decode(List<int> data, {bool verify: true}) {
     InputBuffer input = new InputBuffer(data);
 
     /*

@@ -2,6 +2,7 @@ part of archive;
 
 class Archive {
   List<File> files = [];
+  String comment;
 
   void addFile(File file) {
     files.add(file);

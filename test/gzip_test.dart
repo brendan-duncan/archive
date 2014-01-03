@@ -19,11 +19,9 @@ void defineGZipTests() {
 
     test('decode res/cat.jpg.gz', () {
       var b = new Io.File('res/cat.jpg');
-      b.openSync();
       List<int> b_bytes = b.readAsBytesSync();
 
       var file = new Io.File('res/cat.jpg.gz');
-      file.openSync();
       var bytes = file.readAsBytesSync();
 
       var z_bytes = new GZipDecoder().decode(bytes);
@@ -34,7 +32,6 @@ void defineGZipTests() {
       List<int> a_bytes = a_txt.codeUnits;
 
       var file = new Io.File('res/a.txt.gz');
-      file.openSync();
       var bytes = file.readAsBytesSync();
 
       var z_bytes = new GZipDecoder().decode(bytes);

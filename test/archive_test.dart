@@ -46,33 +46,10 @@ void main() {
     List<int> a_bytes = a_txt.codeUnits;
 
     var b = new Io.File('res/cat.jpg');
-    b.openSync();
     List<int> b_bytes = b.readAsBytesSync();
-
-    test('ZipArchive', () {
-      var file = new Io.File('res/test.zip');
-      file.openSync();
-      var bytes = file.readAsBytesSync();
-
-      ZipArchive zip = new ZipArchive();
-      Archive archive = zip.decode(bytes);
-      expect(archive.numberOfFiles(), equals(2));
-
-      for (int i = 0; i < archive.numberOfFiles(); ++i) {
-        List<int> z_bytes = archive.fileData(i);
-        if (archive.fileName(i) == 'a.txt') {
-          compare_bytes(z_bytes, a_bytes);
-        } else if (archive.fileName(i) == 'cat.jpg') {
-          compare_bytes(z_bytes, b_bytes);
-        } else {
-          throw new TestFailure('Invalid file found');
-        }
-      }
-    });
 
     test('TarArchive', () {
       var file = new Io.File('res/test.tar');
-      file.openSync();
       List<int> bytes = file.readAsBytesSync();
 
       TarArchive tar = new TarArchive();

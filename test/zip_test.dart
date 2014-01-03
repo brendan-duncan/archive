@@ -195,12 +195,50 @@ void defineZipTests() {
   group('zip', () {
     ZipArchive zip = new ZipArchive();
 
-    getCrc32([]);
+    test('decode/encode', () {
+      var file = new Io.File('res/test.zip');
+      var bytes = file.readAsBytesSync();
+
+      ZipArchive zip = new ZipArchive();
+
+      Archive archive = zip.decode(bytes);
+      expect(archive.numberOfFiles(), equals(2));
+
+      var b = new Io.File('res/cat.jpg');
+      List<int> b_bytes = b.readAsBytesSync();
+
+      for (int i = 0; i < archive.numberOfFiles(); ++i) {
+        List<int> z_bytes = archive.fileData(i);
+        if (archive.fileName(i) == 'a.txt') {
+          List<int> a_bytes = a_txt.codeUnits;
+          compare_bytes(z_bytes, a_bytes);
+        } else if (archive.fileName(i) == 'cat.jpg') {
+          compare_bytes(z_bytes, b_bytes);
+        } else {
+          throw new TestFailure('Invalid file found');
+        }
+      }
+
+      // Encode the archive we just decoded
+      List<int> zipped = zip.encode(archive);
+
+      // Decode the archive we just encoded
+      Archive archive2 = zip.decode(zipped);
+
+      expect(archive2.numberOfFiles(), equals(archive.numberOfFiles()));
+      for (int i = 0; i < archive2.numberOfFiles(); ++i) {
+        expect(archive2.fileName(i), equals(archive.fileName(i)));
+        expect(archive2.fileSize(i), equals(archive.fileSize(i)));
+      }
+
+      Io.File f = new Io.File('out/test.zip');
+      f.createSync(recursive: true);
+      f.writeAsBytesSync(zipped);
+    });
 
     for (Map z in zipTests) {
       test('unzip ${z['Name']}', () {
         var file = new Io.File(z['Name']);
-        file.openSync();
         var bytes = file.readAsBytesSync();
 
         Archive archive = zip.decode(bytes);

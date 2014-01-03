@@ -4,7 +4,7 @@ class TarArchive {
   List<TarFile> files = [];
 
   // TODO: This should throw an exception on an error -
-  Archive decode(List<int> data) {
+  Archive decode(List<int> data, {bool verify: true}) {
     Archive archive = new Archive();
     files.clear();
     InputBuffer input = new InputBuffer(data);
@@ -23,6 +23,7 @@ class TarArchive {
         file.mode = tf.mode;
         file.ownerId = tf.ownerId;
         file.groupId = tf.groupId;
+        file.lastModTime = tf.lastModTime;
 
         archive.addFile(file);
       } catch (error) {
