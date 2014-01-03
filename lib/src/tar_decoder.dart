@@ -1,6 +1,9 @@
 part of archive;
 
-class TarArchive {
+/**
+ * Decode a tar formatted buffer into an [Archive] object.
+ */
+class TarDecoder {
   List<TarFile> files = [];
 
   // TODO: This should throw an exception on an error -
@@ -32,27 +35,5 @@ class TarArchive {
     }
 
     return archive;
-  }
-
-  // Encode the files in the archive to the tar format.
-  List<int> encode(Archive archive) {
-    OutputBuffer output = new OutputBuffer();
-
-    for (File file in archive.files) {
-      TarFile ts = new TarFile();
-      ts.filename = file.filename;
-      ts.fileSize = file.fileSize;
-      ts.mode = file.mode;
-      ts.ownerId = file.ownerId;
-      ts.groupId = file.groupId;
-      ts.lastModTime = file.lastModTime;
-      ts.content = file.content;
-      ts.write(output);
-    }
-
-    // End the archive.
-    output.writeBytes([0, 0]);
-
-    return output.getBytes();
   }
 }

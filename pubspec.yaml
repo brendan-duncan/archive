@@ -1,10 +1,8 @@
 name: archive
 author: Brendan Duncan <brendanduncan@gmail.com>
-version: 1.0.1
+version: 1.0.3
 homepage: http://bitbucket.org/brendan_duncan/archive
-description: >
-  Provides encoders and decoders for various archive and compression formats,
-  such as zip and tar.
+description: Provides encoders and decoders for various archive and compression formats, such as zip and tar.
 dev_dependencies:
   args: any
   unittest: any

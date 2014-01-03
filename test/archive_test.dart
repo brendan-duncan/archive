@@ -42,54 +42,6 @@ format.
 void main() {
   defineOutputBufferTests();
 
-  group('archive', () {
-    List<int> a_bytes = a_txt.codeUnits;
-
-    var b = new Io.File('res/cat.jpg');
-    List<int> b_bytes = b.readAsBytesSync();
-
-    test('TarArchive', () {
-      var file = new Io.File('res/test.tar');
-      List<int> bytes = file.readAsBytesSync();
-
-      TarArchive tar = new TarArchive();
-
-      Archive archive = tar.decode(bytes);
-      expect(archive.numberOfFiles(), equals(2));
-
-      for (int i = 0; i < archive.numberOfFiles(); ++i) {
-        List<int> t_bytes = archive.fileData(i);
-        String t_file = archive.fileName(i);
-
-        if (t_file == 'a.txt') {
-          compare_bytes(t_bytes, a_bytes);
-        } else if (t_file == 'cat.jpg') {
-          compare_bytes(t_bytes, b_bytes);
-        } else {
-          throw new TestFailure('Unexpected file found: $t_file');
-        }
-      }
-
-      List<int> encoded = tar.encode(archive);
-
-      // Test round-trip
-      Archive archive2 = tar.decode(encoded);
-
-      for (int i = 0; i < archive2.numberOfFiles(); ++i) {
-        List<int> t_bytes = archive2.fileData(i);
-        String t_file = archive2.fileName(i);
-
-        if (t_file == 'a.txt') {
-          compare_bytes(t_bytes, a_bytes);
-        } else if (t_file == 'cat.jpg') {
-          compare_bytes(t_bytes, b_bytes);
-        } else {
-          throw new TestFailure('Unexpected file found: $t_file');
-        }
-      }
-    });
-  });
-
   defineAdlerTests();
 
   defineCrc32Tests();

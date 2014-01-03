@@ -193,15 +193,14 @@ var zipTests = [
 
 void defineZipTests() {
   group('zip', () {
-    ZipArchive zip = new ZipArchive();
+    ZipDecoder zipDecoder = new ZipDecoder();
+    ZipEncoder zipEncoder = new ZipEncoder();
 
     test('decode/encode', () {
       var file = new Io.File('res/test.zip');
       var bytes = file.readAsBytesSync();
 
-      ZipArchive zip = new ZipArchive();
-
-      Archive archive = zip.decode(bytes);
+      Archive archive = zipDecoder.decode(bytes);
       expect(archive.numberOfFiles(), equals(2));
 
       var b = new Io.File('res/cat.jpg');
@@ -220,10 +219,10 @@ void defineZipTests() {
       }
 
       // Encode the archive we just decoded
-      List<int> zipped = zip.encode(archive);
+      List<int> zipped = zipEncoder.encode(archive);
 
       // Decode the archive we just encoded
-      Archive archive2 = zip.decode(zipped);
+      Archive archive2 = zipDecoder.decode(zipped);
 
       expect(archive2.numberOfFiles(), equals(archive.numberOfFiles()));
       for (int i = 0; i < archive2.numberOfFiles(); ++i) {
@@ -241,11 +240,11 @@ void defineZipTests() {
         var file = new Io.File(z['Name']);
         var bytes = file.readAsBytesSync();
 
-        Archive archive = zip.decode(bytes);
-        List<ZipFileHeader> zipFiles = zip.directory.fileHeaders;
+        Archive archive = zipDecoder.decode(bytes);
+        List<ZipFileHeader> zipFiles = zipDecoder.directory.fileHeaders;
 
         if (z.containsKey('Comment')) {
-          expect(zip.directory.zipFileComment, z['Comment']);
+          expect(zipDecoder.directory.zipFileComment, z['Comment']);
         }
 
         if (!z.containsKey('File')) {

@@ -51,7 +51,7 @@ void listFiles(String path) {
     data = new GZipDecoder().decode(data);
   }
 
-  TarArchive tarArchive = new TarArchive();
+  TarDecoder tarArchive = new TarDecoder();
   tarArchive.decode(data);
 
   print('${tarArchive.files.length} file(s)');
@@ -75,7 +75,7 @@ void extractFiles(String inputPath, String outputPath) {
     data = new GZipDecoder().decode(data);
   }
 
-  TarArchive tarArchive = new TarArchive();
+  TarDecoder tarArchive = new TarDecoder();
   tarArchive.decode(data);
 
   print('extracting to ${outDir.path}${io.Platform.pathSeparator}...');
@@ -114,7 +114,7 @@ void createTarFile(String dirPath) {
     }
   }
 
-  List<int> data = new TarArchive().encode(archive);
+  List<int> data = new TarEncoder().encode(archive);
   // TODO: deflate and write as .tar.gz
   outFile.writeAsBytesSync(data);
 }
