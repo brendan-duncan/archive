@@ -6,10 +6,9 @@ class OutputBuffer {
   /**
    * Create a byte buffer for writing.
    */
-  OutputBuffer() :
-    _buffer = new Data.Uint8List(_BLOCK_SIZE),
-    length = 0,
-    _bitIndex = 0;
+  OutputBuffer([int bufferSize = _BLOCK_SIZE]) :
+    _buffer = new Data.Uint8List(bufferSize == null ? _BLOCK_SIZE : bufferSize),
+    length = 0;
 
   /**
    * Get the resulting bytes from the buffer.
@@ -24,14 +23,12 @@ class OutputBuffer {
   void clear() {
     _buffer = new Data.Uint8List(_BLOCK_SIZE);
     length = 0;
-    _bitIndex = 0;
   }
 
   /**
    * Write a byte to the end of the buffer.
    */
   void writeByte(int value) {
-    _bitIndex = 0;
     _buffer[length++] = value & 0xff;
     if (length == _buffer.length) {
       _expandBuffer();
@@ -42,7 +39,6 @@ class OutputBuffer {
    * Write a set of bytes to the end of the buffer.
    */
   void writeBytes(List<int> bytes) {
-    _bitIndex = 0;
     while (length + bytes.length > _buffer.length) {
       _expandBuffer();
     }
@@ -85,19 +81,18 @@ class OutputBuffer {
       end = length + end;
     }
 
-    return _buffer.sublist(start, end);
+    return new Data.Uint8List.view(_buffer.buffer, start, end - start);
   }
 
   /**
    * Grow the buffer to accomidate additional data.
    */
   void _expandBuffer() {
-    Data.Uint8List newBuffer = new Data.Uint8List(_buffer.length << 1);
+    Data.Uint8List newBuffer = new Data.Uint8List(_buffer.length + _BLOCK_SIZE);
     newBuffer.setRange(0, _buffer.length, _buffer);
     _buffer = newBuffer;
   }
 
-  static const int _BLOCK_SIZE = 0x4000; // 16k block-size
+  static const int _BLOCK_SIZE = 0x8000; // 32k block-size
   Data.Uint8List _buffer;
-  int _bitIndex;
 }

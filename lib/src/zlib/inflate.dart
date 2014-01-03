@@ -4,8 +4,12 @@ class Inflate {
   final InputBuffer input;
   final OutputBuffer output;
 
-  Inflate(this.input) :
-    output = new OutputBuffer() {
+  /**
+   * [data] should be either a List<int> or InputBuffer.
+   */
+  Inflate(data, [int uncompressedSize]) :
+    input = data is InputBuffer ? data : new InputBuffer(data),
+    output = new OutputBuffer(uncompressedSize) {
     _bitBuffer = 0;
     _bitBufferLen = 0;
     output.clear();

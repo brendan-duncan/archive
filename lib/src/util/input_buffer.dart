@@ -11,20 +11,6 @@ class InputBuffer {
     position = 0;
 
   /**
-   * Change the buffer that's being read from.
-   */
-  void resetTo(List<int> buffer) {
-    this.buffer = buffer;
-    position = 0;
-  }
-
-  /**
-   * Clear the buffer.
-   */
-  void clear() =>
-      resetTo(new List<int>());
-
-  /**
    * How many bytes in the buffer.
    */
   int get length => buffer.length;

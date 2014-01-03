@@ -4,7 +4,6 @@ class ZLibEncoder {
   static const int DEFLATE = 8;
 
   List<int> encode(List<int> data) {
-    InputBuffer input = new InputBuffer(data);
     OutputBuffer output = new OutputBuffer();
 
     // Compression Method and Flags
@@ -26,7 +25,7 @@ class ZLibEncoder {
     flag |= fcheck;
     output.writeByte(flag);
 
-    List<int> compressed = new Deflate(input).getBytes();
+    List<int> compressed = new Deflate(data).getBytes();
     output.writeBytes(compressed);
 
     int adler32 = getAdler32(data);

@@ -79,7 +79,7 @@ class ZipFile {
    */
   List<int> get content {
     if (compressionMethod == DEFLATE) {
-      _content = new Inflate(new InputBuffer(_content)).getBytes();
+      _content = new Inflate(_content, uncompressedSize).getBytes();
       compressionMethod = STORE;
     }
     return _content;

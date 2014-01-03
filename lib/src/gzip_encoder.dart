@@ -27,7 +27,6 @@ class GZipEncoder {
   static const int OS_UNKNOWN = 25;
 
   List<int> encode(List<int> data) {
-    InputBuffer input = new InputBuffer(data);
     OutputBuffer output = new OutputBuffer();
 
     // The GZip format has the following structure:
@@ -84,7 +83,7 @@ class GZipEncoder {
     output.writeByte(extraFlags);
     output.writeByte(osType);
 
-    List<int> compressed = new Deflate(input).getBytes();
+    List<int> compressed = new Deflate(data).getBytes();
     output.writeBytes(compressed);
 
     int crc = getCrc32(data);

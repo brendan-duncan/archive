@@ -19,7 +19,7 @@ class File {
    */
   List<int> get content {
     if (_compressionType == DEFLATE) {
-      _content = new Inflate(new InputBuffer(_content)).getBytes();
+      _content = new Inflate(_content).getBytes();
       _compressionType = STORE;
     }
     return _content;

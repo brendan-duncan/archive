@@ -8,9 +8,9 @@ void defineDeflateTests() {
     }
 
     test('uncompressed', () {
-      List<int> deflated = new Deflate(new InputBuffer(buffer),
+      List<int> deflated = new Deflate(buffer,
           type: Deflate.UNCOMPRESSED).getBytes();
-      List<int> inflated = new Inflate(new InputBuffer(deflated)).getBytes();
+      List<int> inflated = new Inflate(deflated).getBytes();
 
       expect(inflated.length, equals(buffer.length));
       for (int i = 0; i < buffer.length; ++i) {
@@ -19,9 +19,9 @@ void defineDeflateTests() {
     });
 
     test('fixed_huffman', () {
-      List<int> deflated = new Deflate(new InputBuffer(buffer),
+      List<int> deflated = new Deflate(buffer,
           type: Deflate.FIXED_HUFFMAN).getBytes();
-      List<int> inflated = new Inflate(new InputBuffer(deflated)).getBytes();
+      List<int> inflated = new Inflate(deflated).getBytes();
 
       expect(inflated.length, equals(buffer.length));
       for (int i = 0; i < buffer.length; ++i) {
@@ -30,9 +30,9 @@ void defineDeflateTests() {
     });
 
     test('dynamic_huffman', () {
-      List<int> deflated = new Deflate(new InputBuffer(buffer),
+      List<int> deflated = new Deflate(buffer,
           type: Deflate.DYNAMIC_HUFFMAN).getBytes();
-      List<int> inflated = new Inflate(new InputBuffer(deflated)).getBytes();
+      List<int> inflated = new Inflate(deflated).getBytes();
 
       expect(inflated.length, equals(buffer.length));
       for (int i = 0; i < buffer.length; ++i) {

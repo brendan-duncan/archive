@@ -89,20 +89,18 @@ class GZipDecoder {
       input.readUint16();
     }
 
-    InputBuffer contents = input.subset();
-
     // Inflate
-    List<int> buffer = new Inflate(contents).getBytes();
+    List<int> buffer = new Inflate(input).getBytes();
 
 
     if (verify) {
-      int crc = contents.readUint32();
+      int crc = input.readUint32();
       int computedCrc = getCrc32(buffer);
       if (crc != computedCrc) {
         throw new ArchiveException('Invalid CRC checksum');
       }
 
-      int size = contents.readUint32();
+      int size = input.readUint32();
       if (size != buffer.length) {
         throw new ArchiveException('Size of decompressed file not correct');
       }

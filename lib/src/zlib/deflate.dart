@@ -8,9 +8,12 @@ class Deflate {
   final InputBuffer input;
   final _BitStream output;
 
-  Deflate(this.input, {int type: DYNAMIC_HUFFMAN, int blockSize: 0xffff}) :
-    output = new _BitStream() {
-
+  /**
+   * [data] should be either a List<int> or InputBuffer.
+   */
+  Deflate(data, {int type: DYNAMIC_HUFFMAN, int blockSize: 0xffff}) :
+    input = data is InputBuffer ? data : new InputBuffer(data),
+    output = new _BitStream(data.length) {
     int len = input.length;
     while (!input.isEOF) {
       InputBuffer inputBlock = input.subset(null, blockSize);
@@ -823,21 +826,12 @@ class _Lz77Match {
 }
 
 class _BitStream {
-  int index;
+  int index = 0;
   int bitindex = 0;
   Data.Uint8List buffer;
 
-  _BitStream([this.buffer, this.index = 0]) {
-    if (buffer == null) {
-      buffer = new Data.Uint8List(_BitStream._BLOCK_SIZE);
-    }
-
-    if (buffer.length * 2 <= index) {
-      throw new ArchiveException("invalid index");
-    } else if (buffer.length <= index) {
-      _expandBuffer();
-    }
-  }
+  _BitStream([int bufferSize = _BLOCK_SIZE]) :
+    buffer = new Data.Uint8List(bufferSize);
 
   /**
    * Write a byte to the end of the buffer.
@@ -934,7 +928,7 @@ class _BitStream {
   void _expandBuffer() {
     var oldbuf = buffer;
     var il = oldbuf.length;
-    buffer = new Data.Uint8List(il << 1);
+    buffer = new Data.Uint8List(il + _BLOCK_SIZE);
     buffer.setRange(0, oldbuf.length, oldbuf);
   }
 
