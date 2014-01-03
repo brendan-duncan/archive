@@ -26,8 +26,8 @@ class GZipEncoder {
   static const int OS_ACORN_RISCOS = 13;
   static const int OS_UNKNOWN = 25;
 
-  List<int> encode(List<int> data) {
-    OutputBuffer output = new OutputBuffer();
+  List<int> encode(List<int> data, {int byteOrder: LITTLE_ENDIAN}) {
+    OutputBuffer output = new OutputBuffer(byteOrder: byteOrder);
 
     // The GZip format has the following structure:
     // Offset   Length   Contents

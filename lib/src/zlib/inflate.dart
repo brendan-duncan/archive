@@ -9,7 +9,7 @@ class Inflate {
    */
   Inflate(data, [int uncompressedSize]) :
     input = data is InputBuffer ? data : new InputBuffer(data),
-    output = new OutputBuffer(uncompressedSize) {
+    output = new OutputBuffer(size: uncompressedSize) {
     _bitBuffer = 0;
     _bitBufferLen = 0;
     output.clear();

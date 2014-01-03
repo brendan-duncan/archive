@@ -53,13 +53,17 @@ class TarFile {
     if (input != null) {
       InputBuffer header = new InputBuffer(input.readBytes(512));
 
+      // The name, linkname, magic, uname, and gname are null-terminated
+      // character strings. All other fields are zero-filled octal numbers in
+      // ASCII. Each numeric field of width w contains w minus 1 digits, and a
+      // null.
       filename = _parseString(header, 100);
       mode = _parseInt(header, 8);
-      ownerId = _parseInt(header, 8, 8);
-      groupId = _parseInt(header, 8, 8);
-      fileSize = _parseInt(header, 12, 8);
-      lastModTime = _parseInt(header, 12, 8);
-      checksum = _parseInt(header, 8, 8);
+      ownerId = _parseInt(header, 8);
+      groupId = _parseInt(header, 8);
+      fileSize = _parseInt(header, 12);
+      lastModTime = _parseInt(header, 12);
+      checksum = _parseInt(header, 8);
       typeFlag = _parseString(header, 1);
       nameOfLinkedFile = _parseString(header, 100);
 
@@ -92,13 +96,16 @@ class TarFile {
   void write(OutputBuffer output) {
     fileSize = content.length;
 
+    // The name, linkname, magic, uname, and gname are null-terminated
+    // character strings. All other fields are zero-filled octal numbers in
+    // ASCII. Each numeric field of width w contains w minus 1 digits, and a null.
     OutputBuffer header = new OutputBuffer();
     _writeString(header, filename, 100);
     _writeInt(header, mode, 8);
     _writeInt(header, ownerId, 8);
     _writeInt(header, groupId, 8);
-    _writeInt(header, fileSize, 12, 8);
-    _writeInt(header, lastModTime, 12, 8);
+    _writeInt(header, fileSize, 12);
+    _writeInt(header, lastModTime, 12);
     _writeString(header, '        ', 8); // checksum placeholder
     _writeString(header, typeFlag, 1);
 
@@ -145,9 +152,13 @@ class TarFile {
     }
   }
 
-  int _parseInt(InputBuffer input, int numBytes, [int radix]) {
+  int _parseInt(InputBuffer input, int numBytes) {
     String s = _parseString(input, numBytes);
-    return int.parse('0' + s, radix: radix);
+    if (s.isEmpty) {
+      return 0;
+    }
+    int x = int.parse(s, radix: 8);
+    return x;
   }
 
   String _parseString(InputBuffer input, int numBytes) {
@@ -164,11 +175,11 @@ class TarFile {
     output.writeBytes(codes);
   }
 
-  void _writeInt(OutputBuffer output, int value, int numBytes, [int radix]) {
-    if (radix == null) {
-      radix = 10;
+  void _writeInt(OutputBuffer output, int value, int numBytes) {
+    String s = value.toRadixString(8);
+    while (s.length < numBytes - 1) {
+      s = '0' + s;
     }
-    String s = value.toRadixString(radix);
     _writeString(output, s, numBytes);
   }
 }

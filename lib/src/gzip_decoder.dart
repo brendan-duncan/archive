@@ -12,8 +12,11 @@ class GZipDecoder {
   static const int FLAG_NAME = 0x08;
   static const int FLAG_COMMENT = 0x10;
 
-  List<int> decode(List<int> data, {bool verify: false}) {
-    InputBuffer input = new InputBuffer(data);
+  /**
+   * [data] should be either a List<int> or InputBuffer.
+   */
+  List<int> decode(data, {bool verify: false}) {
+    InputBuffer input = data is InputBuffer ? data : new InputBuffer(data);
 
     // The GZip format has the following structure:
     // Offset   Length   Contents

@@ -2,12 +2,13 @@ part of archive;
 
 class OutputBuffer {
   int length;
+  final int byteOrder;
 
   /**
    * Create a byte buffer for writing.
    */
-  OutputBuffer([int bufferSize = _BLOCK_SIZE]) :
-    _buffer = new Data.Uint8List(bufferSize == null ? _BLOCK_SIZE : bufferSize),
+  OutputBuffer({int size: _BLOCK_SIZE, this.byteOrder: LITTLE_ENDIAN}) :
+    _buffer = new Data.Uint8List(size == null ? _BLOCK_SIZE : size),
     length = 0;
 
   /**
@@ -50,6 +51,11 @@ class OutputBuffer {
    * Write a 16-bit word to the end of the buffer.
    */
   void writeUint16(int value) {
+    if (byteOrder == BIG_ENDIAN) {
+      writeByte((value >> 8) & 0xff);
+      writeByte((value) & 0xff);
+      return;
+    }
     writeByte((value) & 0xff);
     writeByte((value >> 8) & 0xff);
   }
@@ -58,6 +64,13 @@ class OutputBuffer {
    * Write a 32-bit word to the end of the buffer.
    */
   void writeUint32(int value) {
+    if (byteOrder == BIG_ENDIAN) {
+      writeByte((value >> 24) & 0xff);
+      writeByte((value >> 16) & 0xff);
+      writeByte((value >> 8) & 0xff);
+      writeByte((value) & 0xff);
+      return;
+    }
     writeByte((value) & 0xff);
     writeByte((value >> 8) & 0xff);
     writeByte((value >> 16) & 0xff);

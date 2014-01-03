@@ -3,8 +3,8 @@ part of archive;
 class ZLibEncoder {
   static const int DEFLATE = 8;
 
-  List<int> encode(List<int> data) {
-    OutputBuffer output = new OutputBuffer();
+  List<int> encode(List<int> data, {int byteOrder: LITTLE_ENDIAN}) {
+    OutputBuffer output = new OutputBuffer(byteOrder: byteOrder);
 
     // Compression Method and Flags
     int cm = DEFLATE;
@@ -25,7 +25,8 @@ class ZLibEncoder {
     flag |= fcheck;
     output.writeByte(flag);
 
-    List<int> compressed = new Deflate(data).getBytes();
+    InputBuffer input = new InputBuffer(data, byteOrder: byteOrder);
+    List<int> compressed = new Deflate(input).getBytes();
     output.writeBytes(compressed);
 
     int adler32 = getAdler32(data);

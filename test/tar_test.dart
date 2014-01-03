@@ -6,7 +6,7 @@ var tarTests = [
     'headers': [
       {
         'Name':     "small.txt",
-        'Mode':     0640,
+        'Mode':     int.parse('0640',radix: 8),
         'Uid':      73025,
         'Gid':      5000,
         'Size':     5,
@@ -17,7 +17,7 @@ var tarTests = [
       },
       {
         'Name':     "small2.txt",
-        'Mode':     0640,
+        'Mode':     int.parse('0640',radix: 8),
         'Uid':      73025,
         'Gid':      5000,
         'Size':     11,
@@ -36,7 +36,7 @@ var tarTests = [
     'headers': [
       {
         'Name':       "small.txt",
-        'Mode':       0640,
+        'Mode':       int.parse('0640',radix: 8),
         'Uid':        73025,
         'Gid':        5000,
         'Size':       5,
@@ -49,7 +49,7 @@ var tarTests = [
       },
       {
         'Name':       "small2.txt",
-        'Mode':       0640,
+        'Mode':       int.parse('0640',radix: 8),
         'Uid':        73025,
         'Gid':        5000,
         'Size':       11,
@@ -67,7 +67,7 @@ var tarTests = [
     'headers': [
       {
         'Name':     "small.txt",
-        'Mode':     0444,
+        'Mode':     int.parse('0444',radix: 8),
         'Uid':      73025,
         'Gid':      5000,
         'Size':     5,
@@ -76,7 +76,7 @@ var tarTests = [
       },
       {
         'Name':     "small2.txt",
-        'Mode':     0444,
+        'Mode':     int.parse('0444',radix: 8),
         'Uid':      73025,
         'Gid':      5000,
         'Size':     11,
@@ -90,7 +90,7 @@ var tarTests = [
     'headers': [
       {
         'Name':       "a/123456789101112131415161718192021222324252627282930313233343536373839404142434445464748495051525354555657585960616263646566676869707172737475767778798081828384858687888990919293949596979899100",
-        'Mode':       0664,
+        'Mode':       int.parse('0664',radix: 8),
         'Uid':        1000,
         'Gid':        1000,
         'Uname':      "shane",
@@ -103,7 +103,7 @@ var tarTests = [
       },
       {
         'Name':       "a/b",
-        'Mode':       0777,
+        'Mode':       int.parse('0777',radix: 8),
         'Uid':        1000,
         'Gid':        1000,
         'Uname':      "shane",
@@ -122,7 +122,7 @@ var tarTests = [
     'headers': [
       {
         'Name':     "P1050238.JPG.log",
-        'Mode':     0664,
+        'Mode':     int.parse('0664',radix: 8),
         'Uid':      0,
         'Gid':      0,
         'Size':     14,
@@ -158,36 +158,34 @@ void defineTarTests() {
       Archive archive = tar.decode(bytes);
       expect(archive.numberOfFiles(), equals(2));
 
-      for (int i = 0; i < archive.numberOfFiles(); ++i) {
-        List<int> t_bytes = archive.fileData(i);
-        String t_file = archive.fileName(i);
+      String t_file = archive.fileName(0);
+      expect(t_file, equals('a.txt'));
+      List<int> t_bytes = archive.fileData(0);
+      compare_bytes(t_bytes, a_bytes);
 
-        if (t_file == 'a.txt') {
-          compare_bytes(t_bytes, a_bytes);
-        } else if (t_file == 'cat.jpg') {
-          compare_bytes(t_bytes, b_bytes);
-        } else {
-          throw new TestFailure('Unexpected file found: $t_file');
-        }
-      }
+      t_file = archive.fileName(1);
+      expect(t_file, equals('cat.jpg'));
+      t_bytes = archive.fileData(1);
+      compare_bytes(t_bytes, b_bytes);
 
       List<int> encoded = tarEncoder.encode(archive);
+      Io.File out = new Io.File('out/test.tar');
+      out.createSync(recursive: true);
+      out.writeAsBytesSync(encoded);
 
       // Test round-trip
       Archive archive2 = tar.decode(encoded);
+      expect(archive2.numberOfFiles(), equals(2));
 
-      for (int i = 0; i < archive2.numberOfFiles(); ++i) {
-        List<int> t_bytes = archive2.fileData(i);
-        String t_file = archive2.fileName(i);
+      t_file = archive2.fileName(0);
+      expect(t_file, equals('a.txt'));
+      t_bytes = archive2.fileData(0);
+      compare_bytes(t_bytes, a_bytes);
 
-        if (t_file == 'a.txt') {
-          compare_bytes(t_bytes, a_bytes);
-        } else if (t_file == 'cat.jpg') {
-          compare_bytes(t_bytes, b_bytes);
-        } else {
-          throw new TestFailure('Unexpected file found: $t_file');
-        }
-      }
+      t_file = archive2.fileName(1);
+      expect(t_file, equals('cat.jpg'));
+      t_bytes = archive2.fileData(1);
+      compare_bytes(t_bytes, b_bytes);
     });
 
     for (Map t in tarTests) {

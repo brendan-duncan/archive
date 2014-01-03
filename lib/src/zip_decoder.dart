@@ -6,8 +6,11 @@ part of archive;
 class ZipDecoder {
   ZipDirectory directory;
 
-  Archive decode(List<int> data, {bool verify: true}) {
-    InputBuffer input = new InputBuffer(data);
+  /**
+   * [data] should be either a List<int> or InputBuffer.
+   */
+  Archive decode(data, {bool verify: true}) {
+    InputBuffer input = data is InputBuffer ? data : new InputBuffer(data);
     directory = new ZipDirectory(input);
 
     Archive archive = new Archive();

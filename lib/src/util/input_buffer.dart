@@ -3,11 +3,12 @@ part of archive;
 class InputBuffer {
   List<int> buffer;
   int position = 0;
+  final int byteOrder;
 
   /**
    * Create a InputBuffer for reading from a List<int>
    */
-  InputBuffer(this.buffer) :
+  InputBuffer(this.buffer, {this.byteOrder: LITTLE_ENDIAN}) :
     position = 0;
 
   /**
@@ -38,7 +39,8 @@ class InputBuffer {
       end = buffer.length;
     }
 
-    return new InputBuffer(buffer.sublist(position, end));
+    return new InputBuffer(buffer.sublist(position, end),
+                           byteOrder: byteOrder);
   }
 
   /**
@@ -85,6 +87,9 @@ class InputBuffer {
   int readUint16() {
     int b1 = buffer[position++] & 0xff;
     int b2 = buffer[position++] & 0xff;
+    if (byteOrder == BIG_ENDIAN) {
+      return (b1 << 8) | b2;
+    }
     return (b2 << 8) | b1;
   }
 
@@ -96,6 +101,9 @@ class InputBuffer {
     int b2 = buffer[position++] & 0xff;
     int b3 = buffer[position++] & 0xff;
     int b4 = buffer[position++] & 0xff;
+    if (byteOrder == BIG_ENDIAN) {
+      return (b1 << 24) | (b2 << 16) | (b3 << 8) | b4;
+    }
     return (b4 << 24) | (b3 << 16) | (b2 << 8) | b1;
   }
 
@@ -111,6 +119,10 @@ class InputBuffer {
     int b6 = buffer[position++] & 0xff;
     int b7 = buffer[position++] & 0xff;
     int b8 = buffer[position++] & 0xff;
+    if (byteOrder == BIG_ENDIAN) {
+      return (b1 << 56) | (b2 << 48) | (b3 << 40) | (b4 << 32) |
+             (b5 << 24) | (b6 << 16) | (b7 << 8) | b8;
+    }
     return (b8 << 56) | (b7 << 48) | (b6 << 40) | (b5 << 32) |
            (b4 << 24) | (b3 << 16) | (b2 << 8) | b1;
   }
