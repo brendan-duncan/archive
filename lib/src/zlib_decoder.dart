@@ -10,7 +10,8 @@ class ZLibDecoder {
    * [data] should be either a List<int> or InputBuffer.
    */
   List<int> decode(data, {bool verify: true}) {
-    InputBuffer input = data is InputBuffer ? data : new InputBuffer(data);
+    InputBuffer input = data is InputBuffer ? data :
+                        new InputBuffer(data, byteOrder: BIG_ENDIAN);
 
     /*
      * The zlib format has the following structure:

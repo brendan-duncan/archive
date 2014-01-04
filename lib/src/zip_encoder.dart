@@ -4,7 +4,7 @@ part of archive;
  * Encode an [Archive] object into a Zip formatted buffer.
  */
 class ZipEncoder {
-  List<int> encode(Archive archive, {int byteOrder: LITTLE_ENDIAN}) {
+  List<int> encode(Archive archive) {
     DateTime date = new DateTime.now();
     int t1 = ((date.minute & 0x7) << 5) | (date.second ~/ 2);
     int t2 = (date.hour << 3) | (date.minute >> 3);
@@ -62,8 +62,7 @@ class ZipEncoder {
     int outputSize = localFileSize + centralDirectorySize +
                      endOfCentralDirectorySize;
 
-    OutputBuffer output = new OutputBuffer(size: outputSize,
-                                           byteOrder: byteOrder);
+    OutputBuffer output = new OutputBuffer(size: outputSize);
 
     // Write Local File Headers
     for (File file in archive.files) {

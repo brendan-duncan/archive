@@ -4,8 +4,8 @@ part of archive;
  * Encode an [Archive] object into a tar formatted buffer.
  */
 class TarEncoder {
-  List<int> encode(Archive archive, {int byteOrder: LITTLE_ENDIAN}) {
-    OutputBuffer output = new OutputBuffer(byteOrder: byteOrder);
+  List<int> encode(Archive archive) {
+    OutputBuffer output = new OutputBuffer();
 
     for (File file in archive.files) {
       TarFile ts = new TarFile();

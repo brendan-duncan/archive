@@ -10,7 +10,8 @@ class ZipDecoder {
    * [data] should be either a List<int> or InputBuffer.
    */
   Archive decode(data, {bool verify: true}) {
-    InputBuffer input = data is InputBuffer ? data : new InputBuffer(data);
+    InputBuffer input = data is InputBuffer ? data :
+                        new InputBuffer(data);
     directory = new ZipDirectory(input);
 
     Archive archive = new Archive();
