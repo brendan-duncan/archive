@@ -5,8 +5,8 @@ class Deflate {
   static const int FIXED_HUFFMAN = 1;
   static const int DYNAMIC_HUFFMAN = 2;
 
-  final InputBuffer input;
-  final _BitStream output;
+  InputBuffer input;
+  OutputBuffer output;
 
   /**
    * [data] should be either a List<int> or InputBuffer.
@@ -14,25 +14,28 @@ class Deflate {
    * is causing problems for some decompressors.  Need to fix DYNAMIC_HUFFMAN.
    */
   Deflate(data, {int type: FIXED_HUFFMAN, int blockSize: 0xffff}) :
-    input = data is InputBuffer ? data : new InputBuffer(data),
-    output = new _BitStream(data.length) {
-    int len = input.length;
-    while (!input.isEOF) {
-      InputBuffer inputBlock = input.subset(null, blockSize);
-      input.position += input.length;
-      switch (type) {
-        case UNCOMPRESSED:
+    input = data is InputBuffer ? data : new InputBuffer(data) {
+    output = new OutputBuffer();
+    if (type == null) {
+      type = FIXED_HUFFMAN;
+    }
+
+    switch (type) {
+      case UNCOMPRESSED:
+        while (!input.isEOF) {
+          InputBuffer inputBlock = input.subset(input.position, blockSize);
+          input.position += inputBlock.length;
           _addUncompressedBlock(inputBlock, output, input.isEOF);
-          break;
-        case FIXED_HUFFMAN:
-          _addFixedHuffmanBlock(inputBlock, output, input.isEOF);
-          break;
-        case DYNAMIC_HUFFMAN:
-          _addDynamicHuffmanBlock(inputBlock, output, input.isEOF);
-          break;
-        default:
-          throw new ArchiveException('Invalid compression type');
-      }
+        }
+        break;
+      case FIXED_HUFFMAN:
+        _addFixedHuffmanBlock(input, output, true);
+        break;
+      case DYNAMIC_HUFFMAN:
+        _addDynamicHuffmanBlock(input, output, true);
+        break;
+      default:
+        throw new ArchiveException('Invalid compression type');
     }
   }
 
@@ -40,19 +43,20 @@ class Deflate {
    * Get the decompressed data.
    */
   List<int> getBytes() {
-    return output.finish();
+    return output.getBytes();
   }
 
-  void _addUncompressedBlock(InputBuffer input, _BitStream output,
+  void _addUncompressedBlock(InputBuffer input, OutputBuffer output,
                              bool isEnd) {
     // Block Header
     int bfinal = isEnd ? 1 : 0;
     int btype = UNCOMPRESSED;
-    output.writeBits(bfinal | (btype << 1), 3);
+    output.writeByte(bfinal | (btype << 1));
 
     // Block Size
     int len = input.length;
     output.writeUint16(len);
+
     int nlen = (~len + 0x10000) & 0xffff;
     output.writeUint16(nlen);
 
@@ -60,23 +64,32 @@ class Deflate {
     output.writeBytes(input.buffer);
   }
 
-  void _addFixedHuffmanBlock(InputBuffer input, _BitStream output,
+  void _addFixedHuffmanBlock(InputBuffer input, OutputBuffer output,
                              bool isEnd) {
+    _BitStream stream = new _BitStream();
+
     // Block Header
     int bfinal = isEnd ? 1 : 0;
     int btype = FIXED_HUFFMAN;
-    output.writeBits(bfinal | (btype << 1), 3, reverse: true);
+    stream.writeBits(bfinal, 1, reverse: true);
+    stream.writeBits(btype, 2, reverse: true);
 
     Data.Uint16List data = _lz77(input.buffer);
-    _fixedHuffman(data, output);
+
+    _fixedHuffman(data, stream);
+
+    output.writeBytes(stream.getBytes());
   }
 
-  void _addDynamicHuffmanBlock(InputBuffer input, _BitStream output,
+  void _addDynamicHuffmanBlock(InputBuffer input, OutputBuffer output,
                                bool isEnd) {
+    _BitStream stream = new _BitStream();
+
     // Block Header
     int bfinal = isEnd ? 1 : 0;
     int btype = DYNAMIC_HUFFMAN;
-    output.writeBits(bfinal | (btype << 1), 3, reverse: true);
+    stream.writeBits(bfinal, 1, reverse: true);
+    stream.writeBits(btype, 2, reverse: true);
 
     Data.Uint16List data = _lz77(input.buffer);
 
@@ -108,17 +121,17 @@ class Deflate {
 
     var treeCodes = _getCodesFromLengths(treeLengths);
 
-    output.writeBits(hlit - 257, 5, reverse: true);
-    output.writeBits(hdist - 1, 5, reverse: true);
-    output.writeBits(hclen - 4, 4, reverse: true);
+    stream.writeBits(hlit - 257, 5, reverse: true);
+    stream.writeBits(hdist - 1, 5, reverse: true);
+    stream.writeBits(hclen - 4, 4, reverse: true);
     for (int i = 0; i < hclen; i++) {
-      output.writeBits(transLengths[i], 3, reverse: true);
+      stream.writeBits(transLengths[i], 3, reverse: true);
     }
 
     for (int i = 0, il = treeSymbols[0].length; i < il; i++) {
       int code = treeSymbols[0][i];
 
-      output.writeBits(treeCodes[code], treeLengths[code], reverse: true);
+      stream.writeBits(treeCodes[code], treeLengths[code], reverse: true);
 
       // extra bits
       if (code >= 16) {
@@ -133,14 +146,16 @@ class Deflate {
             throw 'invalid code: $code';
         }
 
-        output.writeBits(treeSymbols[0][i], bitlen, reverse: true);
+        stream.writeBits(treeSymbols[0][i], bitlen, reverse: true);
       }
     }
 
     _dynamicHuffman(data,
         [litLenCodes, litLenLengths],
         [distCodes, distLengths],
-        output);
+        stream);
+
+    output.writeBytes(stream.getBytes());
   }
 
   void _fixedHuffman(Data.Uint16List dataArray, _BitStream output) {
@@ -905,7 +920,7 @@ class _BitStream {
     buffer[index] = current;
   }
 
-  Data.Uint8List finish() {
+  Data.Uint8List getBytes() {
     var buffer = this.buffer;
     var index = this.index;
 

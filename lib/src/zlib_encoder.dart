@@ -3,16 +3,20 @@ part of archive;
 class ZLibEncoder {
   static const int DEFLATE = 8;
 
-  List<int> encode(List<int> data) {
+  List<int> encode(List<int> data, {int deflateMode}) {
     OutputBuffer output = new OutputBuffer(byteOrder: BIG_ENDIAN);
 
     // Compression Method and Flags
     int cm = DEFLATE;
-    int cinfo = (Math.LOG2E * Math.log(_WINDOW_SIZE)).toInt() - 8;
+    int cinfo = 7; //2^(7+8) = 32768 window size
 
     int cmf = (cinfo << 4) | cm;
     output.writeByte(cmf);
 
+    // 0x01, (00 0 00001) (FLG)
+    // bits 0 to 4  FCHECK  (check bits for CMF and FLG)
+    // bit  5       FDICT   (preset dictionary)
+    // bits 6 to 7  FLEVEL  (compression level)
     // FCHECK is set such that (cmf * 256 + flag) must be a multiple of 31.
     int fdict = 0;
     int flevel = 0;
@@ -25,11 +29,13 @@ class ZLibEncoder {
     flag |= fcheck;
     output.writeByte(flag);
 
+    int adler32 = getAdler32(data);
+
     InputBuffer input = new InputBuffer(data, byteOrder: BIG_ENDIAN);
-    List<int> compressed = new Deflate(input).getBytes();
+
+    List<int> compressed = new Deflate(input, type: deflateMode).getBytes();
     output.writeBytes(compressed);
 
-    int adler32 = getAdler32(data);
     output.writeUint32(adler32);
 
     return output.getBytes();
