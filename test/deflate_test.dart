@@ -9,7 +9,7 @@ void defineDeflateTests() {
 
     test('uncompressed', () {
       List<int> deflated = new Deflate(buffer,
-          type: Deflate.UNCOMPRESSED).getBytes();
+          level: Deflate.NO_COMPRESSION).getBytes();
       List<int> inflated = new Inflate(deflated).getBytes();
 
       expect(inflated.length, equals(buffer.length));
@@ -20,7 +20,7 @@ void defineDeflateTests() {
 
     test('fixed_huffman', () {
       List<int> deflated = new Deflate(buffer,
-          type: Deflate.FIXED_HUFFMAN).getBytes();
+          level: Deflate.BEST_SPEED).getBytes();
       List<int> inflated = new Inflate(deflated).getBytes();
 
       expect(inflated.length, equals(buffer.length));
@@ -31,7 +31,7 @@ void defineDeflateTests() {
 
     test('dynamic_huffman', () {
       List<int> deflated = new Deflate(buffer,
-          type: Deflate.DYNAMIC_HUFFMAN).getBytes();
+          level: Deflate.BEST_COMPRESSION).getBytes();
       List<int> inflated = new Inflate(deflated).getBytes();
 
       expect(inflated.length, equals(buffer.length));

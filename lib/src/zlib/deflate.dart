@@ -1,30 +1,26 @@
 part of archive;
 
 class Deflate {
-  static const int UNCOMPRESSED = 0;
-  static const int FIXED_HUFFMAN = 1;
-  static const int DYNAMIC_HUFFMAN = 2;
+  static const int BEST_COMPRESSION = 9;
+  static const int BEST_SPEED = 1;
+  static const int DEFAULT_COMPRESSION = -1;
+  static const int NO_COMPRESSION = 0;
 
   final InputBuffer input;
   final OutputBuffer output;
 
-  /**
-   * [data] should be either a List<int> or InputBuffer.
-   * TODO compression is defaulted to FIXED_HUFFMAN since DYNAMIC_HUFFMAN
-   * is causing problems for some decompressors.  Need to fix DYNAMIC_HUFFMAN.
-   */
-  Deflate(List<int> bytes,
-          {int type: FIXED_HUFFMAN, int blockSize: 0xffff}) :
+  Deflate(List<int> bytes, {int level: DEFAULT_COMPRESSION}) :
     input = new InputBuffer(bytes),
     output = new OutputBuffer() {
-    _deflate(type, blockSize);
+    this.level = level;
+    _deflate();
   }
 
-  Deflate.buffer(InputBuffer buffer,
-                 {int type: FIXED_HUFFMAN, int blockSize: 0xffff}) :
+  Deflate.buffer(InputBuffer buffer, {int level: DEFAULT_COMPRESSION}) :
     input = buffer,
     output = new OutputBuffer() {
-    _deflate(type, blockSize);
+    this.level = level;
+    _deflate();
   }
 
   /**
@@ -34,23 +30,76 @@ class Deflate {
     return output.getBytes();
   }
 
-  void _deflate(int type, int blockSize) {
-    if (type == null) {
-      type = FIXED_HUFFMAN;
+  int get level => _level;
+
+  void set level(int level) {
+    _level = level;
+    /**
+     * TODO This version of DYNAMIC_HUFFMAN encoding doesn't work for most
+     * decompression programs.  As soon as it's fixed, change default
+     * compression to 6.
+     */
+    if (_level == null || _level == DEFAULT_COMPRESSION) {
+      _level = 3;
     }
 
-    switch (type) {
-      case UNCOMPRESSED:
+    if (_level < 0 || _level > BEST_COMPRESSION) {
+      throw new ArchiveException('Invalid compression level $level');
+    }
+
+    switch (_level) {
+      case 0:
+        _config = new _DeflateConfig(0, 0, 0, 0, _DeflateConfig.UNCOMPRESSED);
+        break;
+      case 1:
+        _config = new _DeflateConfig(4, 4, 8, 4, _DeflateConfig.FIXED_HUFFMAN);
+        break;
+      case 2:
+        _config = new _DeflateConfig(4, 5, 16, 8, _DeflateConfig.FIXED_HUFFMAN);
+        break;
+      case 3:
+        _config = new _DeflateConfig(4, 6, 32, 32, _DeflateConfig.FIXED_HUFFMAN);
+        break;
+      case 4:
+        _config = new _DeflateConfig(4, 4, 16, 16, _DeflateConfig.DYNAMIC_HUFFMAN);
+        break;
+      case 5:
+        _config = new _DeflateConfig(8, 16, 32, 32, _DeflateConfig.DYNAMIC_HUFFMAN);
+        break;
+      case 6:
+        _config = new _DeflateConfig(8, 16, 128, 128, _DeflateConfig.DYNAMIC_HUFFMAN);
+        break;
+      case 7:
+        _config = new _DeflateConfig(8, 32, 128, 256, _DeflateConfig.DYNAMIC_HUFFMAN);
+        break;
+      case 8:
+        _config = new _DeflateConfig(32, 128, 258, 1024, _DeflateConfig.DYNAMIC_HUFFMAN);
+        break;
+      case 9:
+        _config = new _DeflateConfig(32, 258, 258, 4096, _DeflateConfig.DYNAMIC_HUFFMAN);
+        break;
+    }
+  }
+
+  void _deflate() {
+    if (_config == null) {
+      throw new ArchiveException('Invalid compression level.');
+    }
+
+    output.clear();
+
+    switch (_config.mode) {
+      case _DeflateConfig.UNCOMPRESSED:
         while (!input.isEOF) {
-          InputBuffer inputBlock = input.subset(input.position, blockSize);
+          InputBuffer inputBlock = input.subset(input.position, 0xffff);
           input.position += inputBlock.length;
           _addUncompressedBlock(inputBlock, output, input.isEOF);
         }
         break;
-      case FIXED_HUFFMAN:
+      case _DeflateConfig.FIXED_HUFFMAN:
         _addFixedHuffmanBlock(input, output, true);
         break;
-      case DYNAMIC_HUFFMAN:
+      case _DeflateConfig.DYNAMIC_HUFFMAN:
         _addDynamicHuffmanBlock(input, output, true);
         break;
       default:
@@ -62,7 +111,7 @@ class Deflate {
                              bool isEnd) {
     // Block Header
     int bfinal = isEnd ? 1 : 0;
-    int btype = UNCOMPRESSED;
+    int btype = _DeflateConfig.UNCOMPRESSED;
     output.writeByte(bfinal | (btype << 1));
 
     // Block Size
@@ -82,7 +131,7 @@ class Deflate {
 
     // Block Header
     int bfinal = isEnd ? 1 : 0;
-    int btype = FIXED_HUFFMAN;
+    int btype = _DeflateConfig.FIXED_HUFFMAN;
     stream.writeBits(bfinal, 1, reverse: true);
     stream.writeBits(btype, 2, reverse: true);
 
@@ -99,7 +148,7 @@ class Deflate {
 
     // Block Header
     int bfinal = isEnd ? 1 : 0;
-    int btype = DYNAMIC_HUFFMAN;
+    int btype = _DeflateConfig.DYNAMIC_HUFFMAN;
     stream.writeBits(bfinal, 1, reverse: true);
     stream.writeBits(btype, 2, reverse: true);
 
@@ -158,7 +207,9 @@ class Deflate {
             throw 'invalid code: $code';
         }
 
-        stream.writeBits(treeSymbols[0][i], bitlen, reverse: true);
+        if (bitlen > 0) {
+          stream.writeBits(treeSymbols[0][i], bitlen, reverse: true);
+        }
       }
     }
 
@@ -297,37 +348,35 @@ class Deflate {
   }
 
   Data.Uint16List _getCodesFromLengths(Data.Uint8List lengths) {
-    var codes = new Data.Uint16List(lengths.length);
+    Data.Uint16List codes = new Data.Uint16List(lengths.length);
     Map<int, int> count = {};
     Map<int, int> startCode = {};
-    int code = 0;
 
-    int len = _MAX_CODE_LENGTH > lengths.length ? _MAX_CODE_LENGTH : lengths.length;
-    for (int i = 1, il = len; i <= il; i++) {
+    for (int i = 0; i <= _MAX_CODE_LENGTH; ++i) {
       count[i] = 0;
     }
 
     // Count the codes of each length.
     for (int i = 0, il = lengths.length; i < il; i++) {
-      if (!count.containsKey(lengths[i])) {
-        count[lengths[i]] = 0;
-      }
-      count[lengths[i]] = (count[lengths[i]]) + 1;
+      int c = count[lengths[i]] == null ? 0 : count[lengths[i]];
+      count[lengths[i]] = c + 1;
     }
 
     // Determine the starting code for each length block.
-    for (int i = 1, il = _MAX_CODE_LENGTH; i <= il; i++) {
+    int code = 0;
+    for (int i = 1; i <= _MAX_CODE_LENGTH; i++) {
       startCode[i] = code;
-      code += count[i];
+      int c = count[i] == null ? 0 : count[i];
+      code += c;
       code <<= 1;
     }
 
     // Determine the code for each symbol. Mirrored, of course.
     for (int i = 0, il = lengths.length; i < il; i++) {
-      code = startCode[lengths[i]];
       if (!startCode.containsKey(lengths[i])) {
         startCode[lengths[i]] = 0;
       }
+      code = startCode[lengths[i]];
       startCode[lengths[i]] += 1;
       codes[i] = 0;
 
@@ -419,9 +468,7 @@ class Deflate {
         excess -= half;
       }
       excess <<= 1;
-      //if (j < limit - 2) {
-        minimumCost[limit - 2 - j] = (minimumCost[limit - 1 - j] ~/ 2) + symbols;
-      //}
+      minimumCost[limit - 2 - j] = (minimumCost[limit - 1 - j] ~/ 2) + symbols;
     }
     minimumCost[0] = flag[0];
 
@@ -483,6 +530,9 @@ class Deflate {
     return codeLength;
   }
 
+  /**
+   * Compress the input data using lz77 compression.
+   */
   Data.Uint16List _lz77(List<int> input) {
     Data.Uint16List lz77Buffer = new Data.Uint16List(input.length * 2);
     int pos = 0;
@@ -563,7 +613,7 @@ class Deflate {
             // write previous match
             _writeMatch(prevMatch, -1);
           }
-        } else if (longestMatch.length < _lazy) {
+        } else if (longestMatch.length < _config.maxLazy) {
           prevMatch = longestMatch;
         } else {
           _writeMatch(longestMatch, 0);
@@ -625,7 +675,8 @@ class Deflate {
     return new _Lz77Match(matchMax, position - currentMatch);
   }
 
-  int _lazy = 0;
+  int _level;
+  _DeflateConfig _config;
   Data.Uint32List _freqLitLen;
   Data.Uint32List _freqDist;
 
@@ -673,6 +724,22 @@ class Deflate {
   static const List<int> _hclenOrder = const [
       16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15];
 }
+
+class _DeflateConfig {
+  static const int UNCOMPRESSED = 0;
+  static const int FIXED_HUFFMAN = 1;
+  static const int DYNAMIC_HUFFMAN = 2;
+
+  int goodLength;
+  int maxLazy;
+  int niceLength;
+  int maxChain;
+  int mode; // UNCOMPRESSED, FIXED_HUFFMAN, DYNAMIC_HUFFMAN
+
+  _DeflateConfig(this.goodLength, this.maxLazy, this.niceLength,
+                 this.maxChain, this.mode);
+}
+
 
 class _Heap {
   Data.Uint16List buffer;

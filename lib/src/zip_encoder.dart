@@ -4,7 +4,7 @@ part of archive;
  * Encode an [Archive] object into a Zip formatted buffer.
  */
 class ZipEncoder {
-  List<int> encode(Archive archive) {
+  List<int> encode(Archive archive, {int level}) {
     DateTime date = new DateTime.now();
     int t1 = ((date.minute & 0x7) << 5) | (date.second ~/ 2);
     int t2 = (date.hour << 3) | (date.minute >> 3);
@@ -43,7 +43,7 @@ class ZipEncoder {
         // Otherwise we need to compress it now.
         crc32 = getCrc32(file.content);
 
-        compressedData = new Deflate(file.content).getBytes();
+        compressedData = new Deflate(file.content, level: level).getBytes();
       }
 
       localFileSize += 30 + file.filename.length + compressedData.length;

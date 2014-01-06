@@ -36,5 +36,15 @@ void defineGZipTests() {
       var z_bytes = new GZipDecoder().decodeBytes(bytes);
       compare_bytes(z_bytes, a_bytes);
     });
+
+    test('encode res/cat.jpg', () {
+      var b = new Io.File('res/cat.jpg');
+      List<int> b_bytes = b.readAsBytesSync();
+
+      List<int> compressed = new GZipEncoder().encode(b_bytes);
+      Io.File f = new Io.File('out/cat.jpg.gz');
+      f.createSync(recursive: true);
+      f.writeAsBytesSync(compressed);
+    });
   });
 }
