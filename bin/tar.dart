@@ -48,11 +48,11 @@ void listFiles(String path) {
 
   List<int> data = file.readAsBytesSync();
   if (path.endsWith('tar.gz') || path.endsWith('tgz')) {
-    data = new GZipDecoder().decode(data);
+    data = new GZipDecoder().decodeBytes(data);
   }
 
   TarDecoder tarArchive = new TarDecoder();
-  tarArchive.decode(data);
+  tarArchive.decodeBytes(data);
 
   print('${tarArchive.files.length} file(s)');
   tarArchive.files.forEach((f) => print('  ${f}'));
@@ -72,11 +72,11 @@ void extractFiles(String inputPath, String outputPath) {
 
   List<int> data = inputFile.readAsBytesSync();
   if (inputPath.endsWith('tar.gz') || inputPath.endsWith('tgz')) {
-    data = new GZipDecoder().decode(data);
+    data = new GZipDecoder().decodeBytes(data);
   }
 
   TarDecoder tarArchive = new TarDecoder();
-  tarArchive.decode(data);
+  tarArchive.decodeBytes(data);
 
   print('extracting to ${outDir.path}${io.Platform.pathSeparator}...');
 

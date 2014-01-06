@@ -155,7 +155,7 @@ void defineTarTests() {
       TarDecoder tar = new TarDecoder();
       TarEncoder tarEncoder = new TarEncoder();
 
-      Archive archive = tar.decode(bytes);
+      Archive archive = tar.decodeBytes(bytes);
       expect(archive.numberOfFiles(), equals(2));
 
       String t_file = archive.fileName(0);
@@ -174,7 +174,7 @@ void defineTarTests() {
       out.writeAsBytesSync(encoded);
 
       // Test round-trip
-      Archive archive2 = tar.decode(encoded);
+      Archive archive2 = tar.decodeBytes(encoded);
       expect(archive2.numberOfFiles(), equals(2));
 
       t_file = archive2.fileName(0);
@@ -193,7 +193,7 @@ void defineTarTests() {
         var file = new Io.File(t['file']);
         var bytes = file.readAsBytesSync();
 
-        Archive archive = tar.decode(bytes);
+        Archive archive = tar.decodeBytes(bytes);
         expect(tar.files.length, equals(t['headers'].length));
 
         for (int i = 0; i < tar.files.length; ++i) {

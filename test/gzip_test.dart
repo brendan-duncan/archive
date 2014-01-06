@@ -9,8 +9,7 @@ void defineGZipTests() {
 
     test('encode/decode', () {
       List<int> compressed = new GZipEncoder().encode(buffer);
-      List<int> decompressed = new GZipDecoder().decode(compressed,
-                                                        verify: true);
+      List<int> decompressed = new GZipDecoder().decodeBytes(compressed);
       expect(decompressed.length, equals(buffer.length));
       for (int i = 0; i < buffer.length; ++i) {
         expect(decompressed[i], equals(buffer[i]));
@@ -24,7 +23,7 @@ void defineGZipTests() {
       var file = new Io.File('res/cat.jpg.gz');
       var bytes = file.readAsBytesSync();
 
-      var z_bytes = new GZipDecoder().decode(bytes);
+      var z_bytes = new GZipDecoder().decodeBytes(bytes);
       compare_bytes(z_bytes, b_bytes);
     });
 
@@ -34,7 +33,7 @@ void defineGZipTests() {
       var file = new Io.File('res/a.txt.gz');
       var bytes = file.readAsBytesSync();
 
-      var z_bytes = new GZipDecoder().decode(bytes);
+      var z_bytes = new GZipDecoder().decodeBytes(bytes);
       compare_bytes(z_bytes, a_bytes);
     });
   });
