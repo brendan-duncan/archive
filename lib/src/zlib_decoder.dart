@@ -55,7 +55,7 @@ class ZLibDecoder {
     }
 
     // Inflate
-    List<int> buffer = new Inflate(input).getBytes();
+    List<int> buffer = new Inflate.buffer(input).getBytes();
 
     // verify adler-32
     int adler32 = input.readUint32();

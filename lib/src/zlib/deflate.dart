@@ -5,17 +5,36 @@ class Deflate {
   static const int FIXED_HUFFMAN = 1;
   static const int DYNAMIC_HUFFMAN = 2;
 
-  InputBuffer input;
-  OutputBuffer output;
+  final InputBuffer input;
+  final OutputBuffer output;
 
   /**
    * [data] should be either a List<int> or InputBuffer.
    * TODO compression is defaulted to FIXED_HUFFMAN since DYNAMIC_HUFFMAN
    * is causing problems for some decompressors.  Need to fix DYNAMIC_HUFFMAN.
    */
-  Deflate(data, {int type: FIXED_HUFFMAN, int blockSize: 0xffff}) :
-    input = data is InputBuffer ? data : new InputBuffer(data) {
-    output = new OutputBuffer();
+  Deflate(List<int> bytes,
+          {int type: FIXED_HUFFMAN, int blockSize: 0xffff}) :
+    input = new InputBuffer(bytes),
+    output = new OutputBuffer() {
+    _deflate(type, blockSize);
+  }
+
+  Deflate.buffer(InputBuffer buffer,
+                 {int type: FIXED_HUFFMAN, int blockSize: 0xffff}) :
+    input = buffer,
+    output = new OutputBuffer() {
+    _deflate(type, blockSize);
+  }
+
+  /**
+   * Get the decompressed data.
+   */
+  List<int> getBytes() {
+    return output.getBytes();
+  }
+
+  void _deflate(int type, int blockSize) {
     if (type == null) {
       type = FIXED_HUFFMAN;
     }
@@ -37,13 +56,6 @@ class Deflate {
       default:
         throw new ArchiveException('Invalid compression type');
     }
-  }
-
-  /**
-   * Get the decompressed data.
-   */
-  List<int> getBytes() {
-    return output.getBytes();
   }
 
   void _addUncompressedBlock(InputBuffer input, OutputBuffer output,

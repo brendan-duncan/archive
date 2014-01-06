@@ -4,18 +4,16 @@ class Inflate {
   final InputBuffer input;
   final OutputBuffer output;
 
-  /**
-   * [data] should be either a List<int> or InputBuffer.
-   */
-  Inflate(data, [int uncompressedSize]) :
-    input = data is InputBuffer ? data : new InputBuffer(data),
+  Inflate(List<int> bytes, [int uncompressedSize]) :
+    input = new InputBuffer(bytes),
     output = new OutputBuffer(size: uncompressedSize) {
-    _bitBuffer = 0;
-    _bitBufferLen = 0;
-    output.clear();
+    _inflate();
+  }
 
-    while (_parseBlock()) {
-    }
+  Inflate.buffer(InputBuffer buffer, [int uncompressedSize]) :
+    input = buffer,
+    output = new OutputBuffer(size: uncompressedSize) {
+    _inflate();
   }
 
   /**
@@ -23,6 +21,15 @@ class Inflate {
    */
   List<int> getBytes() {
     return output.getBytes();
+  }
+
+  void _inflate() {
+    _bitBuffer = 0;
+    _bitBufferLen = 0;
+    output.clear();
+
+    while (_parseBlock()) {
+    }
   }
 
   /**

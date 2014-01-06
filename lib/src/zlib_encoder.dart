@@ -33,7 +33,7 @@ class ZLibEncoder {
 
     InputBuffer input = new InputBuffer(data, byteOrder: BIG_ENDIAN);
 
-    List<int> compressed = new Deflate(input, type: deflateMode).getBytes();
+    List<int> compressed = new Deflate.buffer(input, type: deflateMode).getBytes();
     output.writeBytes(compressed);
 
     output.writeUint32(adler32);

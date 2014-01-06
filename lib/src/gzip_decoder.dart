@@ -92,7 +92,7 @@ class GZipDecoder {
     }
 
     // Inflate
-    List<int> buffer = new Inflate(input).getBytes();
+    List<int> buffer = new Inflate.buffer(input).getBytes();
 
 
     if (verify) {
