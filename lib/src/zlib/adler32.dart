@@ -1,9 +1,8 @@
 part of archive;
 
 /**
- * Get the Adler-32 checksum for the given array.  You can append bytes
- * to an already computed adler checksum by specifying the previous [adler]
- * value.
+ * Get the Adler-32 checksum for the given array. You can append bytes to an
+ * already computed adler checksum by specifying the previous [adler] value.
  */
 int getAdler32(List<int> array, [int adler = 1]) {
   // largest prime smaller than 65536
@@ -28,4 +27,33 @@ int getAdler32(List<int> array, [int adler = 1]) {
   }
 
   return (s2 << 16) | s1;
+}
+
+/**
+ * A class to compute Adler-32 checksums.
+ */
+class Adler32 extends crypto.Hash {
+  int _hash = 1;
+
+  /**
+   * Get the value of the hash directly. This returns the same value as [close].
+   */
+  int get hash => _hash;
+
+  int get blockSize => 4;
+
+  Adler32();
+
+  Adler32 newInstance() => new Adler32();
+
+  void add(List<int> data) {
+    _hash = getAdler32(data, _hash);
+  }
+
+  List<int> close() {
+    return [((_hash >> 24) & 0xFF),
+            ((_hash >> 16) & 0xFF),
+            ((_hash >> 8) & 0xFF),
+            (_hash & 0xFF)];
+  }
 }

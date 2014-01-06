@@ -1,7 +1,8 @@
 library archive;
 
-import 'dart:math' as Math;
 import 'dart:typed_data' as Data;
+
+import 'package:crypto/crypto.dart' as crypto;
 
 part 'src/tar/tar_file.dart';
 part 'src/util/archive_exception.dart';

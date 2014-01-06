@@ -48,8 +48,8 @@ const List<int> _CRC32_TABLE = const [
 
 
 /**
- * Get the CRC-32 checksum of the given array.  You can append bytes
- * to an already computed crc by specifying the previous [crc] value.
+ * Get the CRC-32 checksum of the given array. You can append bytes to an
+ * already computed crc by specifying the previous [crc] value.
  */
 int getCrc32(List<int> array, [int crc = 0]) {
   int len = array.length;
@@ -70,4 +70,33 @@ int getCrc32(List<int> array, [int crc = 0]) {
     crc = _CRC32_TABLE[(crc ^ array[ip++]) & 0xff] ^ (crc >> 8);
   } while (--len > 0);
   return crc ^ 0xffffffff;
+}
+
+/**
+ * A class to compute Crc-32 checksums.
+ */
+class Crc32 extends crypto.Hash {
+  int _hash = 0;
+
+  /**
+   * Get the value of the hash directly. This returns the same value as [close].
+   */
+  int get hash => _hash;
+
+  int get blockSize => 4;
+
+  Crc32();
+
+  Crc32 newInstance() => new Crc32();
+
+  void add(List<int> data) {
+    _hash = getCrc32(data, _hash);
+  }
+
+  List<int> close() {
+    return [((_hash >> 24) & 0xFF),
+            ((_hash >> 16) & 0xFF),
+            ((_hash >> 8) & 0xFF),
+            (_hash & 0xFF)];
+  }
 }
