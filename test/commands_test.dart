@@ -10,7 +10,7 @@ void defineCommandTests() {
 
     // TODO: test tar extract
 
-    // TODO test tar create
+    // TODO: test tar create
 
   });
 }
