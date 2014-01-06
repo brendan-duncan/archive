@@ -6,13 +6,14 @@ part of archive;
 class TarDecoder {
   List<TarFile> files = [];
 
-  /**
-   * [data] should be either a List<int> or InputBuffer.
-   */
-  Archive decode(data, {bool verify: true}) {
+  Archive decodeBytes(List<int> data, {bool verify: true}) {
+    return decodeBuffer(new InputBuffer(data), verify: verify);
+  }
+
+  Archive decodeBuffer(InputBuffer input, {bool verify: true}) {
     Archive archive = new Archive();
     files.clear();
-    InputBuffer input = data is InputBuffer ? data : new InputBuffer(data);
+
     while (!input.isEOF) {
       // End of archive when two consecutive 0's are found.
       if (input.buffer[input.position] == 0 &&

@@ -200,7 +200,7 @@ void defineZipTests() {
       var file = new Io.File('res/test.zip');
       var bytes = file.readAsBytesSync();
 
-      Archive archive = zipDecoder.decode(bytes, verify: true);
+      Archive archive = zipDecoder.decodeBytes(bytes);
       expect(archive.numberOfFiles(), equals(2));
 
       var b = new Io.File('res/cat.jpg');
@@ -226,7 +226,7 @@ void defineZipTests() {
       f.writeAsBytesSync(zipped);
 
       // Decode the archive we just encoded
-      Archive archive2 = zipDecoder.decode(zipped);
+      Archive archive2 = zipDecoder.decodeBytes(zipped);
 
       expect(archive2.numberOfFiles(), equals(archive.numberOfFiles()));
       for (int i = 0; i < archive2.numberOfFiles(); ++i) {
@@ -240,7 +240,7 @@ void defineZipTests() {
         var file = new Io.File(z['Name']);
         var bytes = file.readAsBytesSync();
 
-        Archive archive = zipDecoder.decode(bytes);
+        Archive archive = zipDecoder.decodeBytes(bytes);
         List<ZipFileHeader> zipFiles = zipDecoder.directory.fileHeaders;
 
         if (z.containsKey('Comment')) {

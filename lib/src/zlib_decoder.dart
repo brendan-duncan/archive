@@ -6,13 +6,12 @@ part of archive;
 class ZLibDecoder {
   static const int DEFLATE = 8;
 
-  /**
-   * [data] should be either a List<int> or InputBuffer.
-   */
-  List<int> decode(data, {bool verify: true}) {
-    InputBuffer input = data is InputBuffer ? data :
-                        new InputBuffer(data, byteOrder: BIG_ENDIAN);
+  List<int> decodeBytes(List<int> data, {bool verify: true}) {
+    return decodeBuffer(
+        new InputBuffer(data, byteOrder: BIG_ENDIAN), verify: verify);
+  }
 
+  List<int> decodeBuffer(InputBuffer input, {bool verify: true}) {
     /*
      * The zlib format has the following structure:
      * CMF  1 byte
