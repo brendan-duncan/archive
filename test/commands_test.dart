@@ -8,9 +8,29 @@ void defineCommandTests() {
       tar_command.listFiles('res/test.tar.gz');
     });
 
-    // TODO: test tar extract
+    test('tar extract', () {
+      Io.Directory dir = Io.Directory.systemTemp.createTempSync('foo');
 
-    // TODO: test tar create
+      try {
+        tar_command.extractFiles('res/test.tar.gz', dir.path);
+        expect(dir.listSync().length, 9);
+      } finally {
+        dir.deleteSync(recursive: true);
+      }
+    });
 
+    test('tar create', () {
+      Io.Directory dir = Io.Directory.systemTemp.createTempSync('foo');
+      Io.File file = new Io.File('${dir.path}${Io.Platform.pathSeparator}foo.txt');
+      file.writeAsStringSync('foo bar');
+
+      try {
+        // Test that 'tar --create' does not throw.
+        Io.File tarFile = tar_command.createTarFile(dir.path);
+        expect(tarFile.lengthSync(), greaterThan(100));
+      } finally {
+        dir.deleteSync(recursive: true);
+      }
+    });
   });
 }

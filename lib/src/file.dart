@@ -8,8 +8,8 @@ class File {
   /// The uncompressed size of the file
   int fileSize;
   int mode;
-  int ownerId;
-  int groupId;
+  int ownerId = 0;
+  int groupId = 0;
   int lastModTime;
   /// The crc32 checksum of the uncompressed content.
   int crc32;
