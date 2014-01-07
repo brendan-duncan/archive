@@ -61,7 +61,7 @@ void listFiles(String path) {
 /**
  * Extract the entries in the given tar file to a directory.
  */
-void extractFiles(String inputPath, String outputPath) {
+io.Directory extractFiles(String inputPath, String outputPath) {
   io.File inputFile = new io.File(inputPath);
   if (!inputFile.existsSync()) fail('${inputPath} does not exist');
 
@@ -87,9 +87,11 @@ void extractFiles(String inputPath, String outputPath) {
     f.writeAsBytesSync(file.content);
     print('  extracted ${file.filename}');
   };
+
+  return outDir;
 }
 
-void createTarFile(String dirPath) {
+io.File createTarFile(String dirPath) {
   io.Directory dir = new io.Directory(dirPath);
   if (!dir.existsSync()) fail('${dirPath} does not exist');
 
@@ -109,6 +111,7 @@ void createTarFile(String dirPath) {
       }
       File file = new File(name, entity.lengthSync(), entity.readAsBytesSync());
       file.lastModTime = entity.lastModifiedSync().millisecondsSinceEpoch;
+      file.mode = entity.statSync().mode;
       print('  added ${name}');
       archive.addFile(file);
     }
@@ -117,6 +120,8 @@ void createTarFile(String dirPath) {
   List<int> data = new TarEncoder().encode(archive);
   // TODO: deflate and write as .tar.gz
   outFile.writeAsBytesSync(data);
+
+  return outFile;
 }
 
 void fail(String message) {
