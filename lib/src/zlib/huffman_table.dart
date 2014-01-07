@@ -1,5 +1,8 @@
 part of archive;
 
+/**
+ * Build huffman table from length list.
+ */
 class HuffmanTable {
   Data.Uint32List table;
   int maxCodeLength = 0;

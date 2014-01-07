@@ -40,7 +40,7 @@ class Deflate {
      * compression to 6.
      */
     if (_level == null || _level == DEFAULT_COMPRESSION) {
-      _level = 3;
+      _level = 6;
     }
 
     if (_level < 0 || _level > BEST_COMPRESSION) {
@@ -154,6 +154,7 @@ class Deflate {
 
     Data.Uint16List data = _lz77(input.buffer);
 
+    // Calculate the code length length literal, and Huffman code of distance
     Data.Uint8List litLenLengths = _getLengths(_freqLitLen, 15);
     Data.Uint16List litLenCodes = _getCodesFromLengths(litLenLengths);
     Data.Uint8List distLengths = _getLengths(_freqDist, 7);
@@ -180,7 +181,7 @@ class Deflate {
     int hclen;
     for (hclen = 19; hclen > 4 && transLengths[hclen - 1] == 0; hclen--) {}
 
-    var treeCodes = _getCodesFromLengths(treeLengths);
+    Data.Uint16List treeCodes = _getCodesFromLengths(treeLengths);
 
     stream.writeBits(hlit - 257, 5, reverse: true);
     stream.writeBits(hdist - 1, 5, reverse: true);
@@ -189,6 +190,7 @@ class Deflate {
       stream.writeBits(transLengths[i], 3, reverse: true);
     }
 
+    // Output the tree
     for (int i = 0, il = treeSymbols[0].length; i < il; i++) {
       int code = treeSymbols[0][i];
 
@@ -350,7 +352,7 @@ class Deflate {
   Data.Uint16List _getCodesFromLengths(Data.Uint8List lengths) {
     Data.Uint16List codes = new Data.Uint16List(lengths.length);
     Map<int, int> count = {};
-    Map<int, int> startCode = {};
+    Map<int, int> startCode = {0: 0};
 
     for (int i = 0; i <= _MAX_CODE_LENGTH; ++i) {
       count[i] = 0;
@@ -358,7 +360,7 @@ class Deflate {
 
     // Count the codes of each length.
     for (int i = 0, il = lengths.length; i < il; i++) {
-      int c = count[lengths[i]] == null ? 0 : count[lengths[i]];
+      int c = count.containsKey(lengths[i]) ? count[lengths[i]] : 0;
       count[lengths[i]] = c + 1;
     }
 
@@ -366,16 +368,13 @@ class Deflate {
     int code = 0;
     for (int i = 1; i <= _MAX_CODE_LENGTH; i++) {
       startCode[i] = code;
-      int c = count[i] == null ? 0 : count[i];
+      int c = count.containsKey(i) ? count[i] : 0;
       code += c;
       code <<= 1;
     }
 
     // Determine the code for each symbol. Mirrored, of course.
     for (int i = 0, il = lengths.length; i < il; i++) {
-      if (!startCode.containsKey(lengths[i])) {
-        startCode[lengths[i]] = 0;
-      }
       code = startCode[lengths[i]];
       startCode[lengths[i]] += 1;
       codes[i] = 0;
@@ -742,13 +741,12 @@ class _DeflateConfig {
 
 
 class _Heap {
-  Data.Uint16List buffer;
+  final Data.Uint16List buffer;
   int length;
 
-  _Heap(int length) {
-    buffer = new Data.Uint16List(length * 2);
+  _Heap(int length) :
+    buffer = new Data.Uint16List(length * 2),
     this.length = 0;
-  }
 
   int getParent(int index) {
     return ((index - 2) ~/ 4) * 2;
@@ -996,6 +994,7 @@ class _BitStream {
         }
       }
     }
+
     buffer[index] = current;
   }
 

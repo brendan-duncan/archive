@@ -4,7 +4,7 @@ part of archive;
  * Encode an [Archive] object into a Zip formatted buffer.
  */
 class ZipEncoder {
-  List<int> encode(Archive archive, {int level}) {
+  List<int> encode(Archive archive, {int level: Deflate.BEST_SPEED}) {
     DateTime date = new DateTime.now();
     int t1 = ((date.minute & 0x7) << 5) | (date.second ~/ 2);
     int t2 = (date.hour << 3) | (date.minute >> 3);
