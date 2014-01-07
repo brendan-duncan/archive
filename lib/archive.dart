@@ -15,6 +15,7 @@ part 'src/zip/zip_file.dart';
 part 'src/zlib/adler32.dart';
 part 'src/zlib/crc32.dart';
 part 'src/zlib/deflate.dart';
+part 'src/zlib/deflater.dart';
 part 'src/zlib/huffman_table.dart';
 part 'src/zlib/inflate.dart';
 part 'src/archive.dart';

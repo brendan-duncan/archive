@@ -39,12 +39,15 @@ class OutputBuffer {
   /**
    * Write a set of bytes to the end of the buffer.
    */
-  void writeBytes(List<int> bytes) {
-    while (length + bytes.length > _buffer.length) {
+  void writeBytes(List<int> bytes, [int len]) {
+    if (len == null) {
+      len = bytes.length;
+    }
+    while (length + len > _buffer.length) {
       _expandBuffer();
     }
-    _buffer.setRange(length, length + bytes.length, bytes);
-    length += bytes.length;
+    _buffer.setRange(length, length + len, bytes);
+    length += len;
   }
 
   /**

@@ -7,20 +7,10 @@ void defineDeflateTests() {
       buffer[i] = i % 256;
     }
 
-    test('uncompressed', () {
-      List<int> deflated = new Deflate(buffer,
-          level: Deflate.NO_COMPRESSION).getBytes();
-      List<int> inflated = new Inflate(deflated).getBytes();
-
-      expect(inflated.length, equals(buffer.length));
-      for (int i = 0; i < buffer.length; ++i) {
-        expect(inflated[i], equals(buffer[i]));
-      }
-    });
-
-    test('fixed_huffman', () {
+    test('NO_COMPRESSION', () {
       List<int> deflated = new Deflate(buffer,
           level: Deflate.BEST_SPEED).getBytes();
+
       List<int> inflated = new Inflate(deflated).getBytes();
 
       expect(inflated.length, equals(buffer.length));
@@ -29,9 +19,22 @@ void defineDeflateTests() {
       }
     });
 
-    test('dynamic_huffman', () {
+    test('BEST_SPEED', () {
+      List<int> deflated = new Deflate(buffer,
+          level: Deflate.BEST_SPEED).getBytes();
+
+      List<int> inflated = new Inflate(deflated).getBytes();
+
+      expect(inflated.length, equals(buffer.length));
+      for (int i = 0; i < buffer.length; ++i) {
+        expect(inflated[i], equals(buffer[i]));
+      }
+    });
+
+    test('BEST_COMPRESSION', () {
       List<int> deflated = new Deflate(buffer,
           level: Deflate.BEST_COMPRESSION).getBytes();
+
       List<int> inflated = new Inflate(deflated).getBytes();
 
       expect(inflated.length, equals(buffer.length));
@@ -39,5 +42,17 @@ void defineDeflateTests() {
         expect(inflated[i], equals(buffer[i]));
       }
     });
+
+    /*test('deflater', () {
+      List<int> deflated = new Deflater(buffer,
+          level: Deflate.BEST_COMPRESSION).getBytes();
+
+      List<int> inflated = new Inflate(deflated).getBytes();
+
+      expect(inflated.length, equals(buffer.length));
+      for (int i = 0; i < buffer.length; ++i) {
+        expect(inflated[i], equals(buffer[i]));
+      }
+    });*/
   });
 }
