@@ -2,7 +2,7 @@ part of archive_test;
 
 void defineDeflateTests() {
   group('deflate', () {
-    List<int> buffer = new List<int>(10000);
+    List<int> buffer = new List<int>(0xfffff);
     for (int i = 0; i < buffer.length; ++i) {
       buffer[i] = i % 256;
     }
@@ -42,17 +42,5 @@ void defineDeflateTests() {
         expect(inflated[i], equals(buffer[i]));
       }
     });
-
-    /*test('deflater', () {
-      List<int> deflated = new Deflater(buffer,
-          level: Deflate.BEST_COMPRESSION).getBytes();
-
-      List<int> inflated = new Inflate(deflated).getBytes();
-
-      expect(inflated.length, equals(buffer.length));
-      for (int i = 0; i < buffer.length; ++i) {
-        expect(inflated[i], equals(buffer[i]));
-      }
-    });*/
   });
 }
