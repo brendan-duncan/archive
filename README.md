@@ -30,13 +30,13 @@ Extract the contents of a Zip file, and encode the contents into a Tar file:
     void main() {
       // Read the Zip file from disk.
       Io.File file = new Io.File('test.zip');
-      var bytes = file.readAsBytesSync();
+      List<int> bytes = file.readAsBytesSync();
       if (bytes == null) {
         return;
       }
       
       // Decode the Zip file
-      Archive archive = new ZipDecoder().decode(bytes);
+      Archive archive = new ZipDecoder().decodeBytes(bytes);
       
       // Extract the contents of the Zip archive to disk.
       for (int i = 0; i < archive.numberOfFiles(); ++i) {
