@@ -1,6 +1,6 @@
 # archive
 
-[![Build Status](https://drone.io/bitbucket.org/brendan_duncan/archive/status.png)](https://drone.io/bitbucket.org/brendan_duncan/archive/latest)
+[![Build Status](https://drone.io/github.com/brendan-duncan/archive/status.png)](https://drone.io/github.com/brendan-duncan/archive/latest)
 
 ##Overview
 
