@@ -109,6 +109,19 @@ class InputBuffer {
   }
 
   /**
+   * Read a 24-bit word from the buffer.
+   */
+  int readUint24() {
+    int b1 = buffer[position++] & 0xff;
+    int b2 = buffer[position++] & 0xff;
+    int b3 = buffer[position++] & 0xff;
+    if (byteOrder == BIG_ENDIAN) {
+      return b3 | (b2 << 8) | (b1 << 16);
+    }
+    return b1 | (b2 << 8) | (b3 << 16);
+  }
+
+  /**
    * Read a 32-bit word from the buffer.
    */
   int readUint32() {
