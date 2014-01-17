@@ -1,7 +1,7 @@
 part of archive;
 
 class InputBuffer {
-  List<int> buffer;
+  final List<int> buffer;
   int position = 0;
   final int byteOrder;
 
@@ -17,6 +17,11 @@ class InputBuffer {
   int get length => buffer.length;
 
   /**
+   * How many bytes are left in the buffer from the current position?
+   */
+  int get remainder => length - position;
+
+  /**
    * Is the current position at the end of the buffer?
    */
   bool get isEOF => position >= buffer.length;
@@ -24,7 +29,7 @@ class InputBuffer {
   /**
    * Return a InputBuffer to read a subset of this buffer.
    * If [position] is not specified, the current read position is
-   * used.  If [length] is not specified, the remainder of this buffer is used.
+   * used. If [length] is not specified, the remainder of this buffer is used.
    */
   InputBuffer subset([int position, int length]) {
     if (position == null || position < 0) {
@@ -41,6 +46,16 @@ class InputBuffer {
 
     return new InputBuffer(buffer.sublist(position, end),
                            byteOrder: byteOrder);
+  }
+
+  /**
+   * Read [count] bytes from an [offset] of the current read position, without
+   * moving the read position.
+   */
+  List<int> peekBytes(int count, [int offset = 0]) {
+    List<int> bytes = buffer.sublist(position + offset,
+                                     position + offset + count);
+    return bytes;
   }
 
   /**
