@@ -183,7 +183,7 @@ class InputBuffer {
     }
 
     // not enough buffer
-    while (_bitBufferLen < numBits) {
+    if (_bitBufferLen < numBits) {
       if (isEOF) {
         throw new ArchiveException('Unexpected end of input buffer.');
       }
