@@ -69,6 +69,7 @@ class InputBuffer {
    * Read a single byte.
    */
   int readByte() {
+    _bitBufferLen = 0;
     return buffer[position++];
   }
 
@@ -76,6 +77,7 @@ class InputBuffer {
    * Read [count] bytes from the buffer.
    */
   List<int> readBytes(int count) {
+    _bitBufferLen = 0;
     List<int> bytes = buffer.sublist(position, position + count);
     position += bytes.length;
     return bytes;
@@ -100,6 +102,7 @@ class InputBuffer {
    * Read a 16-bit word from the buffer.
    */
   int readUint16() {
+    _bitBufferLen = 0;
     int b1 = buffer[position++] & 0xff;
     int b2 = buffer[position++] & 0xff;
     if (byteOrder == BIG_ENDIAN) {
@@ -112,6 +115,7 @@ class InputBuffer {
    * Read a 24-bit word from the buffer.
    */
   int readUint24() {
+    _bitBufferLen = 0;
     int b1 = buffer[position++] & 0xff;
     int b2 = buffer[position++] & 0xff;
     int b3 = buffer[position++] & 0xff;
@@ -125,6 +129,7 @@ class InputBuffer {
    * Read a 32-bit word from the buffer.
    */
   int readUint32() {
+    _bitBufferLen = 0;
     int b1 = buffer[position++] & 0xff;
     int b2 = buffer[position++] & 0xff;
     int b3 = buffer[position++] & 0xff;
@@ -139,6 +144,7 @@ class InputBuffer {
    * Read a 64-bit word form the buffer.
    */
   int readUint64() {
+    _bitBufferLen = 0;
     int b1 = buffer[position++] & 0xff;
     int b2 = buffer[position++] & 0xff;
     int b3 = buffer[position++] & 0xff;
@@ -154,4 +160,62 @@ class InputBuffer {
     return (b8 << 56) | (b7 << 48) | (b6 << 40) | (b5 << 32) |
            (b4 << 24) | (b3 << 16) | (b2 << 8) | b1;
   }
+
+  void resetBits() {
+    _bitBuffer = 0;
+    _bitBufferLen = 0;
+  }
+
+  /**
+   * Read a number of bits from the input stream.
+   */
+  int readBits(int numBits) {
+    if (numBits == 0) {
+      return 0;
+    }
+
+    if (numBits == 8) {
+      return readByte();
+    }
+
+    if (numBits == 16) {
+      return readUint16();
+    }
+
+    // not enough buffer
+    while (_bitBufferLen < numBits) {
+      if (isEOF) {
+        throw new ArchiveException('Unexpected end of input buffer.');
+      }
+
+      // input byte
+      int octet = buffer[position++];
+
+      // concat octet
+      _bitBuffer = octet << _bitBufferLen;
+      _bitBufferLen += 8;
+    }
+
+    if (byteOrder == BIG_ENDIAN) {
+      int octet = _bitBuffer & ((1 << length) - 1);
+      _bitBuffer >>= length;
+      _bitBufferLen -= length;
+
+      return octet;
+    }
+
+    int mask = (numBits == 1) ? 1 :
+               (numBits == 2) ? 3 :
+               (numBits == 4) ? 0xf :
+               (numBits == 8) ? 0xff :
+               (numBits == 16) ? 0xffff : 0;
+
+    int octet = (_bitBuffer >> (_bitBufferLen - numBits)) & mask;
+
+    _bitBufferLen -= numBits;
+    return octet;
+  }
+
+  int _bitBuffer = 0;
+  int _bitBufferLen = 0;
 }
