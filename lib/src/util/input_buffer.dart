@@ -86,16 +86,20 @@ class InputBuffer {
   /**
    * Read a null-terminated string.
    */
-  String readString() {
-    List<int> codes = [];
-    while (!isEOF) {
-      int c = readByte();
-      if (c == 0) {
-        return new String.fromCharCodes(codes);
+  String readString([int len]) {
+    if (len == null) {
+      List<int> codes = [];
+      while (!isEOF) {
+        int c = readByte();
+        if (c == 0) {
+          return new String.fromCharCodes(codes);
+        }
+        codes.add(c);
       }
-      codes.add(c);
+      throw new Exception('EOF reached without finding string terminator');
     }
-    throw new Exception('EOF reached without finding string terminator');
+
+    return new String.fromCharCodes(readBytes(len));
   }
 
   /**
