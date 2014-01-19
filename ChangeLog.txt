@@ -1,0 +1,7 @@
+v 1.0.10 - January 19
+
+- Renamed InputBuffer and OutputBuffer to InputStream and OutputStream,
+  respectively.
+
+- Added readBits method to InputStream.
+

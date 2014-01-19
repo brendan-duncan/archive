@@ -7,14 +7,14 @@ class TarDecoder {
   List<TarFile> files = [];
 
   Archive decodeBytes(List<int> data, {bool verify: true}) {
-    return decodeBuffer(new InputBuffer(data), verify: verify);
+    return decodeBuffer(new InputStream(data), verify: verify);
   }
 
-  Archive decodeBuffer(InputBuffer input, {bool verify: true}) {
+  Archive decodeBuffer(InputStream input, {bool verify: true}) {
     Archive archive = new Archive();
     files.clear();
 
-    while (!input.isEOF) {
+    while (!input.isEOS) {
       // End of archive when two consecutive 0's are found.
       if (input.buffer[input.position] == 0 &&
           input.buffer[input.position + 1] == 0) {

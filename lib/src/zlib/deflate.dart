@@ -17,7 +17,7 @@ class Deflate {
 
   Deflate(List<int> bytes, {int level: DEFAULT_COMPRESSION,
            int flush: FINISH}) :
-    _input = new InputBuffer(bytes) {
+    _input = new InputStream(bytes) {
     _init(level);
     _deflate(flush);
   }
@@ -40,14 +40,14 @@ class Deflate {
    * Add more data to be deflated.
    */
   void addBytes(List<int> bytes, {int flush: FINISH}) {
-    _input = new InputBuffer(bytes);
+    _input = new InputStream(bytes);
     _deflate(flush);
   }
 
   /**
    * Add more data to be deflated.
    */
-  void addBuffer(InputBuffer buffer, {int flush: FINISH}) {
+  void addBuffer(InputStream buffer, {int flush: FINISH}) {
     _input = buffer;
     _deflate(flush);
   }
@@ -140,7 +140,7 @@ class Deflate {
     }
 
     // Start a new block or continue the current one.
-    if (!_input.isEOF || _lookAhead != 0 ||
+    if (!_input.isEOS || _lookAhead != 0 ||
         (flush != NO_FLUSH && _status != FINISH_STATE)) {
       int bstate = -1;
       switch (_config.function) {
@@ -854,7 +854,7 @@ class Deflate {
         more += _windowSize;
       }
 
-      if (_input.isEOF) {
+      if (_input.isEOS) {
         return;
       }
 
@@ -881,7 +881,7 @@ class Deflate {
 
       // If the whole input has less than MIN_MATCH bytes, ins_h is garbage,
       // but this is not important since only literal bytes will be emitted.
-    } while (_lookAhead < MIN_LOOKAHEAD && !_input.isEOF);
+    } while (_lookAhead < MIN_LOOKAHEAD && !_input.isEOS);
   }
 
   /**
@@ -1340,8 +1340,8 @@ class Deflate {
 
   static const int END_BLOCK = 256;
 
-  InputBuffer _input;
-  OutputBuffer _output = new OutputBuffer();
+  InputStream _input;
+  OutputStream _output = new OutputStream();
 
   int _status;
   /// output still pending

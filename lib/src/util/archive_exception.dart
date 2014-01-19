@@ -1,9 +1,13 @@
 part of archive;
 
-class ArchiveException {
-  String reason;
+/**
+ * An exception thrown when there was a problem in the archive library.
+ */
+class ArchiveException implements Exception {
+  /// A message describing the error.
+  final String message;
 
-  ArchiveException(this.reason);
+  ArchiveException(this.message);
 
-  String toString() => reason;
+  String toString() => "ArchiveException: $message";
 }

@@ -5,7 +5,7 @@ part of archive;
  */
 class TarEncoder {
   List<int> encode(Archive archive) {
-    OutputBuffer output = new OutputBuffer();
+    OutputStream output = new OutputStream();
 
     for (File file in archive.files) {
       TarFile ts = new TarFile();

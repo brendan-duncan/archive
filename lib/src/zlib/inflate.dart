@@ -1,18 +1,18 @@
 part of archive;
 
 class Inflate {
-  final InputBuffer input;
-  final OutputBuffer output;
+  final InputStream input;
+  final OutputStream output;
 
   Inflate(List<int> bytes, [int uncompressedSize]) :
-    input = new InputBuffer(bytes),
-    output = new OutputBuffer(size: uncompressedSize) {
+    input = new InputStream(bytes),
+    output = new OutputStream(size: uncompressedSize) {
     _inflate();
   }
 
-  Inflate.buffer(InputBuffer buffer, [int uncompressedSize]) :
+  Inflate.buffer(InputStream buffer, [int uncompressedSize]) :
     input = buffer,
-    output = new OutputBuffer(size: uncompressedSize) {
+    output = new OutputStream(size: uncompressedSize) {
     _inflate();
   }
 
@@ -37,7 +37,7 @@ class Inflate {
    * if we're done.
    */
   bool _parseBlock() {
-    if (input.isEOF) {
+    if (input.isEOS) {
       return false;
     }
 
@@ -78,7 +78,7 @@ class Inflate {
 
     // not enough buffer
     while (_bitBufferLen < length) {
-      if (input.isEOF) {
+      if (input.isEOS) {
         throw new ArchiveException('input buffer is broken');
       }
 
@@ -107,7 +107,7 @@ class Inflate {
 
     // Not enough buffer
     while (_bitBufferLen < maxCodeLength) {
-      if (input.isEOF) {
+      if (input.isEOS) {
         break;
       }
 

@@ -27,7 +27,7 @@ class GZipEncoder {
   static const int OS_UNKNOWN = 25;
 
   List<int> encode(List<int> data, {int level}) {
-    OutputBuffer output = new OutputBuffer();
+    OutputStream output = new OutputStream();
 
     // The GZip format has the following structure:
     // Offset   Length   Contents

@@ -49,9 +49,9 @@ class TarFile {
   String filenamePrefix = ''; // 155 bytes
   List<int> content;
 
-  TarFile([InputBuffer input]) {
+  TarFile([InputStream input]) {
     if (input != null) {
-      InputBuffer header = new InputBuffer(input.readBytes(512));
+      InputStream header = new InputStream(input.readBytes(512));
 
       // The name, linkname, magic, uname, and gname are null-terminated
       // character strings. All other fields are zero-filled octal numbers in
@@ -93,13 +93,13 @@ class TarFile {
 
   String toString() => '[${filename}, ${mode}, ${fileSize}]';
 
-  void write(OutputBuffer output) {
+  void write(OutputStream output) {
     fileSize = content.length;
 
     // The name, linkname, magic, uname, and gname are null-terminated
     // character strings. All other fields are zero-filled octal numbers in
     // ASCII. Each numeric field of width w contains w minus 1 digits, and a null.
-    OutputBuffer header = new OutputBuffer();
+    OutputStream header = new OutputStream();
     _writeString(header, filename, 100);
     _writeInt(header, mode, 8);
     _writeInt(header, ownerId, 8);
@@ -152,7 +152,7 @@ class TarFile {
     }
   }
 
-  int _parseInt(InputBuffer input, int numBytes) {
+  int _parseInt(InputStream input, int numBytes) {
     String s = _parseString(input, numBytes);
     if (s.isEmpty) {
       return 0;
@@ -161,21 +161,21 @@ class TarFile {
     return x;
   }
 
-  String _parseString(InputBuffer input, int numBytes) {
+  String _parseString(InputStream input, int numBytes) {
     List<int> codes = input.readBytes(numBytes);
     int r = codes.indexOf(0);
     List<int> s = codes.sublist(0, r < 0 ? null : r);
     return new String.fromCharCodes(s).trim();
   }
 
-  void _writeString(OutputBuffer output, String value, int numBytes) {
+  void _writeString(OutputStream output, String value, int numBytes) {
     List<int> codes = new List<int>.filled(numBytes, 0);
     int end = numBytes < value.length ? numBytes : value.length;
     codes.setRange(0, end, value.codeUnits);
     output.writeBytes(codes);
   }
 
-  void _writeInt(OutputBuffer output, int value, int numBytes) {
+  void _writeInt(OutputStream output, int value, int numBytes) {
     String s = value.toRadixString(8);
     while (s.length < numBytes - 1) {
       s = '0' + s;

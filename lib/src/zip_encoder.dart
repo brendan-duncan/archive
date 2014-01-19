@@ -62,7 +62,7 @@ class ZipEncoder {
     int outputSize = localFileSize + centralDirectorySize +
                      endOfCentralDirectorySize;
 
-    OutputBuffer output = new OutputBuffer(size: outputSize);
+    OutputStream output = new OutputStream(size: outputSize);
 
     // Write Local File Headers
     for (File file in archive.files) {
@@ -76,7 +76,7 @@ class ZipEncoder {
     return output.getBytes();
   }
 
-  void _writeFile(File file, Map fileData, OutputBuffer output) {
+  void _writeFile(File file, Map fileData, OutputStream output) {
     // Local file header
     // Offset  Bytes Description[25]
     // 0   4 Local file header signature = 0x04034b50
@@ -125,7 +125,7 @@ class ZipEncoder {
   }
 
   void _writeCentralDirectory(Archive archive, Map fileData,
-                              OutputBuffer output) {
+                              OutputStream output) {
     int centralDirPosition = output.length;
 
     int version = VERSION;

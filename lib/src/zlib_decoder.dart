@@ -8,10 +8,10 @@ class ZLibDecoder {
 
   List<int> decodeBytes(List<int> data, {bool verify: true}) {
     return decodeBuffer(
-        new InputBuffer(data, byteOrder: BIG_ENDIAN), verify: verify);
+        new InputStream(data, byteOrder: BIG_ENDIAN), verify: verify);
   }
 
-  List<int> decodeBuffer(InputBuffer input, {bool verify: true}) {
+  List<int> decodeBuffer(InputStream input, {bool verify: true}) {
     /*
      * The zlib format has the following structure:
      * CMF  1 byte

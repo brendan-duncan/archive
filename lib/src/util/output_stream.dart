@@ -1,13 +1,13 @@
 part of archive;
 
-class OutputBuffer {
+class OutputStream {
   int length;
   final int byteOrder;
 
   /**
    * Create a byte buffer for writing.
    */
-  OutputBuffer({int size: _BLOCK_SIZE, this.byteOrder: LITTLE_ENDIAN}) :
+  OutputStream({int size: _BLOCK_SIZE, this.byteOrder: LITTLE_ENDIAN}) :
     _buffer = new Data.Uint8List(size == null ? _BLOCK_SIZE : size),
     length = 0;
 

@@ -12,7 +12,8 @@ part 'commands_test.dart';
 part 'crc32_test.dart';
 part 'deflate_test.dart';
 part 'gzip_test.dart';
-part 'output_buffer_test.dart';
+part 'input_stream_test.dart';
+part 'output_stream_test.dart';
 part 'tar_test.dart';
 part 'zip_test.dart';
 part 'zlib_test.dart';
@@ -40,7 +41,9 @@ format.
 """;
 
 void main() {
-  defineOutputBufferTests();
+  defineInputStreamTests();
+
+  defineOutputStreamTests();
 
   defineAdlerTests();
 

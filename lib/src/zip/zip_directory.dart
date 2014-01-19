@@ -19,7 +19,7 @@ class ZipDirectory {
   // Central Directory
   List<ZipFileHeader> fileHeaders = [];
 
-  ZipDirectory([InputBuffer input]) {
+  ZipDirectory([InputStream input]) {
     if (input != null) {
       filePosition = _findSignature(input);
       input.position = filePosition;
@@ -38,10 +38,10 @@ class ZipDirectory {
 
       _readZip64Data(input);
 
-      InputBuffer dirContent = input.subset(centralDirectoryOffset,
+      InputStream dirContent = input.subset(centralDirectoryOffset,
                                             centralDirectorySize);
 
-      while (!dirContent.isEOF) {
+      while (!dirContent.isEOS) {
         int fileSig = dirContent.readUint32();
         if (fileSig != ZipFileHeader.SIGNATURE) {
           break;
@@ -51,7 +51,7 @@ class ZipDirectory {
     }
   }
 
-  void _readZip64Data(InputBuffer input) {
+  void _readZip64Data(InputStream input) {
     int ip = input.position;
     // Check for zip64 data.
 
@@ -65,7 +65,7 @@ class ZipDirectory {
     // total number of disks           4 bytes
 
     int locPos = filePosition - ZIP64_EOCD_LOCATOR_SIZE;
-    InputBuffer zip64 = input.subset(locPos, ZIP64_EOCD_LOCATOR_SIZE);
+    InputStream zip64 = input.subset(locPos, ZIP64_EOCD_LOCATOR_SIZE);
 
     int sig = zip64.readUint32();
     // If this ins't the signature we're looking for, nothing more to do.
@@ -124,7 +124,7 @@ class ZipDirectory {
     input.position = ip;
   }
 
-  int _findSignature(InputBuffer input) {
+  int _findSignature(InputStream input) {
     int pos = input.position;
     int length = input.length;
 

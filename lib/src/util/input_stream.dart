@@ -1,37 +1,47 @@
 part of archive;
 
-class InputBuffer {
+class InputStream {
   final List<int> buffer;
   int position = 0;
   final int byteOrder;
 
   /**
-   * Create a InputBuffer for reading from a List<int>
+   * Create a InputStream for reading from a List<int>
    */
-  InputBuffer(this.buffer, {this.byteOrder: LITTLE_ENDIAN}) :
+  InputStream(this.buffer, {this.byteOrder: LITTLE_ENDIAN}) :
     position = 0;
 
   /**
-   * How many bytes in the buffer.
+   * How many total bytes in the stream.
    */
   int get length => buffer.length;
 
   /**
-   * How many bytes are left in the buffer from the current position?
+   * How many bytes are left in the stream from the current position?
    */
   int get remainder => length - position;
 
   /**
-   * Is the current position at the end of the buffer?
+   * Is the current position at the end of the stream?
    */
-  bool get isEOF => position >= buffer.length;
+  bool get isEOS => position >= buffer.length;
 
   /**
-   * Return a InputBuffer to read a subset of this buffer.
-   * If [position] is not specified, the current read position is
-   * used. If [length] is not specified, the remainder of this buffer is used.
+   * Reset to the beginning of the stream.
    */
-  InputBuffer subset([int position, int length]) {
+  void reset() {
+    position = 0;
+    bitBuffer = 0;
+    bitBufferLen = 0;
+  }
+
+  /**
+   * Return a InputStream to read a subset of this stream.  It does not
+   * move the read position of this stream.
+   * If [position] is not specified, the current read position is
+   * used. If [length] is not specified, the remainder of this stream is used.
+   */
+  InputStream subset([int position, int length]) {
     if (position == null || position < 0) {
       position = this.position;
     }
@@ -44,7 +54,7 @@ class InputBuffer {
       end = buffer.length;
     }
 
-    return new InputBuffer(buffer.sublist(position, end),
+    return new InputStream(buffer.sublist(position, end),
                            byteOrder: byteOrder);
   }
 
@@ -69,27 +79,28 @@ class InputBuffer {
    * Read a single byte.
    */
   int readByte() {
-    _bitBufferLen = 0;
+    bitBufferLen = 0;
     return buffer[position++];
   }
 
   /**
-   * Read [count] bytes from the buffer.
+   * Read [count] bytes from the stream.
    */
   List<int> readBytes(int count) {
-    _bitBufferLen = 0;
+    bitBufferLen = 0;
     List<int> bytes = buffer.sublist(position, position + count);
     position += bytes.length;
     return bytes;
   }
 
   /**
-   * Read a null-terminated string.
+   * Read a null-terminated string, or if [len] is provided, that number of
+   * bytes returned as a string.
    */
   String readString([int len]) {
     if (len == null) {
       List<int> codes = [];
-      while (!isEOF) {
+      while (!isEOS) {
         int c = readByte();
         if (c == 0) {
           return new String.fromCharCodes(codes);
@@ -103,10 +114,10 @@ class InputBuffer {
   }
 
   /**
-   * Read a 16-bit word from the buffer.
+   * Read a 16-bit word from the stream.
    */
   int readUint16() {
-    _bitBufferLen = 0;
+    bitBufferLen = 0;
     int b1 = buffer[position++] & 0xff;
     int b2 = buffer[position++] & 0xff;
     if (byteOrder == BIG_ENDIAN) {
@@ -116,10 +127,10 @@ class InputBuffer {
   }
 
   /**
-   * Read a 24-bit word from the buffer.
+   * Read a 24-bit word from the stream.
    */
   int readUint24() {
-    _bitBufferLen = 0;
+    bitBufferLen = 0;
     int b1 = buffer[position++] & 0xff;
     int b2 = buffer[position++] & 0xff;
     int b3 = buffer[position++] & 0xff;
@@ -130,10 +141,10 @@ class InputBuffer {
   }
 
   /**
-   * Read a 32-bit word from the buffer.
+   * Read a 32-bit word from the stream.
    */
   int readUint32() {
-    _bitBufferLen = 0;
+    bitBufferLen = 0;
     int b1 = buffer[position++] & 0xff;
     int b2 = buffer[position++] & 0xff;
     int b3 = buffer[position++] & 0xff;
@@ -145,10 +156,10 @@ class InputBuffer {
   }
 
   /**
-   * Read a 64-bit word form the buffer.
+   * Read a 64-bit word form the stream.
    */
   int readUint64() {
-    _bitBufferLen = 0;
+    bitBufferLen = 0;
     int b1 = buffer[position++] & 0xff;
     int b2 = buffer[position++] & 0xff;
     int b3 = buffer[position++] & 0xff;
@@ -165,9 +176,12 @@ class InputBuffer {
            (b4 << 24) | (b3 << 16) | (b2 << 8) | b1;
   }
 
+  /**
+   * Reset the bit buffer.
+   */
   void resetBits() {
-    _bitBuffer = 0;
-    _bitBufferLen = 0;
+    bitBuffer = 0;
+    bitBufferLen = 0;
   }
 
   /**
@@ -178,48 +192,44 @@ class InputBuffer {
       return 0;
     }
 
-    if (numBits == 8) {
-      return readByte();
-    }
-
-    if (numBits == 16) {
-      return readUint16();
-    }
-
-    // not enough buffer
-    if (_bitBufferLen < numBits) {
-      if (isEOF) {
-        throw new ArchiveException('Unexpected end of input buffer.');
+    // Not enough bits left in the buffer.
+    bool first = true;
+    while (bitBufferLen < numBits) {
+      if (isEOS) {
+        throw new ArchiveException('Unexpected end of input stream.');
       }
 
-      // input byte
+      // read the next byte
       int octet = buffer[position++];
 
       // concat octet
-      _bitBuffer = octet << _bitBufferLen;
-      _bitBufferLen += 8;
+      if (byteOrder == BIG_ENDIAN) {
+        bitBuffer |= octet << bitBufferLen;
+      } else {
+        if (first) {
+          bitBuffer = (bitBuffer & ((1 << bitBufferLen) - 1));
+          first = false;
+        }
+        bitBuffer = (bitBuffer << 8) | octet;
+      }
+
+      bitBufferLen += 8;
     }
 
     if (byteOrder == BIG_ENDIAN) {
-      int octet = _bitBuffer & ((1 << length) - 1);
-      _bitBuffer >>= length;
-      _bitBufferLen -= length;
-
+      int octet = bitBuffer & ((1 << numBits) - 1);
+      bitBuffer >>= numBits;
+      bitBufferLen -= numBits;
       return octet;
     }
 
-    int mask = (numBits == 1) ? 1 :
-               (numBits == 2) ? 3 :
-               (numBits == 4) ? 0xf :
-               (numBits == 8) ? 0xff :
-               (numBits == 16) ? 0xffff : 0;
+    int mask = (1 << numBits) - 1;
+    int octet = (bitBuffer >> (bitBufferLen - numBits)) & mask;
+    bitBufferLen -= numBits;
 
-    int octet = (_bitBuffer >> (_bitBufferLen - numBits)) & mask;
-
-    _bitBufferLen -= numBits;
     return octet;
   }
 
-  int _bitBuffer = 0;
-  int _bitBufferLen = 0;
+  int bitBuffer = 0;
+  int bitBufferLen = 0;
 }

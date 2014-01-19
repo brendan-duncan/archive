@@ -1,15 +1,15 @@
 part of archive_test;
 
-void defineOutputBufferTests() {
-  group('OutputBuffer', () {
+void defineOutputStreamTests() {
+  group('OutputStream', () {
     test('empty', () {
-      OutputBuffer out = new OutputBuffer();
+      OutputStream out = new OutputStream();
       List<int> bytes = out.getBytes();
       expect(bytes.length, equals(0));
     });
 
     test('writeByte', () {
-      OutputBuffer out = new OutputBuffer();
+      OutputStream out = new OutputStream();
       for (int i = 0; i < 10000; ++i) {
         out.writeByte(i % 256);
       }
@@ -21,7 +21,7 @@ void defineOutputBufferTests() {
     });
 
     test('writeUint16', () {
-      OutputBuffer out = new OutputBuffer();
+      OutputStream out = new OutputStream();
 
       const int LEN = 0xffff;
       for (int i = 0; i < LEN; ++i) {
@@ -31,7 +31,7 @@ void defineOutputBufferTests() {
       List<int> bytes = out.getBytes();
       expect(bytes.length, equals(LEN * 2));
 
-      InputBuffer input = new InputBuffer(bytes);
+      InputStream input = new InputStream(bytes);
       for (int i = 0; i < LEN; ++i) {
         int x = input.readUint16();
         expect(x, equals(i));
@@ -39,7 +39,7 @@ void defineOutputBufferTests() {
     });
 
     test('writeUint32', () {
-      OutputBuffer out = new OutputBuffer();
+      OutputStream out = new OutputStream();
 
       const int LEN = 0xffff;
       for (int i = 0; i < LEN; ++i) {
@@ -49,7 +49,7 @@ void defineOutputBufferTests() {
       List<int> bytes = out.getBytes();
       expect(bytes.length, equals(LEN * 4));
 
-      InputBuffer input = new InputBuffer(bytes);
+      InputStream input = new InputStream(bytes);
       for (int i = 0; i < LEN; ++i) {
         int x = input.readUint32();
         expect(x, equals(0xffff + i));

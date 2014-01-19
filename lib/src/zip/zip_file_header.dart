@@ -20,7 +20,7 @@ class ZipFileHeader {
   String fileComment = '';
   ZipFile file;
 
-  ZipFileHeader([InputBuffer input, InputBuffer bytes]) {
+  ZipFileHeader([InputStream input, InputStream bytes]) {
     if (input != null) {
       versionMadeBy = input.readUint16();
       versionNeededToExtract = input.readUint16();
@@ -46,7 +46,7 @@ class ZipFileHeader {
       if (extra_len > 0) {
         extraField = input.readBytes(extra_len);
 
-        InputBuffer extra = new InputBuffer(extraField);
+        InputStream extra = new InputStream(extraField);
         int id = extra.readUint16();
         int size = extra.readUint16();
         if (id == 1) {
