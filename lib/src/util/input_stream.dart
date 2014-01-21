@@ -31,8 +31,6 @@ class InputStream {
    */
   void reset() {
     position = 0;
-    bitBuffer = 0;
-    bitBufferLen = 0;
   }
 
   /**
@@ -79,7 +77,6 @@ class InputStream {
    * Read a single byte.
    */
   int readByte() {
-    bitBufferLen = 0;
     return buffer[position++];
   }
 
@@ -87,7 +84,6 @@ class InputStream {
    * Read [count] bytes from the stream.
    */
   List<int> readBytes(int count) {
-    bitBufferLen = 0;
     List<int> bytes = buffer.sublist(position, position + count);
     position += bytes.length;
     return bytes;
@@ -117,7 +113,6 @@ class InputStream {
    * Read a 16-bit word from the stream.
    */
   int readUint16() {
-    bitBufferLen = 0;
     int b1 = buffer[position++] & 0xff;
     int b2 = buffer[position++] & 0xff;
     if (byteOrder == BIG_ENDIAN) {
@@ -130,7 +125,6 @@ class InputStream {
    * Read a 24-bit word from the stream.
    */
   int readUint24() {
-    bitBufferLen = 0;
     int b1 = buffer[position++] & 0xff;
     int b2 = buffer[position++] & 0xff;
     int b3 = buffer[position++] & 0xff;
@@ -144,7 +138,6 @@ class InputStream {
    * Read a 32-bit word from the stream.
    */
   int readUint32() {
-    bitBufferLen = 0;
     int b1 = buffer[position++] & 0xff;
     int b2 = buffer[position++] & 0xff;
     int b3 = buffer[position++] & 0xff;
@@ -159,7 +152,6 @@ class InputStream {
    * Read a 64-bit word form the stream.
    */
   int readUint64() {
-    bitBufferLen = 0;
     int b1 = buffer[position++] & 0xff;
     int b2 = buffer[position++] & 0xff;
     int b3 = buffer[position++] & 0xff;
@@ -175,61 +167,4 @@ class InputStream {
     return (b8 << 56) | (b7 << 48) | (b6 << 40) | (b5 << 32) |
            (b4 << 24) | (b3 << 16) | (b2 << 8) | b1;
   }
-
-  /**
-   * Reset the bit buffer.
-   */
-  void resetBits() {
-    bitBuffer = 0;
-    bitBufferLen = 0;
-  }
-
-  /**
-   * Read a number of bits from the input stream.
-   */
-  int readBits(int numBits) {
-    if (numBits == 0) {
-      return 0;
-    }
-
-    // Not enough bits left in the buffer.
-    bool first = true;
-    while (bitBufferLen < numBits) {
-      if (isEOS) {
-        throw new ArchiveException('Unexpected end of input stream.');
-      }
-
-      // read the next byte
-      int octet = buffer[position++];
-
-      // concat octet
-      if (byteOrder == BIG_ENDIAN) {
-        bitBuffer |= octet << bitBufferLen;
-      } else {
-        if (first) {
-          bitBuffer = (bitBuffer & ((1 << bitBufferLen) - 1));
-          first = false;
-        }
-        bitBuffer = (bitBuffer << 8) | octet;
-      }
-
-      bitBufferLen += 8;
-    }
-
-    if (byteOrder == BIG_ENDIAN) {
-      int octet = bitBuffer & ((1 << numBits) - 1);
-      bitBuffer >>= numBits;
-      bitBufferLen -= numBits;
-      return octet;
-    }
-
-    int mask = (1 << numBits) - 1;
-    int octet = (bitBuffer >> (bitBufferLen - numBits)) & mask;
-    bitBufferLen -= numBits;
-
-    return octet;
-  }
-
-  int bitBuffer = 0;
-  int bitBufferLen = 0;
 }

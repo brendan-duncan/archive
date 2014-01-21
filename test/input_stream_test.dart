@@ -124,21 +124,5 @@ void defineInputStreamTests() {
       InputStream i2 = new InputStream(data, byteOrder: BIG_ENDIAN);
       expect(i2.readUint64(), equals(0xaabbccddeeffeedd));
     });
-
-    test('readBits', () {
-      const List<int> data = const [0xed, 0xcb, 0xa9, 0x87];
-      InputStream input = new InputStream(data);
-      expect(input.readBits(4), equals(0xe));
-      expect(input.readBits(4), equals(0xd));
-      expect(input.readBits(4), equals(0xc));
-      expect(input.readBits(8), equals(0xba));
-      expect(input.readBits(10), equals(0x261));
-
-      InputStream i2 = new InputStream(data, byteOrder: BIG_ENDIAN);
-      expect(i2.readBits(4), equals(0xd));
-      expect(i2.readBits(4), equals(0xe));
-      expect(i2.readBits(4), equals(0xb));
-      expect(i2.readBits(8), equals(0x9c));
-    });
   });
 }
