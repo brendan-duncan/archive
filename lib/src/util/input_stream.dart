@@ -1,25 +1,33 @@
 part of archive;
 
+/**
+ * A buffer that can be read as a stream of bytes.
+ */
 class InputStream {
-  final List<int> buffer;
-  int position = 0;
+  final Data.Uint8List buffer;
+  int position;
   final int byteOrder;
 
   /**
    * Create a InputStream for reading from a List<int>
    */
-  InputStream(this.buffer, {this.byteOrder: LITTLE_ENDIAN}) :
+  InputStream(List<int> buffer, {this.byteOrder: LITTLE_ENDIAN}) :
+    this.buffer = (buffer is Data.Uint8List) ? buffer :
+                  new Data.Uint8List.fromList(buffer),
     position = 0;
 
   /**
-   * How many total bytes in the stream.
+   * Create a copy of [other].
    */
-  int get length => buffer.length;
+  InputStream.from(InputStream other) :
+    buffer = other.buffer,
+    position = 0,
+    byteOrder = other.byteOrder;
 
   /**
-   * How many bytes are left in the stream from the current position?
+   * How many bytes are left in the stream.
    */
-  int get remainder => length - position;
+  int get length => buffer.length - position;
 
   /**
    * Is the current position at the end of the stream?
@@ -34,6 +42,11 @@ class InputStream {
   }
 
   /**
+   * Access the buffer relative from the current position.
+   */
+  int operator[](int offset) => buffer[position + offset];
+
+  /**
    * Return a InputStream to read a subset of this stream.  It does not
    * move the read position of this stream.
    * If [position] is not specified, the current read position is
@@ -43,27 +56,24 @@ class InputStream {
     if (position == null || position < 0) {
       position = this.position;
     }
+
     if (length == null || length < 0) {
-      length = this.length - position;
+      length = buffer.length - position;
     }
 
-    int end = position + length;
-    if (end > buffer.length) {
-      end = buffer.length;
-    }
+    Data.Uint8List sub = new Data.Uint8List.view(buffer.buffer,
+        buffer.offsetInBytes + position, length);
 
-    return new InputStream(buffer.sublist(position, end),
-                           byteOrder: byteOrder);
+    return new InputStream(sub, byteOrder: byteOrder);
   }
 
   /**
    * Read [count] bytes from an [offset] of the current read position, without
    * moving the read position.
    */
-  List<int> peekBytes(int count, [int offset = 0]) {
-    List<int> bytes = buffer.sublist(position + offset,
-                                     position + offset + count);
-    return bytes;
+  Data.Uint8List peekBytes(int count, [int offset = 0]) {
+    return new Data.Uint8List.view(buffer.buffer,
+                            buffer.offsetInBytes + position + offset, count);
   }
 
   /**
@@ -83,8 +93,10 @@ class InputStream {
   /**
    * Read [count] bytes from the stream.
    */
-  List<int> readBytes(int count) {
-    List<int> bytes = buffer.sublist(position, position + count);
+  Data.Uint8List readBytes(int count) {
+    Data.Uint8List bytes = new Data.Uint8List.view(buffer.buffer,
+                                               buffer.offsetInBytes + position,
+                                               count);
     position += bytes.length;
     return bytes;
   }

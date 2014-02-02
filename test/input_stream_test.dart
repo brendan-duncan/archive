@@ -45,11 +45,18 @@ void defineInputStreamTests() {
       InputStream input = new InputStream(data);
       expect(input.length, equals(5));
       expect(input.readByte(), equals(0xaa));
+
       InputStream i2 = input.subset(null, 3);
+
+      InputStream i3 = i2.subset(1, 2);
+
       expect(i2.readByte(), equals(0xbb));
       expect(i2.readByte(), equals(0xcc));
       expect(i2.readByte(), equals(0xdd));
       expect(i2.isEOS, equals(true));
+
+      expect(i3.readByte(), equals(0xcc));
+      expect(i3.readByte(), equals(0xdd));
     });
 
     test('readString', () {

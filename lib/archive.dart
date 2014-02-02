@@ -8,6 +8,7 @@ part 'src/tar/tar_file.dart';
 part 'src/util/archive_exception.dart';
 part 'src/util/byte_order.dart';
 part 'src/util/input_stream.dart';
+part 'src/util/mem_ptr.dart';
 part 'src/util/output_stream.dart';
 part 'src/zip/zip_directory.dart';
 part 'src/zip/zip_file_header.dart';

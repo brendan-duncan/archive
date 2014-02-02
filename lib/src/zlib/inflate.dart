@@ -147,7 +147,7 @@ class Inflate {
     }
 
     // check size
-    if (input.position + len > input.length) {
+    if (len > input.length) {
       throw new ArchiveException('Input buffer is broken');
     }
 

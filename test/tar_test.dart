@@ -152,9 +152,6 @@ void defineTarTests() {
       var file = new Io.File('res/test.tar');
       List<int> bytes = file.readAsBytesSync();
 
-      TarDecoder tar = new TarDecoder();
-      TarEncoder tarEncoder = new TarEncoder();
-
       Archive archive = tar.decodeBytes(bytes);
       expect(archive.numberOfFiles(), equals(2));
 

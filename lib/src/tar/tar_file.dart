@@ -49,42 +49,43 @@ class TarFile {
   String filenamePrefix = ''; // 155 bytes
   List<int> content;
 
-  TarFile([InputStream input]) {
-    if (input != null) {
-      InputStream header = new InputStream(input.readBytes(512));
+  TarFile() {
+  }
 
-      // The name, linkname, magic, uname, and gname are null-terminated
-      // character strings. All other fields are zero-filled octal numbers in
-      // ASCII. Each numeric field of width w contains w minus 1 digits, and a
-      // null.
-      filename = _parseString(header, 100);
-      mode = _parseInt(header, 8);
-      ownerId = _parseInt(header, 8);
-      groupId = _parseInt(header, 8);
-      fileSize = _parseInt(header, 12);
-      lastModTime = _parseInt(header, 12);
-      checksum = _parseInt(header, 8);
-      typeFlag = _parseString(header, 1);
-      nameOfLinkedFile = _parseString(header, 100);
+  TarFile.read(InputStream input) {
+    InputStream header = new InputStream(input.readBytes(512));
 
-      ustarIndicator = _parseString(header, 6);
-      if (ustarIndicator == 'ustar') {
-        ustarVersion = _parseString(header, 2);
-        ownerUserName = _parseString(header, 32);
-        ownerGroupName = _parseString(header, 32);
-        deviceMajorNumber = _parseInt(header, 8);
-        deviceMinorNumber = _parseInt(header, 8);
-      }
+    // The name, linkname, magic, uname, and gname are null-terminated
+    // character strings. All other fields are zero-filled octal numbers in
+    // ASCII. Each numeric field of width w contains w minus 1 digits, and a
+    // null.
+    filename = _parseString(header, 100);
+    mode = _parseInt(header, 8);
+    ownerId = _parseInt(header, 8);
+    groupId = _parseInt(header, 8);
+    fileSize = _parseInt(header, 12);
+    lastModTime = _parseInt(header, 12);
+    checksum = _parseInt(header, 8);
+    typeFlag = _parseString(header, 1);
+    nameOfLinkedFile = _parseString(header, 100);
 
-      content = input.readBytes(fileSize);
+    ustarIndicator = _parseString(header, 6);
+    if (ustarIndicator == 'ustar') {
+      ustarVersion = _parseString(header, 2);
+      ownerUserName = _parseString(header, 32);
+      ownerGroupName = _parseString(header, 32);
+      deviceMajorNumber = _parseInt(header, 8);
+      deviceMinorNumber = _parseInt(header, 8);
+    }
 
-      if (isFile && fileSize > 0) {
-        int remainder = fileSize % 512;
-        int skiplen = 0;
-        if (remainder != 0) {
-          skiplen = 512 - remainder;
-          input.skip(skiplen);
-        }
+    content = input.readBytes(fileSize);
+
+    if (isFile && fileSize > 0) {
+      int remainder = fileSize % 512;
+      int skiplen = 0;
+      if (remainder != 0) {
+        skiplen = 512 - remainder;
+        input.skip(skiplen);
       }
     }
   }

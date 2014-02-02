@@ -1210,7 +1210,7 @@ class Deflate {
    * (See also flush_pending()).
    */
   int _readBuf(Data.Uint8List buf, int start, int size) {
-    int len = _input.length - _input.position;
+    int len = _input.length;
 
     if (len > size) {
       len = size;

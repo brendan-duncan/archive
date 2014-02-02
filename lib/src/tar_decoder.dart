@@ -16,12 +16,11 @@ class TarDecoder {
 
     while (!input.isEOS) {
       // End of archive when two consecutive 0's are found.
-      if (input.buffer[input.position] == 0 &&
-          input.buffer[input.position + 1] == 0) {
+      if (input[0] == 0 && input[1] == 0) {
         break;
       }
 
-      TarFile tf = new TarFile(input);
+      TarFile tf = new TarFile.read(input);
       files.add(tf);
 
       File file = new File(tf.filename, tf.fileSize, tf.content);

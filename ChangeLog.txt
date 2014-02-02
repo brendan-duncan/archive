@@ -1,4 +1,10 @@
-v 1.0.10 - January 19
+v 1.0.11 - February 02, 2014
+
+- Changed InputStream to work with typed_data instead of list<int>, should
+  reduce memory and increase performance.
+
+
+v 1.0.10 - January 19, 2013
 
 - Renamed InputBuffer and OutputBuffer to InputStream and OutputStream,
   respectively.
