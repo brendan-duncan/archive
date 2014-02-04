@@ -20,6 +20,7 @@ part 'src/zlib/deflate.dart';
 part 'src/zlib/huffman_table.dart';
 part 'src/zlib/inflate.dart';
 part 'src/archive.dart';
+part 'src/bzip2_decoder.dart';
 part 'src/file.dart';
 part 'src/gzip_decoder.dart';
 part 'src/gzip_encoder.dart';

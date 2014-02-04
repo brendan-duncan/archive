@@ -8,6 +8,7 @@ import 'package:unittest/unittest.dart';
 import '../bin/tar.dart' as tar_command;
 
 part 'adler32_test.dart';
+part 'bzip2_test.dart';
 part 'commands_test.dart';
 part 'crc32_test.dart';
 part 'deflate_test.dart';
@@ -46,6 +47,8 @@ void main() {
   defineOutputStreamTests();
 
   defineAdlerTests();
+
+  defineBzip2Tests();
 
   defineCrc32Tests();
 
