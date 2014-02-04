@@ -1,5 +1,5 @@
 name: archive
-version: 1.0.11
+version: 1.0.12
 author: Brendan Duncan <brendanduncan@gmail.com>
 description: Provides encoders and decoders for various archive and compression formats, such as zip and tar.
 homepage: https://github.com/brendan-duncan/archive
@@ -10,4 +10,5 @@ dependencies:
   crypto: '>=0.9.0 <1.0.0'
 dev_dependencies:
   args: any
+  browser: any
   unittest: any

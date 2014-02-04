@@ -2,3 +2,7 @@
 pubspec.lock
 packages
 test/out
+example/decode_zip.dart.js
+example/decode_zip.dart.js.deps
+example/decode_zip.dart.js.map
+example/decode_zip.dart.precompiled.js
