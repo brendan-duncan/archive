@@ -11,9 +11,14 @@ class InputStream {
   /**
    * Create a InputStream for reading from a List<int>
    */
-  InputStream(List<int> buffer, {this.byteOrder: LITTLE_ENDIAN}) :
-    this.buffer = (buffer is Data.Uint8List) ? buffer :
-                  new Data.Uint8List.fromList(buffer),
+  InputStream(buffer, {this.byteOrder: LITTLE_ENDIAN}) :
+    this.buffer = (buffer is Data.Uint8List) ?
+                    buffer :
+                  (buffer is Data.ByteBuffer) ?
+                    new Data.Uint8List.view(buffer as Data.ByteBuffer) :
+                  (buffer is List<int>) ?
+                    new Data.Uint8List.fromList(buffer) :
+                  throw new ArchiveException('Invalid buffer'),
     position = 0;
 
   /**
