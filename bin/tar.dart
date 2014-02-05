@@ -49,6 +49,8 @@ void listFiles(String path) {
   List<int> data = file.readAsBytesSync();
   if (path.endsWith('tar.gz') || path.endsWith('tgz')) {
     data = new GZipDecoder().decodeBytes(data);
+  } else if (path.endsWith('tar.bz2') || path.endsWith('tbz')) {
+    data = new BZip2Decoder().decodeBytes(data);
   }
 
   TarDecoder tarArchive = new TarDecoder();
@@ -73,6 +75,8 @@ io.Directory extractFiles(String inputPath, String outputPath) {
   List<int> data = inputFile.readAsBytesSync();
   if (inputPath.endsWith('tar.gz') || inputPath.endsWith('tgz')) {
     data = new GZipDecoder().decodeBytes(data);
+  } else if (inputPath.endsWith('tar.bz2') || inputPath.endsWith('tbz')) {
+    data = new BZip2Decoder().decodeBytes(data);
   }
 
   TarDecoder tarArchive = new TarDecoder();
@@ -95,7 +99,7 @@ io.File createTarFile(String dirPath) {
   io.Directory dir = new io.Directory(dirPath);
   if (!dir.existsSync()) fail('${dirPath} does not exist');
 
-  io.File outFile = new io.File('${dirPath}.tar');
+  io.File outFile = new io.File('${dirPath}.tar.gz');
   print('creating ${outFile.path}...');
 
   Archive archive = new Archive();
@@ -118,7 +122,8 @@ io.File createTarFile(String dirPath) {
   }
 
   List<int> data = new TarEncoder().encode(archive);
-  // TODO: deflate and write as .tar.gz
+  data = new GZipEncoder().encode(data);
+
   outFile.writeAsBytesSync(data);
 
   return outFile;
