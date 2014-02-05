@@ -20,34 +20,35 @@ class ZipDirectory {
   List<ZipFileHeader> fileHeaders = [];
 
   ZipDirectory([InputStream input]) {
-    if (input != null) {
-      filePosition = _findSignature(input);
-      input.position = filePosition;
-      int signature = input.readUint32();
-      numberOfThisDisk = input.readUint16();
-      diskWithTheStartOfTheCentralDirectory = input.readUint16();
-      totalCentralDirectoryEntriesOnThisDisk = input.readUint16();
-      totalCentralDirectoryEntries = input.readUint16();
-      centralDirectorySize = input.readUint32();
-      centralDirectoryOffset = input.readUint32();
+  }
 
-      int len = input.readUint16();
-      if (len > 0) {
-        zipFileComment = new String.fromCharCodes(input.readBytes(len));
+  ZipDirectory.read(InputStream input) {
+    filePosition = _findSignature(input);
+    input.position = filePosition;
+    int signature = input.readUint32();
+    numberOfThisDisk = input.readUint16();
+    diskWithTheStartOfTheCentralDirectory = input.readUint16();
+    totalCentralDirectoryEntriesOnThisDisk = input.readUint16();
+    totalCentralDirectoryEntries = input.readUint16();
+    centralDirectorySize = input.readUint32();
+    centralDirectoryOffset = input.readUint32();
+
+    int len = input.readUint16();
+    if (len > 0) {
+      zipFileComment = new String.fromCharCodes(input.readBytes(len));
+    }
+
+    _readZip64Data(input);
+
+    InputStream dirContent = input.subset(centralDirectoryOffset,
+                                          centralDirectorySize);
+
+    while (!dirContent.isEOS) {
+      int fileSig = dirContent.readUint32();
+      if (fileSig != ZipFileHeader.SIGNATURE) {
+        break;
       }
-
-      _readZip64Data(input);
-
-      InputStream dirContent = input.subset(centralDirectoryOffset,
-                                            centralDirectorySize);
-
-      while (!dirContent.isEOS) {
-        int fileSig = dirContent.readUint32();
-        if (fileSig != ZipFileHeader.SIGNATURE) {
-          break;
-        }
-        fileHeaders.add(new ZipFileHeader(dirContent, input));
-      }
+      fileHeaders.add(new ZipFileHeader(dirContent, input));
     }
   }
 

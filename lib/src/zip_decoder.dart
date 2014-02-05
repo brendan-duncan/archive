@@ -11,8 +11,7 @@ class ZipDecoder {
   }
 
   Archive decodeBuffer(InputStream input, {bool verify: true}) {
-    directory = new ZipDirectory(input);
-
+    directory = new ZipDirectory.read(input);
     Archive archive = new Archive();
 
     for (ZipFileHeader zfh in directory.fileHeaders) {

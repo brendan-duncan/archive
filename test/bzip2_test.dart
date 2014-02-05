@@ -8,7 +8,6 @@ void defineBzip2Tests() {
           new Io.File('res/bzip2/test.bz2').readAsBytesSync();
 
       List<int> decompressed = new BZip2Decoder().decodeBytes(compressed);
-
     });
   });
 }
