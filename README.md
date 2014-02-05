@@ -7,7 +7,9 @@
 A Dart library to encode and decode various archive and compression formats.
 
 The library has no reliance on `dart:io`, so it can be used for both server and
-web applications. The archive library currently supports the following decoders:
+web applications. 
+
+The archive library currently supports the following decoders:
 
 - Zip (Archive)
 - Tar (Archive) 
