@@ -13,6 +13,7 @@ web applications. The archive library currently supports the following decoders:
 - Tar (Archive) 
 - ZLib [Inflate decompression]
 - GZip [Inflate decompression]
+- BZip2 [decompression]
 
 And the following encoders:
 
