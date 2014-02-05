@@ -5,6 +5,8 @@ class BitReader {
 
   BitReader(this.input);
 
+  int readByte() => readBits(8);
+
   /**
    * Read a number of bits from the input stream.
    */
