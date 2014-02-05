@@ -16,44 +16,29 @@ class BitReader {
     }
 
     if (_bitPos == 0) {
-      if (numBits == 8) {
-        return input.readByte();
-      }
-      if (numBits == 16) {
-        return (input.readByte() << 8) + input.readByte();
-      }
-      if (numBits == 24) {
-        return (input.readByte() << 16) + (input.readByte() << 8) +
-               input.readByte();
-      }
-      if (numBits == 32) {
-        return (input.readByte() << 24) + (input.readByte() << 16) +
-               (input.readByte() << 8) + input.readByte();
-      }
+      _bitPos = 8;
+      _bitBuffer = input.readByte();
     }
 
     int value = 0;
-    /*if (numBits <= _bitPos) {
-      int value = _bitBuffer & _BIT_MASK2[_bitPos];
-      _bitPos -= numBits;
-      return value;
+
+    while (numBits > _bitPos) {
+      value = (value << _bitPos) + (_bitBuffer & _BIT_MASK2[_bitPos]);
+      numBits -= _bitPos;
+      _bitPos = 8;
+      _bitBuffer = input.readByte();
     }
 
-    if (_bitPos > 0) {
-      value = _bitBuffer & _BIT_MASK2[_bitPos];
-      numBits -= _bitPos;
-      _bitBuffer = input.readByte();
-      _bitPos = 8;
-    }*/
-
-    for (int i = 0; i < numBits; ++i) {
+    if (numBits > 0) {
       if (_bitPos == 0) {
-        _bitBuffer = input.readByte();
         _bitPos = 8;
+        _bitBuffer = input.readByte();
       }
-      int b = (_bitBuffer & _BIT_MASK[_bitPos]) >> (_bitPos - 1);
-      value = (value << 1) | b;
-      _bitPos--;
+
+      value = (value << numBits) +
+              (_bitBuffer >> (_bitPos - numBits) & _BIT_MASK2[numBits]);
+
+      _bitPos -= numBits;
     }
 
     return value;
