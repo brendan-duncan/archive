@@ -1,3 +1,8 @@
+v 1.0.12 - February 04, 2014
+
+- Added BZip2 decoder.
+
+
 v 1.0.11 - February 02, 2014
 
 - Changed InputStream to work with typed_data instead of list<int>, should
