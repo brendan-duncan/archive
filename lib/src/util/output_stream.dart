@@ -30,10 +30,10 @@ class OutputStream {
    * Write a byte to the end of the buffer.
    */
   void writeByte(int value) {
-    _buffer[length++] = value & 0xff;
     if (length == _buffer.length) {
       _expandBuffer();
     }
+    _buffer[length++] = value & 0xff;
   }
 
   /**
