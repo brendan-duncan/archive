@@ -9,7 +9,7 @@ class BZip2Encoder {
     input = new InputStream(data, byteOrder: BIG_ENDIAN);
     OutputStream output = new OutputStream(byteOrder: BIG_ENDIAN);
 
-    bw = new BitWriter(output);
+    bw = new Bz2BitWriter(output);
 
     final int blockSize100k = 9;
 
@@ -50,7 +50,7 @@ class BZip2Encoder {
     // Write blocks
     while (!input.isEOS) {
       int blockCRC = _writeBlock();
-      combinedCRC = (combinedCRC << 1) | (combinedCRC >> 31);
+      combinedCRC = ((combinedCRC << 1) | (combinedCRC >> 31)) & 0xffffffff;
       combinedCRC ^= blockCRC;
       _blockNo++;
     }
@@ -127,10 +127,6 @@ class BZip2Encoder {
     //      The final compressed bitstream is generated into the
     //      area starting at
     //         (UChar*) (&((UChar*)s->arr2)[s->nblock])
-    //
-    //      These storage aliases are set up in bzCompressInit(),
-    //      except for the last one, which is arranged in
-    //      compressBlock().
     _nInUse = 0;
     for (int i = 0; i < 256; i++) {
       if (_inUse[i] != 0) {
@@ -187,7 +183,7 @@ class BZip2Encoder {
 
         int rtmp  = yy[1];
         yy[1] = yy[0];
-        int ryy_j = 1;//&(yy[1]);
+        int ryy_j = 1;
         int rll_i = ll_i;
         while ( rll_i != rtmp ) {
           ryy_j++;
@@ -235,13 +231,6 @@ class BZip2Encoder {
   }
 
   void _sendMTFValues() {
-    // UChar  len [BZ_N_GROUPS][BZ_MAX_ALPHA_SIZE];
-    // is a global since the decoder also needs it.
-    //
-    // Int32  code[BZ_N_GROUPS][BZ_MAX_ALPHA_SIZE];
-    // Int32  rfreq[BZ_N_GROUPS][BZ_MAX_ALPHA_SIZE];
-    // are also globals only used in this proc.
-    // Made global to keep stack frame size small.
     Data.Uint16List cost = new Data.Uint16List(BZ_N_GROUPS);
     Data.Int32List fave = new Data.Int32List(BZ_N_GROUPS);
     int nSelectors = 0;
@@ -272,10 +261,13 @@ class BZip2Encoder {
     int nPart = nGroups;
     int remF = _nMTF;
     int gs = 0;
+    int ge = 0;
+
     while (nPart > 0) {
       int tFreq = remF ~/ nPart;
-      int ge = gs - 1;
       int aFreq = 0;
+      ge = gs - 1;
+
       while (aFreq < tFreq && ge < alphaSize-1) {
         ge++;
         aFreq += _mtfFreq[ge];
@@ -321,6 +313,7 @@ class BZip2Encoder {
         }
       }
 
+      nSelectors = 0;
       int totc = 0;
       gs = 0;
       while (true) {
@@ -480,7 +473,6 @@ class BZip2Encoder {
       }
     }
 
-    int nBytes = _numZ;
     for (int i = 0; i < 16; i++) {
       if (inUse16[i] != 0) {
         bw.writeBits(1, 1);
@@ -502,7 +494,6 @@ class BZip2Encoder {
     }
 
     // Now the selectors.
-    nBytes = _numZ;
     bw.writeBits(3, nGroups);
     bw.writeBits(15, nSelectors);
     for (int i = 0; i < nSelectors; i++) {
@@ -513,8 +504,6 @@ class BZip2Encoder {
     }
 
     // Now the coding tables.
-    nBytes = _numZ;
-
     for (int t = 0; t < nGroups; t++) {
       int curr = _len[t][0];
       bw.writeBits(5, curr);
@@ -534,7 +523,6 @@ class BZip2Encoder {
     }
 
     // And finally, the block data proper
-    nBytes = _numZ;
     int selCtr = 0;
     gs = 0;
     while (true) {
@@ -1831,9 +1819,6 @@ class BZip2Encoder {
         _state_in_len++;
       }
     }
-
-    _blockCRC = BZip2.updateCrc(b, _blockCRC);
-    _block[_nblock++] = b;
   }
 
   void _addPairToBlock() {
@@ -1877,14 +1862,13 @@ class BZip2Encoder {
   }
 
   InputStream input;
-  BitWriter bw;
+  Bz2BitWriter bw;
   int _nblockMax;
   int _state_in_ch;
   int _state_in_len;
   int _nblock;
   int _blockCRC;
   int _blockNo;
-  int _numZ;
   int _workFactor;
   int _budget;
   int _origPtr;
@@ -1894,7 +1878,6 @@ class BZip2Encoder {
   Data.Uint32List _ftab;
   Data.Uint8List _block;
   Data.Uint8List _inUse;
-  Data.Uint8List _zBits;
   Data.Uint16List _mtfv;
   int _nInUse;
 

@@ -12,7 +12,7 @@ class BZip2Decoder {
 
   List<int> decodeBuffer(InputStream _input, {bool verify: false}) {
     OutputStream output = new OutputStream();
-    BitReader br = new BitReader(_input);
+    Bz2BitReader br = new Bz2BitReader(_input);
 
     _groupPos = 0;
     _groupNo = 0;
@@ -43,14 +43,14 @@ class BZip2Decoder {
         storedBlockCrc = (storedBlockCrc << 8) | br.readByte();
         storedBlockCrc = (storedBlockCrc << 8) | br.readByte();
 
-        int crc = _readCompressed(br, output);
-        crc = BZip2.finalizeCrc(crc);
+        int blockCrc = _readCompressed(br, output);
+        blockCrc = BZip2.finalizeCrc(blockCrc);
 
-        if (verify && crc != storedBlockCrc) {
+        if (verify && blockCrc != storedBlockCrc) {
           throw new ArchiveException('Invalid block checksum.');
         }
-        combinedCrc = (combinedCrc << 1) | (combinedCrc >> 31);
-                combinedCrc ^= crc;
+        combinedCrc = ((combinedCrc << 1) | (combinedCrc >> 31)) & 0xffffffff;
+        combinedCrc ^= blockCrc;
       } else if (type == BLOCK_EOS) {
         int storedCrc = 0;
         storedCrc = (storedCrc << 8) | br.readByte();
@@ -59,7 +59,7 @@ class BZip2Decoder {
         storedCrc = (storedCrc << 8) | br.readByte();
 
         if (verify && storedCrc != combinedCrc) {
-          throw new ArchiveException('Invalid combined checksum.');
+          throw new ArchiveException('Invalid combined checksum: ${combinedCrc} : ${storedCrc}');
         }
 
         return output.getBytes();
@@ -69,7 +69,7 @@ class BZip2Decoder {
     return null;
   }
 
-  int _readBlockType(BitReader br) {
+  int _readBlockType(Bz2BitReader br) {
     bool eos = true;
     bool compressed = true;
 
@@ -91,7 +91,7 @@ class BZip2Decoder {
     return (compressed) ? BLOCK_COMPRESSED : BLOCK_EOS;
   }
 
-  int _readCompressed(BitReader br, OutputStream output) {
+  int _readCompressed(Bz2BitReader br, OutputStream output) {
     int blockRandomized = br.readBits(1);
     int origPtr = br.readBits(8);
     origPtr = (origPtr << 8) | br.readBits(8);
@@ -690,7 +690,7 @@ class BZip2Decoder {
     return blockCrc;
   }
 
-  int _getMtfVal(BitReader br) {
+  int _getMtfVal(Bz2BitReader br) {
     if (_groupPos == 0) {
       _groupNo++;
       if (_groupNo >= _numSelectors) {

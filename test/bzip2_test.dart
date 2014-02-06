@@ -14,12 +14,16 @@ void defineBzip2Tests() {
     });
 
     test('encode', () {
-      /*List<int> compressed = new BZip2Encoder().encode(decompressed);
+      List<int> file = new Io.File('res/cat.jpg').readAsBytesSync();
+
+      List<int> compressed = new BZip2Encoder().encode(file);
+
       List<int> d2 = new BZip2Decoder().decodeBytes(compressed);
-      expect(d2.length, equals(decompressed.length));
+
+      expect(d2.length, equals(file.length));
       for (int i = 0, len = d2.length; i < len; ++i) {
-        expect(d2[i], equals(decompressed[i]));
-      }*/
+        expect(d2[i], equals(file[i]));
+      }
     });
   });
 }

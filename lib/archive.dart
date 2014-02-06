@@ -5,12 +5,12 @@ import 'dart:typed_data' as Data;
 
 import 'package:crypto/crypto.dart' as crypto;
 
+part 'src/bzip2/bz2_bit_reader.dart';
+part 'src/bzip2/bz2_bit_writer.dart';
 part 'src/bzip2/bzip2.dart';
 part 'src/tar/tar_file.dart';
 part 'src/util/adler32.dart';
 part 'src/util/archive_exception.dart';
-part 'src/util/bit_reader.dart';
-part 'src/util/bit_writer.dart';
 part 'src/util/byte_order.dart';
 part 'src/util/crc32.dart';
 part 'src/util/input_stream.dart';

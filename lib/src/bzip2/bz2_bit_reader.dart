@@ -1,9 +1,9 @@
 part of archive;
 
-class BitReader {
+class Bz2BitReader {
   InputStream input;
 
-  BitReader(this.input);
+  Bz2BitReader(this.input);
 
   int readByte() => readBits(8);
 

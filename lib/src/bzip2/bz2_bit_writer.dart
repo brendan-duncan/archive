@@ -1,34 +1,28 @@
 part of archive;
 
-class BitWriter {
+class Bz2BitWriter {
   OutputStream output;
 
-  BitWriter(this.output);
+  Bz2BitWriter(this.output);
 
   void writeByte(int byte) => writeBits(8, byte);
 
   void writeBytes(List<int> bytes) {
     for (int i = 0; i < bytes.length; ++i) {
-      writeByte(bytes[i]);
+      writeBits(8, bytes[i]);
     }
   }
 
   void writeUint16(int value) {
-    writeByte((value >> 8) & 0xff);
-    writeByte(value & 0xff);
+    writeBits(16, value);
   }
 
   void writeUint24(int value) {
-    writeByte((value >> 16) & 0xff);
-    writeByte((value >> 8) & 0xff);
-    writeByte(value & 0xff);
+    writeBits(24, value);
   }
 
   void writeUint32(int value) {
-    writeByte((value >> 24) & 0xff);
-    writeByte((value >> 16) & 0xff);
-    writeByte((value >> 8) & 0xff);
-    writeByte(value & 0xff);
+    writeBits(32, value);
   }
 
   void writeBits(int numBits, int value) {
@@ -73,13 +67,12 @@ class BitWriter {
   }
 
   /**
-   * Write any remaining bits to the output.
+   * Write any remaining bits from the buffer to the output, padding the
+   * remainder of the byte with 0's.
    */
   void flush() {
     if (_bitPos != 8) {
-      output.writeByte(_bitBuffer);
-      _bitBuffer = 0;
-      _bitPos = 8;
+      writeBits(_bitPos, 0);
     }
   }
 
