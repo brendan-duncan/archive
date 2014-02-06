@@ -5,23 +5,26 @@ import 'dart:typed_data' as Data;
 
 import 'package:crypto/crypto.dart' as crypto;
 
+part 'src/bzip2/bzip2.dart';
 part 'src/tar/tar_file.dart';
+part 'src/util/adler32.dart';
 part 'src/util/archive_exception.dart';
 part 'src/util/bit_reader.dart';
+part 'src/util/bit_writer.dart';
 part 'src/util/byte_order.dart';
+part 'src/util/crc32.dart';
 part 'src/util/input_stream.dart';
 part 'src/util/mem_ptr.dart';
 part 'src/util/output_stream.dart';
 part 'src/zip/zip_directory.dart';
 part 'src/zip/zip_file_header.dart';
 part 'src/zip/zip_file.dart';
-part 'src/util/adler32.dart';
-part 'src/util/crc32.dart';
 part 'src/zlib/deflate.dart';
 part 'src/zlib/huffman_table.dart';
 part 'src/zlib/inflate.dart';
 part 'src/archive.dart';
 part 'src/bzip2_decoder.dart';
+part 'src/bzip2_encoder.dart';
 part 'src/file.dart';
 part 'src/gzip_decoder.dart';
 part 'src/gzip_encoder.dart';
