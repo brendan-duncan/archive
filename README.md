@@ -27,7 +27,7 @@ And the following encoders:
 
 ##Sample
 
-Extract the contents of a Zip file, and encode the contents into a BZip2 
+Extract the contents of a Zip file, and encode the contents as a BZip2 
 compressed Tar file:
 
     import 'dart:io' as Io;
