@@ -16,7 +16,6 @@ class BZip2Encoder {
     bw.writeBytes(BZip2.BZH_SIGNATURE);
     bw.writeByte(BZip2.HDR_0 + blockSize100k);
 
-
     _nblockMax = 100000 * blockSize100k - 19;
     _workFactor = 30;
     int combinedCRC = 0;
@@ -25,9 +24,28 @@ class BZip2Encoder {
     _arr1 = new Data.Uint32List(n);
     _arr2 = new Data.Uint32List(n + BZ_N_OVERSHOOT);
     _ftab = new Data.Uint32List(65537);
-    _block = new Data.Uint8List.view(_arr1.buffer);
+    _block = new Data.Uint8List.view(_arr2.buffer);
+    _mtfv = new Data.Uint16List.view(_arr1.buffer);
+    _unseqToSeq = new Data.Uint8List(256);
     _blockNo = 0;
     _origPtr = 0;
+
+    _selector = new Data.Uint8List(BZ_MAX_SELECTORS);
+    _selectorMtf = new Data.Uint8List(BZ_MAX_SELECTORS);
+    _len = new List<Data.Uint8List>(BZ_N_GROUPS);
+    _code = new List<Data.Int32List>(BZ_N_GROUPS);
+    _rfreq = new List<Data.Int32List>(BZ_N_GROUPS);
+
+    for (int i = 0; i < BZ_N_GROUPS; ++i) {
+      _len[i] = new Data.Uint8List(BZ_MAX_ALPHA_SIZE);
+      _code[i] = new Data.Int32List(BZ_MAX_ALPHA_SIZE);
+      _rfreq[i] = new Data.Int32List(BZ_MAX_ALPHA_SIZE);
+    }
+
+    _lenPack = new List<Data.Uint32List>(BZ_MAX_ALPHA_SIZE);
+    for (int i = 0; i < BZ_MAX_ALPHA_SIZE; ++i) {
+      _lenPack[i] = new Data.Uint32List(4);
+    }
 
     // Write blocks
     while (!input.isEOS) {
@@ -91,11 +109,608 @@ class BZip2Encoder {
   }
 
   void _generateMTFValues() {
-    // TODO implement
+    Data.Uint8List yy = new Data.Uint8List(256);
+
+    // After sorting (eg, here),
+    // s->arr1 [ 0 .. s->nblock-1 ] holds sorted order,
+    // and
+    //         ((UChar*)s->arr2) [ 0 .. s->nblock-1 ]
+    //         holds the original block data.
+    //
+    //      The first thing to do is generate the MTF values,
+    //      and put them in
+    //         ((UInt16*)s->arr1) [ 0 .. s->nblock-1 ].
+    //      Because there are strictly fewer or equal MTF values
+    //      than block values, ptr values in this area are overwritten
+    //      with MTF values only when they are no longer needed.
+    //
+    //      The final compressed bitstream is generated into the
+    //      area starting at
+    //         (UChar*) (&((UChar*)s->arr2)[s->nblock])
+    //
+    //      These storage aliases are set up in bzCompressInit(),
+    //      except for the last one, which is arranged in
+    //      compressBlock().
+    _nInUse = 0;
+    for (int i = 0; i < 256; i++) {
+      if (_inUse[i] != 0) {
+        _unseqToSeq[i] = _nInUse;
+        _nInUse++;
+      }
+    }
+
+    final int EOB = _nInUse + 1;
+
+    _mtfFreq = new Data.Int32List(BZ_MAX_ALPHA_SIZE);
+
+    int wr = 0;
+    int zPend = 0;
+    for (int i = 0; i < _nInUse; i++) {
+      yy[i] = i;
+    }
+
+    for (int i = 0; i < _nblock; i++) {
+      _assert(wr <= i);
+      int j = _arr1[i] - 1;
+      if (j < 0) {
+        j += _nblock;
+      }
+
+      int ll_i = _unseqToSeq[_block[j]];
+      _assert(ll_i < _nInUse);
+
+      if (yy[0] == ll_i) {
+        zPend++;
+      } else {
+        if (zPend > 0) {
+          zPend--;
+          while (true) {
+            if (zPend & 1 != 0) {
+              _mtfv[wr] = BZ_RUNB;
+              wr++;
+              _mtfFreq[BZ_RUNB]++;
+            } else {
+              _mtfv[wr] = BZ_RUNA;
+              wr++;
+              _mtfFreq[BZ_RUNA]++;
+            }
+
+            if (zPend < 2) {
+              break;
+            }
+
+            zPend = (zPend - 2) ~/ 2;
+          }
+
+          zPend = 0;
+        }
+
+        int rtmp  = yy[1];
+        yy[1] = yy[0];
+        int ryy_j = 1;//&(yy[1]);
+        int rll_i = ll_i;
+        while ( rll_i != rtmp ) {
+          ryy_j++;
+          int rtmp2  = rtmp;
+          rtmp = yy[ryy_j];
+          yy[ryy_j] = rtmp2;
+        }
+
+        yy[0] = rtmp;
+        j = ryy_j;
+
+        _mtfv[wr] = j + 1;
+        wr++;
+        _mtfFreq[j + 1]++;
+      }
+    }
+
+    if (zPend > 0) {
+      zPend--;
+      while (true) {
+        if (zPend & 1 != 0) {
+          _mtfv[wr] = BZ_RUNB;
+          wr++;
+          _mtfFreq[BZ_RUNB]++;
+        } else {
+          _mtfv[wr] = BZ_RUNA;
+          wr++;
+          _mtfFreq[BZ_RUNA]++;
+        }
+        if (zPend < 2) {
+          break;
+        }
+
+        zPend = (zPend - 2) ~/ 2;
+      }
+
+      zPend = 0;
+    }
+
+    _mtfv[wr] = EOB;
+    wr++;
+    _mtfFreq[EOB]++;
+
+    _nMTF = wr;
   }
 
   void _sendMTFValues() {
-    // TODO implement
+    // UChar  len [BZ_N_GROUPS][BZ_MAX_ALPHA_SIZE];
+    // is a global since the decoder also needs it.
+    //
+    // Int32  code[BZ_N_GROUPS][BZ_MAX_ALPHA_SIZE];
+    // Int32  rfreq[BZ_N_GROUPS][BZ_MAX_ALPHA_SIZE];
+    // are also globals only used in this proc.
+    // Made global to keep stack frame size small.
+    Data.Uint16List cost = new Data.Uint16List(BZ_N_GROUPS);
+    Data.Int32List fave = new Data.Int32List(BZ_N_GROUPS);
+    int nSelectors = 0;
+
+    int alphaSize = _nInUse + 2;
+    for (int t = 0; t < BZ_N_GROUPS; t++) {
+      for (int v = 0; v < alphaSize; v++) {
+        _len[t][v] = BZ_GREATER_ICOST;
+      }
+    }
+
+    // Decide how many coding tables to use
+    int nGroups;
+    _assert(_nMTF > 0);
+    if (_nMTF < 200) {
+      nGroups = 2;
+    } else if (_nMTF < 600) {
+      nGroups = 3;
+    } else if (_nMTF < 1200) {
+      nGroups = 4;
+    } else if (_nMTF < 2400) {
+      nGroups = 5;
+    } else {
+      nGroups = 6;
+    }
+
+    // Generate an initial set of coding tables
+    int nPart = nGroups;
+    int remF = _nMTF;
+    int gs = 0;
+    while (nPart > 0) {
+      int tFreq = remF ~/ nPart;
+      int ge = gs - 1;
+      int aFreq = 0;
+      while (aFreq < tFreq && ge < alphaSize-1) {
+        ge++;
+        aFreq += _mtfFreq[ge];
+      }
+
+      if (ge > gs && nPart != nGroups && nPart != 1 &&
+          ((nGroups - nPart) % 2 == 1)) {
+        aFreq -= _mtfFreq[ge];
+        ge--;
+      }
+
+      for (int v = 0; v < alphaSize; v++) {
+        if (v >= gs && v <= ge) {
+          _len[nPart - 1][v] = BZ_LESSER_ICOST;
+        } else {
+          _len[nPart - 1][v] = BZ_GREATER_ICOST;
+        }
+      }
+
+      nPart--;
+      gs = ge + 1;
+      remF -= aFreq;
+    }
+
+    // Iterate up to BZ_N_ITERS times to improve the tables.
+    for (int iter = 0; iter < BZ_N_ITERS; iter++) {
+      for (int t = 0; t < nGroups; t++) {
+        fave[t] = 0;
+      }
+      for (int t = 0; t < nGroups; t++) {
+        for (int v = 0; v < alphaSize; v++) {
+          _rfreq[t][v] = 0;
+        }
+      }
+
+      // Set up an auxiliary length table which is used to fast-track
+      // the common case (nGroups == 6).
+      if (nGroups == 6) {
+        for (int v = 0; v < alphaSize; v++) {
+          _lenPack[v][0] = (_len[1][v] << 16) | _len[0][v];
+          _lenPack[v][1] = (_len[3][v] << 16) | _len[2][v];
+          _lenPack[v][2] = (_len[5][v] << 16) | _len[4][v];
+        }
+      }
+
+      int totc = 0;
+      gs = 0;
+      while (true) {
+        // Set group start & end marks.
+        if (gs >= _nMTF) {
+          break;
+        }
+
+        int ge = gs + BZ_G_SIZE - 1;
+        if (ge >= _nMTF) {
+          ge = _nMTF - 1;
+        }
+
+        // Calculate the cost of this group as coded
+        // by each of the coding tables.
+        for (int t = 0; t < nGroups; t++) {
+          cost[t] = 0;
+        }
+
+        if (nGroups == 6 && 50 == ge - gs + 1) {
+          // fast track the common case
+          int cost01 = 0;
+          int cost23 = 0;
+          int cost45 = 0;
+
+          void BZ_ITER(int nn) {
+            int icv = _mtfv[gs + nn];
+            cost01 += _lenPack[icv][0];
+            cost23 += _lenPack[icv][1];
+            cost45 += _lenPack[icv][2];
+          }
+
+          BZ_ITER(0);  BZ_ITER(1);  BZ_ITER(2);  BZ_ITER(3);  BZ_ITER(4);
+          BZ_ITER(5);  BZ_ITER(6);  BZ_ITER(7);  BZ_ITER(8);  BZ_ITER(9);
+          BZ_ITER(10); BZ_ITER(11); BZ_ITER(12); BZ_ITER(13); BZ_ITER(14);
+          BZ_ITER(15); BZ_ITER(16); BZ_ITER(17); BZ_ITER(18); BZ_ITER(19);
+          BZ_ITER(20); BZ_ITER(21); BZ_ITER(22); BZ_ITER(23); BZ_ITER(24);
+          BZ_ITER(25); BZ_ITER(26); BZ_ITER(27); BZ_ITER(28); BZ_ITER(29);
+          BZ_ITER(30); BZ_ITER(31); BZ_ITER(32); BZ_ITER(33); BZ_ITER(34);
+          BZ_ITER(35); BZ_ITER(36); BZ_ITER(37); BZ_ITER(38); BZ_ITER(39);
+          BZ_ITER(40); BZ_ITER(41); BZ_ITER(42); BZ_ITER(43); BZ_ITER(44);
+          BZ_ITER(45); BZ_ITER(46); BZ_ITER(47); BZ_ITER(48); BZ_ITER(49);
+
+          cost[0] = cost01 & 0xffff;
+          cost[1] = cost01 >> 16;
+          cost[2] = cost23 & 0xffff;
+          cost[3] = cost23 >> 16;
+          cost[4] = cost45 & 0xffff;
+          cost[5] = cost45 >> 16;
+        } else {
+          // slow version which correctly handles all situations
+          for (int i = gs; i <= ge; i++) {
+            int icv = _mtfv[i];
+            for (int t = 0; t < nGroups; t++) {
+              cost[t] += _len[t][icv];
+            }
+          }
+        }
+
+        // Find the coding table which is best for this group,
+        // and record its identity in the selector table.
+        int bc = 999999999;
+        int bt = -1;
+        for (int t = 0; t < nGroups; t++) {
+          if (cost[t] < bc) {
+            bc = cost[t];
+            bt = t;
+          }
+        }
+
+        totc += bc;
+        fave[bt]++;
+        _selector[nSelectors] = bt;
+        nSelectors++;
+
+        // Increment the symbol frequencies for the selected table.
+        if (nGroups == 6 && 50 == ge - gs + 1) {
+          // fast track the common case
+          void BZ_ITUR(int nn) {
+            _rfreq[bt][_mtfv[gs + nn]]++;
+          }
+
+          BZ_ITUR(0);  BZ_ITUR(1);  BZ_ITUR(2);  BZ_ITUR(3);  BZ_ITUR(4);
+          BZ_ITUR(5);  BZ_ITUR(6);  BZ_ITUR(7);  BZ_ITUR(8);  BZ_ITUR(9);
+          BZ_ITUR(10); BZ_ITUR(11); BZ_ITUR(12); BZ_ITUR(13); BZ_ITUR(14);
+          BZ_ITUR(15); BZ_ITUR(16); BZ_ITUR(17); BZ_ITUR(18); BZ_ITUR(19);
+          BZ_ITUR(20); BZ_ITUR(21); BZ_ITUR(22); BZ_ITUR(23); BZ_ITUR(24);
+          BZ_ITUR(25); BZ_ITUR(26); BZ_ITUR(27); BZ_ITUR(28); BZ_ITUR(29);
+          BZ_ITUR(30); BZ_ITUR(31); BZ_ITUR(32); BZ_ITUR(33); BZ_ITUR(34);
+          BZ_ITUR(35); BZ_ITUR(36); BZ_ITUR(37); BZ_ITUR(38); BZ_ITUR(39);
+          BZ_ITUR(40); BZ_ITUR(41); BZ_ITUR(42); BZ_ITUR(43); BZ_ITUR(44);
+          BZ_ITUR(45); BZ_ITUR(46); BZ_ITUR(47); BZ_ITUR(48); BZ_ITUR(49);
+        } else {
+          // slow version which correctly handles all situations
+          for (int i = gs; i <= ge; i++) {
+            _rfreq[bt][_mtfv[i]]++;
+          }
+        }
+
+        gs = ge + 1;
+      }
+
+      // Recompute the tables based on the accumulated frequencies.
+      for (int t = 0; t < nGroups; t++) {
+        _hbMakeCodeLengths(_len[t], _rfreq[t], alphaSize, 17);
+      }
+    }
+
+    _assert(nGroups < 8);
+    _assert(nSelectors < 32768 && nSelectors <= (2 + (900000 ~/ BZ_G_SIZE)));
+
+    // Compute MTF values for the selectors.
+    Data.Uint8List pos = new Data.Uint8List(BZ_N_GROUPS);
+    for (int i = 0; i < nGroups; i++) {
+      pos[i] = i;
+    }
+
+    for (int i = 0; i < nSelectors; i++) {
+      int ll_i = _selector[i];
+      int j = 0;
+      int tmp = pos[j];
+      while (ll_i != tmp) {
+        j++;
+        int tmp2 = tmp;
+        tmp = pos[j];
+        pos[j] = tmp2;
+      }
+      pos[0] = tmp;
+      _selectorMtf[i] = j;
+    }
+
+    // Assign actual codes for the tables.
+    for (int t = 0; t < nGroups; t++) {
+      int minLen = 32;
+      int maxLen = 0;
+      for (int i = 0; i < alphaSize; i++) {
+        if (_len[t][i] > maxLen) {
+          maxLen = _len[t][i];
+        }
+        if (_len[t][i] < minLen) {
+          minLen = _len[t][i];
+        }
+      }
+      _assert(!(maxLen > 17));
+      _assert(!(minLen < 1));
+      _hbAssignCodes(_code[t], _len[t], minLen, maxLen, alphaSize );
+    }
+
+    // Transmit the mapping table.
+    Data.Uint8List inUse16 = new Data.Uint8List(16);
+    for (int i = 0; i < 16; i++) {
+      inUse16[i] = 0;
+      for (int j = 0; j < 16; j++) {
+        if (_inUse[i * 16 + j] != 0) {
+          inUse16[i] = 1;
+        }
+      }
+    }
+
+    int nBytes = _numZ;
+    for (int i = 0; i < 16; i++) {
+      if (inUse16[i] != 0) {
+        bw.writeBits(1, 1);
+      } else {
+        bw.writeBits(1, 0);
+      }
+    }
+
+    for (int i = 0; i < 16; i++) {
+      if (inUse16[i] != 0) {
+        for (int j = 0; j < 16; j++) {
+          if (_inUse[i * 16 + j] != 0) {
+            bw.writeBits(1, 1);
+          } else {
+            bw.writeBits(1, 0);
+          }
+        }
+      }
+    }
+
+    // Now the selectors.
+    nBytes = _numZ;
+    bw.writeBits(3, nGroups);
+    bw.writeBits(15, nSelectors);
+    for (int i = 0; i < nSelectors; i++) {
+      for (int j = 0; j < _selectorMtf[i]; j++) {
+        bw.writeBits(1, 1);
+      }
+      bw.writeBits(1, 0);
+    }
+
+    // Now the coding tables.
+    nBytes = _numZ;
+
+    for (int t = 0; t < nGroups; t++) {
+      int curr = _len[t][0];
+      bw.writeBits(5, curr);
+      for (int i = 0; i < alphaSize; i++) {
+        while (curr < _len[t][i]) {
+          bw.writeBits(2, 2);
+          curr++; // 10
+        }
+
+        while (curr > _len[t][i]) {
+          bw.writeBits(2, 3);
+          curr--; // 11
+        }
+
+        bw.writeBits(1, 0);
+      }
+    }
+
+    // And finally, the block data proper
+    nBytes = _numZ;
+    int selCtr = 0;
+    gs = 0;
+    while (true) {
+      if (gs >= _nMTF) {
+        break;
+      }
+
+      int ge = gs + BZ_G_SIZE - 1;
+      if (ge >= _nMTF) {
+        ge = _nMTF - 1;
+      }
+
+      _assert(_selector[selCtr] < nGroups);
+
+      if (nGroups == 6 && 50 == ge - gs + 1) {
+        // fast track the common case
+        int mtfv_i;
+        Data.Uint8List s_len_sel_selCtr = _len[_selector[selCtr]];
+        Data.Int32List s_code_sel_selCtr = _code[_selector[selCtr]];
+
+        void BZ_ITAH(int nn) {
+          mtfv_i = _mtfv[gs + nn];
+          bw.writeBits(s_len_sel_selCtr[mtfv_i], s_code_sel_selCtr[mtfv_i]);
+        }
+
+        BZ_ITAH(0);  BZ_ITAH(1);  BZ_ITAH(2);  BZ_ITAH(3);  BZ_ITAH(4);
+        BZ_ITAH(5);  BZ_ITAH(6);  BZ_ITAH(7);  BZ_ITAH(8);  BZ_ITAH(9);
+        BZ_ITAH(10); BZ_ITAH(11); BZ_ITAH(12); BZ_ITAH(13); BZ_ITAH(14);
+        BZ_ITAH(15); BZ_ITAH(16); BZ_ITAH(17); BZ_ITAH(18); BZ_ITAH(19);
+        BZ_ITAH(20); BZ_ITAH(21); BZ_ITAH(22); BZ_ITAH(23); BZ_ITAH(24);
+        BZ_ITAH(25); BZ_ITAH(26); BZ_ITAH(27); BZ_ITAH(28); BZ_ITAH(29);
+        BZ_ITAH(30); BZ_ITAH(31); BZ_ITAH(32); BZ_ITAH(33); BZ_ITAH(34);
+        BZ_ITAH(35); BZ_ITAH(36); BZ_ITAH(37); BZ_ITAH(38); BZ_ITAH(39);
+        BZ_ITAH(40); BZ_ITAH(41); BZ_ITAH(42); BZ_ITAH(43); BZ_ITAH(44);
+        BZ_ITAH(45); BZ_ITAH(46); BZ_ITAH(47); BZ_ITAH(48); BZ_ITAH(49);
+      } else {
+        // slow version which correctly handles all situations
+        for (int i = gs; i <= ge; i++) {
+          bw.writeBits(_len[_selector[selCtr]][_mtfv[i]],
+                       _code[_selector[selCtr]][_mtfv[i]]);
+        }
+      }
+
+      gs = ge + 1;
+      selCtr++;
+    }
+
+    _assert(selCtr == nSelectors);
+  }
+
+  void _hbMakeCodeLengths(Data.Uint8List len, Data.Int32List freq,
+                          int alphaSize, int maxLen) {
+    // Nodes and heap entries run from 1.  Entry 0
+    // for both the heap and nodes is a sentinel.
+    Data.Int32List heap = new Data.Int32List(BZ_MAX_ALPHA_SIZE + 2);
+    Data.Int32List weight = new Data.Int32List(BZ_MAX_ALPHA_SIZE * 2);
+    Data.Int32List parent = new Data.Int32List(BZ_MAX_ALPHA_SIZE * 2);
+    int nHeap;
+    int nNodes;
+
+    for (int i = 0; i < alphaSize; i++) {
+      weight[i+1] = (freq[i] == 0 ? 1 : freq[i]) << 8;
+    }
+
+    void UPHEAP(int z) {
+      int zz = z;
+      int tmp = heap[zz];
+      while (weight[tmp] < weight[heap[zz >> 1]]) {
+        heap[zz] = heap[zz >> 1];
+        zz >>= 1;
+      }
+      heap[zz] = tmp;
+    }
+
+    void DOWNHEAP(int z) {
+      int zz = z;
+      int tmp = heap[zz];
+      while (true) {
+        int yy = zz << 1;
+        if (yy > nHeap) {
+          break;
+        }
+        if (yy < nHeap && weight[heap[yy+1]] < weight[heap[yy]]) {
+          yy++;
+        }
+        if (weight[tmp] < weight[heap[yy]]) {
+          break;
+        }
+        heap[zz] = heap[yy];
+        zz = yy;
+      }
+      heap[zz] = tmp;
+    }
+
+    int WEIGHTOF(int zz0) => ((zz0) & 0xffffff00);
+    int DEPTHOF(int zz1) => ((zz1) & 0x000000ff);
+    int MYMAX(int zz2, int zz3) => ((zz2) > (zz3) ? (zz2) : (zz3));
+    int ADDWEIGHTS(int zw1, int zw2) =>
+      (WEIGHTOF(zw1) + WEIGHTOF(zw2)) |
+      (1 + MYMAX(DEPTHOF(zw1), DEPTHOF(zw2)));
+
+    while (true) {
+      nNodes = alphaSize;
+      nHeap = 0;
+
+      heap[0] = 0;
+      weight[0] = 0;
+      parent[0] = -2;
+
+      for (int i = 1; i <= alphaSize; i++) {
+       parent[i] = -1;
+       nHeap++;
+       heap[nHeap] = i;
+       UPHEAP(nHeap);
+      }
+
+      _assert(nHeap < (BZ_MAX_ALPHA_SIZE + 2));
+
+      while (nHeap > 1) {
+        int n1 = heap[1];
+        heap[1] = heap[nHeap];
+        nHeap--;
+        DOWNHEAP(1);
+        int n2 = heap[1];
+        heap[1] = heap[nHeap];
+        nHeap--;
+        DOWNHEAP(1);
+        nNodes++;
+        parent[n1] = parent[n2] = nNodes;
+        weight[nNodes] = ADDWEIGHTS(weight[n1], weight[n2]);
+        parent[nNodes] = -1;
+        nHeap++;
+        heap[nHeap] = nNodes;
+        UPHEAP(nHeap);
+      }
+
+      _assert(nNodes < (BZ_MAX_ALPHA_SIZE * 2));
+
+      bool tooLong = false;
+      for (int i = 1; i <= alphaSize; i++) {
+        int j = 0;
+        int k = i;
+        while (parent[k] >= 0) {
+          k = parent[k];
+          j++;
+        }
+        len[i - 1] = j;
+        if (j > maxLen) {
+          tooLong = true;
+        }
+      }
+
+      if (!tooLong) {
+        break;
+      }
+
+      for (int i = 1; i <= alphaSize; i++) {
+        int j = weight[i] >> 8;
+        j = 1 + (j ~/ 2);
+        weight[i] = j << 8;
+      }
+    }
+  }
+
+  void _hbAssignCodes(Data.Int32List codes, Data.Uint8List length,
+                      int minLen, int maxLen, int alphaSize) {
+    int vec = 0;
+    for (int n = minLen; n <= maxLen; n++) {
+      for (int i = 0; i < alphaSize; i++) {
+        if (length[i] == n) {
+          codes[i] = vec;
+          vec++;
+        }
+      }
+      vec <<= 1;
+    }
   }
 
   void _blockSort() {
@@ -1280,9 +1895,30 @@ class BZip2Encoder {
   Data.Uint8List _block;
   Data.Uint8List _inUse;
   Data.Uint8List _zBits;
+  Data.Uint16List _mtfv;
+  int _nInUse;
+
+  int _nMTF;
+  Data.Int32List _mtfFreq;
+  Data.Uint8List _unseqToSeq;
+  List<Data.Uint8List> _len;
+  List<Data.Int32List> _code;
+  List<Data.Int32List> _rfreq;
+  List<Data.Uint32List> _lenPack;
+  Data.Uint8List _selector;
+  Data.Uint8List _selectorMtf;
 
   static const int BZ_N_RADIX = 2;
   static const int BZ_N_QSORT = 12;
   static const int BZ_N_SHELL = 18;
   static const int BZ_N_OVERSHOOT = (BZ_N_RADIX + BZ_N_QSORT + BZ_N_SHELL + 2);
+  static const int BZ_MAX_ALPHA_SIZE = 258;
+  static const int BZ_RUNA = 0;
+  static const int BZ_RUNB = 1;
+  static const int BZ_N_GROUPS = 6;
+  static const int BZ_G_SIZE = 50;
+  static const int BZ_N_ITERS = 4;
+  static const int BZ_LESSER_ICOST = 0;
+  static const int BZ_GREATER_ICOST = 15;
+  static const int BZ_MAX_SELECTORS = (2 + (900000 ~/ BZ_G_SIZE));
 }
