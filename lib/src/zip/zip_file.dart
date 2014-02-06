@@ -3,6 +3,7 @@ part of archive;
 class ZipFile {
   static const int STORE = 0;
   static const int DEFLATE = 8;
+  static const int BZIP2 = 12;
 
   static const int SIGNATURE = 0x04034b50;
 

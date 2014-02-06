@@ -23,6 +23,7 @@ And the following encoders:
 - Tar (Archive)
 - ZLib [Deflate compression]
 - GZip [Deflate compression]
+- BZip2 [compression]
 
 ##Sample
 
