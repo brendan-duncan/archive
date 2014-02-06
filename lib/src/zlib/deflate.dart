@@ -77,9 +77,9 @@ class Deflate {
       throw new ArchiveException('Invalid Deflate parameter');
     }
 
-    _dynamicLengthTree = new Data.Uint16List(HEAP_SIZE * 2);
-    _dynamicDistTree = new Data.Uint16List((2 * D_CODES + 1) * 2);
-    _bitLengthTree = new Data.Uint16List((2 * BL_CODES + 1) * 2);
+    _dynamicLengthTree = new Uint16List(HEAP_SIZE * 2);
+    _dynamicDistTree = new Uint16List((2 * D_CODES + 1) * 2);
+    _bitLengthTree = new Uint16List((2 * BL_CODES + 1) * 2);
 
     _windowBits = windowBits;
     _windowSize = 1 << _windowBits;
@@ -90,15 +90,15 @@ class Deflate {
     _hashMask = _hashSize - 1;
     _hashShift = ((_hashBits + MIN_MATCH - 1) ~/ MIN_MATCH);
 
-    _window = new Data.Uint8List(_windowSize * 2);
-    _prev = new Data.Uint16List(_windowSize);
-    _head = new Data.Uint16List(_hashSize);
+    _window = new Uint8List(_windowSize * 2);
+    _prev = new Uint16List(_windowSize);
+    _head = new Uint16List(_hashSize);
 
     _litBufferSize = 1 << (memLevel + 6); // 16K elements by default
 
     // We overlay pending_buf and d_buf+l_buf. This works since the average
     // output size for (length,distance) codes is <= 24 bits.
-    _pendingBuffer = new Data.Uint8List(_litBufferSize * 4);
+    _pendingBuffer = new Uint8List(_litBufferSize * 4);
     _pendingBufferSize = _litBufferSize * 4;
 
     _dbuf = _litBufferSize;
@@ -258,7 +258,7 @@ class Deflate {
    * when the heap property is re-established (each father smaller than its
    * two sons).
    */
-  void _pqdownheap(Data.Uint16List tree, int k) {
+  void _pqdownheap(Uint16List tree, int k) {
     int v = _heap[k];
     int j = k << 1; // left son of k
     while (j <= _heapLen) {
@@ -279,8 +279,8 @@ class Deflate {
     _heap[k] = v;
   }
 
-  static bool _smaller(Data.Uint16List tree, int n, int m,
-                       Data.Uint8List depth) {
+  static bool _smaller(Uint16List tree, int n, int m,
+                       Uint8List depth) {
     return (tree[n * 2] < tree[m * 2] ||
             (tree[n * 2] == tree[m * 2] && depth[n] <= depth[m]));
   }
@@ -289,7 +289,7 @@ class Deflate {
    * Scan a literal or distance tree to determine the frequencies of the codes
    * in the bit length tree.
    */
-  void _scanTree(Data.Uint16List tree, int max_code) {
+  void _scanTree(Uint16List tree, int max_code) {
     int n; // iterates over all tree elements
     int prevlen = - 1; // last emitted length
     int curlen; // length of current code
@@ -382,7 +382,7 @@ class Deflate {
    * Send a literal or distance tree in compressed form, using the codes in
    * bl_tree.
    */
-  void _sendTree(Data.Uint16List tree, int max_code) {
+  void _sendTree(Uint16List tree, int max_code) {
     int n; // iterates over all tree elements
     int prevlen = - 1; // last emitted length
     int curlen; // length of current code
@@ -436,7 +436,7 @@ class Deflate {
    * Output a byte on the stream.
    * IN assertion: there is enough room in pending_buf.
    */
-  void _putBytes(Data.Uint8List p, int start, int len) {
+  void _putBytes(Uint8List p, int start, int len) {
     if (len == 0) {
       return;
     }
@@ -1209,7 +1209,7 @@ class Deflate {
    * allocating a large strm->next_in buffer and copying from it.
    * (See also flush_pending()).
    */
-  int _readBuf(Data.Uint8List buf, int start, int size) {
+  int _readBuf(Uint8List buf, int start, int size) {
     int len = _input.length;
 
     if (len > size) {
@@ -1345,7 +1345,7 @@ class Deflate {
 
   int _status;
   /// output still pending
-  Data.Uint8List _pendingBuffer;
+  Uint8List _pendingBuffer;
   /// size of pending_buf
   int _pendingBufferSize;
   /// next pending byte to output to the stream
@@ -1373,7 +1373,7 @@ class Deflate {
   /// performed with a length multiple of the block size. Also, it limits
   /// the window size to 64K, which is quite useful on MSDOS.
   /// To do: use the user input buffer as sliding window.
-  Data.Uint8List _window;
+  Uint8List _window;
 
   /// Actual size of window: 2*wSize, except when the user input buffer
   /// is directly used as sliding window.
@@ -1382,10 +1382,10 @@ class Deflate {
   /// Link to older string with same hash index. To limit the size of this
   /// array to 64K, this link is maintained only for the last 32K strings.
   /// An index in this array is thus a window index modulo 32K.
-  Data.Uint16List _prev;
+  Uint16List _prev;
 
   /// Heads of the hash chains or NIL.
-  Data.Uint16List _head;
+  Uint16List _head;
 
   /// hash index of string to be inserted
   int _insertHash;
@@ -1433,11 +1433,11 @@ class Deflate {
   int _strategy;
 
   /// literal and length tree
-  Data.Uint16List _dynamicLengthTree;
+  Uint16List _dynamicLengthTree;
   /// distance tree
-  Data.Uint16List _dynamicDistTree;
+  Uint16List _dynamicDistTree;
   /// Huffman tree for bit lengths
-  Data.Uint16List _bitLengthTree;
+  Uint16List _bitLengthTree;
 
   /// desc for literal tree
   _HuffmanTree _lDesc = new _HuffmanTree();
@@ -1447,10 +1447,10 @@ class Deflate {
   _HuffmanTree _blDesc = new _HuffmanTree();
 
   /// number of codes at each bit length for an optimal tree
-  Data.Uint16List _bitLengthCount = new Data.Uint16List(MAX_BITS + 1);
+  Uint16List _bitLengthCount = new Uint16List(MAX_BITS + 1);
 
   /// heap used to build the Huffman trees
-  Data.Uint32List _heap = new Data.Uint32List(2 * L_CODES + 1);
+  Uint32List _heap = new Uint32List(2 * L_CODES + 1);
 
   /// number of elements in the heap
   int _heapLen;
@@ -1460,7 +1460,7 @@ class Deflate {
   // The same heap array is used to build all trees.
 
   /// Depth of each subtree used as tie breaker for trees of equal frequency
-  Data.Uint8List _depth = new Data.Uint8List(2 * L_CODES + 1);
+  Uint8List _depth = new Uint8List(2 * L_CODES + 1);
 
   /// index for literals or lengths
   int _lbuf;
@@ -1637,7 +1637,7 @@ class _HuffmanTree {
       768, 1024, 1536, 2048, 3072, 4096, 6144, 8192, 12288, 16384, 24576];
 
   /// the dynamic tree
-  Data.Uint16List dynamicTree;
+  Uint16List dynamicTree;
   /// largest code with non zero frequency
   int maxCode;
   /// the corresponding static tree
@@ -1654,7 +1654,7 @@ class _HuffmanTree {
    *     not null.
    */
   void _genBitlen(Deflate s) {
-    Data.Uint16List tree = dynamicTree;
+    Uint16List tree = dynamicTree;
     List<int> stree = staticDesc.staticTree;
     List<int> extra = staticDesc.extraBits;
     int base_Renamed = staticDesc.extraBase;
@@ -1744,7 +1744,7 @@ class _HuffmanTree {
    *     also updated if stree is not null. The field max_code is set.
    */
   void _buildTree(Deflate s) {
-    Data.Uint16List tree = dynamicTree;
+    Uint16List tree = dynamicTree;
     List<int> stree = staticDesc.staticTree;
     int elems = staticDesc.numElements;
     int n, m; // iterate over heap elements
@@ -1834,9 +1834,8 @@ class _HuffmanTree {
    * OUT assertion: the field code is set for all tree elements of non
    *     zero code length.
    */
-  static void  _genCodes(Data.Uint16List tree, int max_code,
-                         Data.Uint16List bl_count) {
-    Data.Uint16List next_code = new Data.Uint16List(MAX_BITS + 1);
+  static void  _genCodes(Uint16List tree, int max_code, Uint16List bl_count) {
+    Uint16List next_code = new Uint16List(MAX_BITS + 1);
     int code = 0; // running code value
     int bits; // bit index
     int n; // code index

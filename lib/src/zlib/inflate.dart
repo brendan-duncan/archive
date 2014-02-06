@@ -173,7 +173,7 @@ class Inflate {
     int numCodeLengths = _readBits(4) + 4;
 
     // decode code lengths
-    Data.Uint8List codeLengths = new Data.Uint8List(_ORDER.length);
+    Uint8List codeLengths = new Uint8List(_ORDER.length);
     for (int i = 0; i < numCodeLengths; ++i) {
       codeLengths[_ORDER[i]] = _readBits(3);
     }
@@ -181,10 +181,10 @@ class Inflate {
     HuffmanTable codeLengthsTable = new HuffmanTable(codeLengths);
 
     // literal and length code
-    Data.Uint8List litlenLengths = new Data.Uint8List(numLitLengthCodes);
+    Uint8List litlenLengths = new Uint8List(numLitLengthCodes);
 
     // distance code
-    Data.Uint8List distLengths = new Data.Uint8List(numDistanceCodes);
+    Uint8List distLengths = new Uint8List(numDistanceCodes);
 
     List<int> litlen =
         _decode(numLitLengthCodes, codeLengthsTable, litlenLengths);

@@ -4,7 +4,7 @@ part of archive;
  * A buffer that can be read as a stream of bytes.
  */
 class InputStream {
-  final Data.Uint8List buffer;
+  final Uint8List buffer;
   int position;
   final int byteOrder;
 
@@ -12,12 +12,12 @@ class InputStream {
    * Create a InputStream for reading from a List<int>
    */
   InputStream(buffer, {this.byteOrder: LITTLE_ENDIAN}) :
-    this.buffer = (buffer is Data.Uint8List) ?
+    this.buffer = (buffer is Uint8List) ?
                     buffer :
-                  (buffer is Data.ByteBuffer) ?
-                    new Data.Uint8List.view(buffer as Data.ByteBuffer) :
+                  (buffer is ByteBuffer) ?
+                    new Uint8List.view(buffer as ByteBuffer) :
                   (buffer is List<int>) ?
-                    new Data.Uint8List.fromList(buffer) :
+                    new Uint8List.fromList(buffer) :
                   throw new ArchiveException('Invalid buffer'),
     position = 0;
 
@@ -66,7 +66,7 @@ class InputStream {
       length = buffer.length - position;
     }
 
-    Data.Uint8List sub = new Data.Uint8List.view(buffer.buffer,
+    Uint8List sub = new Uint8List.view(buffer.buffer,
         buffer.offsetInBytes + position, length);
 
     return new InputStream(sub, byteOrder: byteOrder);
@@ -76,8 +76,8 @@ class InputStream {
    * Read [count] bytes from an [offset] of the current read position, without
    * moving the read position.
    */
-  Data.Uint8List peekBytes(int count, [int offset = 0]) {
-    return new Data.Uint8List.view(buffer.buffer,
+  Uint8List peekBytes(int count, [int offset = 0]) {
+    return new Uint8List.view(buffer.buffer,
                             buffer.offsetInBytes + position + offset, count);
   }
 
@@ -98,8 +98,8 @@ class InputStream {
   /**
    * Read [count] bytes from the stream.
    */
-  Data.Uint8List readBytes(int count) {
-    Data.Uint8List bytes = new Data.Uint8List.view(buffer.buffer,
+  Uint8List readBytes(int count) {
+    Uint8List bytes = new Uint8List.view(buffer.buffer,
                                                buffer.offsetInBytes + position,
                                                count);
     position += bytes.length;

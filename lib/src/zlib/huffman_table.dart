@@ -4,7 +4,7 @@ part of archive;
  * Build huffman table from length list.
  */
 class HuffmanTable {
-  Data.Uint32List table;
+  Uint32List table;
   int maxCodeLength = 0;
   int minCodeLength = 0x7fffffff;
 
@@ -21,7 +21,7 @@ class HuffmanTable {
     }
 
     int size = 1 << maxCodeLength;
-    table = new Data.Uint32List(size);
+    table = new Uint32List(size);
 
     for (int bitLength = 1, code = 0, skip = 2; bitLength <= maxCodeLength;) {
       for (int i = 0; i < listSize; ++i) {

@@ -38,18 +38,18 @@ class MemPtr {
   }
 
   /**
-   * This assumes buffer is a TypedData.
+   * This assumes buffer is a Typed
    */
-  Data.Uint8List toUint8List([int offset = 0]) {
-    return new Data.Uint8List.view(buffer.buffer,
+  Uint8List toUint8List([int offset = 0]) {
+    return new Uint8List.view(buffer.buffer,
         buffer.offsetInBytes + this.offset + offset);
   }
 
   /**
-   * This assumes buffer is a TypedData.
+   * This assumes buffer is a Typed
    */
-  Data.Uint32List toUint32List([int offset = 0]) {
-    return new Data.Uint32List.view(buffer.buffer,
+  Uint32List toUint32List([int offset = 0]) {
+    return new Uint32List.view(buffer.buffer,
         buffer.offsetInBytes + this.offset + offset);
   }
 }

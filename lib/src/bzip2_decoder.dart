@@ -30,7 +30,7 @@ class BZip2Decoder {
       throw new ArchiveException('Invalid BlockSize');
     }
 
-    _tt = new Data.Uint32List(_blockSize100k * 100000);
+    _tt = new Uint32List(_blockSize100k * 100000);
 
     int combinedCrc = 0;
 
@@ -98,12 +98,12 @@ class BZip2Decoder {
     origPtr = (origPtr << 8) | br.readBits(8);
 
     // Receive the mapping table
-    _inUse16 = new Data.Uint8List(16);
+    _inUse16 = new Uint8List(16);
     for (int i = 0; i < 16; ++i) {
       _inUse16[i] = br.readBits(1);
     }
 
-    _inUse = new Data.Uint8List(256);
+    _inUse = new Uint8List(256);
     for (int i = 0, k = 0; i < 16; ++i, k += 16) {
       if (_inUse16[i] != 0) {
         for (int j = 0; j < 16; ++j) {
@@ -130,8 +130,8 @@ class BZip2Decoder {
       throw new ArchiveException('Data error');
     }
 
-    _selectorMtf = new Data.Uint8List(BZ_MAX_SELECTORS);
-    _selector = new Data.Uint8List(BZ_MAX_SELECTORS);
+    _selectorMtf = new Uint8List(BZ_MAX_SELECTORS);
+    _selector = new Uint8List(BZ_MAX_SELECTORS);
 
     for (int i = 0; i < _numSelectors; ++i) {
       int j = 0;
@@ -150,7 +150,7 @@ class BZip2Decoder {
     }
 
     // Undo the MTF values for the selectors.
-    Data.Uint8List pos = new Data.Uint8List(BZ_N_GROUPS);
+    Uint8List pos = new Uint8List(BZ_N_GROUPS);
     for (int i = 0; i < numGroups; ++i) {
       pos[i] = i;
     }
@@ -167,10 +167,10 @@ class BZip2Decoder {
     }
 
     // Now the coding tables
-    _len = new List<Data.Uint8List>(BZ_N_GROUPS);
+    _len = new List<Uint8List>(BZ_N_GROUPS);
 
     for (int t = 0; t < numGroups; ++t) {
-      _len[t] = new Data.Uint8List(BZ_MAX_ALPHA_SIZE);
+      _len[t] = new Uint8List(BZ_MAX_ALPHA_SIZE);
 
       int c = br.readBits(5);
       for (int i = 0; i < alphaSize; ++i) {
@@ -194,15 +194,15 @@ class BZip2Decoder {
     }
 
     // Create the Huffman decoding tables
-    _limit = new List<Data.Int32List>(BZ_N_GROUPS);
-    _base = new List<Data.Int32List>(BZ_N_GROUPS);
-    _perm = new List<Data.Int32List>(BZ_N_GROUPS);
-    _minLens = new Data.Int32List(BZ_N_GROUPS);
+    _limit = new List<Int32List>(BZ_N_GROUPS);
+    _base = new List<Int32List>(BZ_N_GROUPS);
+    _perm = new List<Int32List>(BZ_N_GROUPS);
+    _minLens = new Int32List(BZ_N_GROUPS);
 
     for (int t = 0; t < numGroups; t++) {
-      _limit[t] = new Data.Int32List(BZ_MAX_ALPHA_SIZE);
-      _base[t] = new Data.Int32List(BZ_MAX_ALPHA_SIZE);
-      _perm[t] = new Data.Int32List(BZ_MAX_ALPHA_SIZE);
+      _limit[t] = new Int32List(BZ_MAX_ALPHA_SIZE);
+      _base[t] = new Int32List(BZ_MAX_ALPHA_SIZE);
+      _perm[t] = new Int32List(BZ_MAX_ALPHA_SIZE);
 
       int minLen = 32;
       int maxLen = 0;
@@ -227,11 +227,11 @@ class BZip2Decoder {
     int groupNo  = -1;
     int groupPos = 0;
 
-    _unzftab = new Data.Int32List(256);
+    _unzftab = new Int32List(256);
 
     // MTF init
-    _mtfa = new Data.Uint8List(MTFA_SIZE);
-    _mtfbase = new Data.Int32List(256 ~/ MTFL_SIZE);
+    _mtfa = new Uint8List(MTFA_SIZE);
+    _mtfbase = new Int32List(256 ~/ MTFL_SIZE);
 
     int kk = MTFA_SIZE - 1;
     for (int ii = 256 ~/ MTFL_SIZE - 1; ii >= 0; ii--) {
@@ -375,7 +375,7 @@ class BZip2Decoder {
     }
 
     // Actually generate cftab.
-    _cftab = new Data.Int32List(257);
+    _cftab = new Int32List(257);
     _cftab[0] = 0;
     for (int i = 1; i <= 256; i++) {
       _cftab[i] = _unzftab[i - 1];
@@ -729,8 +729,8 @@ class BZip2Decoder {
     return _gPerm[zvec - _gBase[zn]];
   }
 
-  void _hbCreateDecodeTables(Data.Int32List limit, Data.Int32List base,
-                             Data.Int32List perm, Data.Uint8List length,
+  void _hbCreateDecodeTables(Int32List limit, Int32List base,
+                             Int32List perm, Uint8List length,
                              int minLen, int maxLen, int alphaSize) {
     int pp = 0;
     for (int i = minLen; i <= maxLen; i++) {
@@ -772,7 +772,7 @@ class BZip2Decoder {
 
   void _makeMaps() {
     _numInUse = 0;
-    _seqToUnseq = new Data.Uint8List(256);
+    _seqToUnseq = new Uint8List(256);
     for (int i = 0; i < 256; ++i) {
       if (_inUse[i] != 0) {
         _seqToUnseq[_numInUse++] = i;
@@ -781,31 +781,31 @@ class BZip2Decoder {
   }
 
   int _blockSize100k;
-  Data.Uint32List _tt;
-  Data.Uint8List _inUse16;
-  Data.Uint8List _inUse;
-  Data.Uint8List _seqToUnseq;
-  Data.Uint8List _mtfa;
-  Data.Int32List _mtfbase;
-  Data.Uint8List _selectorMtf;
-  Data.Uint8List _selector;
-  List<Data.Int32List> _limit;
-  List<Data.Int32List> _base;
-  List<Data.Int32List> _perm;
-  Data.Int32List _minLens;
-  Data.Int32List _unzftab;
+  Uint32List _tt;
+  Uint8List _inUse16;
+  Uint8List _inUse;
+  Uint8List _seqToUnseq;
+  Uint8List _mtfa;
+  Int32List _mtfbase;
+  Uint8List _selectorMtf;
+  Uint8List _selector;
+  List<Int32List> _limit;
+  List<Int32List> _base;
+  List<Int32List> _perm;
+  Int32List _minLens;
+  Int32List _unzftab;
 
   int _numSelectors;
   int _groupPos = 0;
   int _groupNo = -1;
   int _gSel = 0;
   int _gMinlen = 0;
-  Data.Int32List _gLimit;
-  Data.Int32List _gPerm;
-  Data.Int32List _gBase;
-  Data.Int32List _cftab;
+  Int32List _gLimit;
+  Int32List _gPerm;
+  Int32List _gBase;
+  Int32List _cftab;
 
-  List<Data.Uint8List> _len;
+  List<Uint8List> _len;
   int _numInUse = 0;
   int _combinedCrc;
 

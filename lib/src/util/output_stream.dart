@@ -8,21 +8,21 @@ class OutputStream {
    * Create a byte buffer for writing.
    */
   OutputStream({int size: _BLOCK_SIZE, this.byteOrder: LITTLE_ENDIAN}) :
-    _buffer = new Data.Uint8List(size == null ? _BLOCK_SIZE : size),
+    _buffer = new Uint8List(size == null ? _BLOCK_SIZE : size),
     length = 0;
 
   /**
    * Get the resulting bytes from the buffer.
    */
   List<int> getBytes() {
-    return new Data.Uint8List.view(_buffer.buffer, 0, length);
+    return new Uint8List.view(_buffer.buffer, 0, length);
   }
 
   /**
    * Clear the buffer.
    */
   void clear() {
-    _buffer = new Data.Uint8List(_BLOCK_SIZE);
+    _buffer = new Uint8List(_BLOCK_SIZE);
     length = 0;
   }
 
@@ -97,18 +97,18 @@ class OutputStream {
       end = length + end;
     }
 
-    return new Data.Uint8List.view(_buffer.buffer, start, end - start);
+    return new Uint8List.view(_buffer.buffer, start, end - start);
   }
 
   /**
    * Grow the buffer to accomidate additional data.
    */
   void _expandBuffer() {
-    Data.Uint8List newBuffer = new Data.Uint8List(_buffer.length + _BLOCK_SIZE);
+    Uint8List newBuffer = new Uint8List(_buffer.length + _BLOCK_SIZE);
     newBuffer.setRange(0, _buffer.length, _buffer);
     _buffer = newBuffer;
   }
 
   static const int _BLOCK_SIZE = 0x8000; // 32k block-size
-  Data.Uint8List _buffer;
+  Uint8List _buffer;
 }

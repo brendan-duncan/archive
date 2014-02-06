@@ -21,7 +21,7 @@ class TarEncoder {
 
     // At the end of the archive file there are two 512-byte blocks filled
     // with binary zeros as an end-of-file marker.
-    Data.Uint8List eof = new Data.Uint8List(1024);
+    Uint8List eof = new Uint8List(1024);
     output.writeBytes(eof);
 
     return output.getBytes();

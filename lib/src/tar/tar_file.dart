@@ -111,7 +111,7 @@ class TarFile {
     _writeString(header, typeFlag, 1);
 
     int remainder = 512 - header.length;
-    var nulls = new Data.Uint8List(remainder); // typed arrays default to 0.
+    var nulls = new Uint8List(remainder); // typed arrays default to 0.
     header.writeBytes(nulls);
 
     List<int> headerBytes = header.getBytes();
@@ -147,7 +147,7 @@ class TarFile {
       int remainder = fileSize % 512;
       if (remainder != 0) {
         int skiplen = 512 - remainder;
-        nulls = new Data.Uint8List(skiplen); // typed arrays default to 0.
+        nulls = new Uint8List(skiplen); // typed arrays default to 0.
         output.writeBytes(nulls);
       }
     }
