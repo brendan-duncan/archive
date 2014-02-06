@@ -18,11 +18,11 @@ class ZipEncoder {
     int centralDirectorySize = 0;
     int endOfCentralDirectorySize = 0;
 
-    Map<File, Map> fileData = {};
+    Map<ArchiveFile, Map> fileData = {};
 
     // Prepare the files, so we can know ahead of time how much space we need
     // for the output buffer.
-    for (File file in archive.files) {
+    for (ArchiveFile file in archive.files) {
       fileData[file] = {};
       fileData[file]['time'] = t;
       fileData[file]['date'] = d;
@@ -31,7 +31,7 @@ class ZipEncoder {
       int crc32;
       // If the file is already compressed, no sense in uncompressing it and
       // compressing it again, just pass along the already compressed data.
-      if (file.compressionType == File.DEFLATE) {
+      if (file.compressionType == ArchiveFile.DEFLATE) {
         compressedData = file.rawContent;
 
         if (file.crc32 != null) {
@@ -46,9 +46,9 @@ class ZipEncoder {
         compressedData = new Deflate(file.content, level: level).getBytes();
       }
 
-      localFileSize += 30 + file.filename.length + compressedData.length;
+      localFileSize += 30 + file.name.length + compressedData.length;
 
-      centralDirectorySize += 46 + file.filename.length +
+      centralDirectorySize += 46 + file.name.length +
                              (file.comment != null ? file.comment.length : 0);
 
       fileData[file]['crc'] = crc32;
@@ -65,7 +65,7 @@ class ZipEncoder {
     OutputStream output = new OutputStream(size: outputSize);
 
     // Write Local File Headers
-    for (File file in archive.files) {
+    for (ArchiveFile file in archive.files) {
       fileData[file]['pos'] = output.length;
       _writeFile(file, fileData, output);
     }
@@ -76,7 +76,7 @@ class ZipEncoder {
     return output.getBytes();
   }
 
-  void _writeFile(File file, Map fileData, OutputStream output) {
+  void _writeFile(ArchiveFile file, Map fileData, OutputStream output) {
     // Local file header
     // Offset  Bytes Description[25]
     // 0   4 Local file header signature = 0x04034b50
@@ -101,8 +101,8 @@ class ZipEncoder {
     int lastModFileDate = fileData[file]['date'];
     int crc32 = fileData[file]['crc'];
     int compressedSize = fileData[file]['size'];
-    int uncompressedSize = file.fileSize;
-    String filename = file.filename;
+    int uncompressedSize = file.size;
+    String filename = file.name;
     List<int> extra = [];
 
     List<int> compressedData = fileData[file]['data'];
@@ -131,7 +131,7 @@ class ZipEncoder {
     int version = VERSION;
     int os = OS_MSDOS;
 
-    for (File file in archive.files) {
+    for (ArchiveFile file in archive.files) {
       // Central directory file header
       // Offset  Bytes Description[25]
       //  0  4 Central directory file header signature = 0x02014b50
@@ -162,12 +162,12 @@ class ZipEncoder {
       int lastModifiedFileDate = fileData[file]['date'];
       int crc32 = fileData[file]['crc'];
       int compressedSize = fileData[file]['size'];
-      int uncompressedSize = file.fileSize;
+      int uncompressedSize = file.size;
       int diskNumberStart = 0;
       int internalFileAttributes = 0;
       int externalFileAttributes = 0;
       int localHeaderOffset = fileData[file]['pos'];
-      String filename = file.filename;
+      String filename = file.name;
       List<int> extraField = [];
       String fileComment = (file.comment == null ? '' : file.comment);
 

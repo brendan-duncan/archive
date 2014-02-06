@@ -7,10 +7,10 @@ class TarEncoder {
   List<int> encode(Archive archive) {
     OutputStream output = new OutputStream();
 
-    for (File file in archive.files) {
+    for (ArchiveFile file in archive.files) {
       TarFile ts = new TarFile();
-      ts.filename = file.filename;
-      ts.fileSize = file.fileSize;
+      ts.filename = file.name;
+      ts.fileSize = file.size;
       ts.mode = file.mode;
       ts.ownerId = file.ownerId;
       ts.groupId = file.groupId;

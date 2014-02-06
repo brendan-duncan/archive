@@ -113,7 +113,8 @@ io.File createTarFile(String dirPath) {
       if (name.startsWith(io.Platform.pathSeparator)) {
         name = name.substring(io.Platform.pathSeparator.length);
       }
-      File file = new File(name, entity.lengthSync(), entity.readAsBytesSync());
+      ArchiveFile file = new ArchiveFile(name, entity.lengthSync(),
+                                         entity.readAsBytesSync());
       file.lastModTime = entity.lastModifiedSync().millisecondsSinceEpoch;
       file.mode = entity.statSync().mode;
       print('  added ${name}');

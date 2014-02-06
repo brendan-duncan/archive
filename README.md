@@ -27,35 +27,32 @@ And the following encoders:
 
 ##Sample
 
-Extract the contents of a Zip file, and encode the contents into a Tar file:
+Extract the contents of a Zip file, and encode the contents into a BZip2 
+compressed Tar file:
 
     import 'dart:io' as Io;
     import 'package:archive/archive.dart';
     void main() {
       // Read the Zip file from disk.
-      Io.File file = new Io.File('test.zip');
-      List<int> bytes = file.readAsBytesSync();
-      if (bytes == null) {
-        return;
-      }
+      List<int> bytes = new Io.File('test.zip').readAsBytesSync();
       
       // Decode the Zip file
       Archive archive = new ZipDecoder().decodeBytes(bytes);
       
       // Extract the contents of the Zip archive to disk.
-      for (int i = 0; i < archive.numberOfFiles(); ++i) {
-        String filename = archive.fileName(i);
-        List<int> data = archive.fileData(i);
-        Io.File fp = new Io.File('out/' + filename);
-        fp.createSync(recursive: true);
-        fp.writeAsBytesSync(data);
+      for (ArchiveFile file in archive) {
+        String filename = file.name;
+        List<int> data = file.content;
+        new Io.File('out/' + filename)
+              ..createSync(recursive: true)
+              ..writeAsBytesSync(data);
       }
       
-      // Encode the archive as a Tar file.
+      // Encode the archive as a BZip2 compressed Tar file.
       List<int> tar_data = new TarEncoder().encode(archive);
+      List<int> tar_bz2 = new BZip2Encoder().encode(tar_data);
       
-      // Write the tar file to disk.
-      Io.File fp = new Io.File(filename + '.tar');
-      fp.createSync(recursive: true);
-      fp.writeAsBytesSync(tar_data);
+      // Write the compressed tar file to disk.
+      Io.File fp = new Io.File(filename + '.tbz');
+      fp.writeAsBytesSync(tar_bz2);
     }

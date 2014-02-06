@@ -3,16 +3,16 @@ part of archive;
 /**
  * A collection of files.
  */
-class Archive extends IterableBase<File> {
+class Archive extends IterableBase<ArchiveFile> {
   /// The list of files in the archive.
-  List<File> files = [];
+  List<ArchiveFile> files = [];
   /// A global comment for the archive.
   String comment;
 
   /**
    * Add a file to the archive.
    */
-  void addFile(File file) {
+  void addFile(ArchiveFile file) {
     files.add(file);
   }
 
@@ -24,15 +24,15 @@ class Archive extends IterableBase<File> {
   /**
    * Get a file from the archive.
    */
-  File operator[](int index) => files[index];
+  ArchiveFile operator[](int index) => files[index];
 
   /**
    * Find a file with the given [name] in the archive. If the file isn't found,
    * null will be returned.
    */
-  File findFile(String name) {
-    for (File f in files) {
-      if (f.filename == name) {
+  ArchiveFile findFile(String name) {
+    for (ArchiveFile f in files) {
+      if (f.name == name) {
         return f;
       }
     }
@@ -50,14 +50,14 @@ class Archive extends IterableBase<File> {
    * The name of the file at the given [index].
    */
   String fileName(int index) {
-    return files[index].filename;
+    return files[index].name;
   }
 
   /**
    * The decompressed size of the file at the given [index].
    */
   int fileSize(int index) {
-    return files[index].fileSize;
+    return files[index].size;
   }
 
   /**
@@ -68,14 +68,14 @@ class Archive extends IterableBase<File> {
   }
 
 
-  File get first => files.first;
+  ArchiveFile get first => files.first;
 
-  File get last => files.last;
+  ArchiveFile get last => files.last;
 
   bool get isEmpty => files.isEmpty;
 
   // Returns true if there is at least one element in this collection.
   bool get isNotEmpty => files.isNotEmpty;
 
-  Iterator<File> get iterator => files.iterator;
+  Iterator<ArchiveFile> get iterator => files.iterator;
 }

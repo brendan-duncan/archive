@@ -24,8 +24,8 @@ class ZipDecoder {
         }
       }
 
-      File file = new File(zf.filename, zf.uncompressedSize,
-                           zf._content, zf.compressionMethod);
+      ArchiveFile file = new ArchiveFile(zf.filename, zf.uncompressedSize,
+                                         zf._content, zf.compressionMethod);
       file.crc32 = zf.crc32;
 
       archive.addFile(file);

@@ -1,12 +1,15 @@
 part of archive;
 
-class File {
+/**
+ * A file contained in an Archive.
+ */
+class ArchiveFile {
   static const int STORE = 0;
   static const int DEFLATE = 8;
 
-  String filename;
+  String name;
   /// The uncompressed size of the file
-  int fileSize;
+  int size;
   int mode;
   int ownerId = 0;
   int groupId = 0;
@@ -15,11 +18,11 @@ class File {
   int crc32;
   String comment;
 
-  File(this.filename, this.fileSize, this._content,
-       [this._compressionType = STORE]);
+  ArchiveFile(this.name, this.size, this._content,
+              [this._compressionType = STORE]);
 
   /**
-   * Get the contents of the file, decompressing on demand as necessary.
+   * Get the content of the file, decompressing on demand as necessary.
    */
   List<int> get content {
     if (_compressionType == DEFLATE) {
@@ -41,7 +44,7 @@ class File {
    */
   List<int> get rawContent => _content;
 
-  String toString() => filename;
+  String toString() => name;
 
   int _compressionType;
   List<int> _content;

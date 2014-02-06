@@ -2,6 +2,9 @@ v 1.0.13 - February 06, 2014
 
 - Added BZip2 encoder.
 
+- *BREAKING CHANGE*: File was renamed to ArchiveFile, to avoid conflicts with
+  dart:io.
+
 
 v 1.0.12 - February 04, 2014
 
