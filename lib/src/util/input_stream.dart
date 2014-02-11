@@ -120,7 +120,7 @@ class InputStream {
         }
         codes.add(c);
       }
-      throw new Exception('EOF reached without finding string terminator');
+      throw new ArchiveException('EOF reached without finding string terminator');
     }
 
     return new String.fromCharCodes(readBytes(len));
