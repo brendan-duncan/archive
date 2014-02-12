@@ -1,3 +1,8 @@
+v 1.0.14 - February 12, 2014
+
+- Misc updates and fixes.
+
+
 v 1.0.13 - February 06, 2014
 
 - Added BZip2 encoder.
