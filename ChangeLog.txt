@@ -1,3 +1,8 @@
+v 1.0.15 - February 16, 2014
+
+- Improved performance when writing large blocks.
+
+
 v 1.0.14 - February 12, 2014
 
 - Misc updates and fixes.
