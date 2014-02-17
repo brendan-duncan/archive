@@ -44,7 +44,7 @@ class OutputStream {
       len = bytes.length;
     }
     while (length + len > _buffer.length) {
-      _expandBuffer();
+      _expandBuffer((length + len) - _buffer.length);
     }
     _buffer.setRange(length, length + len, bytes);
     length += len;
@@ -103,8 +103,14 @@ class OutputStream {
   /**
    * Grow the buffer to accomidate additional data.
    */
-  void _expandBuffer() {
-    Uint8List newBuffer = new Uint8List(_buffer.length + _BLOCK_SIZE);
+  void _expandBuffer([int required]) {
+    int blockSize = _BLOCK_SIZE;
+    if (required != null) {
+      if (required > blockSize) {
+        blockSize = required;
+      }
+    }
+    Uint8List newBuffer = new Uint8List(_buffer.length + blockSize);
     newBuffer.setRange(0, _buffer.length, _buffer);
     _buffer = newBuffer;
   }
