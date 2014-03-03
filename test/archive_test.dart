@@ -44,7 +44,7 @@ format.
 """;
 
 void main() {
-  /*defineInputStreamTests();
+  defineInputStreamTests();
 
   defineOutputStreamTests();
 
@@ -54,11 +54,11 @@ void main() {
 
   defineCrc32Tests();
 
-  defineDeflateTests();*/
+  defineDeflateTests();
 
   defineInflateTests();
 
-  /*defineZlibTests();
+  defineZlibTests();
 
   defineGZipTests();
 
@@ -66,5 +66,5 @@ void main() {
 
   defineZipTests();
 
-  defineCommandTests();*/
+  defineCommandTests();
 }
