@@ -1,7 +1,7 @@
 part of archive;
 
 class Inflate {
-  final InputStream input;
+  InputStream input;
   final OutputStream output;
 
   Inflate(List<int> bytes, [int uncompressedSize]) :
@@ -15,6 +15,53 @@ class Inflate {
     output = new OutputStream(size: uncompressedSize) {
     _inflate();
   }
+
+  Inflate.stream([List<int> bytes]) :
+    output = new OutputStream() {
+    _bitBuffer = 0;
+    _bitBufferLen = 0;
+    if (bytes != null) {
+      input = new InputStream(bytes);
+    }
+  }
+
+  void streamInput(List<int> bytes) {
+    if (input != null) {
+      input.position = _blockPos;
+    }
+    int inputLen = input == null ? 0 : input.length;
+    int newLen = inputLen + bytes.length;
+    if (newLen < 0) {
+      print(newLen);
+    }
+    Uint8List newBytes = new Uint8List(newLen);
+    if (input != null) {
+      newBytes.setRange(0, input.length, input.buffer, input.position);
+    }
+    newBytes.setRange(inputLen, newLen, bytes, 0);
+    input = new InputStream(newBytes);
+  }
+
+  List<int> inflateNext() {
+    _bitBuffer = 0;
+    _bitBufferLen = 0;
+    output.clear();
+    if (input == null || input.isEOS) {
+      return null;
+    }
+
+    try {
+      _blockPos = input.position;
+      _parseBlock();
+      // If it didn't finish reading the block, it will have thrown an exception
+      _blockPos = 0;
+    } catch (e) {
+      return null;
+    }
+
+    return output.getBytes();
+  }
+
 
   /**
    * Get the decompressed data.
@@ -297,6 +344,7 @@ class Inflate {
 
   int _bitBuffer = 0;
   int _bitBufferLen = 0;
+  int _blockPos = 0;
 
   // enum BlockType
   static const int _BLOCK_UNCOMPRESSED = 0;

@@ -1,6 +1,7 @@
 library archive_test;
 
 import 'dart:io' as Io;
+import 'dart:typed_data';
 
 import 'package:archive/archive.dart';
 import 'package:unittest/unittest.dart';
@@ -13,6 +14,7 @@ part 'commands_test.dart';
 part 'crc32_test.dart';
 part 'deflate_test.dart';
 part 'gzip_test.dart';
+part 'inflate_test.dart';
 part 'input_stream_test.dart';
 part 'output_stream_test.dart';
 part 'tar_test.dart';
@@ -42,7 +44,7 @@ format.
 """;
 
 void main() {
-  defineInputStreamTests();
+  /*defineInputStreamTests();
 
   defineOutputStreamTests();
 
@@ -52,9 +54,11 @@ void main() {
 
   defineCrc32Tests();
 
-  defineDeflateTests();
+  defineDeflateTests();*/
 
-  defineZlibTests();
+  defineInflateTests();
+
+  /*defineZlibTests();
 
   defineGZipTests();
 
@@ -62,5 +66,5 @@ void main() {
 
   defineZipTests();
 
-  defineCommandTests();
+  defineCommandTests();*/
 }
