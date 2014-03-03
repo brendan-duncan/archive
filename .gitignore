@@ -1,5 +1,6 @@
 .project
 pubspec.lock
+build/
 packages
 test/out
 example/decode_zip.dart.js
