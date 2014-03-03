@@ -9,7 +9,7 @@ void defineDeflateTests() {
 
     test('NO_COMPRESSION', () {
       List<int> deflated = new Deflate(buffer,
-          level: Deflate.BEST_SPEED).getBytes();
+          level: Deflate.NO_COMPRESSION).getBytes();
 
       List<int> inflated = new Inflate(deflated).getBytes();
 

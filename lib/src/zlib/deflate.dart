@@ -1415,7 +1415,7 @@ class Deflate {
   /// start of string to insert
   int _strStart;
   /// start of matching string
-  int _matchStart;
+  int _matchStart = 0;
   /// number of valid bytes ahead in window
   int _lookAhead;
 
