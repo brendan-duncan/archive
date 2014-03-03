@@ -90,4 +90,6 @@ class ZipFile {
   /// still compressed.
   List<int> _content;
   int _computedCrc32;
+
+  String toString() => filename;
 }

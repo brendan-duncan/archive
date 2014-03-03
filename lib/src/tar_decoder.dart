@@ -28,6 +28,7 @@ class TarDecoder {
       file.ownerId = tf.ownerId;
       file.groupId = tf.groupId;
       file.lastModTime = tf.lastModTime;
+      file.isFile = tf.isFile;
 
       archive.addFile(file);
     }

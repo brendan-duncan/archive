@@ -85,4 +85,6 @@ class ZipFileHeader {
       }
     }
   }
+
+  String toString() => filename;
 }

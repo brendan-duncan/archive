@@ -14,6 +14,7 @@ class ArchiveFile {
   int ownerId = 0;
   int groupId = 0;
   int lastModTime;
+  bool isFile = true;
   /// The crc32 checksum of the uncompressed content.
   int crc32;
   String comment;
