@@ -50,6 +50,14 @@ class OutputStream {
     length += len;
   }
 
+  void writeInputStream(InputStream bytes) {
+    while (length + bytes.length > _buffer.length) {
+      _expandBuffer((length + bytes.length) - _buffer.length);
+    }
+    _buffer.setRange(length, length + bytes.length, bytes.buffer, bytes.offset);
+    length += bytes.length;
+  }
+
   /**
    * Write a 16-bit word to the end of the buffer.
    */

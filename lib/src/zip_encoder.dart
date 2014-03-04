@@ -27,7 +27,7 @@ class ZipEncoder {
       fileData[file]['time'] = t;
       fileData[file]['date'] = d;
 
-      List<int> compressedData;
+      InputStream compressedData;
       int crc32;
       // If the file is already compressed, no sense in uncompressing it and
       // compressing it again, just pass along the already compressed data.
@@ -43,7 +43,8 @@ class ZipEncoder {
         // Otherwise we need to compress it now.
         crc32 = getCrc32(file.content);
 
-        compressedData = new Deflate(file.content, level: level).getBytes();
+        List<int> bytes = new Deflate(file.content, level: level).getBytes();
+        compressedData = new InputStream(bytes);
       }
 
       localFileSize += 30 + file.name.length + compressedData.length;
@@ -77,21 +78,6 @@ class ZipEncoder {
   }
 
   void _writeFile(ArchiveFile file, Map fileData, OutputStream output) {
-    // Local file header
-    // Offset  Bytes Description[25]
-    // 0   4 Local file header signature = 0x04034b50
-    // 4   2 Version needed to extract (minimum)
-    // 6   2 General purpose bit flag
-    // 8   2 Compression method
-    // 10  2 File last modification time
-    // 12  2 File last modification date
-    // 14  4 CRC-32
-    // 18  4 Compressed size
-    // 22  4 Uncompressed size
-    // 26  2 File name length (n)
-    // 28  2 Extra field length (m)
-    // 30  n File name
-    // 30+n  m Extra field
     output.writeUint32(ZipFile.SIGNATURE);
 
     int version = VERSION;
@@ -105,7 +91,7 @@ class ZipEncoder {
     String filename = file.name;
     List<int> extra = [];
 
-    List<int> compressedData = fileData[file]['data'];
+    InputStream compressedData = fileData[file]['data'];
 
     output.writeUint16(version);
     output.writeUint16(flags);
@@ -120,8 +106,7 @@ class ZipEncoder {
     output.writeBytes(filename.codeUnits);
     output.writeBytes(extra);
 
-    output.writeBytes(compressedData);
-
+    output.writeInputStream(compressedData);
   }
 
   void _writeCentralDirectory(Archive archive, Map fileData,
@@ -132,28 +117,6 @@ class ZipEncoder {
     int os = OS_MSDOS;
 
     for (ArchiveFile file in archive.files) {
-      // Central directory file header
-      // Offset  Bytes Description[25]
-      //  0  4 Central directory file header signature = 0x02014b50
-      //  4  2 Version made by
-      //  6  2 Version needed to extract (minimum)
-      //  8  2 General purpose bit flag
-      //  10  2 Compression method
-      //  12  2 File last modification time
-      //  14  2 File last modification date
-      //  16  4 CRC-32
-      //  20  4 Compressed size
-      //  24  4 Uncompressed size
-      //  28  2 File name length (n)
-      //  30  2 Extra field length (m)
-      //  32  2 File comment length (k)
-      //  34  2 Disk number where file starts
-      //  36  2 Internal file attributes
-      //  38  4 External file attributes
-      //  42  4 Relative offset of local file header.
-      //  46  n File name
-      //  46+n  m Extra field
-      //  46+n+m  k File comment
       int versionMadeBy = (os << 8) | version;
       int versionNeededToExtract = version;
       int generalPurposeBitFlag = 0;
@@ -193,17 +156,6 @@ class ZipEncoder {
       output.writeBytes(fileComment.codeUnits);
     }
 
-    // End of central directory record (EOCD)
-    // Offset  Bytes Description[25]
-    //  0  4 End of central directory signature = 0x06054b50
-    //  4  2 Number of this disk
-    //  6  2 Disk where central directory starts
-    //  8  2 Number of central directory records on this disk
-    // 10  2 Total number of central directory records
-    // 12  4 Size of central directory (bytes)
-    // 16  4 Offset of start of central directory, relative to start of archive
-    // 20  2 Comment length (n)
-    // 22  n Comment
     int numberOfThisDisk = 0;
     int diskWithTheStartOfTheCentralDirectory = 0;
     int totalCentralDirectoryEntriesOnThisDisk = archive.numberOfFiles();

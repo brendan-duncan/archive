@@ -37,11 +37,11 @@ class ZipFile {
       uncompressedSize = input.readUint32();
       int fn_len = input.readUint16();
       int ex_len = input.readUint16();
-      filename = new String.fromCharCodes(input.readBytes(fn_len));
-      extraField = input.readBytes(ex_len);
+      filename = input.readString(fn_len);
+      extraField = input.readBytes(ex_len).toUint8List();
 
       // Read compressedSize bytes for the compressed data.
-      _content = input.readBytes(header.compressedSize);
+      _rawContent = input.readBytes(header.compressedSize);
 
       // If bit 3 (0x08) of the flags field is set, then the CRC-32 and file
       // sizes are not known when the header is written. The fields in the
@@ -79,17 +79,22 @@ class ZipFile {
    * until it is requested.
    */
   List<int> get content {
-    if (compressionMethod == DEFLATE) {
-      _content = new Inflate(_content, uncompressedSize).getBytes();
-      compressionMethod = STORE;
+    if (_content == null) {
+      if (compressionMethod == DEFLATE) {
+        _content = new Inflate.buffer(_rawContent, uncompressedSize).getBytes();
+        compressionMethod = STORE;
+      } else {
+        _content = _rawContent.toUint8List();
+      }
     }
     return _content;
   }
 
+  String toString() => filename;
+
   /// Content of the file.  If compressionMethod is not STORE, then it is
   /// still compressed.
+  InputStream _rawContent;
   List<int> _content;
   int _computedCrc32;
-
-  String toString() => filename;
 }

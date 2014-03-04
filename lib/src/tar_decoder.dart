@@ -23,7 +23,7 @@ class TarDecoder {
       TarFile tf = new TarFile.read(input);
       files.add(tf);
 
-      ArchiveFile file = new ArchiveFile(tf.filename, tf.fileSize, tf.content);
+      ArchiveFile file = new ArchiveFile(tf.filename, tf.fileSize, tf._rawContent);
       file.mode = tf.mode;
       file.ownerId = tf.ownerId;
       file.groupId = tf.groupId;

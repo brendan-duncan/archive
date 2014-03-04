@@ -15,7 +15,7 @@ class TarEncoder {
       ts.ownerId = file.ownerId;
       ts.groupId = file.groupId;
       ts.lastModTime = file.lastModTime;
-      ts.content = file.content;
+      ts._content = file.content;
       ts.write(output);
     }
 

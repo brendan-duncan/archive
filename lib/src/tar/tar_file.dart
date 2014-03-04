@@ -47,13 +47,14 @@ class TarFile {
   int deviceMajorNumber = 0; // 8 bytes
   int deviceMinorNumber = 0; // 8 bytes
   String filenamePrefix = ''; // 155 bytes
-  List<int> content;
+  InputStream _rawContent;
+  List<int> _content;
 
   TarFile() {
   }
 
   TarFile.read(InputStream input) {
-    InputStream header = new InputStream(input.readBytes(512));
+    InputStream header = input.readBytes(512);
 
     // The name, linkname, magic, uname, and gname are null-terminated
     // character strings. All other fields are zero-filled octal numbers in
@@ -78,7 +79,7 @@ class TarFile {
       deviceMinorNumber = _parseInt(header, 8);
     }
 
-    content = input.readBytes(fileSize);
+    _rawContent = input.readBytes(fileSize);
 
     if (isFile && fileSize > 0) {
       int remainder = fileSize % 512;
@@ -92,10 +93,21 @@ class TarFile {
 
   bool get isFile => typeFlag != TYPE_DIRECTORY;
 
+  List<int> get content {
+    if (_content == null) {
+      _content = _rawContent.toUint8List();
+    }
+    return _content;
+  }
+
+  int get size => _content != null ? _content.length :
+                  _rawContent != null ? _rawContent.length :
+                  0;
+
   String toString() => '[${filename}, ${mode}, ${fileSize}]';
 
   void write(OutputStream output) {
-    fileSize = content.length;
+    fileSize = size;
 
     // The name, linkname, magic, uname, and gname are null-terminated
     // character strings. All other fields are zero-filled octal numbers in
@@ -140,7 +152,11 @@ class TarFile {
 
     output.writeBytes(header.getBytes());
 
-    output.writeBytes(content);
+    if (_content != null) {
+      output.writeBytes(_content);
+    } else if (_rawContent != null) {
+      output.writeInputStream(_rawContent);
+    }
 
     if (isFile && fileSize > 0) {
       // Padd to 512-byte boundary
@@ -163,10 +179,12 @@ class TarFile {
   }
 
   String _parseString(InputStream input, int numBytes) {
-    List<int> codes = input.readBytes(numBytes);
+    InputStream codes = input.readBytes(numBytes);
     int r = codes.indexOf(0);
-    List<int> s = codes.sublist(0, r < 0 ? null : r);
-    return new String.fromCharCodes(s).trim();
+    InputStream s = codes.subset(0, r < 0 ? null : r);
+    List<int> b = s.toUint8List();
+    String str = new String.fromCharCodes(b).trim();
+    return str;
   }
 
   void _writeString(OutputStream output, String value, int numBytes) {

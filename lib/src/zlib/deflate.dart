@@ -1220,7 +1220,8 @@ class Deflate {
       return 0;
     }
 
-    buf.setRange(start, start + len, _input.readBytes(len));
+    InputStream bytes = _input.readBytes(len);
+    buf.setRange(start, start + len, bytes.toUint8List());
 
     return len;
   }

@@ -27,7 +27,7 @@ class Inflate {
 
   void streamInput(List<int> bytes) {
     if (input != null) {
-      input.position = _blockPos;
+      input.offset = _blockPos;
     }
     int inputLen = input == null ? 0 : input.length;
     int newLen = inputLen + bytes.length;
@@ -36,7 +36,7 @@ class Inflate {
     }
     Uint8List newBytes = new Uint8List(newLen);
     if (input != null) {
-      newBytes.setRange(0, input.length, input.buffer, input.position);
+      newBytes.setRange(0, input.length, input.buffer, input.offset);
     }
     newBytes.setRange(inputLen, newLen, bytes, 0);
     input = new InputStream(newBytes);
@@ -51,7 +51,7 @@ class Inflate {
     }
 
     try {
-      _blockPos = input.position;
+      _blockPos = input.offset;
       _parseBlock();
       // If it didn't finish reading the block, it will have thrown an exception
       _blockPos = 0;
@@ -198,7 +198,7 @@ class Inflate {
       throw new ArchiveException('Input buffer is broken');
     }
 
-    output.writeBytes(input.readBytes(len));
+    output.writeInputStream(input.readBytes(len));
   }
 
   /**
@@ -292,7 +292,7 @@ class Inflate {
 
     while (_bitBufferLen >= 8) {
       _bitBufferLen -= 8;
-      input.position--;
+      input.offset--;
     }
   }
 

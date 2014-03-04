@@ -40,13 +40,13 @@ class ZipFileHeader {
       localHeaderOffset = input.readUint32();
 
       if (fname_len > 0) {
-        filename = new String.fromCharCodes(input.readBytes(fname_len));
+        filename = input.readString(fname_len);
       }
 
       if (extra_len > 0) {
-        extraField = input.readBytes(extra_len);
+        InputStream extra = input.readBytes(extra_len);
+        extraField = extra.toUint8List();
 
-        InputStream extra = new InputStream(extraField);
         int id = extra.readUint16();
         int size = extra.readUint16();
         if (id == 1) {
@@ -76,11 +76,11 @@ class ZipFileHeader {
       }
 
       if (comment_len > 0) {
-        fileComment = new String.fromCharCodes(input.readBytes(comment_len));
+        fileComment = input.readString(comment_len);
       }
 
       if (bytes != null) {
-        bytes.position = localHeaderOffset;
+        bytes.offset = localHeaderOffset;
         file = new ZipFile(bytes, this);
       }
     }

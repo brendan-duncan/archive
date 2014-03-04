@@ -45,26 +45,15 @@ format.
 
 void main() {
   defineInputStreamTests();
-
   defineOutputStreamTests();
-
   defineAdlerTests();
-
-  defineBzip2Tests();
-
   defineCrc32Tests();
-
+  defineBzip2Tests();
   defineDeflateTests();
-
   defineInflateTests();
-
   defineZlibTests();
-
   defineGZipTests();
-
   defineTarTests();
-
   defineZipTests();
-
   defineCommandTests();
 }

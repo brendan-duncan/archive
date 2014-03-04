@@ -20,9 +20,11 @@ void defineInputStreamTests() {
 
     test('peakBytes', () {
       const List<int> data = const [0xaa, 0xbb, 0xcc];
+
       InputStream input = new InputStream(data);
       expect(input.readByte(), equals(0xaa));
-      List<int> bytes = input.peekBytes(2);
+
+      InputStream bytes = input.peekBytes(2);
       expect(bytes[0], equals(0xbb));
       expect(bytes[1], equals(0xcc));
       expect(input.readByte(), equals(0xbb));
@@ -77,7 +79,7 @@ void defineInputStreamTests() {
     test('readBytes', () {
       const List<int> data = const [84, 101, 115, 116, 0];
       InputStream input = new InputStream(data);
-      List<int> b = input.readBytes(3);
+      InputStream b = input.readBytes(3);
       expect(b.length, equals(3));
       expect(b[0], equals(84));
       expect(b[1], equals(101));
