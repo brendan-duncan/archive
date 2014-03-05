@@ -49,7 +49,7 @@ void defineInflateTests() {
     });
 
     test('git inflate block', () {
-      List<int> output = new Inflate(gitInflateInput).getBytes();
+      List<int> output = new ZLibDecoder().decodeBytes(gitInflateInput);
       expect(output, equals(gitExpectedOutput));
     });
   });
