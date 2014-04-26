@@ -12,9 +12,9 @@ class InputStream {
   /**
    * Create a InputStream for reading from a List<int>
    */
-  InputStream(buffer, {this.byteOrder: LITTLE_ENDIAN, int start: 0,
+  InputStream(data, {this.byteOrder: LITTLE_ENDIAN, int start: 0,
               int length}) :
-    this.buffer = buffer is ByteData ? new Uint8List.view(buffer) : buffer,
+    this.buffer = data is ByteData ? new Uint8List.view(data.buffer) : data,
     this.start = start {
     _length = length == null ? buffer.length : length;
     offset = start;
