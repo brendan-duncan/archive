@@ -9,6 +9,6 @@ documentation: https://github.com/brendan-duncan/archive/wiki
 dependencies:
   crypto: '>=0.9.0 <1.0.0'
 dev_dependencies:
-  args: any
+  args: '>=0.10.0 <1.0.0'
   browser: any
   unittest: any
