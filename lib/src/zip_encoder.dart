@@ -5,14 +5,15 @@ part of archive;
  */
 class ZipEncoder {
   List<int> encode(Archive archive, {int level: Deflate.BEST_SPEED}) {
-    DateTime date = new DateTime.now();
-    int t1 = ((date.minute & 0x7) << 5) | (date.second ~/ 2);
-    int t2 = (date.hour << 3) | (date.minute >> 3);
-    int t = ((t2 & 0xff) << 8) | (t1 & 0xff);
+    DateTime dateTime = new DateTime.now();
+    int t1 = ((dateTime.minute & 0x7) << 5) | (dateTime.second ~/ 2);
+    int t2 = (dateTime.hour << 3) | (dateTime.minute >> 3);
+    int time = ((t2 & 0xff) << 8) | (t1 & 0xff);
 
-    int d1 = ((date.month + 1 & 0x7) << 5) | (date.day);
-    int d2 = ((date.year - 1980 & 0x7f) << 1) | (date.month + 1 >> 3);
-    int d = ((d2 & 0xff) << 8) | (d1 & 0xff);
+    int d1 = ((dateTime.month & 0x7) << 5) | dateTime.day;
+    int d2 = (((dateTime.year - 1980) & 0x7f) << 1)
+             | (dateTime.month >> 3);
+    int date = ((d2 & 0xff) << 8) | (d1 & 0xff);
 
     int localFileSize = 0;
     int centralDirectorySize = 0;
@@ -24,8 +25,8 @@ class ZipEncoder {
     // for the output buffer.
     for (ArchiveFile file in archive.files) {
       fileData[file] = {};
-      fileData[file]['time'] = t;
-      fileData[file]['date'] = d;
+      fileData[file]['time'] = time;
+      fileData[file]['date'] = date;
 
       InputStream compressedData;
       int crc32;
