@@ -30,9 +30,25 @@ class ZipEncoder {
 
       InputStream compressedData;
       int crc32;
-      // If the file is already compressed, no sense in uncompressing it and
-      // compressing it again, just pass along the already compressed data.
-      if (file.compressionType == ArchiveFile.DEFLATE) {
+
+      // If the user want's to store the file without compressing it,
+      // make sure it's decompressed.
+      if (!file.compress) {
+        if (file.isCompressed) {
+          file.decompress();
+        }
+
+        compressedData = new InputStream(file.content);
+
+        if (file.crc32 != null) {
+          crc32 = file.crc32;
+        } else {
+          crc32 = getCrc32(file.content);
+        }
+      } else if (!file.compress ||
+                 file.compressionType == ArchiveFile.DEFLATE) {
+        // If the file is already compressed, no sense in uncompressing it and
+        // compressing it again, just pass along the already compressed data.
         compressedData = file.rawContent;
 
         if (file.crc32 != null) {
@@ -83,7 +99,7 @@ class ZipEncoder {
 
     int version = VERSION;
     int flags = 0;
-    int compressionMethod = ZipFile.DEFLATE;
+    int compressionMethod = file.compress ? ZipFile.DEFLATE : ZipFile.STORE;
     int lastModFileTime = fileData[file]['time'];
     int lastModFileDate = fileData[file]['date'];
     int crc32 = fileData[file]['crc'];

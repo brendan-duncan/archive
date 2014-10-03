@@ -196,6 +196,30 @@ void defineZipTests() {
     ZipDecoder zipDecoder = new ZipDecoder();
     ZipEncoder zipEncoder = new ZipEncoder();
 
+    test('encode', () {
+      Archive archive = new Archive();
+      List bdata = [1,2,3,4,5,6,7,8,9];
+      var bytes = new Uint8List.fromList(bdata);
+      String name = 'abc.txt';
+      ArchiveFile afile = new ArchiveFile.noCompress(name, bytes.lengthInBytes,
+                                          new InputStream(bytes));
+      archive.addFile(afile);
+
+      var zip_data = new ZipEncoder().encode(archive);
+
+      new Io.File('out/uncompressed.zip')
+          ..createSync(recursive: true)
+          ..writeAsBytesSync(zip_data);
+
+      var arc = new ZipDecoder().decodeBytes(zip_data);
+      expect(arc.numberOfFiles(), equals(1));
+      var arcData = arc.fileData(0);
+      expect(arcData.length, equals(bdata.length));
+      for (int i = 0; i < arcData.length; ++i) {
+        expect(arcData[i], equals(bdata[i]));
+      }
+    });
+
     test('decode/encode', () {
       var file = new Io.File('res/test.zip');
       var bytes = file.readAsBytesSync();

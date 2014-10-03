@@ -18,9 +18,22 @@ class ArchiveFile {
   /// The crc32 checksum of the uncompressed content.
   int crc32;
   String comment;
+  /// If false, this file will not be compressed when encoded to an archive
+  /// format such as zip.
+  bool compress = true;
 
   ArchiveFile(this.name, this.size, content,
               [this._compressionType = STORE]) {
+    if (content is List<int>) {
+      _content = content;
+      _rawContent = new InputStream(_content);
+    } else if (content is InputStream) {
+      _rawContent = new InputStream.from(content);
+    }
+  }
+
+  ArchiveFile.noCompress(this.name, this.size, content) {
+    compress = false;
     if (content is List<int>) {
       _content = content;
       _rawContent = new InputStream(_content);
@@ -33,14 +46,24 @@ class ArchiveFile {
    * Get the content of the file, decompressing on demand as necessary.
    */
   List<int> get content {
+    if (_compressionType == DEFLATE) {
+      decompress();
+    }
+    return _content;
+  }
+
+  /**
+   * If the file data is compressed, decompress it.
+   */
+  void decompress() {
     if (_content == null) {
       if (_compressionType == DEFLATE) {
         _content = new Inflate.buffer(_rawContent).getBytes();
       } else {
         _content = _rawContent.toUint8List();
       }
+      _compressionType = STORE;
     }
-    return _content;
   }
 
   /**
