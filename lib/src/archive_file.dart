@@ -46,7 +46,7 @@ class ArchiveFile {
    * Get the content of the file, decompressing on demand as necessary.
    */
   List<int> get content {
-    if (_compressionType == DEFLATE) {
+    if (_content == null) {
       decompress();
     }
     return _content;
