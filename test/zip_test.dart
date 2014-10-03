@@ -202,7 +202,7 @@ void defineZipTests() {
       var bytes = new Uint8List.fromList(bdata);
       String name = 'abc.txt';
       ArchiveFile afile = new ArchiveFile.noCompress(name, bytes.lengthInBytes,
-                                          new InputStream(bytes));
+                                          bytes);
       archive.addFile(afile);
 
       var zip_data = new ZipEncoder().encode(archive);
