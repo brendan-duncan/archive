@@ -137,7 +137,7 @@ class ZipEncoder {
       int versionMadeBy = (os << 8) | version;
       int versionNeededToExtract = version;
       int generalPurposeBitFlag = 0;
-      int compressionMethod = ZipFile.DEFLATE;
+      int compressionMethod = file.compress ? ZipFile.DEFLATE : ZipFile.STORE;
       int lastModifiedFileTime = fileData[file]['time'];
       int lastModifiedFileDate = fileData[file]['date'];
       int crc32 = fileData[file]['crc'];

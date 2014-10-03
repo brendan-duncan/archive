@@ -198,8 +198,8 @@ void defineZipTests() {
 
     test('encode', () {
       Archive archive = new Archive();
-      List bdata = [1,2,3,4,5,6,7,8,9];
-      var bytes = new Uint8List.fromList(bdata);
+      var bdata = 'hello world';
+      var bytes = new Uint8List.fromList(bdata.codeUnits);
       String name = 'abc.txt';
       ArchiveFile afile = new ArchiveFile.noCompress(name, bytes.lengthInBytes,
                                           bytes);
@@ -216,7 +216,7 @@ void defineZipTests() {
       var arcData = arc.fileData(0);
       expect(arcData.length, equals(bdata.length));
       for (int i = 0; i < arcData.length; ++i) {
-        expect(arcData[i], equals(bdata[i]));
+        expect(arcData[i], equals(bdata.codeUnits[i]));
       }
     });
 
