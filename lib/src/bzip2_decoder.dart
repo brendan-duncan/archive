@@ -5,7 +5,7 @@ part of archive;
  * Derived from libbzip2 (http://www.bzip.org).
  */
 class BZip2Decoder {
-  List<int> decodeBytes(List<int> data, {bool verify: true}) {
+  List<int> decodeBytes(List<int> data, {bool verify: false}) {
     return decodeBuffer(new InputStream(data, byteOrder: BIG_ENDIAN),
                         verify: verify);
   }

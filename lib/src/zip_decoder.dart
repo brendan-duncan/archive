@@ -6,11 +6,11 @@ part of archive;
 class ZipDecoder {
   ZipDirectory directory;
 
-  Archive decodeBytes(List<int> data, {bool verify: true}) {
+  Archive decodeBytes(List<int> data, {bool verify: false}) {
     return decodeBuffer(new InputStream(data), verify: verify);
   }
 
-  Archive decodeBuffer(InputStream input, {bool verify: true}) {
+  Archive decodeBuffer(InputStream input, {bool verify: false}) {
     directory = new ZipDirectory.read(input);
     Archive archive = new Archive();
 
