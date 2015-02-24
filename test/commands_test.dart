@@ -1,18 +1,20 @@
-
 part of archive_test;
 
 void defineCommandTests() {
+  Io.File script = new Io.File(Io.Platform.script.toFilePath());
+  String path = script.parent.path;
+
   group('commands', () {
     test('bin/tar.dart list', () {
       // Test that 'tar --list' does not throw.
-      tar_command.listFiles('res/test.tar.gz');
+      tar_command.listFiles(path + '/res/test.tar.gz');
     });
 
     test('tar extract', () {
       Io.Directory dir = Io.Directory.systemTemp.createTempSync('foo');
 
       try {
-        tar_command.extractFiles('res/test.tar.gz', dir.path);
+        tar_command.extractFiles(path + '/res/test.tar.gz', dir.path);
         expect(dir.listSync().length, 9);
       } finally {
         dir.deleteSync(recursive: true);

@@ -1,6 +1,9 @@
 part of archive_test;
 
 void defineGZipTests() {
+  Io.File script = new Io.File(Io.Platform.script.toFilePath());
+  String path = script.parent.path;
+
   group('gzip', () {
     List<int> buffer = new List<int>(10000);
     for (int i = 0; i < buffer.length; ++i) {
@@ -17,10 +20,10 @@ void defineGZipTests() {
     });
 
     test('decode res/cat.jpg.gz', () {
-      var b = new Io.File('res/cat.jpg');
+      var b = new Io.File(path + '/res/cat.jpg');
       List<int> b_bytes = b.readAsBytesSync();
 
-      var file = new Io.File('res/cat.jpg.gz');
+      var file = new Io.File(path + '/res/cat.jpg.gz');
       var bytes = file.readAsBytesSync();
 
       var z_bytes = new GZipDecoder().decodeBytes(bytes);
@@ -30,7 +33,7 @@ void defineGZipTests() {
     test('decode res/a.txt.gz', () {
       List<int> a_bytes = a_txt.codeUnits;
 
-      var file = new Io.File('res/a.txt.gz');
+      var file = new Io.File(path + '/res/a.txt.gz');
       var bytes = file.readAsBytesSync();
 
       var z_bytes = new GZipDecoder().decodeBytes(bytes);
@@ -38,11 +41,11 @@ void defineGZipTests() {
     });
 
     test('encode res/cat.jpg', () {
-      var b = new Io.File('res/cat.jpg');
+      var b = new Io.File(path + '/res/cat.jpg');
       List<int> b_bytes = b.readAsBytesSync();
 
       List<int> compressed = new GZipEncoder().encode(b_bytes);
-      Io.File f = new Io.File('out/cat.jpg.gz');
+      Io.File f = new Io.File(path + '/out/cat.jpg.gz');
       f.createSync(recursive: true);
       f.writeAsBytesSync(compressed);
     });
