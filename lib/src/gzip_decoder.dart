@@ -12,7 +12,7 @@ class GZipDecoder {
   static const int FLAG_NAME = 0x08;
   static const int FLAG_COMMENT = 0x10;
 
-  List<int> decodeBytes(List<int> data, {bool verify: true}) {
+  List<int> decodeBytes(List<int> data, {bool verify: false}) {
     return decodeBuffer(new InputStream(data), verify: verify);
   }
 
