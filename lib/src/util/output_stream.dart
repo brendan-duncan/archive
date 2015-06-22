@@ -26,6 +26,15 @@ class OutputStream {
     length = 0;
   }
 
+
+  /**
+   * Reset the buffer.
+   */
+  void reset() {
+    _length = 0;
+  }
+
+
   /**
    * Write a byte to the end of the buffer.
    */
@@ -35,6 +44,7 @@ class OutputStream {
     }
     _buffer[length++] = value & 0xff;
   }
+
 
   /**
    * Write a set of bytes to the end of the buffer.
@@ -50,6 +60,7 @@ class OutputStream {
     length += len;
   }
 
+
   void writeInputStream(InputStream bytes) {
     while (length + bytes.length > _buffer.length) {
       _expandBuffer((length + bytes.length) - _buffer.length);
@@ -57,6 +68,7 @@ class OutputStream {
     _buffer.setRange(length, length + bytes.length, bytes.buffer, bytes.offset);
     length += bytes.length;
   }
+
 
   /**
    * Write a 16-bit word to the end of the buffer.
@@ -70,6 +82,7 @@ class OutputStream {
     writeByte((value) & 0xff);
     writeByte((value >> 8) & 0xff);
   }
+
 
   /**
    * Write a 32-bit word to the end of the buffer.
@@ -87,6 +100,7 @@ class OutputStream {
     writeByte((value >> 16) & 0xff);
     writeByte((value >> 24) & 0xff);
   }
+
 
   /**
    * Return the subset of the buffer in the range [start:end].
@@ -108,8 +122,9 @@ class OutputStream {
     return new Uint8List.view(_buffer.buffer, start, end - start);
   }
 
+
   /**
-   * Grow the buffer to accomidate additional data.
+   * Grow the buffer to accommodate additional data.
    */
   void _expandBuffer([int required]) {
     int blockSize = _BLOCK_SIZE;
@@ -122,6 +137,7 @@ class OutputStream {
     newBuffer.setRange(0, _buffer.length, _buffer);
     _buffer = newBuffer;
   }
+
 
   static const int _BLOCK_SIZE = 0x8000; // 32k block-size
   Uint8List _buffer;
