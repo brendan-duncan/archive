@@ -1,7 +1,7 @@
 name: archive
-version: 1.0.19
+version: 1.0.20
 author: Brendan Duncan <brendanduncan@gmail.com>
-description: Provides encoders and decoders for various archive and compression formats such as zip and tar.
+description: Provides encoders and decoders for various archive and compression formats such as zip, tar, bzip2, gzip, and zlib.
 homepage: https://github.com/brendan-duncan/archive
 environment:
   sdk: '>=1.0.0 <2.0.0'
