@@ -4,7 +4,7 @@ import 'dart:io' as Io;
 import 'dart:typed_data';
 
 import 'package:archive/archive.dart';
-import 'package:unittest/unittest.dart';
+import 'package:test/test.dart';
 
 import '../bin/tar.dart' as tar_command;
 
