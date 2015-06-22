@@ -58,7 +58,7 @@ class ArchiveFile {
   void decompress() {
     if (_content == null) {
       if (_compressionType == DEFLATE) {
-        _content = new Inflate.buffer(_rawContent).getBytes();
+        _content = new Inflate.buffer(_rawContent, size).getBytes();
       } else {
         _content = _rawContent.toUint8List();
       }

@@ -10,11 +10,13 @@ class Inflate {
     _inflate();
   }
 
+
   Inflate.buffer(InputStream buffer, [int uncompressedSize]) :
     input = buffer,
     output = new OutputStream(size: uncompressedSize) {
     _inflate();
   }
+
 
   Inflate.stream([List<int> bytes]) :
     output = new OutputStream() {
@@ -24,6 +26,7 @@ class Inflate {
       input = new InputStream(bytes);
     }
   }
+
 
   void streamInput(List<int> bytes) {
     if (input != null) {
@@ -41,6 +44,7 @@ class Inflate {
     newBytes.setRange(inputLen, newLen, bytes, 0);
     input = new InputStream(newBytes);
   }
+
 
   List<int> inflateNext() {
     _bitBuffer = 0;
@@ -70,14 +74,14 @@ class Inflate {
     return output.getBytes();
   }
 
+
   void _inflate() {
     _bitBuffer = 0;
     _bitBufferLen = 0;
-    output.clear();
 
-    while (_parseBlock()) {
-    }
+    while (_parseBlock());
   }
+
 
   /**
    * Parse deflated block.  Returns true if there is more to read, false
@@ -182,10 +186,7 @@ class Inflate {
     _bitBuffer = 0;
     _bitBufferLen = 0;
 
-    // len
     int len = _readBits(16);
-
-    // nlen
     int nlen = _readBits(16);
 
     // check len & nlen
@@ -261,7 +262,7 @@ class Inflate {
         continue;
       }
 
-      // [257, 285] Dictionnary Lookup
+      // [257, 285] Dictionary Lookup
       // length code
       int ti = code - 257;
 
