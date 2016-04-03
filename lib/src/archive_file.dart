@@ -15,6 +15,9 @@ class ArchiveFile {
   int groupId = 0;
   int lastModTime;
   bool isFile = true;
+  /// The unix permissions of the file stored in base 8. Use .toRadixString(8)
+  /// to convert to the chmod format (e.g. 777).
+  int unixPermissions;
   /// The crc32 checksum of the uncompressed content.
   int crc32;
   String comment;
