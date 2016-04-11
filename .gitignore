@@ -1,7 +1,9 @@
 .project
+.pub
 pubspec.lock
 build/
 packages
+.packages
 test/out
 example/decode_zip.dart.js
 example/decode_zip.dart.js.deps

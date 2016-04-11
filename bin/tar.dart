@@ -35,7 +35,7 @@ void main(List arguments) {
   } else {
     print('usage: tar [--list|--extract|--create] <file> [<dest>|<source>]');
     print('');
-    fail(args.getUsage());
+    fail(args.usage);
   }
 }
 
