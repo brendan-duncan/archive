@@ -1,6 +1,6 @@
 import 'dart:html' as Html;
 import 'package:archive/archive.dart' as Arc;
-import 'package:crypto/crypto.dart';
+import 'dart:convert';
 
 /**
  * Decode a zip file, extract a jpeg image file from it, and replace the
@@ -29,7 +29,7 @@ void main() {
       var jpg = archive.findFile('cat.jpg').content;
 
       // Replace the html image content with the image we just extracted.
-      var jpg64 = CryptoUtils.bytesToBase64(jpg);
+      var jpg64 = BASE64.encode(jpg);
       img.src = 'data:image/jpeg;base64,${jpg64}';
     }
   });
