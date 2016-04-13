@@ -1,7 +1,5 @@
 # archive
 
-[![Build Status](https://drone.io/github.com/brendan-duncan/archive/status.png)](https://drone.io/github.com/brendan-duncan/archive/latest)
-
 ##Overview
 
 A Dart library to encode and decode various archive and compression formats.
