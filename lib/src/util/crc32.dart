@@ -42,6 +42,9 @@ class Crc32 extends crypto.Hash {
 
   Crc32 newInstance() => new Crc32();
 
+  ByteConversionSink startChunkedConversion(Sink<crypto.Digest> sink) =>
+      new _Crc32Sink(sink);
+
   void add(List<int> data) {
     _hash = getCrc32(data, _hash);
   }
@@ -51,6 +54,37 @@ class Crc32 extends crypto.Hash {
             ((_hash >> 16) & 0xFF),
             ((_hash >> 8) & 0xFF),
             (_hash & 0xFF)];
+  }
+}
+
+/**
+ * A [ByteConversionSink] that computes Crc-32 checksums.
+ */
+class _Crc32Sink extends ByteConversionSinkBase {
+  final Sink<crypto.Digest> _inner;
+
+  var _hash = 1;
+
+  /// Whether [close] has been called.
+  var _isClosed = false;
+
+  _Crc32Sink(this._inner);
+
+  void add(List<int> data) {
+    if (_isClosed) throw new StateError('Hash.add() called after close().');
+    _hash = getCrc32(data, _hash);
+  }
+
+  void close() {
+    if (_isClosed) return;
+    _isClosed = true;
+
+    _inner.add(new crypto.Digest([
+      ((_hash >> 24) & 0xFF),
+      ((_hash >> 16) & 0xFF),
+      ((_hash >> 8) & 0xFF),
+      (_hash & 0xFF)
+    ]));
   }
 }
 
