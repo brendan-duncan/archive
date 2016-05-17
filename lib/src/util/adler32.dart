@@ -46,6 +46,9 @@ class Adler32 extends crypto.Hash {
 
   Adler32 newInstance() => new Adler32();
 
+  ByteConversionSink startChunkedConversion(Sink<crypto.Digest> sink) =>
+      new _Adler32Sink(sink);
+
   void add(List<int> data) {
     _hash = getAdler32(data, _hash);
   }
@@ -55,5 +58,36 @@ class Adler32 extends crypto.Hash {
             ((_hash >> 16) & 0xFF),
             ((_hash >> 8) & 0xFF),
             (_hash & 0xFF)];
+  }
+}
+
+/**
+ * A [ByteConversionSink] that computes Adler-32 checksums.
+ */
+class _Adler32Sink extends ByteConversionSinkBase {
+  final Sink<crypto.Digest> _inner;
+
+  var _hash = 1;
+
+  /// Whether [close] has been called.
+  var _isClosed = false;
+
+  _Adler32Sink(this._inner);
+
+  void add(List<int> data) {
+    if (_isClosed) throw new StateError('Hash.add() called after close().');
+    _hash = getAdler32(data, _hash);
+  }
+
+  void close() {
+    if (_isClosed) return;
+    _isClosed = true;
+
+    _inner.add(new crypto.Digest([
+      ((_hash >> 24) & 0xFF),
+      ((_hash >> 16) & 0xFF),
+      ((_hash >> 8) & 0xFF),
+      (_hash & 0xFF)
+    ]));
   }
 }
