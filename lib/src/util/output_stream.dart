@@ -31,7 +31,7 @@ class OutputStream {
    * Reset the buffer.
    */
   void reset() {
-    _length = 0;
+    length = 0;
   }
 
 
