@@ -14,14 +14,14 @@ class ZipDecoder {
     directory = new ZipDirectory.read(input);
     Archive archive = new Archive();
 
+
     for (ZipFileHeader zfh in directory.fileHeaders) {
       ZipFile zf = zfh.file;
 
       // The attributes are stored in base 8
       final unixAttributes = zfh.externalFileAttributes >> 16;
       final unixPermissions = unixAttributes & 0x1FF;
-      final isDirectory = unixAttributes & 0x7000 == 0x4000;
-      final isFile = unixAttributes & 0x3F000 == 0x8000;
+
 
       if (verify) {
         int computedCrc = getCrc32(zf.content);
@@ -36,13 +36,15 @@ class ZipDecoder {
         ..unixPermissions = unixPermissions;
 
       // see https://github.com/brendan-duncan/archive/issues/21
-      if(Platform.isWindows) {
-        file.isFile = !file.name.endsWith('/');
-      } else {
-        // Should this not be removed and rely only on the above check?
+      // UNIX systems has a creator version of 3 decimal at 1 byte offset
+      if(zfh.versionMadeBy >> 8 == 3) {
+        final bool isDirectory = unixAttributes & 0x7000 == 0x4000;
+        final bool isFile = unixAttributes & 0x3F000 == 0x8000;
         if (isFile || isDirectory) {
           file.isFile = isFile;
         }
+      } else {
+        file.isFile = !file.name.endsWith('/');
       }
 
       file.crc32 = zf.crc32;
