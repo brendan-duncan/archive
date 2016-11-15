@@ -35,8 +35,14 @@ class ZipDecoder {
           content, zf.compressionMethod)
         ..unixPermissions = unixPermissions;
 
-      if (isFile || isDirectory) {
-        file.isFile = isFile;
+      // see https://github.com/brendan-duncan/archive/issues/21
+      if(Platform.isWindows) {
+        file.isFile = !file.name.endsWith('/');
+      } else {
+        // Should this not be removed and rely only on the above check?
+        if (isFile || isDirectory) {
+          file.isFile = isFile;
+        }
       }
 
       file.crc32 = zf.crc32;
