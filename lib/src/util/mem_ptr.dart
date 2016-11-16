@@ -92,7 +92,7 @@ class MemPtr {
       return bytes;
     }
 
-    List<int> bytes = buffer.subset(offset, offset + count);
+    List<int> bytes = (buffer as List<int>).sublist(offset, offset + count);
     offset += bytes.length;
     return bytes;
   }

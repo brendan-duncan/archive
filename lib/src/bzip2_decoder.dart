@@ -65,8 +65,6 @@ class BZip2Decoder {
         return output.getBytes();
       }
     }
-
-    return null;
   }
 
   int _readBlockType(Bz2BitReader br) {

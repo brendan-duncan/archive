@@ -10,7 +10,7 @@ import 'package:archive/archive.dart';
 // tar --extract <file> <dest>
 // tar --create <source>
 
-void main(List arguments) {
+void main(List<String> arguments) {
   ArgParser args = new ArgParser();
   args.addFlag('list', abbr: 't', help: '<file>', negatable: false);
   args.addFlag('extract', abbr: 'x', help: '<file> <dest>', negatable: false);
