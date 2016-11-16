@@ -77,11 +77,30 @@ var zipTests = [
       },
     ],
   },
-  /*{
+  {
     // created in windows XP file manager.
     'Name': "res/zip/winxp.zip",
-    'File': crossPlatform,
+    'File': [
+      {
+        'Name': 'hello',
+        'isFile': true
+      },
+      {
+        'Name': 'dir/bar',
+        'isFile': true
+      },
+      {
+        'Name': "dir/empty/",
+        'Content': [], // empty list of codeUnits - no content
+        'isFile': false
+      },
+      {
+        'Name': 'readonly',
+        'isFile': true
+      },
+    ]
   },
+  /*
   {
     // created by Zip 3.0 under Linux
     'Name': "res/zip/unix.zip",
@@ -294,6 +313,9 @@ void defineZipTests() {
           }
           if (hdr.containsKey('VerifyChecksum')) {
             expect(zipFile.verifyCrc32(), equals(hdr['VerifyChecksum']));
+          }
+          if(hdr.containsKey('isFile')) {
+            expect(archive.findFile(zipFile.filename).isFile, hdr['isFile']);
           }
         }
       });
