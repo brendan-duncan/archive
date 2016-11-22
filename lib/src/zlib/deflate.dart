@@ -453,11 +453,6 @@ class Deflate {
     _putByte((_rshift(w, 8)));
   }
 
-  void _putShortMSB(int b) {
-    _putByte((b >> 8));
-    _putByte((b));
-  }
-
   void _sendCode(int c, List<int> tree) {
     _sendBits((tree[c * 2] & 0xffff), (tree[c * 2 + 1] & 0xffff));
   }
