@@ -128,7 +128,6 @@ class Deflate {
       throw new ArchiveException('Invalid Deflate Parameter');
     }
 
-    int oldFlush = _lastFlush;
     _lastFlush = flush;
 
     // Flush as much pending output as possible
@@ -1353,7 +1352,7 @@ class Deflate {
   /// STORED (for zip only) or DEFLATED
   int _method; // ignore: unused_field
   /// value of flush param for previous deflate call
-  int _lastFlush;
+  int _lastFlush; // ignore: unused_field
 
   /// LZ77 window size (32K by default)
   int _windowSize;

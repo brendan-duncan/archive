@@ -25,7 +25,7 @@ class ZipDirectory {
   ZipDirectory.read(InputStream input) {
     filePosition = _findSignature(input);
     input.offset = filePosition;
-    int signature = input.readUint32();
+    int signature = input.readUint32(); // ignore: unused_local_variable
     numberOfThisDisk = input.readUint16();
     diskWithTheStartOfTheCentralDirectory = input.readUint16();
     totalCentralDirectoryEntriesOnThisDisk = input.readUint16();
@@ -75,9 +75,9 @@ class ZipDirectory {
       return;
     }
 
-    int startZip64Disk = zip64.readUint32();
+    int startZip64Disk = zip64.readUint32(); // ignore: unused_local_variable
     int zip64DirOffset = zip64.readUint64();
-    int numZip64Disks = zip64.readUint32();
+    int numZip64Disks = zip64.readUint32(); // ignore: unused_local_variable
 
     input.offset = zip64DirOffset;
 
@@ -105,9 +105,9 @@ class ZipDirectory {
       return;
     }
 
-    int zip64EOCDSize = input.readUint64();
-    int zip64Version = input.readUint16();
-    int zip64VersionNeeded = input.readUint16();
+    int zip64EOCDSize = input.readUint64(); // ignore: unused_local_variable
+    int zip64Version = input.readUint16(); // ignore: unused_local_variable
+    int zip64VersionNeeded = input.readUint16(); // ignore: unused_local_variable
     int zip64DiskNumber = input.readUint32();
     int zip64StartDisk = input.readUint32();
     int zip64NumEntriesOnDisk = input.readUint64();

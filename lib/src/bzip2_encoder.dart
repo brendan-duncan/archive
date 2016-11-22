@@ -314,7 +314,7 @@ class BZip2Encoder {
       }
 
       nSelectors = 0;
-      int totc = 0;
+      int totc = 0; // ignore: unused_local_variable
       gs = 0;
       while (true) {
         // Set group start & end marks.
@@ -1178,7 +1178,7 @@ class BZip2Encoder {
 
     // The main sorting loop.
 
-    int numQSorted = 0;
+    int numQSorted = 0; // ignore: unused_local_variable
 
     for (i = 0; i <= 255; i++) {
       // Process big buckets, starting with the least full.

@@ -6,14 +6,11 @@ void defineBzip2Tests() {
   String path = script.parent.path;
 
   group('bzip2', () {
-    List<int> orig;
-    List<int> decompressed;
-
     test('decode', () {
       List<int> orig =
           new Io.File(path + '/res/bzip2/test.bz2').readAsBytesSync();
 
-      decompressed = new BZip2Decoder().decodeBytes(orig);
+      new BZip2Decoder().decodeBytes(orig);
     });
 
     test('encode', () {

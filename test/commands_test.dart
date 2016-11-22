@@ -28,7 +28,7 @@ void defineCommandTests() {
 
       try {
         // Test that 'tar --create' does not throw.
-        Io.File tarFile = tar_command.createTarFile(dir.path);
+        /*Io.File tarFile =*/ tar_command.createTarFile(dir.path);
       } finally {
         dir.deleteSync(recursive: true);
       }

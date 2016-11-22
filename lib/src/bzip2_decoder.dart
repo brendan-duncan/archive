@@ -222,8 +222,6 @@ class BZip2Decoder {
     // Now the MTF values
     int EOB = _numInUse + 1;
     int nblockMAX = 100000 * _blockSize100k;
-    int groupNo  = -1;
-    int groupPos = 0;
 
     _unzftab = new Int32List(256);
 
@@ -685,7 +683,7 @@ class BZip2Decoder {
       }
     }
 
-    return blockCrc;
+    return blockCrc; // ignore: dead_code
   }
 
   int _getMtfVal(Bz2BitReader br) {
