@@ -193,7 +193,7 @@ void defineTarTests() {
         var file = new Io.File(path + '/' + t['file']);
         var bytes = file.readAsBytesSync();
 
-        Archive archive = tar.decodeBytes(bytes);
+        /*Archive archive =*/ tar.decodeBytes(bytes);
         expect(tar.files.length, equals(t['headers'].length));
 
         for (int i = 0; i < tar.files.length; ++i) {

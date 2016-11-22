@@ -69,9 +69,9 @@ class GZipDecoder {
     }
 
     int flags = input.readByte();
-    int fileModTime = input.readUint32();
-    int extraFlags = input.readByte();
-    int osType = input.readByte();
+    /*int fileModTime =*/ input.readUint32();
+    /*int extraFlags =*/ input.readByte();
+    /*int osType =*/ input.readByte();
 
     if (flags & FLAG_EXTRA != 0) {
       int t = input.readUint16();

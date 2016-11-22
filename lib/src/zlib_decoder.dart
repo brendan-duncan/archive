@@ -33,22 +33,22 @@ class ZLibDecoder {
     int flg = input.readByte();
 
     int method = cmf & 8;
-    int cinfo = (cmf >> 3) & 8;
+    int cinfo = (cmf >> 3) & 8; // ignore: unused_local_variable
 
     if (method != DEFLATE) {
       throw new ArchiveException('Only DEFLATE compression supported: ${method}');
     }
 
-    int fcheck = flg & 16;
+    int fcheck = flg & 16; // ignore: unused_local_variable
     int fdict = (flg & 32) >> 5;
-    int flevel = (flg & 64) >> 6;
+    int flevel = (flg & 64) >> 6; // ignore: unused_local_variable
 
     // FCHECK is set such that (cmf * 256 + flag) must be a multiple of 31.
     if (((cmf << 8) + flg) % 31 != 0) {
       throw new ArchiveException('Invalid FCHECK');
     }
 
-    int dictid;
+    int dictid; // ignore: unused_local_variable
     if (fdict != 0) {
       dictid = input.readUint32();
       throw new ArchiveException('FDICT Encoding not currently supported');

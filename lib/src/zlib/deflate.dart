@@ -128,7 +128,6 @@ class Deflate {
       throw new ArchiveException('Invalid Deflate Parameter');
     }
 
-    int oldFlush = _lastFlush;
     _lastFlush = flush;
 
     // Flush as much pending output as possible
@@ -451,11 +450,6 @@ class Deflate {
   void _putShort(int w) {
     _putByte((w));
     _putByte((_rshift(w, 8)));
-  }
-
-  void _putShortMSB(int b) {
-    _putByte((b >> 8));
-    _putByte((b));
   }
 
   void _sendCode(int c, List<int> tree) {
@@ -1350,15 +1344,15 @@ class Deflate {
   /// size of pending_buf
   int _pendingBufferSize;
   /// next pending byte to output to the stream
-  int _pendingOut;
+  int _pendingOut; // ignore: unused_field
   /// nb of bytes in the pending buffer
   int _pending;
   /// UNKNOWN, BINARY or ASCII
   int _dataType;
   /// STORED (for zip only) or DEFLATED
-  int _method;
+  int _method; // ignore: unused_field
   /// value of flush param for previous deflate call
-  int _lastFlush;
+  int _lastFlush; // ignore: unused_field
 
   /// LZ77 window size (32K by default)
   int _windowSize;

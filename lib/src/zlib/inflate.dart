@@ -377,10 +377,10 @@ class Inflate {
       new HuffmanTable(_FIXED_DISTANCE_TABLE);
 
   /// Max backward length for LZ77.
-  static const int _MAX_BACKWARD_LENGTH = 32768;
+  static const int _MAX_BACKWARD_LENGTH = 32768; // ignore: unused_field
 
   /// Max copy length for LZ77.
-  static const int _MAX_COPY_LENGTH = 258;
+  static const int _MAX_COPY_LENGTH = 258; // ignore: unused_field
 
   /// Huffman order
   static const List<int> _ORDER = const [
