@@ -1868,7 +1868,7 @@ class BZip2Encoder {
   int _state_in_len;
   int _nblock;
   int _blockCRC;
-  int _blockNo;
+  int _blockNo; // ignore: unused_field
   int _workFactor;
   int _budget;
   int _origPtr;

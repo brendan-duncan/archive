@@ -805,7 +805,6 @@ class BZip2Decoder {
 
   List<Uint8List> _len;
   int _numInUse = 0;
-  int _combinedCrc;
 
   static const int BZ_N_GROUPS = 6;
   static const int BZ_G_SIZE = 50;

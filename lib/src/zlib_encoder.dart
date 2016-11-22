@@ -40,6 +40,4 @@ class ZLibEncoder {
 
     return output.getBytes();
   }
-
-  static const int _WINDOW_SIZE = 0x8000;
 }

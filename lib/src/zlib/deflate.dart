@@ -1345,13 +1345,13 @@ class Deflate {
   /// size of pending_buf
   int _pendingBufferSize;
   /// next pending byte to output to the stream
-  int _pendingOut;
+  int _pendingOut; // ignore: unused_field
   /// nb of bytes in the pending buffer
   int _pending;
   /// UNKNOWN, BINARY or ASCII
   int _dataType;
   /// STORED (for zip only) or DEFLATED
-  int _method;
+  int _method; // ignore: unused_field
   /// value of flush param for previous deflate call
   int _lastFlush;
 
