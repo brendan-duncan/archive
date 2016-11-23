@@ -1,5 +1,5 @@
 # archive
-![build](https://travis-ci.org/brendan-duncan/archive.svg?branch=master)
+[![Build Status](https://travis-ci.org/brendan-duncan/archive.svg?branch=master)](https://travis-ci.org/brendan-duncan/archive)
 
 ## Overview
 
