@@ -24,7 +24,7 @@ class GZipEncoder {
   static const int OS_NTFS = 11;
   static const int OS_QDOS = 12;
   static const int OS_ACORN_RISCOS = 13;
-  static const int OS_UNKNOWN = 25;
+  static const int OS_UNKNOWN = 255;
 
   List<int> encode(List<int> data, {int level}) {
     OutputStream output = new OutputStream();
