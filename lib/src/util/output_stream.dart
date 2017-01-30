@@ -133,7 +133,8 @@ class OutputStream {
         blockSize = required;
       }
     }
-    Uint8List newBuffer = new Uint8List(_buffer.length + blockSize);
+    int newLength = (_buffer.length + blockSize) * 2;
+    Uint8List newBuffer = new Uint8List(newLength);
     newBuffer.setRange(0, _buffer.length, _buffer);
     _buffer = newBuffer;
   }
