@@ -46,7 +46,7 @@ class MemPtr {
   operator[]=(int index, int value) => buffer[offset + index] = value;
 
   /**
-   * The number of bytes remianing in the buffer.
+   * The number of bytes remaining in the buffer.
    */
   int get length => _length - offset;
 
@@ -67,7 +67,7 @@ class MemPtr {
 
   /**
    * Set a range of bytes in this buffer to [value], at [start] offset from the
-   * current read poisiton, and [length] number of bytes.
+   * current read position, and [length] number of bytes.
    */
   void memset(int start, int length, int value) {
     buffer.fillRange(offset + start, offset + start + length, value);
