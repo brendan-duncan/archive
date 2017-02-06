@@ -37,6 +37,17 @@ class Deflate {
   }
 
   /**
+   * Get the resulting compressed bytes without storing the resulting data to
+   * minimize memory usage.
+   */
+  List<int> takeBytes() {
+    _flushPending();
+    List<int> bytes = _output.getBytes();
+    _output.clear();
+    return bytes;
+  }
+
+  /**
    * Add more data to be deflated.
    */
   void addBytes(List<int> bytes, {int flush: FINISH}) {
