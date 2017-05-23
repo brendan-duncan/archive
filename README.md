@@ -30,11 +30,11 @@ Extract the contents of a Zip file, and encode the contents as a BZip2
 compressed Tar file:
 
 ```dart
-import 'dart:io' as Io;
+import 'dart:io';
 import 'package:archive/archive.dart';
 void main() {
   // Read the Zip file from disk.
-  List<int> bytes = new Io.File('test.zip').readAsBytesSync();
+  List<int> bytes = new File('test.zip').readAsBytesSync();
 
   // Decode the Zip file
   Archive archive = new ZipDecoder().decodeBytes(bytes);
@@ -43,7 +43,7 @@ void main() {
   for (ArchiveFile file in archive) {
     String filename = file.name;
     List<int> data = file.content;
-    new Io.File('out/' + filename)
+    new File('out/' + filename)
           ..createSync(recursive: true)
           ..writeAsBytesSync(data);
   }
@@ -53,7 +53,7 @@ void main() {
   List<int> tar_bz2 = new BZip2Encoder().encode(tar_data);
 
   // Write the compressed tar file to disk.
-  Io.File fp = new Io.File(filename + '.tbz');
+  File fp = new File(filename + '.tbz');
   fp.writeAsBytesSync(tar_bz2);
 }
 ```

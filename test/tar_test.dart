@@ -139,7 +139,7 @@ var tarTests = [
 ];
 
 void defineTarTests() {
-  Io.File script = new Io.File(Io.Platform.script.toFilePath());
+  File script = new File(Platform.script.toFilePath());
   String path = script.parent.path;
 
   group('tar', () {
@@ -149,10 +149,10 @@ void defineTarTests() {
     test('decode/encode', () {
       List<int> a_bytes = a_txt.codeUnits;
 
-      var b = new Io.File(path + '/res/cat.jpg');
+      var b = new File(path + '/res/cat.jpg');
       List<int> b_bytes = b.readAsBytesSync();
 
-      var file = new Io.File(path + '/res/test.tar');
+      var file = new File(path + '/res/test.tar');
       List<int> bytes = file.readAsBytesSync();
 
       Archive archive = tar.decodeBytes(bytes);
@@ -169,7 +169,7 @@ void defineTarTests() {
       compare_bytes(t_bytes, b_bytes);
 
       List<int> encoded = tarEncoder.encode(archive);
-      Io.File out = new Io.File(path + '/out/test.tar');
+      File out = new File(path + '/out/test.tar');
       out.createSync(recursive: true);
       out.writeAsBytesSync(encoded);
 
@@ -190,7 +190,7 @@ void defineTarTests() {
 
     for (Map t in tarTests) {
       test('untar ${t['file']}', () {
-        var file = new Io.File(path + '/' + t['file']);
+        var file = new File(path + '/' + t['file']);
         var bytes = file.readAsBytesSync();
 
         /*Archive archive =*/ tar.decodeBytes(bytes);

@@ -1,7 +1,7 @@
 part of archive_test;
 
 void defineCommandTests() {
-  Io.File script = new Io.File(Io.Platform.script.toFilePath());
+  File script = new File(Platform.script.toFilePath());
   String path = script.parent.path;
 
   group('commands', () {
@@ -11,7 +11,7 @@ void defineCommandTests() {
     });
 
     test('tar extract', () {
-      Io.Directory dir = Io.Directory.systemTemp.createTempSync('foo');
+      Directory dir = Directory.systemTemp.createTempSync('foo');
 
       try {
         tar_command.extractFiles(path + '/res/test.tar.gz', dir.path);
@@ -22,13 +22,13 @@ void defineCommandTests() {
     });
 
     test('tar create', () {
-      Io.Directory dir = Io.Directory.systemTemp.createTempSync('foo');
-      Io.File file = new Io.File('${dir.path}${Io.Platform.pathSeparator}foo.txt');
+      Directory dir = Directory.systemTemp.createTempSync('foo');
+      File file = new File('${dir.path}${Platform.pathSeparator}foo.txt');
       file.writeAsStringSync('foo bar');
 
       try {
         // Test that 'tar --create' does not throw.
-        /*Io.File tarFile =*/ tar_command.createTarFile(dir.path);
+        /*File tarFile =*/ tar_command.createTarFile(dir.path);
       } finally {
         dir.deleteSync(recursive: true);
       }

@@ -211,7 +211,7 @@ var zipTests = [
 ];
 
 void defineZipTests() {
-  Io.File script = new Io.File(Io.Platform.script.toFilePath());
+  File script = new File(Platform.script.toFilePath());
   String path = script.parent.path;
 
   group('zip', () {
@@ -229,7 +229,7 @@ void defineZipTests() {
 
       var zip_data = new ZipEncoder().encode(archive);
 
-      new Io.File(path + '/out/uncompressed.zip')
+      new File(path + '/out/uncompressed.zip')
           ..createSync(recursive: true)
           ..writeAsBytesSync(zip_data);
 
@@ -243,13 +243,13 @@ void defineZipTests() {
     });
 
     test('decode/encode', () {
-      var file = new Io.File(path + '/res/test.zip');
+      var file = new File(path + '/res/test.zip');
       var bytes = file.readAsBytesSync();
 
       Archive archive = zipDecoder.decodeBytes(bytes);
       expect(archive.numberOfFiles(), equals(2));
 
-      var b = new Io.File(path + '/res/cat.jpg');
+      var b = new File(path + '/res/cat.jpg');
       List<int> b_bytes = b.readAsBytesSync();
       List<int> a_bytes = a_txt.codeUnits;
 
@@ -267,7 +267,7 @@ void defineZipTests() {
       // Encode the archive we just decoded
       List<int> zipped = zipEncoder.encode(archive);
 
-      Io.File f = new Io.File(path + '/out/test.zip');
+      File f = new File(path + '/out/test.zip');
       f.createSync(recursive: true);
       f.writeAsBytesSync(zipped);
 
@@ -283,7 +283,7 @@ void defineZipTests() {
 
     for (Map z in zipTests) {
       test('unzip ${z['Name']}', () {
-        var file = new Io.File(path + '/' + z['Name']);
+        var file = new File(path + '/' + z['Name']);
         var bytes = file.readAsBytesSync();
 
         Archive archive = zipDecoder.decodeBytes(bytes);

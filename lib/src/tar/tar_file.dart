@@ -174,7 +174,12 @@ class TarFile {
     if (s.isEmpty) {
       return 0;
     }
-    int x = int.parse(s, radix: 8);
+    int x = 0;
+    try {
+      x = int.parse(s, radix: 8);
+    } catch(e) {
+      // Catch to fix a crash with bad group_id and owner_id values.
+    }
     return x;
   }
 
