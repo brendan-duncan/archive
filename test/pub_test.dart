@@ -1,16 +1,5 @@
 part of archive_test;
 
-void GetFiles(List files, Directory dir) {
-  List contents = dir.listSync();
-  for (var fileOrDir in contents) {
-    if (fileOrDir is File) {
-      files.add(fileOrDir as File);
-    } else if (fileOrDir is Directory) {
-      GetFiles(files, fileOrDir as Directory);
-    }
-  }
-}
-
 void definePubTests() {
   group('pub archives', () {
     io.HttpClient client;
