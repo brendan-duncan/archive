@@ -26,7 +26,7 @@ void compare_bytes(List<int> a, List<int> b) {
   expect(a.length, equals(b.length));
   int len = a.length;
   for (int i = 0; i < len; ++i) {
-    expect(a[i], equals(b[i]), verbose: false);
+    expect(a[i], equals(b[i]));
   }
 }
 

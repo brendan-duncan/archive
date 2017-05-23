@@ -1,6 +1,6 @@
 part of archive_test;
 
-var zipTests = [
+List zipTests = [
   {
     'Name':    "res/zip/test.zip",
     'Comment': "This is a zipfile comment.",
