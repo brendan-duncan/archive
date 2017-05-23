@@ -1,7 +1,7 @@
 part of archive_test;
 
 void defineCommandTests() {
-  File script = new File(Platform.script.toFilePath());
+  io.File script = new io.File(io.Platform.script.toFilePath());
   String path = script.parent.path;
 
   group('commands', () {
@@ -11,7 +11,7 @@ void defineCommandTests() {
     });
 
     test('tar extract', () {
-      Directory dir = Directory.systemTemp.createTempSync('foo');
+      io.Directory dir = io.Directory.systemTemp.createTempSync('foo');
 
       try {
         tar_command.extractFiles(path + '/res/test.tar.gz', dir.path);
@@ -22,8 +22,8 @@ void defineCommandTests() {
     });
 
     test('tar create', () {
-      Directory dir = Directory.systemTemp.createTempSync('foo');
-      File file = new File('${dir.path}${Platform.pathSeparator}foo.txt');
+      io.Directory dir = io.Directory.systemTemp.createTempSync('foo');
+      io.File file = new io.File('${dir.path}${io.Platform.pathSeparator}foo.txt');
       file.writeAsStringSync('foo bar');
 
       try {

@@ -13,10 +13,10 @@ void GetFiles(List files, Directory dir) {
 
 void definePubTests() {
   group('pub archives', () {
-    HttpClient client;
+    io.HttpClient client;
 
     setUpAll(() {
-      client = new HttpClient();
+      client = new io.HttpClient();
     });
 
     tearDownAll(() {
@@ -24,9 +24,9 @@ void definePubTests() {
     });
 
     test('logfmt 0.4.0', () async {
-      final HttpClientRequest rq = await client.getUrl(Uri.parse(
+      final io.HttpClientRequest rq = await client.getUrl(Uri.parse(
           'https://storage.googleapis.com/pub-packages/packages/logfmt-0.4.0.tar.gz'));
-      final HttpClientResponse rs = await rq.close();
+      final io.HttpClientResponse rs = await rq.close();
       final List<int> data = (await rs.toList())
           .fold([], (List<int> a, List<int> b) => a..addAll(b));
       expect(data.length, 10240);

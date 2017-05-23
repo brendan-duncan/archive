@@ -2,19 +2,19 @@ part of archive_test;
 
 
 void defineBzip2Tests() {
-  File script = new File(Platform.script.toFilePath());
+  io.File script = new io.File(io.Platform.script.toFilePath());
   String path = script.parent.path;
 
   group('bzip2', () {
     test('decode', () {
       List<int> orig =
-          new File(path + '/res/bzip2/test.bz2').readAsBytesSync();
+          new io.File(path + '/res/bzip2/test.bz2').readAsBytesSync();
 
       new BZip2Decoder().decodeBytes(orig);
     });
 
     test('encode', () {
-      List<int> file = new File(path + '/res/cat.jpg').readAsBytesSync();
+      List<int> file = new io.File(path + '/res/cat.jpg').readAsBytesSync();
 
       List<int> compressed = new BZip2Encoder().encode(file);
 
