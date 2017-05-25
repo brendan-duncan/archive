@@ -27,7 +27,18 @@ class TarFile {
   static const String TYPE_NORMAL_FILE = '0';
   static const String TYPE_HARD_LINK = '1';
   static const String TYPE_SYMBOLIC_LINK = '2';
+  static const String TYPE_CHAR_SPEC = '3';
+  static const String TYPE_BLOCK_SPEC = '4';
   static const String TYPE_DIRECTORY = '5';
+  static const String TYPE_FIFO = '6';
+  static const String TYPE_CONT_FILE = '7';
+  // global extended header with meta data (POSIX.1-2001)
+  static const String TYPE_G_EX_HEADER = 'g';
+  static const String TYPE_G_EX_HEADER2 = 'G';
+  // extended header with meta data for the next file in the archive
+  // (POSIX.1-2001)
+  static const String TYPE_EX_HEADER = 'x';
+  static const String TYPE_EX_HEADER2 = 'X';
 
   // Pre-POSIX Format
   String filename; // 100 bytes
@@ -179,6 +190,8 @@ class TarFile {
       x = int.parse(s, radix: 8);
     } catch(e) {
       // Catch to fix a crash with bad group_id and owner_id values.
+      // This occurs for POSIX archives, where some attributes like uid and
+      // gid are stored in a separate PaxHeader file.
     }
     return x;
   }

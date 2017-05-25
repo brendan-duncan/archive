@@ -22,7 +22,7 @@ void definePubTests() {
 
       final Archive archive =
           new TarDecoder().decodeBytes(new GZipDecoder().decodeBytes(data));
-      expect(archive.toList(), isNotEmpty);
+      expect(archive.toList().length, 21);
     });
   });
 }
