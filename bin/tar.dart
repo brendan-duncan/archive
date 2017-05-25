@@ -85,6 +85,9 @@ io.Directory extractFiles(String inputPath, String outputPath) {
   print('extracting to ${outDir.path}${io.Platform.pathSeparator}...');
 
   for (TarFile file in tarArchive.files) {
+    if (!file.isFile) {
+      continue;
+    }
     io.File f = new io.File(
         '${outputPath}${io.Platform.pathSeparator}${file.filename}');
     f.parent.createSync(recursive: true);
