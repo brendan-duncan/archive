@@ -14,7 +14,7 @@ class TarDecoder {
     Archive archive = new Archive();
     files.clear();
 
-    TarFile paxHeader = null;
+    //TarFile paxHeader = null;
     while (!input.isEOS) {
       // End of archive when two consecutive 0's are found.
       if (input[0] == 0 && input[1] == 0) {
@@ -31,7 +31,7 @@ class TarDecoder {
       }
       if (tf.typeFlag == TarFile.TYPE_EX_HEADER ||
           tf.typeFlag == TarFile.TYPE_EX_HEADER2) {
-        paxHeader = tf;
+        //paxHeader = tf;
       } else {
         files.add(tf);
 

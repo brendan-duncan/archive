@@ -1,5 +1,148 @@
 part of archive_test;
 
+void extract7z(List urls) {
+  io.File script = new io.File(io.Platform.script.toFilePath());
+  String path = script.parent.path;
+
+  for (String url in urls) {
+    String filename = url.split('/').last;
+    String inputPath = '$path\\out\\$filename';
+
+    String outputPath = path + '\\out\\' + filename + '.7z';
+    print('$inputPath : $outputPath');
+
+    io.Directory outDir = new io.Directory(outputPath);
+    if (!outDir.existsSync()) {
+      outDir.createSync(recursive: true);
+    }
+
+    print('EXTRACTING $inputPath');
+    io.Process.runSync('7z', ['x', '-o${outputPath}',
+    '$inputPath']);
+
+    String tar_filename = filename.substring(0, filename.lastIndexOf('.'));
+    String tar_path = '$outputPath\\$tar_filename';
+    if (!new io.File(tar_path).existsSync()) {
+      tar_path = '$outputPath\\intermediate.tar';
+    }
+    print('TAR $tar_path');
+
+    io.Process.runSync('7z', ['x', '-y', '-o${outputPath}', '$tar_path']);
+
+    new io.File(tar_path).deleteSync();
+  }
+}
+
+downloadUrls(io.HttpClient client, List urls) async {
+  io.File script = new io.File(io.Platform.script.toFilePath());
+  String path = script.parent.path;
+
+  int count = 0;
+  for (String url in urls) {
+    print(url);
+    final io.HttpClientRequest rq = await client.getUrl(Uri.parse(url));
+    final io.HttpClientResponse rs = await rq.close();
+    final List<int> data = (await rs.toList())
+        .fold([], (List<int> a, List<int> b) => a..addAll(b));
+
+    String filename = url.split('/').last;
+    print('#$count $filename');
+    io.File op = new io.File(path + '/out/' + filename);
+    op.writeAsBytesSync(data);
+    count++;
+  }
+}
+
+void extractDart(List urls) {
+  io.File script = new io.File(io.Platform.script.toFilePath());
+  String path = script.parent.path;
+
+  for (String url in urls) {
+    String filename = url.split('/').last;
+    String inputPath = '$path\\out\\$filename';
+
+    String outputPath = path + '\\out\\' + filename + '.out';
+    print('$inputPath : $outputPath');
+
+    print('EXTRACTING $inputPath');
+
+    io.File fp = new io.File(path + '/out/' + filename);
+    List<int> data = fp.readAsBytesSync();
+
+    TarDecoder tarArchive = new TarDecoder();
+    tarArchive.decodeBytes(new GZipDecoder().decodeBytes(data));
+
+    print('EXTRACTING $filename');
+
+    io.Directory outDir = new io.Directory(outputPath);
+    if (!outDir.existsSync()) {
+      outDir.createSync(recursive: true);
+    }
+
+    for (TarFile file in tarArchive.files) {
+      if (!file.isFile) {
+        continue;
+      }
+      String filename = file.filename;
+      try {
+        io.File f = new io.File(
+            '${outputPath}${io.Platform.pathSeparator}${filename}');
+        f.parent.createSync(recursive: true);
+        f.writeAsBytesSync(file.content);
+      } catch (e) {
+      }
+    }
+  }
+}
+
+void ListDir(List files, io.Directory dir) {
+  var fileOrDirs = dir.listSync(recursive:true);
+  for (var f in fileOrDirs) {
+    if (f is io.File) {
+      // Ignore paxHeader files, which 7zip write out since it doesn't properly
+      // handle POSIX tar files.
+      if (f.path.contains('PaxHeader')) {
+        continue;
+      }
+      files.add(f);
+    }
+  }
+}
+
+void compareDirs(List urls) {
+  io.File script = new io.File(io.Platform.script.toFilePath());
+  String path = script.parent.path;
+
+  for (String url in urls) {
+    String filename = url.split('/').last;
+    String outPath7z = '$path\\out\\${filename}.7z';
+    String outPathDart = '$path\\out\\${filename}.out';
+    print('$outPathDart : $outPath7z');
+
+    List files7z = [];
+    ListDir(files7z, new io.Directory(outPath7z));
+    List filesDart = [];
+    ListDir(filesDart, new io.Directory(outPathDart));
+
+    expect(filesDart.length, files7z.length);
+    //print("#${filesDart.length} : ${files7z.length}");
+
+    for (int i = 0; i < filesDart.length; ++i) {
+      io.File fd = filesDart[i];
+      io.File f7z = files7z[i];
+
+      List bytes_dart = fd.readAsBytesSync();
+      List bytes_7z = f7z.readAsBytesSync();
+
+      expect(bytes_dart.length, bytes_7z.length);
+
+      for (int j = 0; j < bytes_dart.length; ++j) {
+        expect(bytes_dart[j], bytes_7z[j]);
+      }
+    }
+  }
+}
+
 void definePubTests() {
   group('pub archives', () {
     io.HttpClient client;
@@ -12,17 +155,18 @@ void definePubTests() {
       client.close(force: true);
     });
 
-    test('logfmt 0.4.0', () async {
-      final io.HttpClientRequest rq = await client.getUrl(Uri.parse(
-          'https://storage.googleapis.com/pub-packages/packages/logfmt-0.4.0.tar.gz'));
-      final io.HttpClientResponse rs = await rq.close();
-      final List<int> data = (await rs.toList())
-          .fold([], (List<int> a, List<int> b) => a..addAll(b));
-      expect(data.length, 10240);
+    test('PUB ARCHIVES', () async {
+      io.File script = new io.File(io.Platform.script.toFilePath());
+      String path = script.parent.path;
+      io.File fp = new io.File(path + '/res/tarurls.txt');
+      List urls = fp.readAsLinesSync();
 
-      final Archive archive =
-          new TarDecoder().decodeBytes(new GZipDecoder().decodeBytes(data));
-      expect(archive.toList().length, 21);
+      await downloadUrls(client, urls);
+      extractDart(urls);
+      // TODO need a generic system level tar exe to work with the
+      // travis CI system.
+      //extract7z(urls);
+      //compareDirs(urls);
     });
   });
 }
