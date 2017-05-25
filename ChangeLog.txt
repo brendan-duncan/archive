@@ -1,4 +1,6 @@
-v UNRELEASED
+v 1.0.29 - May 25, 2017
+
+- Fix issue with POSIX tar files.
 
 - Upgrade dependency on archive to `>=1.0.0 <2.0.0`
 
