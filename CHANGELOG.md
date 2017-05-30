@@ -1,3 +1,8 @@
+## 1.0.30 - May 27, 2017
+
+- Add archive_io sub-package for supporting file streaming rather than storing everything in memory.
+  **This is a work-in-progress and under development.**
+
 ## 1.0.29 - May 25, 2017
 
 - Fix issue with POSIX tar files.

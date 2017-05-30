@@ -1,8 +1,8 @@
 part of archive;
 
 class Inflate {
-  InputStream input;
-  final OutputStream output;
+  dynamic input;
+  final dynamic output;
 
   Inflate(List<int> bytes, [int uncompressedSize]) :
     input = new InputStream(bytes),
@@ -10,26 +10,27 @@ class Inflate {
     _inflate();
   }
 
-
-  Inflate.buffer(InputStream buffer, [int uncompressedSize]) :
-    input = buffer,
+  Inflate.buffer(this.input, [int uncompressedSize]) :
     output = new OutputStream(size: uncompressedSize) {
     _inflate();
   }
 
-
-  Inflate.stream([List<int> bytes]) :
-    output = new OutputStream() {
-    _bitBuffer = 0;
-    _bitBufferLen = 0;
-    if (bytes != null) {
-      input = new InputStream(bytes);
+  Inflate.stream([this.input, dynamic output_stream]) :
+    output = output_stream != null ? output_stream : new OutputStream() {
+    if (input == null || input is List<int>) {
+      _bitBuffer = 0;
+      _bitBufferLen = 0;
+      if (input != null) {
+        input = new InputStream(input);
+      }
+      return;
     }
+
+    _inflate();
   }
 
-
   void streamInput(List<int> bytes) {
-    if (input != null) {
+    if (input != null && input is InputStream) {
       input.offset = _blockPos;
     }
     int inputLen = input == null ? 0 : input.length;
@@ -45,17 +46,20 @@ class Inflate {
     input = new InputStream(newBytes);
   }
 
-
   List<int> inflateNext() {
     _bitBuffer = 0;
     _bitBufferLen = 0;
-    output.clear();
+    if (output is OutputStream) {
+      output.clear();
+    }
     if (input == null || input.isEOS) {
       return null;
     }
 
     try {
-      _blockPos = input.offset;
+      if (input is InputStream) {
+        _blockPos = input.offset;
+      }
       _parseBlock();
       // If it didn't finish reading the block, it will have thrown an exception
       _blockPos = 0;
@@ -63,9 +67,11 @@ class Inflate {
       return null;
     }
 
-    return output.getBytes();
+    if (output is OutputStream) {
+      return output.getBytes();
+    }
+    return null;
   }
-
 
   /**
    * Get the decompressed data.
@@ -74,14 +80,17 @@ class Inflate {
     return output.getBytes();
   }
 
-
   void _inflate() {
     _bitBuffer = 0;
     _bitBufferLen = 0;
 
-    while (_parseBlock());
+    while (!input.isEOS) {
+      bool more = _parseBlock();
+      if (!more) {
+        break;
+      }
+    }
   }
-
 
   /**
    * Parse deflated block.  Returns true if there is more to read, false
@@ -293,7 +302,7 @@ class Inflate {
 
     while (_bitBufferLen >= 8) {
       _bitBufferLen -= 8;
-      input.offset--;
+      input.rewind(1);
     }
   }
 

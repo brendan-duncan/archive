@@ -37,19 +37,22 @@ downloadUrls(io.HttpClient client, List urls) async {
   io.File script = new io.File(io.Platform.script.toFilePath());
   String path = script.parent.path;
 
-  int count = 0;
+  List downloads = [];
   for (String url in urls) {
     print(url);
-    final io.HttpClientRequest rq = await client.getUrl(Uri.parse(url));
-    final io.HttpClientResponse rs = await rq.close();
-    final List<int> data = (await rs.toList())
-        .fold([], (List<int> a, List<int> b) => a..addAll(b));
 
     String filename = url.split('/').last;
-    print('#$count $filename');
-    io.File op = new io.File(path + '/out/' + filename);
-    op.writeAsBytesSync(data);
-    count++;
+
+    var download = new io.HttpClient().getUrl(Uri.parse(url))
+        .then((io.HttpClientRequest request) => request.close())
+        .then((io.HttpClientResponse response) =>
+        response.pipe(new io.File(path + '/out/' + filename).openWrite()));
+
+    downloads.add(download);
+  }
+
+  for (var download in downloads) {
+    await download;
   }
 }
 
@@ -91,20 +94,6 @@ void extractDart(List urls) {
         f.writeAsBytesSync(file.content);
       } catch (e) {
       }
-    }
-  }
-}
-
-void ListDir(List files, io.Directory dir) {
-  var fileOrDirs = dir.listSync(recursive:true);
-  for (var f in fileOrDirs) {
-    if (f is io.File) {
-      // Ignore paxHeader files, which 7zip write out since it doesn't properly
-      // handle POSIX tar files.
-      if (f.path.contains('PaxHeader')) {
-        continue;
-      }
-      files.add(f);
     }
   }
 }

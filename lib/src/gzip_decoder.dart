@@ -16,7 +16,34 @@ class GZipDecoder {
     return decodeBuffer(new InputStream(data), verify: verify);
   }
 
-  List<int> decodeBuffer(InputStream input, {bool verify: false}) {
+  void decodeStream(dynamic input, dynamic output) {
+    _readHeader(input);
+    new Inflate.stream(input, output);
+  }
+
+  List<int> decodeBuffer(dynamic input, {bool verify: false}) {
+    _readHeader(input);
+
+    // Inflate
+    List<int> buffer = new Inflate.buffer(input).getBytes();
+
+    if (verify) {
+      int crc = input.readUint32();
+      int computedCrc = getCrc32(buffer);
+      if (crc != computedCrc) {
+        throw new ArchiveException('Invalid CRC checksum');
+      }
+
+      int size = input.readUint32();
+      if (size != buffer.length) {
+        throw new ArchiveException('Size of decompressed file not correct');
+      }
+    }
+
+    return buffer;
+  }
+
+  void _readHeader(dynamic input) {
     // The GZip format has the following structure:
     // Offset   Length   Contents
     // 0      2 bytes  magic header  0x1f, 0x8b (\037 \213)
@@ -90,24 +117,5 @@ class GZipDecoder {
     if (flags & FLAG_HCRC != 0) {
       input.readUint16();
     }
-
-    // Inflate
-    List<int> buffer = new Inflate.buffer(input).getBytes();
-
-
-    if (verify) {
-      int crc = input.readUint32();
-      int computedCrc = getCrc32(buffer);
-      if (crc != computedCrc) {
-        throw new ArchiveException('Invalid CRC checksum');
-      }
-
-      int size = input.readUint32();
-      if (size != buffer.length) {
-        throw new ArchiveException('Size of decompressed file not correct');
-      }
-    }
-
-    return buffer;
   }
 }

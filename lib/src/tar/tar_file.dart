@@ -59,12 +59,12 @@ class TarFile {
   int deviceMinorNumber = 0; // 8 bytes
   String filenamePrefix = ''; // 155 bytes
   InputStream _rawContent;
-  List<int> _content;
+  dynamic _content;
 
   TarFile() {
   }
 
-  TarFile.read(InputStream input) {
+  TarFile.read(dynamic input, {bool storeData: true}) {
     InputStream header = input.readBytes(512);
 
     // The name, linkname, magic, uname, and gname are null-terminated
@@ -90,7 +90,11 @@ class TarFile {
       deviceMinorNumber = _parseInt(header, 8);
     }
 
-    _rawContent = input.readBytes(fileSize);
+    if (storeData) {
+      _rawContent = input.readBytes(fileSize);
+    } else {
+      input.skip(fileSize);
+    }
 
     if (isFile && fileSize > 0) {
       int remainder = fileSize % 512;
@@ -117,7 +121,7 @@ class TarFile {
 
   String toString() => '[${filename}, ${mode}, ${fileSize}]';
 
-  void write(OutputStream output) {
+  void write(dynamic output) {
     fileSize = size;
 
     // The name, linkname, magic, uname, and gname are null-terminated
@@ -160,7 +164,6 @@ class TarFile {
     headerBytes[154] = 0;
     headerBytes[155] = 32;
 
-
     output.writeBytes(header.getBytes());
 
     if (_content != null) {
@@ -170,7 +173,7 @@ class TarFile {
     }
 
     if (isFile && fileSize > 0) {
-      // Padd to 512-byte boundary
+      // Pad to 512-byte boundary
       int remainder = fileSize % 512;
       if (remainder != 0) {
         int skiplen = 512 - remainder;

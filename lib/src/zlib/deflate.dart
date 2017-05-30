@@ -15,17 +15,27 @@ class Deflate {
   static const int FULL_FLUSH = 3;
   static const int FINISH = 4;
 
+  int crc32;
+
   Deflate(List<int> bytes, {int level: DEFAULT_COMPRESSION,
-           int flush: FINISH}) :
-    _input = new InputStream(bytes) {
+           int flush: FINISH, dynamic output})
+    : _input = new InputStream(bytes),
+      _output = output != null ? output : new OutputStream() {
+    crc32 = 0;
     _init(level);
     _deflate(flush);
   }
 
   Deflate.buffer(this._input, {int level: DEFAULT_COMPRESSION,
-                  int flush: FINISH}) {
+                  int flush: FINISH, dynamic output})
+    : _output = output != null ? output : new OutputStream() {
+    crc32 = 0;
     _init(level);
     _deflate(flush);
+  }
+
+  void finish() {
+    _flushPending();
   }
 
   /**
@@ -126,6 +136,8 @@ class Deflate {
     _status = BUSY_STATE;
 
     _lastFlush = NO_FLUSH;
+
+    crc32 = 0;
 
     _trInit();
     _lmInit();
@@ -1214,19 +1226,25 @@ class Deflate {
    * allocating a large strm->next_in buffer and copying from it.
    * (See also flush_pending()).
    */
+  int total = 0;
   int _readBuf(Uint8List buf, int start, int size) {
-    int len = _input.length;
-
-    if (len > size) {
-      len = size;
+    if (size == 0 || _input.isEOS) {
+      return 0;
     }
 
+    InputStream data = _input.readBytes(size);
+    int len = data.length;
     if (len == 0) {
       return 0;
     }
 
-    InputStream bytes = _input.readBytes(len);
-    buf.setRange(start, start + len, bytes.toUint8List());
+    Uint8List bytes = data.toUint8List();
+    if (len > bytes.length) {
+      len = bytes.length;
+    }
+    buf.setRange(start, start + len, bytes);
+    total += len;
+    crc32 = getCrc32(bytes, crc32);
 
     return len;
   }
@@ -1238,7 +1256,6 @@ class Deflate {
    */
   void _flushPending() {
     int len = _pending;
-
     _output.writeBytes(_pendingBuffer, len);
 
     _pendingOut += len;
@@ -1346,8 +1363,8 @@ class Deflate {
 
   static const int END_BLOCK = 256;
 
-  InputStream _input;
-  OutputStream _output = new OutputStream();
+  dynamic _input;
+  dynamic _output;
 
   int _status;
   /// output still pending

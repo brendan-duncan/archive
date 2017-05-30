@@ -30,6 +30,17 @@ void defineGZipTests() {
       compare_bytes(z_bytes, b_bytes);
     });
 
+    test('decode res/test2.tar.gz', () {
+      var b = new io.File(path + '/res/test2.tar');
+      List<int> b_bytes = b.readAsBytesSync();
+
+      var file = new io.File(path + '/res/test2.tar.gz');
+      var bytes = file.readAsBytesSync();
+
+      var z_bytes = new GZipDecoder().decodeBytes(bytes);
+      compare_bytes(z_bytes, b_bytes);
+    });
+
     test('decode res/a.txt.gz', () {
       List<int> a_bytes = a_txt.codeUnits;
 

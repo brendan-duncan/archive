@@ -26,8 +26,8 @@ class GZipEncoder {
   static const int OS_ACORN_RISCOS = 13;
   static const int OS_UNKNOWN = 255;
 
-  List<int> encode(List<int> data, {int level}) {
-    OutputStream output = new OutputStream();
+  List<int> encode(data, {int level, dynamic output}) {
+    dynamic output_stream = output != null ? output : new OutputStream();
 
     // The GZip format has the following structure:
     // Offset   Length   Contents
@@ -70,27 +70,41 @@ class GZipEncoder {
     //        4 bytes  crc32
     //        4 bytes  uncompressed input size modulo 2^32
 
-    output.writeUint16(SIGNATURE);
-    output.writeByte(DEFLATE);
+    output_stream.writeUint16(SIGNATURE);
+    output_stream.writeByte(DEFLATE);
 
     int flags = 0;
     int fileModTime = new DateTime.now().millisecondsSinceEpoch ~/ 1000;
     int extraFlags = 0;
     int osType = OS_UNKNOWN;
 
-    output.writeByte(flags);
-    output.writeUint32(fileModTime);
-    output.writeByte(extraFlags);
-    output.writeByte(osType);
+    output_stream.writeByte(flags);
+    output_stream.writeUint32(fileModTime);
+    output_stream.writeByte(extraFlags);
+    output_stream.writeByte(osType);
 
-    List<int> compressed = new Deflate(data, level: level).getBytes();
-    output.writeBytes(compressed);
+    Deflate deflate;
+    if (data is List<int>) {
+      deflate = new Deflate(data, level: level, output: output_stream);
+    } else {
+      deflate = new Deflate.buffer(data, level: level, output: output_stream);
+    }
 
-    int crc = getCrc32(data);
-    output.writeUint32(crc);
+    if (output_stream is OutputStream) {
+      List<int> compressed = deflate.getBytes();
+      output_stream.writeBytes(compressed);
+    } else {
+      deflate.finish();
+    }
 
-    output.writeUint32(data.length);
+    output_stream.writeUint32(deflate.crc32);
 
-    return output.getBytes();
+    output_stream.writeUint32(data.length);
+
+    if (output_stream is OutputStream) {
+      return output_stream.getBytes();
+    } else {
+      return null;
+    }
   }
 }

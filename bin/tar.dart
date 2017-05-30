@@ -5,6 +5,7 @@ import 'dart:io' as io;
 
 import 'package:args/args.dart';
 import 'package:archive/archive.dart';
+import 'package:archive/archive_io.dart';
 
 // tar --list <file>
 // tar --extract <file> <dest>
@@ -54,7 +55,9 @@ void listFiles(String path) {
   }
 
   TarDecoder tarArchive = new TarDecoder();
-  tarArchive.decodeBytes(data);
+  // Tell the decoder not to store the actual file data since we don't need
+  // it.
+  tarArchive.decodeBytes(data, storeData: false);
 
   print('${tarArchive.files.length} file(s)');
   tarArchive.files.forEach((f) => print('  ${f}'));
@@ -64,7 +67,46 @@ void listFiles(String path) {
  * Extract the entries in the given tar file to a directory.
  */
 io.Directory extractFiles(String inputPath, String outputPath) {
-  io.File inputFile = new io.File(inputPath);
+  io.Directory temp_dir;
+  String tar_path = inputPath;
+
+  if (inputPath.endsWith('tar.gz') || inputPath.endsWith('tgz')) {
+    temp_dir = io.Directory.systemTemp.createTempSync('dart_archive');
+    tar_path = '${temp_dir.path}${io.Platform.pathSeparator}temp.tar';
+    InputFileStream input = new InputFileStream(inputPath);
+    OutputFileStream output = new OutputFileStream(tar_path);
+    new GZipDecoder().decodeStream(input, output);
+    input.close();
+    output.close();
+  }
+
+  io.Directory outDir = new io.Directory(outputPath);
+  if (!outDir.existsSync()) {
+    outDir.createSync(recursive: true);
+  }
+
+  InputFileStream input = new InputFileStream(tar_path);
+
+  TarDecoder tarArchive = new TarDecoder()..decodeBuffer(input);
+
+  for (TarFile file in tarArchive.files) {
+    if (!file.isFile) {
+      continue;
+    }
+    io.File f = new io.File(
+        '${outputPath}${io.Platform.pathSeparator}${file.filename}');
+    f.parent.createSync(recursive: true);
+    f.writeAsBytesSync(file.content);
+    print('  extracted ${file.filename}');
+  };
+
+  input.close();
+
+  if (temp_dir != null) {
+    temp_dir.delete(recursive: true);
+  }
+
+  /*io.File inputFile = new io.File(inputPath);
   if (!inputFile.existsSync()) fail('${inputPath} does not exist');
 
   io.Directory outDir = new io.Directory(outputPath);
@@ -80,7 +122,7 @@ io.Directory extractFiles(String inputPath, String outputPath) {
   }
 
   TarDecoder tarArchive = new TarDecoder();
-  tarArchive.decodeBytes(data);
+  tarArchive.decodeBytes(data);*
 
   print('extracting to ${outDir.path}${io.Platform.pathSeparator}...');
 
@@ -93,44 +135,18 @@ io.Directory extractFiles(String inputPath, String outputPath) {
     f.parent.createSync(recursive: true);
     f.writeAsBytesSync(file.content);
     print('  extracted ${file.filename}');
-  };
+  };*/
 
   return outDir;
 }
 
-io.File createTarFile(String dirPath) {
+void createTarFile(String dirPath) {
   io.Directory dir = new io.Directory(dirPath);
   if (!dir.existsSync()) fail('${dirPath} does not exist');
 
-  io.File outFile = new io.File('${dirPath}.tar.gz');
-  print('creating ${outFile.path}...');
-
-  Archive archive = new Archive();
-
-  for (io.FileSystemEntity entity in dir.listSync(recursive: true, followLinks: false)) {
-    if (entity is io.File) {
-      String name = entity.path;
-      if (name.startsWith(dir.path)) {
-        name = name.substring(dir.path.length);
-      }
-      if (name.startsWith(io.Platform.pathSeparator)) {
-        name = name.substring(io.Platform.pathSeparator.length);
-      }
-      ArchiveFile file = new ArchiveFile(name, entity.lengthSync(),
-                                         entity.readAsBytesSync());
-      file.lastModTime = entity.lastModifiedSync().millisecondsSinceEpoch;
-      file.mode = entity.statSync().mode;
-      print('  added ${name}');
-      archive.addFile(file);
-    }
-  }
-
-  List<int> data = new TarEncoder().encode(archive);
-  data = new GZipEncoder().encode(data);
-
-  outFile.writeAsBytesSync(data);
-
-  return outFile;
+  // Encode a directory from disk to disk, no memory
+  TarFileEncoder encoder = new TarFileEncoder();
+  encoder.tarDirectory(dir, compression: TarFileEncoder.GZIP);
 }
 
 void fail(String message) {

@@ -9,8 +9,8 @@ void defineInflateTests() {
 
     test('stream/NO_COMPRESSION', () {
       // compress the buffer (assumption: deflate works correctly).
-      List<int> deflated = new Deflate(buffer, level: Deflate.NO_COMPRESSION
-          ).getBytes();
+      List<int> deflated = new Deflate(buffer,
+          level: Deflate.NO_COMPRESSION).getBytes();
 
       // re-cast the deflated bytes as a Uint8List (which is it's native type).
       // Do this so we can use use Uint8List.view to section off chunks of the

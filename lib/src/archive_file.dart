@@ -45,10 +45,17 @@ class ArchiveFile {
     }
   }
 
+  ArchiveFile.stream(this.name, this.size, content_stream) {
+    compress = false;
+    _content = content_stream;
+    //_rawContent = content_stream;
+    _compressionType = STORE;
+  }
+
   /**
    * Get the content of the file, decompressing on demand as necessary.
    */
-  List<int> get content {
+  dynamic get content {
     if (_content == null) {
       decompress();
     }
@@ -59,7 +66,7 @@ class ArchiveFile {
    * If the file data is compressed, decompress it.
    */
   void decompress() {
-    if (_content == null) {
+    if (_content == null && _rawContent != null) {
       if (_compressionType == DEFLATE) {
         _content = new Inflate.buffer(_rawContent, size).getBytes();
       } else {
@@ -88,5 +95,5 @@ class ArchiveFile {
 
   int _compressionType;
   InputStream _rawContent;
-  List<int> _content;
+  dynamic _content;
 }

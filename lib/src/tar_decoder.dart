@@ -6,22 +6,26 @@ part of archive;
 class TarDecoder {
   List<TarFile> files = [];
 
-  Archive decodeBytes(List<int> data, {bool verify: false}) {
-    return decodeBuffer(new InputStream(data), verify: verify);
+  Archive decodeBytes(List<int> data, {bool verify: false,
+      bool storeData: true}) {
+    return decodeBuffer(new InputStream(data), verify: verify,
+        storeData: storeData);
   }
 
-  Archive decodeBuffer(InputStream input, {bool verify: false}) {
+  Archive decodeBuffer(dynamic input, {bool verify: false,
+      bool storeData: true}) {
     Archive archive = new Archive();
     files.clear();
 
     //TarFile paxHeader = null;
     while (!input.isEOS) {
       // End of archive when two consecutive 0's are found.
-      if (input[0] == 0 && input[1] == 0) {
+      InputStream end_check = input.peekBytes(2);
+      if (end_check.length < 2 || (end_check[0] == 0 && end_check[1] == 0)) {
         break;
       }
 
-      TarFile tf = new TarFile.read(input);
+      TarFile tf = new TarFile.read(input, storeData: storeData);
       // In POSIX formatted tar files, a separate 'PAX' file contains extended
       // metadata for files. These are identified by having a type flag 'X'.
       // TODO parse these metadata values.

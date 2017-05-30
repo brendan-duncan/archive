@@ -14,7 +14,8 @@ class InputStream {
    */
   InputStream(data, {this.byteOrder: LITTLE_ENDIAN, int start: 0,
               int length}) :
-    this.buffer = data is ByteData ? new Uint8List.view(data.buffer) : data as List<int>,
+    this.buffer = data is ByteData ? new Uint8List.view(data.buffer) :
+        data as List<int>,
     this.start = start {
     _length = length == null ? buffer.length : length;
     offset = start;
@@ -50,6 +51,16 @@ class InputStream {
    */
   void reset() {
     offset = start;
+  }
+
+  /**
+   * Rewind the read head of the stream by the given number of bytes.
+   */
+  void rewind([int length = 1]) {
+    offset -= length;
+    if (offset < 0) {
+      offset = 0;
+    }
   }
 
   /**
@@ -212,10 +223,17 @@ class InputStream {
     int len = length;
     if (buffer is Uint8List) {
       Uint8List b = buffer;
+      if ((offset + len) > b.length) {
+        len = b.length - offset;
+      }
       Uint8List bytes = new Uint8List.view(b.buffer, offset, len);
       return bytes;
     }
-    return new Uint8List.fromList(buffer.sublist(offset, offset + len));
+    int end = offset + len;
+    if (end > buffer.length) {
+      end = buffer.length;
+    }
+    return new Uint8List.fromList(buffer.sublist(offset, end));
   }
 
   int _length;

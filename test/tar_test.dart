@@ -146,6 +146,30 @@ void defineTarTests() {
     TarDecoder tar = new TarDecoder();
     TarEncoder tarEncoder = new TarEncoder();
 
+    test('decode test2.tar', () {
+      var file = new io.File(path + '/res/test2.tar');
+      List<int> bytes = file.readAsBytesSync();
+      Archive archive = tar.decodeBytes(bytes);
+
+      List expected_files = [];
+      ListDir(expected_files, new io.Directory(path + '/res/test2'));
+
+      expect(archive.length, equals(expected_files.length));
+    });
+
+    test('decode test2.tar.gz', () {
+      var file = new io.File(path + '/res/test2.tar.gz');
+      List<int> bytes = file.readAsBytesSync();
+
+      bytes = new GZipDecoder().decodeBytes(bytes);
+      Archive archive = tar.decodeBytes(bytes);
+
+      List expected_files = [];
+      ListDir(expected_files, new io.Directory(path + '/res/test2'));
+
+      expect(archive.length, equals(expected_files.length));
+    });
+
     test('decode/encode', () {
       List<int> a_bytes = a_txt.codeUnits;
 
