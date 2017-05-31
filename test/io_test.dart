@@ -153,8 +153,8 @@ void defineIoTests() {
     test('stream tar encode', () {
       // Encode a directory from disk to disk, no memory
       TarFileEncoder encoder = new TarFileEncoder();
-      encoder.open('$path/out/example.tar');
-      encoder.addDirectory(new io.Directory('$path/out/example'));
+      encoder.open('$path/out/test3.tar');
+      encoder.addDirectory(new io.Directory('$path/res/test2'));
       encoder.close();
     });
 
@@ -177,7 +177,7 @@ void defineIoTests() {
       // Encode a directory from disk to disk, no memory
       TarFileEncoder encoder = new TarFileEncoder();
       encoder.open('$path/out/example2.tar');
-      encoder.addDirectory(new io.Directory('$path/out/example'));
+      encoder.addDirectory(new io.Directory('$path/res/test2'));
       encoder.close();
 
       InputFileStream input = new InputFileStream(path + '/out/example2.tar');
