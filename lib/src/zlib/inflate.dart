@@ -198,8 +198,13 @@ class Inflate {
     int len = _readBits(16);
     int nlen = _readBits(16);
 
-    // check len & nlen
-    if (len == ~nlen) {
+    // Integers in Dart are signed, so the ~ operator will change nlen to a
+    // signed int. We need to convert it back to an uint16 to properly compare
+    // it to len.
+    int nlen_check = _int16ToUint16(~nlen);
+
+    // Make sure the block size checksum is valid.
+    if (len != 0 && len != nlen_check) {
       throw new ArchiveException('Invalid uncompressed block header');
     }
 
@@ -351,6 +356,18 @@ class Inflate {
 
     return lengths;
   }
+
+  /**
+   * Binary conversion of a int16 to a uint16.  This is equivalent in C to
+   * typecasting a short to an unsigned short.
+   */
+  static int _int16ToUint16(int d) {
+    __int16[0] = d;
+    return __int16ToUint16[0];
+  }
+
+  static final Int16List __int16 = new Int16List(1);
+  static final Uint16List __int16ToUint16 = new Uint16List.view(__int16.buffer);
 
   int _bitBuffer = 0;
   int _bitBufferLen = 0;
