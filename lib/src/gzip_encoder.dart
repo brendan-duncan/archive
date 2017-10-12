@@ -90,10 +90,7 @@ class GZipEncoder {
       deflate = new Deflate.buffer(data, level: level, output: output_stream);
     }
 
-    if (output_stream is OutputStream) {
-      List<int> compressed = deflate.getBytes();
-      output_stream.writeBytes(compressed);
-    } else {
+    if (!(output_stream is OutputStream)) {
       deflate.finish();
     }
 
