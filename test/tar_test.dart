@@ -149,7 +149,7 @@ void defineTarTests() {
     test('decode test2.tar', () {
       var file = new io.File(path + '/res/test2.tar');
       List<int> bytes = file.readAsBytesSync();
-      Archive archive = tar.decodeBytes(bytes);
+      Archive archive = tar.decodeBytes(bytes, verify: true);
 
       List expected_files = [];
       ListDir(expected_files, new io.Directory(path + '/res/test2'));
@@ -161,8 +161,8 @@ void defineTarTests() {
       var file = new io.File(path + '/res/test2.tar.gz');
       List<int> bytes = file.readAsBytesSync();
 
-      bytes = new GZipDecoder().decodeBytes(bytes);
-      Archive archive = tar.decodeBytes(bytes);
+      bytes = new GZipDecoder().decodeBytes(bytes, verify: true);
+      Archive archive = tar.decodeBytes(bytes, verify: true);
 
       List expected_files = [];
       ListDir(expected_files, new io.Directory(path + '/res/test2'));
@@ -179,7 +179,7 @@ void defineTarTests() {
       var file = new io.File(path + '/res/test.tar');
       List<int> bytes = file.readAsBytesSync();
 
-      Archive archive = tar.decodeBytes(bytes);
+      Archive archive = tar.decodeBytes(bytes, verify: true);
       expect(archive.numberOfFiles(), equals(2));
 
       String t_file = archive.fileName(0);
@@ -198,7 +198,7 @@ void defineTarTests() {
       out.writeAsBytesSync(encoded);
 
       // Test round-trip
-      Archive archive2 = tar.decodeBytes(encoded);
+      Archive archive2 = tar.decodeBytes(encoded, verify: true);
       expect(archive2.numberOfFiles(), equals(2));
 
       t_file = archive2.fileName(0);
@@ -217,7 +217,7 @@ void defineTarTests() {
         var file = new io.File(path + '/' + t['file']);
         var bytes = file.readAsBytesSync();
 
-        /*Archive archive =*/ tar.decodeBytes(bytes);
+        /*Archive archive =*/ tar.decodeBytes(bytes, verify: true);
         expect(tar.files.length, equals(t['headers'].length));
 
         for (int i = 0; i < tar.files.length; ++i) {

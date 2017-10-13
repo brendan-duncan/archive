@@ -10,7 +10,7 @@ void defineBzip2Tests() {
       List<int> orig =
           new io.File(path + '/res/bzip2/test.bz2').readAsBytesSync();
 
-      new BZip2Decoder().decodeBytes(orig);
+      new BZip2Decoder().decodeBytes(orig, verify: true);
     });
 
     test('encode', () {
@@ -18,7 +18,7 @@ void defineBzip2Tests() {
 
       List<int> compressed = new BZip2Encoder().encode(file);
 
-      List<int> d2 = new BZip2Decoder().decodeBytes(compressed);
+      List<int> d2 = new BZip2Decoder().decodeBytes(compressed, verify: true);
 
       expect(d2.length, equals(file.length));
       for (int i = 0, len = d2.length; i < len; ++i) {
