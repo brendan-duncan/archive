@@ -21,7 +21,7 @@ class ZipDecoder {
       // The attributes are stored in base 8
       final unixAttributes = zfh.externalFileAttributes >> 16;
       final unixPermissions = unixAttributes & 0x1FF;
-
+      final compress = zf.compressionMethod != ZipFile.STORE;
 
       if (verify) {
         int computedCrc = getCrc32(zf.content);
@@ -48,6 +48,7 @@ class ZipDecoder {
       }
 
       file.crc32 = zf.crc32;
+      file.compress = compress;
 
       archive.addFile(file);
     }
