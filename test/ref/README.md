@@ -1,0 +1,1 @@
+- 'zip' is coming from 'https://github.com/Stuk/jszip/tree/master/test/ref'
