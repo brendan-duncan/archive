@@ -34,10 +34,9 @@ class OutputFileStream {
       len = bytes.length;
     }
     if (bytes is InputFileStream) {
-      InputFileStream in_stream = bytes as InputFileStream;
-      while (!in_stream.isEOS) {
-        int len = in_stream.bufferRemaining;
-        InputStream data = in_stream.readBytes(len);
+      while (!bytes.isEOS) {
+        int len = bytes.bufferRemaining;
+        InputStream data = bytes.readBytes(len);
         writeInputStream(data);
       }
     } else {
