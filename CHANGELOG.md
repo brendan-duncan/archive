@@ -1,3 +1,7 @@
+## 1.0.33
+
+* Support the latest version of `package:args`.
+
 ## 1.0.30 - May 27, 2017
 
 - Add archive_io sub-package for supporting file streaming rather than storing everything in memory.
