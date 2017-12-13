@@ -1,7 +1,7 @@
+import 'package:archive/archive.dart';
+import 'package:test/test.dart';
 
-part of archive_test;
-
-void defineCrc32Tests() {
+void main() {
   group('crc32', () {
     test('empty', () {
       int crcVal = getCrc32([]);

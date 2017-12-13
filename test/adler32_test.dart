@@ -1,7 +1,7 @@
+import 'package:archive/archive.dart';
+import 'package:test/test.dart';
 
-part of archive_test;
-
-void defineAdlerTests() {
+void main() {
   group('adler32', () {
     test('empty', () {
       int adlerVal = getAdler32([]);

@@ -1,4 +1,9 @@
-part of archive_test;
+import 'dart:io' as io;
+
+import 'package:archive/archive.dart';
+import 'package:test/test.dart';
+
+import 'test_utils.dart';
 
 void extract7z(List urls) {
   io.File script = new io.File(io.Platform.script.toFilePath());
@@ -17,8 +22,7 @@ void extract7z(List urls) {
     }
 
     print('EXTRACTING $inputPath');
-    io.Process.runSync('7z', ['x', '-o${outputPath}',
-    '$inputPath']);
+    io.Process.runSync('7z', ['x', '-o${outputPath}', '$inputPath']);
 
     String tar_filename = filename.substring(0, filename.lastIndexOf('.'));
     String tar_path = '$outputPath\\$tar_filename';
@@ -43,10 +47,11 @@ downloadUrls(io.HttpClient client, List urls) async {
 
     String filename = url.split('/').last;
 
-    var download = new io.HttpClient().getUrl(Uri.parse(url))
+    var download = new io.HttpClient()
+        .getUrl(Uri.parse(url))
         .then((io.HttpClientRequest request) => request.close())
         .then((io.HttpClientResponse response) =>
-        response.pipe(new io.File(path + '/out/' + filename).openWrite()));
+            response.pipe(new io.File(path + '/out/' + filename).openWrite()));
 
     downloads.add(download);
   }
@@ -88,12 +93,11 @@ void extractDart(List urls) {
       }
       String filename = file.filename;
       try {
-        io.File f = new io.File(
-            '${outputPath}${io.Platform.pathSeparator}${filename}');
+        io.File f =
+            new io.File('${outputPath}${io.Platform.pathSeparator}${filename}');
         f.parent.createSync(recursive: true);
         f.writeAsBytesSync(file.content);
-      } catch (e) {
-      }
+      } catch (e) {}
     }
   }
 }
