@@ -7,7 +7,7 @@ import 'package:archive/archive.dart';
 import 'package:archive/archive_io.dart';
 import 'package:test/test.dart';
 
-import '../bin/tar.dart' as tar_command;
+import 'package:archive/src/tar/tar_command.dart' as tar_command;
 
 part 'adler32_test.dart';
 part 'bzip2_test.dart';
