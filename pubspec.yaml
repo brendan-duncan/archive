@@ -8,7 +8,7 @@ environment:
 documentation: https://github.com/brendan-duncan/archive/wiki
 dependencies:
   crypto: '>=2.0.0 <3.0.0'
-  args: '>=0.13.7 <1.0.0'
+  args: '>=0.13.7 <2.0.0'
   path: '>=1.4.1 <2.0.0'
 dev_dependencies:
   browser: '<1.0.0'
