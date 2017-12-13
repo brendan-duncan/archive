@@ -12,3 +12,4 @@ dartanalyzer --fatal-warnings \
 
 # Run the tests.
 dart -c test/archive_test.dart
+dart -c test/ref/zip_test.dart
