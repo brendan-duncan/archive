@@ -1,3 +1,8 @@
+## 1.0.34
+
+* Update return type of `ArchiveFile.content` to be `List<int>` which is valid
+  for all code paths.
+
 ## 1.0.33
 
 * Support the latest version of `package:args`.

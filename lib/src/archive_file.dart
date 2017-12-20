@@ -55,7 +55,7 @@ class ArchiveFile {
   /**
    * Get the content of the file, decompressing on demand as necessary.
    */
-  dynamic get content {
+  List<int> get content {
     if (_content == null) {
       decompress();
     }
@@ -95,5 +95,5 @@ class ArchiveFile {
 
   int _compressionType;
   InputStream _rawContent;
-  dynamic _content;
+  List<int> _content;
 }
