@@ -42,10 +42,15 @@ void main() {
   // Extract the contents of the Zip archive to disk.
   for (ArchiveFile file in archive) {
     String filename = file.name;
-    List<int> data = file.content;
-    new File('out/' + filename)
-          ..createSync(recursive: true)
-          ..writeAsBytesSync(data);
+    if (file.isFile) {
+      List<int> data = file.content;
+      new File('out/' + filename)
+            ..createSync(recursive: true)
+            ..writeAsBytesSync(data);
+    } else {
+      new Directory('out/' + filename)
+          ..create(recursive: true);
+    }
   }
 
   // Encode the archive as a BZip2 compressed Tar file.
