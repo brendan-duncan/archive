@@ -5,5 +5,5 @@ analyzer:
     unused_field: error
     unused_local_variable: error
   exclude:
-    - 'test/res/test2'
-    - 'test/out'
+    - test/res/**
+    - test/out/**
