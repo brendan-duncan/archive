@@ -1,4 +1,5 @@
 .project
+.dart_tool/
 .pub
 pubspec.lock
 build/
