@@ -1,3 +1,9 @@
+## 2.0.0
+
+* Moved version up for Dart 2 support.
+* Fixed an issue with file compression flags when decoding zip archives.
+* Fixed an issue with bzip2 decoding in production code.
+
 ## 1.0.33
 
 * Support the latest version of `package:args`.
