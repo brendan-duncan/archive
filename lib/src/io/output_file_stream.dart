@@ -11,7 +11,7 @@ class OutputFileStream {
     : length = 0 {
     _file = new io.File(path);
     _file.createSync(recursive: true);
-    _fp = _file.openSync(mode: io.FileMode.WRITE);
+    _fp = _file.openSync(mode: io.FileMode.write);
   }
 
   void close() {

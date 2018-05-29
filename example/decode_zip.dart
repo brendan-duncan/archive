@@ -29,7 +29,7 @@ void main() {
       var jpg = archive.findFile('cat.jpg').content;
 
       // Replace the html image content with the image we just extracted.
-      var jpg64 = BASE64.encode(jpg);
+      var jpg64 = base64.encode(jpg);
       img.src = 'data:image/jpeg;base64,${jpg64}';
     }
   });
