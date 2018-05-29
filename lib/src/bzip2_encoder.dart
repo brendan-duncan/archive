@@ -1200,8 +1200,14 @@ class BZip2Encoder {
             int lo = _ftab[sb] & CLEARMASK;
             int hi = (_ftab[sb + 1] & CLEARMASK) - 1;
             if (hi > lo) {
-              _mainQSort3(ptr, block, quadrant, nblock,
-                         lo, hi, BZ_N_RADIX);
+              _mainQSort3(
+                  ptr,
+                  block,
+                  quadrant,
+                  nblock,
+                  lo,
+                  hi,
+                  BZ_N_RADIX);
               numQSorted += (hi - lo + 1);
               if (_budget < 0) {
                 return;
@@ -1225,14 +1231,15 @@ class BZip2Encoder {
       }
 
       for (j = _ftab[ss << 8] & CLEARMASK; j < copyStart[ss]; j++) {
-        int k = ptr[j]-1; if (k < 0) k += nblock;
+        int k = ptr[j] - 1;
+        if (k < 0) k += nblock;
         int c1 = block[k];
         if (bigDone[c1] == 0) {
-           ptr[ copyStart[c1]++ ] = k;
+          ptr[ copyStart[c1]++ ] = k;
         }
       }
 
-      for (j = (_ftab[(ss+1) << 8] & CLEARMASK) - 1; j > copyEnd[ss]; j--) {
+      for (j = (_ftab[(ss + 1) << 8] & CLEARMASK) - 1; j > copyEnd[ss]; j--) {
         int k = ptr[j] - 1;
         if (k < 0) {
           k += nblock;
@@ -1244,11 +1251,11 @@ class BZip2Encoder {
       }
 
       _assert((copyStart[ss] - 1 == copyEnd[ss]) ||
-              // Extremely rare case missing in bzip2-1.0.0 and 1.0.1.
-              // Necessity for this case is demonstrated by compressing
-              // a sequence of approximately 48.5 million of character
-              // 251; 1.0.0/1.0.1 will then die here.
-              (copyStart[ss] == 0 && copyEnd[ss] == nblock - 1));
+          // Extremely rare case missing in bzip2-1.0.0 and 1.0.1.
+          // Necessity for this case is demonstrated by compressing
+          // a sequence of approximately 48.5 million of character
+          // 251; 1.0.0/1.0.1 will then die here.
+          (copyStart[ss] == 0 && copyEnd[ss] == nblock - 1));
 
       for (j = 0; j <= 255; j++) {
         _ftab[(j << 8) + ss] |= SETMASK;
@@ -1298,20 +1305,23 @@ class BZip2Encoder {
         int bbSize = (_ftab[(ss + 1) << 8] & CLEARMASK) - bbStart;
         int shifts = 0;
 
-        while ((bbSize >> shifts) > 65534) {
-          shifts++;
-        }
-
-        for (j = bbSize - 1; j >= 0; j--) {
-          int a2update = ptr[bbStart + j];
-          int qVal = (j >> shifts) & 0xffff;
-          quadrant[a2update] = qVal;
-          if (a2update < BZ_N_OVERSHOOT)
-            quadrant[a2update + nblock] = qVal;
+        if (bbSize > 0) {
+          while ((bbSize >> shifts) > 65534) {
+            shifts++;
           }
-          _assert(((bbSize - 1) >> shifts) <= 65535);
+
+          for (j = bbSize - 1; j >= 0; j--) {
+            int a2update = ptr[bbStart + j];
+            int qVal = (j >> shifts) & 0xffff;
+            quadrant[a2update] = qVal;
+            if (a2update < BZ_N_OVERSHOOT) {
+              quadrant[a2update + nblock] = qVal;
+            }
+            _assert(((bbSize - 1) >> shifts) <= 65535);
+          }
         }
       }
+    }
   }
 
   void _mainQSort3(Uint32List ptr, Uint8List block,
