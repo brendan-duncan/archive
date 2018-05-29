@@ -58,7 +58,7 @@ void main() {
   List<int> tar_bz2 = new BZip2Encoder().encode(tar_data);
 
   // Write the compressed tar file to disk.
-  File fp = new File(filename + '.tbz');
+  File fp = new File('test.tbz');
   fp.writeAsBytesSync(tar_bz2);
 }
 ```
