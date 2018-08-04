@@ -1,4 +1,8 @@
-part of archive;
+import 'dart:typed_data';
+import 'tar/tar_file.dart';
+import 'util/output_stream.dart';
+import 'archive.dart';
+import 'archive_file.dart';
 
 /**
  * Encode an [Archive] object into a tar formatted buffer.
@@ -32,7 +36,7 @@ class TarEncoder {
     ts.ownerId = file.ownerId;
     ts.groupId = file.groupId;
     ts.lastModTime = file.lastModTime;
-    ts._content = file.content;
+    ts.content = file.content;
     ts.write(_output_stream);
   }
 

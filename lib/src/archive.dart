@@ -1,4 +1,5 @@
-part of archive;
+import 'archive_file.dart';
+import 'dart:collection';
 
 /**
  * A collection of files.

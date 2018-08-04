@@ -1,4 +1,8 @@
-part of archive;
+import '../util/archive_exception.dart';
+import '../util/crc32.dart';
+import '../util/input_stream.dart';
+import '../zlib/inflate.dart';
+import 'zip_file_header.dart';
 
 class ZipFile {
   static const int STORE = 0;
@@ -88,6 +92,14 @@ class ZipFile {
       }
     }
     return _content;
+  }
+
+  dynamic get rawContent {
+    if (_content != null) {
+      return _content;
+    } else {
+      return _rawContent;
+    }
   }
 
   String toString() => filename;

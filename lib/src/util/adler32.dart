@@ -1,4 +1,5 @@
-part of archive;
+import 'dart:convert';
+import 'package:crypto/crypto.dart' as crypto;
 
 /**
  * Get the Adler-32 checksum for the given array. You can append bytes to an

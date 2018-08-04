@@ -1,17 +1,21 @@
-part of archive_io;
+import 'dart:io';
+import 'dart:typed_data';
+import '../util/byte_order.dart';
+import '../util/input_stream.dart';
+import 'input_file_stream.dart';
 
 class OutputFileStream {
   String path;
   final int byteOrder;
   int length;
-  io.File _file;
-  io.RandomAccessFile _fp;
+  File _file;
+  RandomAccessFile _fp;
 
   OutputFileStream(this.path, {this.byteOrder: LITTLE_ENDIAN})
     : length = 0 {
-    _file = new io.File(path);
+    _file = new File(path);
     _file.createSync(recursive: true);
-    _fp = _file.openSync(mode: io.FileMode.write);
+    _fp = _file.openSync(mode: FileMode.write);
   }
 
   void close() {

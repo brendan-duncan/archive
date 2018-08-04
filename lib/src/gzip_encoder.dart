@@ -1,4 +1,5 @@
-part of archive;
+import 'util/output_stream.dart';
+import 'zlib/deflate.dart';
 
 class GZipEncoder {
   static const int SIGNATURE = 0x8b1f;

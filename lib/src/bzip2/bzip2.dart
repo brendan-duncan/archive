@@ -1,4 +1,3 @@
-part of archive;
 
 class BZip2 {
   static int INITIAL_CRC = 0xffffffff;

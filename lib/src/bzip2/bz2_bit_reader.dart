@@ -1,4 +1,4 @@
-part of archive;
+import '../util/input_stream.dart';
 
 class Bz2BitReader {
   InputStream input;

@@ -1,4 +1,8 @@
-part of archive;
+import 'util/adler32.dart';
+import 'util/archive_exception.dart';
+import 'util/byte_order.dart';
+import 'util/input_stream.dart';
+import 'zlib/inflate.dart';
 
 /**
  * Decompress data with the zlib format decoder.

@@ -1,4 +1,5 @@
-part of archive;
+import 'util/input_stream.dart';
+import 'zlib/inflate.dart';
 
 /**
  * A file contained in an Archive.

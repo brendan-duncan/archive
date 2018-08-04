@@ -1,4 +1,5 @@
-part of archive;
+import '../util/input_stream.dart';
+import 'zip_file.dart';
 
 class ZipFileHeader {
   static const int SIGNATURE = 0x02014b50;

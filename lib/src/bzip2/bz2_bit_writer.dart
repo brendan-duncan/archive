@@ -1,4 +1,4 @@
-part of archive;
+import '../util/output_stream.dart';
 
 class Bz2BitWriter {
   OutputStream output;

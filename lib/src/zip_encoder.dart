@@ -1,4 +1,12 @@
-part of archive;
+import 'util/crc32.dart';
+import 'util/input_stream.dart';
+import 'util/output_stream.dart';
+import 'zip/zip_directory.dart';
+import 'zip/zip_file.dart';
+import 'zip/zip_file_header.dart';
+import 'zlib/deflate.dart';
+import 'archive.dart';
+import 'archive_file.dart';
 
 /**
  * Encode an [Archive] object into a Zip formatted buffer.

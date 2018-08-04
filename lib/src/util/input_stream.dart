@@ -1,4 +1,6 @@
-part of archive;
+import 'dart:typed_data';
+import 'byte_order.dart';
+import 'archive_exception.dart';
 
 /**
  * A buffer that can be read as a stream of bytes.

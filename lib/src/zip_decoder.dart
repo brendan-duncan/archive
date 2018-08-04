@@ -1,4 +1,12 @@
-part of archive;
+import 'util/archive_exception.dart';
+import 'util/crc32.dart';
+import 'util/input_stream.dart';
+import 'zip/zip_directory.dart';
+import 'zip/zip_file_header.dart';
+import 'zip/zip_file.dart';
+import 'archive.dart';
+import 'archive_file.dart';
+
 
 /**
  * Decode a zip formatted buffer into an [Archive] object.
@@ -30,7 +38,7 @@ class ZipDecoder {
         }
       }
 
-      var content = zf._content != null ? zf._content : zf._rawContent;
+      var content = zf.rawContent;
       ArchiveFile file = new ArchiveFile(zf.filename, zf.uncompressedSize,
           content, zf.compressionMethod)
         ..unixPermissions = unixPermissions;

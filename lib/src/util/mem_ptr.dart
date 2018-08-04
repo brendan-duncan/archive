@@ -1,4 +1,6 @@
-part of archive;
+import 'dart:typed_data';
+import 'archive_exception.dart';
+import 'byte_order.dart';
 
 /**
  * A helper class to work with List and TypedData in a way similar to pointers

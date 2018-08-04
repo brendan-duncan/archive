@@ -1,4 +1,7 @@
-part of archive;
+import 'tar/tar_file.dart';
+import 'util/input_stream.dart';
+import 'archive.dart';
+import 'archive_file.dart';
 
 /**
  * Decode a tar formatted buffer into an [Archive] object.
@@ -40,7 +43,7 @@ class TarDecoder {
         files.add(tf);
 
         ArchiveFile file = new ArchiveFile(
-            tf.filename, tf.fileSize, tf._rawContent);
+            tf.filename, tf.fileSize, tf.rawContent);
 
         file.mode = tf.mode;
         file.ownerId = tf.ownerId;

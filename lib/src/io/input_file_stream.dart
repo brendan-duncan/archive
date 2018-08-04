@@ -1,8 +1,12 @@
-part of archive_io;
+import 'dart:io';
+import 'dart:typed_data';
+import '../util/archive_exception.dart';
+import '../util/byte_order.dart';
+import '../util/input_stream.dart';
 
 class InputFileStream {
   String path;
-  io.RandomAccessFile _file;
+  RandomAccessFile _file;
   final int byteOrder;
   int _fileSize = 0;
   int _filePosition = 0;
@@ -16,13 +20,13 @@ class InputFileStream {
     int bufferSize: _kDefaultBufferSize}) {
     _maxBufferSize = bufferSize;
     _buffer = new Uint8List(_maxBufferSize);
-    _file = new io.File(path).openSync();
+    _file = new File(path).openSync();
     _fileSize = _file.lengthSync();
 
     _readBuffer();
   }
 
-  InputFileStream.file(io.File file, {this.byteOrder: LITTLE_ENDIAN,
+  InputFileStream.file(File file, {this.byteOrder: LITTLE_ENDIAN,
     int bufferSize: _kDefaultBufferSize}) {
     _maxBufferSize = bufferSize;
     _buffer = new Uint8List(_maxBufferSize);

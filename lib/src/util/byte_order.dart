@@ -1,4 +1,3 @@
-part of archive;
 
 // enum ByteOrder
 const int LITTLE_ENDIAN = 0;

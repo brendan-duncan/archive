@@ -1,4 +1,6 @@
-part of archive;
+import '../util/archive_exception.dart';
+import '../util/input_stream.dart';
+import 'zip_file_header.dart';
 
 class ZipDirectory {
   // End of Central Directory Record

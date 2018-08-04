@@ -1,4 +1,4 @@
-part of archive;
+import 'dart:typed_data';
 
 /**
  * Build huffman table from length list.
