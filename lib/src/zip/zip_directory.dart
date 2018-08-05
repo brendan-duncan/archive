@@ -21,8 +21,7 @@ class ZipDirectory {
   // Central Directory
   List<ZipFileHeader> fileHeaders = [];
 
-  ZipDirectory([InputStream input]) {
-  }
+  ZipDirectory();
 
   ZipDirectory.read(InputStream input) {
     filePosition = _findSignature(input);

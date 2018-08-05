@@ -34,7 +34,7 @@ class TarFileEncoder {
     if (compression == GZIP) {
       InputFileStream input = new InputFileStream(tar_path);
       OutputFileStream output = new OutputFileStream(tgz_path);
-      new GZipEncoder()..encode(input, output: output);
+      new GZipEncoder().encode(input, output: output);
       input.close();
       new File(input.path).deleteSync();
     }

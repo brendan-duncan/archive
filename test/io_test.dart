@@ -1,4 +1,4 @@
-import 'dart:io' as io;
+import 'dart:io';
 
 import 'package:archive/archive.dart';
 import 'package:archive/archive_io.dart';
@@ -10,8 +10,8 @@ import 'test_utils.dart';
 void main() {
   test('InputFileStream', () {
     // Test fundamental assumption setPositionSync does what we expect.
-    io.RandomAccessFile fp =
-        new io.File(p.join(testDirPath, 'res/cat.jpg')).openSync();
+    RandomAccessFile fp =
+        new File(p.join(testDirPath, 'res/cat.jpg')).openSync();
     fp.setPositionSync(9);
     int b1 = fp.readByteSync();
     int b2 = fp.readByteSync();
@@ -37,8 +37,7 @@ void main() {
     expect(b2, equals(c2));
 
     // Test if peekBytes works across a buffer boundary.
-    input =
-        new InputFileStream(p.join(testDirPath, 'res/cat.jpg'), bufferSize: 10);
+    input = new InputFileStream(p.join(testDirPath, 'res/cat.jpg'), bufferSize: 10);
     for (int i = 0; i < 9; ++i) {
       input.readByte();
     }
@@ -46,8 +45,7 @@ void main() {
     b2 = input.readByte();
 
     input.close();
-    input =
-        new InputFileStream(p.join(testDirPath, 'res/cat.jpg'), bufferSize: 10);
+    input = new InputFileStream(p.join(testDirPath, 'res/cat.jpg'), bufferSize: 10);
     for (int i = 0; i < 9; ++i) {
       input.readByte();
     }
@@ -63,10 +61,9 @@ void main() {
 
     input.close();
 
-    input =
-        new InputFileStream(p.join(testDirPath, 'res/cat.jpg'), bufferSize: 10);
+    input = new InputFileStream(p.join(testDirPath, 'res/cat.jpg'), bufferSize: 10);
     InputStream input2 = new InputStream(
-        new io.File(p.join(testDirPath, 'res/cat.jpg')).readAsBytesSync());
+        new File(p.join(testDirPath, 'res/cat.jpg')).readAsBytesSync());
 
     bool same = true;
     while (!input.isEOS && same) {
@@ -76,15 +73,13 @@ void main() {
     expect(input.isEOS, equals(input2.isEOS));
 
     // Test skip across buffer boundary
-    input =
-        new InputFileStream(p.join(testDirPath, 'res/cat.jpg'), bufferSize: 10);
+    input = new InputFileStream(p.join(testDirPath, 'res/cat.jpg'), bufferSize: 10);
     for (int i = 0; i < 11; ++i) {
       input.readByte();
     }
     b1 = input.readByte();
     input.close();
-    input =
-        new InputFileStream(p.join(testDirPath, 'res/cat.jpg'), bufferSize: 10);
+    input = new InputFileStream(p.join(testDirPath, 'res/cat.jpg'), bufferSize: 10);
     for (int i = 0; i < 9; ++i) {
       input.readByte();
     }
@@ -94,15 +89,13 @@ void main() {
     input.close();
 
     // Test skip to end of buffer
-    input =
-        new InputFileStream(p.join(testDirPath, 'res/cat.jpg'), bufferSize: 10);
+    input = new InputFileStream(p.join(testDirPath, 'res/cat.jpg'), bufferSize: 10);
     for (int i = 0; i < 10; ++i) {
       input.readByte();
     }
     b1 = input.readByte();
     input.close();
-    input =
-        new InputFileStream(p.join(testDirPath, 'res/cat.jpg'), bufferSize: 10);
+    input = new InputFileStream(p.join(testDirPath, 'res/cat.jpg'), bufferSize: 10);
     for (int i = 0; i < 9; ++i) {
       input.readByte();
     }
@@ -113,21 +106,17 @@ void main() {
   });
 
   test('InputFileStream/OutputFileStream', () {
-    InputFileStream input =
-        new InputFileStream(p.join(testDirPath, 'res/cat.jpg'));
-    OutputFileStream output =
-        new OutputFileStream(p.join(testDirPath, 'out/cat2.jpg'));
+    var input = new InputFileStream(p.join(testDirPath, 'res/cat.jpg'));
+    var output =  new OutputFileStream(p.join(testDirPath, 'out/cat2.jpg'));
     while (!input.isEOS) {
-      InputStream bytes = input.readBytes(50);
+      var bytes = input.readBytes(50);
       output.writeInputStream(bytes);
     }
     input.close();
     output.close();
 
-    List<int> a_bytes =
-        new io.File(p.join(testDirPath, 'res/cat.jpg')).readAsBytesSync();
-    List<int> b_bytes =
-        new io.File(p.join(testDirPath, 'out/cat2.jpg')).readAsBytesSync();
+    var a_bytes = new File(p.join(testDirPath, 'res/cat.jpg')).readAsBytesSync();
+    var b_bytes = new File(p.join(testDirPath, 'out/cat2.jpg')).readAsBytesSync();
 
     expect(a_bytes.length, equals(b_bytes.length));
     bool same = true;
@@ -139,18 +128,17 @@ void main() {
 
   test('stream tar decode', () {
     // Decode a tar from disk to memory
-    InputFileStream stream =
-        new InputFileStream(p.join(testDirPath, 'res/test2.tar'));
-    TarDecoder tarArchive = new TarDecoder();
+    var stream = new InputFileStream(p.join(testDirPath, 'res/test2.tar'));
+    var tarArchive = new TarDecoder();
     tarArchive.decodeBuffer(stream);
 
     for (TarFile file in tarArchive.files) {
       if (!file.isFile) {
         continue;
       }
-      String filename = file.filename;
+      var filename = file.filename;
       try {
-        io.File f = new io.File('${testDirPath}/out/${filename}');
+        var f = new File('${testDirPath}/out/${filename}');
         f.parent.createSync(recursive: true);
         f.writeAsBytesSync(file.content);
       } catch (e) {}
@@ -163,7 +151,7 @@ void main() {
     // Encode a directory from disk to disk, no memory
     TarFileEncoder encoder = new TarFileEncoder();
     encoder.open('$testDirPath/out/test3.tar');
-    encoder.addDirectory(new io.Directory('$testDirPath/res/test2'));
+    encoder.addDirectory(new Directory('$testDirPath/res/test2'));
     encoder.close();
   });
 
@@ -178,27 +166,48 @@ void main() {
   });
 
   test('stream gzip decode', () {
-    InputFileStream input =
-        new InputFileStream(p.join(testDirPath, 'out/cat.jpg.gz'));
-    OutputFileStream output =
-        new OutputFileStream(p.join(testDirPath, 'out/cat.jpg'));
+    var input = new InputFileStream(p.join(testDirPath, 'out/cat.jpg.gz'));
+    var output = new OutputFileStream(p.join(testDirPath, 'out/cat.jpg'));
 
     new GZipDecoder().decodeStream(input, output);
   });
 
   test('stream tgz encode', () {
     // Encode a directory from disk to disk, no memory
-    TarFileEncoder encoder = new TarFileEncoder();
+    var encoder = new TarFileEncoder();
     encoder.open('$testDirPath/out/example2.tar');
-    encoder.addDirectory(new io.Directory('$testDirPath/res/test2'));
+    encoder.addDirectory(new Directory('$testDirPath/res/test2'));
     encoder.close();
 
-    InputFileStream input =
-        new InputFileStream(p.join(testDirPath, 'out/example2.tar'));
-    OutputFileStream output =
-        new OutputFileStream(p.join(testDirPath, 'out/example2.tgz'));
-    new GZipEncoder()..encode(input, output: output);
+    var input = new InputFileStream(p.join(testDirPath, 'out/example2.tar'));
+    var output = new OutputFileStream(p.join(testDirPath, 'out/example2.tgz'));
+    new GZipEncoder().encode(input, output: output);
     input.close();
-    new io.File(input.path).deleteSync();
+    new File(input.path).deleteSync();
+  });
+
+  test('stream zip encode', () {
+    var encoder = ZipFileEncoder();
+    encoder.open('$testDirPath/out/example2.zip');
+    encoder.addDirectory(new Directory('$testDirPath/res/test2'));
+    encoder.close();
+
+    var zipDecoder = new ZipDecoder();
+    var f = new File('${testDirPath}/out/example2.zip');
+    Archive archive = zipDecoder.decodeBytes(f.readAsBytesSync(), verify: true);
+    expect(archive.length, equals(9));
+  });
+
+  test('create_archive_from_directory', () {
+    var dir = new Directory('$testDirPath/res/test2');
+    var archive = createArchiveFromDirectory(dir);
+    expect(archive.length, equals(9));
+    var encoder = new ZipEncoder();
+
+    var bytes = encoder.encode(archive);
+
+    var zipDecoder = new ZipDecoder();
+    var archive2 = zipDecoder.decodeBytes(bytes, verify: true);
+    expect(archive2.length, equals(9));
   });
 }

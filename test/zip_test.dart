@@ -1,4 +1,4 @@
-import 'dart:io' as io;
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:archive/archive.dart';
@@ -223,7 +223,7 @@ void main() {
 
     var zip_data = new ZipEncoder().encode(archive);
 
-    new io.File(p.join(testDirPath, 'out/uncompressed.zip'))
+    new File(p.join(testDirPath, 'out/uncompressed.zip'))
       ..createSync(recursive: true)
       ..writeAsBytesSync(zip_data);
 
@@ -237,13 +237,13 @@ void main() {
   });
 
   test('decode/encode', () {
-    var file = new io.File(p.join(testDirPath, 'res/test.zip'));
+    var file = new File(p.join(testDirPath, 'res/test.zip'));
     var bytes = file.readAsBytesSync();
 
     Archive archive = zipDecoder.decodeBytes(bytes, verify: true);
     expect(archive.numberOfFiles(), equals(2));
 
-    var b = new io.File(p.join(testDirPath, 'res/cat.jpg'));
+    var b = new File(p.join(testDirPath, 'res/cat.jpg'));
     List<int> b_bytes = b.readAsBytesSync();
     List<int> a_bytes = a_txt.codeUnits;
 
@@ -261,7 +261,7 @@ void main() {
     // Encode the archive we just decoded
     List<int> zipped = zipEncoder.encode(archive);
 
-    io.File f = new io.File(p.join(testDirPath, 'out/test.zip'));
+    File f = new File(p.join(testDirPath, 'out/test.zip'));
     f.createSync(recursive: true);
     f.writeAsBytesSync(zipped);
 
@@ -277,7 +277,7 @@ void main() {
 
   for (Map z in zipTests) {
     test('unzip ${z['Name']}', () {
-      var file = new io.File(p.join(testDirPath, z['Name']));
+      var file = new File(p.join(testDirPath, z['Name']));
       var bytes = file.readAsBytesSync();
 
       Archive archive = zipDecoder.decodeBytes(bytes, verify: true);

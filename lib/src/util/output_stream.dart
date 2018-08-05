@@ -2,8 +2,38 @@ import 'dart:typed_data';
 import 'byte_order.dart';
 import 'input_stream.dart';
 
-class OutputStream {
-  int length;
+abstract class OutputStreamBase {
+  int get length;
+
+  /**
+   * Write a byte to the output stream.
+   */
+  void writeByte(int value);
+
+  /**
+   * Write a set of bytes to the output stream.
+   */
+  void writeBytes(bytes, [int len]);
+
+  /**
+   * Write an InputStream to the output stream.
+   */
+  void writeInputStream(InputStreamBase bytes);
+
+  /**
+   * Write a 16-bit word to the output stream.
+   */
+  void writeUint16(int value);
+
+  /**
+   * Write a 32-bit word to the end of the buffer.
+   */
+  void writeUint32(int value);
+}
+
+
+class OutputStream extends OutputStreamBase {
+  int _length;
   final int byteOrder;
 
   /**
@@ -11,7 +41,11 @@ class OutputStream {
    */
   OutputStream({int size: _BLOCK_SIZE, this.byteOrder: LITTLE_ENDIAN}) :
     _buffer = new Uint8List(size == null ? _BLOCK_SIZE : size),
-    length = 0;
+    _length = 0;
+
+  int get length => _length;
+
+  set length(int l) => _length = l;
 
   /**
    * Get the resulting bytes from the buffer.
@@ -48,7 +82,7 @@ class OutputStream {
   /**
    * Write a set of bytes to the end of the buffer.
    */
-  void writeBytes(List<int> bytes, [int len]) {
+  void writeBytes(bytes, [int len]) {
     if (len == null) {
       len = bytes.length;
     }
@@ -59,12 +93,18 @@ class OutputStream {
     length += len;
   }
 
-  void writeInputStream(InputStream bytes) {
-    while (length + bytes.length > _buffer.length) {
-      _expandBuffer((length + bytes.length) - _buffer.length);
+  void writeInputStream(InputStreamBase stream) {
+    while (length + stream.length > _buffer.length) {
+      _expandBuffer((length + stream.length) - _buffer.length);
     }
-    _buffer.setRange(length, length + bytes.length, bytes.buffer, bytes.offset);
-    length += bytes.length;
+
+    if (stream is InputStream) {
+      _buffer.setRange(length, length + stream.length, stream.buffer, stream.offset);
+    } else {
+      var bytes = stream.toUint8List();
+      _buffer.setRange(length, length + stream.length, bytes, 0);
+    }
+    length += stream.length;
   }
 
   /**

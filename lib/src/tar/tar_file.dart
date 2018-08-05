@@ -63,8 +63,7 @@ class TarFile {
   InputStream _rawContent;
   dynamic _content;
 
-  TarFile() {
-  }
+  TarFile();
 
   TarFile.read(dynamic input, {bool storeData: true}) {
     InputStream header = input.readBytes(512);
@@ -112,14 +111,14 @@ class TarFile {
 
   InputStream get rawContent => _rawContent;
 
-  List<int> get content {
+  get content {
     if (_content == null) {
       _content = _rawContent.toUint8List();
     }
     return _content;
   }
 
-  set content(List<int> data) => _content = data;
+  set content(data) => _content = data;
 
   int get size => _content != null ? _content.length :
                   _rawContent != null ? _rawContent.length :

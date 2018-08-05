@@ -60,5 +60,8 @@ void main() {
   // Write the compressed tar file to disk.
   File fp = new File('test.tbz');
   fp.writeAsBytesSync(tar_bz2);
+
+  // Zip a directory
+  new ZipFileEncoder().zipDirectory('out', filename: 'out.zip');
 }
 ```

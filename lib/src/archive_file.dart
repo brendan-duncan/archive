@@ -47,7 +47,7 @@ class ArchiveFile {
   }
 
   ArchiveFile.stream(this.name, this.size, content_stream) {
-    compress = false;
+    compress = true;
     _content = content_stream;
     //_rawContent = content_stream;
     _compressionType = STORE;

@@ -2,10 +2,87 @@ import 'dart:typed_data';
 import 'byte_order.dart';
 import 'archive_exception.dart';
 
+abstract class InputStreamBase {
+  /**
+   *  The current read position relative to the start of the buffer.
+   */
+  int get position;
+
+  /**
+   * How many bytes are left in the stream.
+   */
+  int get length;
+
+  /**
+   * Is the current position at the end of the stream?
+   */
+  bool get isEOS;
+
+  /**
+   * Reset to the beginning of the stream.
+   */
+  void reset();
+
+  /**
+   * Rewind the read head of the stream by the given number of bytes.
+   */
+  void rewind([int length = 1]);
+
+  /**
+   * Move the read position by [count] bytes.
+   */
+  void skip(int length);
+
+  /**
+   * Read [count] bytes from an [offset] of the current read position, without
+   * moving the read position.
+   */
+  InputStream peekBytes(int count, [int offset = 0]);
+
+  /**
+   * Read a single byte.
+   */
+  int readByte();
+
+  /**
+   * Read [count] bytes from the stream.
+   */
+  InputStream readBytes(int count);
+
+  /**
+   * Read a null-terminated string, or if [len] is provided, that number of
+   * bytes returned as a string.
+   */
+  String readString([int len]);
+
+  /**
+   * Read a 16-bit word from the stream.
+   */
+  int readUint16();
+
+  /**
+   * Read a 24-bit word from the stream.
+   */
+  int readUint24();
+
+  /**
+   * Read a 32-bit word from the stream.
+   */
+  int readUint32();
+
+  /**
+   * Read a 64-bit word form the stream.
+   */
+  int readUint64();
+
+  Uint8List toUint8List();
+}
+
+
 /**
  * A buffer that can be read as a stream of bytes.
  */
-class InputStream {
+class InputStream extends InputStreamBase {
   final List<int> buffer;
   int offset;
   final int start;

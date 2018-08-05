@@ -4,7 +4,7 @@ import '../util/archive_exception.dart';
 import '../util/byte_order.dart';
 import '../util/input_stream.dart';
 
-class InputFileStream {
+class InputFileStream extends InputStreamBase {
   String path;
   RandomAccessFile _file;
   final int byteOrder;
@@ -102,7 +102,7 @@ class InputFileStream {
     return new InputStream(bytes);
   }
 
-  void rewind(int count) {
+  void rewind([int count = 1]) {
     if (_bufferPosition - count < 0) {
       int remaining = (_bufferPosition - count).abs();
       _filePosition = _filePosition - _bufferSize - remaining;
@@ -281,6 +281,10 @@ class InputFileStream {
     }
 
     return new InputStream(bytes);
+  }
+
+  Uint8List toUint8List() {
+    return readBytes(_fileSize).toUint8List();
   }
 
   /**
