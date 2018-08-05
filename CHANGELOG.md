@@ -1,3 +1,9 @@
+## 2.0.1
+
+* Remove the use of `part` and `part of` in the main library.
+* Added ZipFileEncoder to encode files and directories using dart:io.
+* Added createArchiveFromDirectory function to create an Archive object from a dart:io Directory.
+
 ## 2.0.0
 
 * Moved version up for Dart 2 support.
