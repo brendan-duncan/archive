@@ -17,7 +17,7 @@ class ZipFileEncoder {
     String dirPath = dir.path;
     String zip_path = filename != null ? filename : '${dirPath}.zip';
     create(zip_path);
-    addDirectory(dir);
+    addDirectory(dir, includeDirName: false);
     close();
   }
 
