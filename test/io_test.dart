@@ -175,7 +175,7 @@ void main() {
   test('stream tgz encode', () {
     // Encode a directory from disk to disk, no memory
     var encoder = new TarFileEncoder();
-    encoder.open('$testDirPath/out/example2.tar');
+    encoder.create('$testDirPath/out/example2.tar');
     encoder.addDirectory(new Directory('$testDirPath/res/test2'));
     encoder.close();
 
@@ -188,26 +188,28 @@ void main() {
 
   test('stream zip encode', () {
     var encoder = ZipFileEncoder();
-    encoder.open('$testDirPath/out/example2.zip');
+    encoder.create('$testDirPath/out/example2.zip');
     encoder.addDirectory(new Directory('$testDirPath/res/test2'));
+    encoder.addFile(new File('$testDirPath/res/cat.jpg'));
+    encoder.addFile(new File('$testDirPath/res/tarurls.txt'));
     encoder.close();
 
     var zipDecoder = new ZipDecoder();
     var f = new File('${testDirPath}/out/example2.zip');
     Archive archive = zipDecoder.decodeBytes(f.readAsBytesSync(), verify: true);
-    expect(archive.length, equals(9));
+    expect(archive.length, equals(4));
   });
 
   test('create_archive_from_directory', () {
     var dir = new Directory('$testDirPath/res/test2');
     var archive = createArchiveFromDirectory(dir);
-    expect(archive.length, equals(9));
+    expect(archive.length, equals(2));
     var encoder = new ZipEncoder();
 
     var bytes = encoder.encode(archive);
 
     var zipDecoder = new ZipDecoder();
     var archive2 = zipDecoder.decodeBytes(bytes, verify: true);
-    expect(archive2.length, equals(9));
+    expect(archive2.length, equals(2));
   });
 }

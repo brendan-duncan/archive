@@ -16,12 +16,14 @@ class ZipFileEncoder {
   void zipDirectory(Directory dir, {String filename}) {
     String dirPath = dir.path;
     String zip_path = filename != null ? filename : '${dirPath}.zip';
-    open(zip_path);
+    create(zip_path);
     addDirectory(dir);
     close();
   }
 
-  void open(String zip_path) {
+  void open(String zip_path) => create(zip_path);
+
+  void create(String zip_path) {
     this.zip_path = zip_path;
 
     _output = new OutputFileStream(zip_path);
@@ -29,7 +31,7 @@ class ZipFileEncoder {
     _encoder.startEncode(_output);
   }
 
-  void addDirectory(Directory dir) {
+  void addDirectory(Directory dir, {bool includeDirName = true}) {
     List files = dir.listSync(recursive: true);
     for (var file in files) {
       if (file is! File) {
@@ -37,14 +39,15 @@ class ZipFileEncoder {
       }
 
       File f = file as File;
+      String dir_name = path.basename(dir.path);
       String rel_path = path.relative(f.path, from: dir.path);
-      addFile(f, rel_path);
+      addFile(f, includeDirName ? (dir_name + "/" + rel_path) : rel_path);
     }
   }
 
   void addFile(File file, [String filename]) {
     var file_stream = new InputFileStream.file(file);
-    var f = new ArchiveFile.stream(filename == null ? file.path : filename,
+    var f = new ArchiveFile.stream(filename == null ? path.basename(file.path) : filename,
         file.lengthSync(), file_stream);
 
     f.lastModTime = file.lastModifiedSync().millisecondsSinceEpoch;

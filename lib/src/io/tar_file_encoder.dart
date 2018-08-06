@@ -40,7 +40,9 @@ class TarFileEncoder {
     }
   }
 
-  void open(String tar_path) {
+  void open(String tar_path) => create(tar_path);
+
+  void create(String tar_path) {
     this.tar_path = tar_path;
     _output = new OutputFileStream(tar_path);
     _encoder = new TarEncoder();
