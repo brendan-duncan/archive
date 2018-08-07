@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:archive/archive.dart';
+import 'package:archive/archive_io.dart';
 
 void main() {
   // Read the Zip file from disk.
@@ -29,4 +30,14 @@ void main() {
   // Write the compressed tar file to disk.
   File fp = new File('test.tbz');
   fp.writeAsBytesSync(tar_bz2);
+
+  // Zip a directory to out.zip using the zipDirectory convenience method
+  var encoder = new ZipFileEncoder();
+  encoder.zipDirectory(new Directory('out'), filename: 'out.zip');
+
+  // Manually create a zip of a directory and individual files.
+  encoder.create('out2.zip');
+  encoder.addDirectory(new Directory('out'));
+  encoder.addFile(new File('test.zip'));
+  encoder.close();
 }
