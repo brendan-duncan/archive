@@ -70,7 +70,7 @@ void main() {
 
     input.reset();
 
-    s = input.readString(4);
+    s = input.readString(size: 4);
     expect(s, equals('Test'));
     expect(input.readByte(), equals(0));
     expect(input.isEOS, equals(true));

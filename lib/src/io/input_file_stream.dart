@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 import '../util/archive_exception.dart';
@@ -291,22 +292,24 @@ class InputFileStream extends InputStreamBase {
    * Read a null-terminated string, or if [len] is provided, that number of
    * bytes returned as a string.
    */
-  String readString([int len]) {
-    if (len == null) {
+  String readString({int size, bool utf8: true}) {
+    if (size == null) {
       List<int> codes = [];
       while (!isEOS) {
         int c = readByte();
         if (c == 0) {
-          return new String.fromCharCodes(codes);
+          return utf8 ? new Utf8Decoder().convert(codes) :
+                 new String.fromCharCodes(codes);
         }
         codes.add(c);
       }
       throw new ArchiveException('EOF reached without finding string terminator');
     }
 
-    InputStream s = readBytes(len);
+    InputStream s = readBytes(size);
     Uint8List bytes = s.toUint8List();
-    String str = new String.fromCharCodes(bytes);
+    String str = utf8 ? new Utf8Decoder().convert(bytes) :
+                 new String.fromCharCodes(bytes);
     return str;
   }
 

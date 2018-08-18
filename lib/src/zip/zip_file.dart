@@ -41,7 +41,7 @@ class ZipFile {
       uncompressedSize = input.readUint32();
       int fn_len = input.readUint16();
       int ex_len = input.readUint16();
-      filename = input.readString(fn_len);
+      filename = input.readString(size: fn_len);
       extraField = input.readBytes(ex_len).toUint8List();
 
       // Read compressedSize bytes for the compressed data.

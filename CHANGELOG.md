@@ -1,3 +1,11 @@
+## 2.0.3
+
+* Use Utf8 for reading strings in archive archive files, for filenames and comments.
+
+## 2.0.2
+
+* Fixes for ZipFileEncoder.
+
 ## 2.0.1
 
 * Remove the use of `part` and `part of` in the main library.
