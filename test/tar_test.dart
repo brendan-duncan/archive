@@ -1,5 +1,4 @@
-import 'dart:io' as io;
-
+import 'dart:io';
 import 'package:archive/archive.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
@@ -150,36 +149,36 @@ void main() {
   TarEncoder tarEncoder = new TarEncoder();
 
   test('decode test2.tar', () {
-    var file = new io.File(p.join(testDirPath, 'res/test2.tar'));
+    var file = new File(p.join(testDirPath, 'res/test2.tar'));
     List<int> bytes = file.readAsBytesSync();
     Archive archive = tar.decodeBytes(bytes, verify: true);
 
     List expected_files = [];
-    ListDir(expected_files, new io.Directory(p.join(testDirPath, 'res/test2')));
+    ListDir(expected_files, new Directory(p.join(testDirPath, 'res/test2')));
 
-    expect(archive.length, equals(expected_files.length));
+    expect(archive.length, equals(4));
   });
 
   test('decode test2.tar.gz', () {
-    var file = new io.File(p.join(testDirPath, 'res/test2.tar.gz'));
+    var file = new File(p.join(testDirPath, 'res/test2.tar.gz'));
     List<int> bytes = file.readAsBytesSync();
 
     bytes = new GZipDecoder().decodeBytes(bytes, verify: true);
     Archive archive = tar.decodeBytes(bytes, verify: true);
 
     List expected_files = [];
-    ListDir(expected_files, new io.Directory(p.join(testDirPath, 'res/test2')));
+    ListDir(expected_files, new Directory(p.join(testDirPath, 'res/test2')));
 
-    expect(archive.length, equals(expected_files.length));
+    expect(archive.length, equals(4));
   });
 
   test('decode/encode', () {
     List<int> a_bytes = a_txt.codeUnits;
 
-    var b = new io.File(p.join(testDirPath, 'res/cat.jpg'));
+    var b = new File(p.join(testDirPath, 'res/cat.jpg'));
     List<int> b_bytes = b.readAsBytesSync();
 
-    var file = new io.File(p.join(testDirPath, 'res/test.tar'));
+    var file = new File(p.join(testDirPath, 'res/test.tar'));
     List<int> bytes = file.readAsBytesSync();
 
     Archive archive = tar.decodeBytes(bytes, verify: true);
@@ -196,7 +195,7 @@ void main() {
     compare_bytes(t_bytes, b_bytes);
 
     List<int> encoded = tarEncoder.encode(archive);
-    io.File out = new io.File(p.join(testDirPath, 'out/test.tar'));
+    File out = new File(p.join(testDirPath, 'out/test.tar'));
     out.createSync(recursive: true);
     out.writeAsBytesSync(encoded);
 
@@ -217,7 +216,7 @@ void main() {
 
   for (Map t in tarTests) {
     test('untar ${t['file']}', () {
-      var file = new io.File(p.join(testDirPath,  t['file']));
+      var file = new File(p.join(testDirPath,  t['file']));
       var bytes = file.readAsBytesSync();
 
       /*Archive archive =*/ tar.decodeBytes(bytes, verify: true);

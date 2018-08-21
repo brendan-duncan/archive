@@ -144,7 +144,7 @@ void main() {
       } catch (e) {}
     }
 
-    expect(tarArchive.files.length, equals(9));
+    expect(tarArchive.files.length, equals(4));
   });
 
   test('stream tar encode', () {

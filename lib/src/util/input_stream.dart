@@ -309,7 +309,7 @@ class InputStream extends InputStreamBase {
       if ((offset + len) > b.length) {
         len = b.length - offset;
       }
-      Uint8List bytes = new Uint8List.view(b.buffer, offset, len);
+      Uint8List bytes = new Uint8List.view(b.buffer, b.offsetInBytes + offset, len);
       return bytes;
     }
     int end = offset + len;
