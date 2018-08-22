@@ -1,3 +1,7 @@
+## 2.0.4
+
+* Fix InputStream when a Uint8ListView is used as input data.
+
 ## 2.0.3
 
 * Use Utf8 for reading strings in archive archive files, for filenames and comments.
