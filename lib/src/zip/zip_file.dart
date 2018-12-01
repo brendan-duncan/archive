@@ -24,7 +24,7 @@ class ZipFile {
   List<int> extraField = []; // 2 bytes length, n-bytes data
   ZipFileHeader header;
 
-  ZipFile([InputStream input, this.header]) {
+  ZipFile([InputStream input, this.header, String password]) {
     if (input != null) {
       signature = input.readUint32();
       if (signature != SIGNATURE) {
@@ -46,6 +46,11 @@ class ZipFile {
 
       // Read compressedSize bytes for the compressed data.
       _rawContent = input.readBytes(header.compressedSize);
+
+      if (password != null) {
+        _initKeys(password);
+        _isEncrypted = true;
+      }
 
       // If bit 3 (0x08) of the flags field is set, then the CRC-32 and file
       // sizes are not known when the header is written. The fields in the
@@ -84,6 +89,11 @@ class ZipFile {
    */
   List<int> get content {
     if (_content == null) {
+      if (_isEncrypted) {
+        _rawContent = _decodeRawContent(_rawContent);
+        _isEncrypted = false;
+      }
+
       if (compressionMethod == DEFLATE) {
         _content = new Inflate.buffer(_rawContent, uncompressedSize).getBytes();
         compressionMethod = STORE;
@@ -91,6 +101,7 @@ class ZipFile {
         _content = _rawContent.toUint8List();
       }
     }
+
     return _content;
   }
 
@@ -104,9 +115,50 @@ class ZipFile {
 
   String toString() => filename;
 
+  void _initKeys(String password) {
+    _keys[0] = 305419896;
+    _keys[1] = 591751049;
+    _keys[2] = 878082192;
+    for (int c in password.codeUnits) {
+      _updateKeys(c);
+    }
+  }
+
+  void _updateKeys(int c) {
+    _keys[0] = CRC32(_keys[0], c);
+    _keys[1] += _keys[0] & 0xff;
+    _keys[1] = _keys[1] * 134775813 + 1;
+    _keys[2] = CRC32(_keys[2], _keys[1] >> 24);
+  }
+
+  int _decryptByte() {
+    int temp = (_keys[2] & 0xffff) | 2;
+    return ((temp * (temp ^ 1)) >> 8) & 0xff;
+  }
+
+  void _decodeByte(int c) {
+    c ^= _decryptByte();
+    _updateKeys(c);
+  }
+
+  InputStream _decodeRawContent(InputStream input) {
+    for (int i = 0; i < 12; ++i) {
+      _decodeByte(_rawContent.readByte());
+    }
+    var bytes = _rawContent.toUint8List();
+    for (int i = 0; i < bytes.length; ++i) {
+      int temp = bytes[i] ^ _decryptByte();
+      _updateKeys(temp);
+      bytes[i] = temp;
+    }
+    return new InputStream(bytes);
+  }
+
   /// Content of the file.  If compressionMethod is not STORE, then it is
   /// still compressed.
   InputStream _rawContent;
   List<int> _content;
   int _computedCrc32;
+  bool _isEncrypted = false;
+  List<int> _keys = [0, 0, 0];
 }

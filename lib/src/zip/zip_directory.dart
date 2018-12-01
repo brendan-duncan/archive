@@ -1,4 +1,5 @@
 import '../util/archive_exception.dart';
+import '../util/crc32.dart';
 import '../util/input_stream.dart';
 import 'zip_file_header.dart';
 
@@ -23,7 +24,7 @@ class ZipDirectory {
 
   ZipDirectory();
 
-  ZipDirectory.read(InputStream input) {
+  ZipDirectory.read(InputStream input, {String password}) {
     filePosition = _findSignature(input);
     input.offset = filePosition;
     int signature = input.readUint32(); // ignore: unused_local_variable
@@ -49,7 +50,7 @@ class ZipDirectory {
       if (fileSig != ZipFileHeader.SIGNATURE) {
         break;
       }
-      fileHeaders.add(new ZipFileHeader(dirContent, input));
+      fileHeaders.add(new ZipFileHeader(dirContent, input, password));
     }
   }
 

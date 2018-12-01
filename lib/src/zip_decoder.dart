@@ -13,12 +13,12 @@ import 'archive_file.dart';
 class ZipDecoder {
   ZipDirectory directory;
 
-  Archive decodeBytes(List<int> data, {bool verify: false}) {
-    return decodeBuffer(new InputStream(data), verify: verify);
+  Archive decodeBytes(List<int> data, {bool verify: false, String password}) {
+    return decodeBuffer(new InputStream(data), verify: verify, password: password);
   }
 
-  Archive decodeBuffer(InputStream input, {bool verify: false}) {
-    directory = new ZipDirectory.read(input);
+  Archive decodeBuffer(InputStream input, {bool verify: false, String password}) {
+    directory = new ZipDirectory.read(input, password: password);
     Archive archive = new Archive();
 
     for (ZipFileHeader zfh in directory.fileHeaders) {

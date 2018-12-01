@@ -2,6 +2,11 @@ import 'dart:convert';
 import 'package:crypto/crypto.dart' as crypto;
 
 /**
+ * Get the CRC-32 checksum of the given int.
+ */
+int CRC32(int crc, int b) => _CRC32_TABLE[(crc ^ b) & 0xff] ^ (crc >> 8);
+
+/**
  * Get the CRC-32 checksum of the given array. You can append bytes to an
  * already computed crc by specifying the previous [crc] value.
  */

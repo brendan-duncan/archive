@@ -236,6 +236,26 @@ void main() {
     }
   });
 
+  test('password', () {
+    var file = new File(p.join(testDirPath, 'res/zip/password_zipcrypto.zip'));
+    var bytes = file.readAsBytesSync();
+
+    var b = new File(p.join(testDirPath, 'res/zip/hello.txt'));
+    List<int> b_bytes = b.readAsBytesSync();
+
+    Archive archive = zipDecoder.decodeBytes(bytes, verify: true, password: "test1234");
+    expect(archive.numberOfFiles(), equals(1));
+
+    for (int i = 0; i < archive.numberOfFiles(); ++i) {
+      List<int> z_bytes = archive.fileData(i);
+      if (archive.fileName(i) == 'hello.txt') {
+        compare_bytes(z_bytes, b_bytes);
+      } else {
+        throw new TestFailure('Invalid file found');
+      }
+    }
+  });
+
   test('decode/encode', () {
     var file = new File(p.join(testDirPath, 'res/test.zip'));
     var bytes = file.readAsBytesSync();
