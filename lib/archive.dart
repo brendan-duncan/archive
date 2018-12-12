@@ -17,6 +17,8 @@ export 'src/zip/zip_file.dart';
 export 'src/zlib/deflate.dart';
 export 'src/zlib/huffman_table.dart';
 export 'src/zlib/inflate.dart';
+export 'src/zlib/zlib_decoder_base.dart';
+export 'src/zlib/zlib_decoder_stub.dart';
 export 'src/archive.dart';
 export 'src/archive_file.dart';
 export 'src/bzip2_decoder.dart';

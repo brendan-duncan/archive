@@ -1,3 +1,7 @@
+## 2.0.5
+
+* Use dart:io ZLibCodec when run from dart:io.
+
 ## 2.0.4
 
 * Fix InputStream when a Uint8ListView is used as input data.
