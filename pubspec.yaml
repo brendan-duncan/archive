@@ -12,3 +12,5 @@ dependencies:
   path: '>=1.5.1 <2.0.0'
 dev_dependencies:
   test: '>=0.12.13 <2.0.0'
+  build_web_compilers: '>=0.3.6 <2.0.0'
+  build_runner: '>=0.8.10 <2.0.0'
