@@ -23,6 +23,10 @@ class ArchiveFile {
   /// format such as zip.
   bool compress = true;
 
+  int get unixPermissions {
+    return mode & 0x1FF;
+  }
+
   ArchiveFile(this.name, this.size, content,
               [this._compressionType = STORE]) {
     if (content is List<int>) {

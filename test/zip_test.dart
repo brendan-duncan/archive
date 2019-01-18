@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:archive/archive.dart';
+import 'package:archive/archive_io.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
@@ -211,6 +211,43 @@ List zipTests = [
 void main() {
   ZipDecoder zipDecoder = new ZipDecoder();
   ZipEncoder zipEncoder = new ZipEncoder();
+
+  test('zip_executable', () async {
+    // Only tested on linux so far
+    if (Platform.isLinux || Platform.isMacOS) {
+      var path = p.join('.dart_tool', 'archive', 'test', 'zip_executable');
+      var srcPath = p.join(path, 'src');
+
+      try {
+        await Directory(path).deleteSync(recursive: true);
+      } catch (_) {}
+      var dir = Directory(srcPath);
+      await dir.create(recursive: true);
+
+      // Create an executable file and zip it
+      var file = File(p.join(srcPath, 'test.bin'));
+      await file.writeAsString('bin', flush: true);
+      await Process.run('chmod', ['+x', file.path]);
+
+      var subdir = Directory(p.join(dir.path, 'subdir'));
+      await subdir.createSync(recursive: true);
+      var file2 = File(p.join(subdir.path, 'test2.bin'));
+      await file2.writeAsString('bin2', flush: true);
+      await Process.run('chmod', ['+x', file2.path]);
+
+      var dstFilePath = p.join(path, 'test.zip');
+      ZipFileEncoder().zipDirectory(Directory(srcPath), filename: dstFilePath);
+
+      // Read
+      List<int> bytes = await File(dstFilePath).readAsBytes();
+
+      // Decode the Zip file
+      Archive archive = ZipDecoder().decodeBytes(bytes);
+
+      var archiveFile = archive.first;
+      expect(archiveFile.mode, file.statSync().mode);
+    }
+  });
 
   test('encode', () {
     Archive archive = new Archive();
