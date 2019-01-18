@@ -26,7 +26,7 @@ class ZipDecoder {
 
       // The attributes are stored in base 8
       final unixAttributes = zfh.externalFileAttributes >> 16;
-      final unixPermissions = unixAttributes & 0x1FF;
+      final mode = unixAttributes & 0x1FF;
       final compress = zf.compressionMethod != ZipFile.STORE;
 
       if (verify) {
@@ -39,7 +39,7 @@ class ZipDecoder {
       var content = zf.rawContent;
       var file = new ArchiveFile(zf.filename, zf.uncompressedSize,
           content, zf.compressionMethod);
-      file.unixPermissions = unixPermissions;
+      file.mode = mode;
 
       // see https://github.com/brendan-duncan/archive/issues/21
       // UNIX systems has a creator version of 3 decimal at 1 byte offset
