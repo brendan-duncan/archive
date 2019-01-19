@@ -1,3 +1,8 @@
+## 2.0.6
+
+* Support GNU tar long file names
+* Maintain unix file permissions in zip archives.
+
 ## 2.0.5
 
 * Use dart:io ZLibCodec when run from dart:io.
