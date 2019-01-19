@@ -148,6 +148,20 @@ void main() {
   TarDecoder tar = new TarDecoder();
   TarEncoder tarEncoder = new TarEncoder();
 
+  test('long file name', () {
+    var file = new File(p.join(testDirPath, 'res/tar/x.tar'));
+    List<int> bytes = file.readAsBytesSync();
+    Archive archive = tar.decodeBytes(bytes, verify: true);
+
+    expect(archive.numberOfFiles(), equals(1));
+    String x = "";
+    for (int i = 0; i < 150; ++i) {
+      x += "x";
+    }
+    x += ".txt";
+    expect(archive.files[0].name, equals(x));
+  });
+
   test('decode test2.tar', () {
     var file = new File(p.join(testDirPath, 'res/test2.tar'));
     List<int> bytes = file.readAsBytesSync();

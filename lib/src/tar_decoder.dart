@@ -20,6 +20,8 @@ class TarDecoder {
     Archive archive = new Archive();
     files.clear();
 
+    String nextName = null;
+
     //TarFile paxHeader = null;
     while (!input.isEOS) {
       // End of archive when two consecutive 0's are found.
@@ -29,6 +31,12 @@ class TarDecoder {
       }
 
       TarFile tf = new TarFile.read(input, storeData: storeData);
+      // GNU tar puts filenames in files when they exceed tar's native length.
+      if (tf.filename == '././@LongLink') {
+        nextName = tf.rawContent.readString();
+        continue;
+      }
+
       // In POSIX formatted tar files, a separate 'PAX' file contains extended
       // metadata for files. These are identified by having a type flag 'X'.
       // TODO parse these metadata values.
@@ -43,7 +51,7 @@ class TarDecoder {
         files.add(tf);
 
         ArchiveFile file = new ArchiveFile(
-            tf.filename, tf.fileSize, tf.rawContent);
+            nextName != null ? nextName : tf.filename, tf.fileSize, tf.rawContent);
 
         file.mode = tf.mode;
         file.ownerId = tf.ownerId;
@@ -52,6 +60,8 @@ class TarDecoder {
         file.isFile = tf.isFile;
 
         archive.addFile(file);
+
+        nextName = null;
       }
     }
 
