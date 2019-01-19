@@ -29,6 +29,20 @@ class TarEncoder {
     if (_output_stream == null) {
       return;
     }
+
+    // GNU tar files store extra long file names in a separate file
+    if (file.name.length > 100) {
+      TarFile ts = new TarFile();
+      ts.filename = '././@LongLink';
+      ts.fileSize = file.name.length;
+      ts.mode = 0;
+      ts.ownerId = 0;
+      ts.groupId = 0;
+      ts.lastModTime = 0;
+      ts.content = file.name;
+      ts.write(_output_stream);
+    }
+
     TarFile ts = new TarFile();
     ts.filename = file.name;
     ts.fileSize = file.size;
