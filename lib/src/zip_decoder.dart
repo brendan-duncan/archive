@@ -38,7 +38,7 @@ class ZipDecoder {
       var content = zf.rawContent;
       var file = new ArchiveFile(zf.filename, zf.uncompressedSize,
           content, zf.compressionMethod);
-      file.mode = mode;
+      file.mode = mode >> 16;
 
       // see https://github.com/brendan-duncan/archive/issues/21
       // UNIX systems has a creator version of 3 decimal at 1 byte offset
