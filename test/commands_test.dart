@@ -19,7 +19,7 @@ void main() {
     io.Directory dir = io.Directory.systemTemp.createTempSync('foo');
 
     try {
-      print(dir.path);
+      //print(dir.path);
 
       String inputPath = p.join(testDirPath, 'res/test2.tar.gz');
 
@@ -50,10 +50,9 @@ void main() {
 
       tar_command.extractFiles(
           p.join(testDirPath, 'res/test2.tar.gz'), dir.path);
-      //io.sleep(const Duration(seconds:1));
-      expect(dir.listSync().length, 9);
+      expect(dir.listSync(recursive: true).length, 4);
     } finally {
-      dir.deleteSync(recursive: true);
+      //dir.deleteSync(recursive: true);
     }
   });
 
