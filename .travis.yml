@@ -5,7 +5,6 @@ dart:
 
 dart_task:
   - test
-  - dartfmt
   - dartanalyzer
 
 # Only building master means that we don't run two builds for each pull request.
