@@ -246,6 +246,7 @@ void main() {
 
       var archiveFile = archive.first;
       expect(archiveFile.mode, file.statSync().mode);
+      expect(archiveFile.isFile, true);
     }
   });
 

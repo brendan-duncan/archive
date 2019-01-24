@@ -1,3 +1,7 @@
+## 2.0.7
+
+* Fix ArchiveFile.isFile for zip archives
+
 ## 2.0.6
 
 * Support GNU tar long file names
