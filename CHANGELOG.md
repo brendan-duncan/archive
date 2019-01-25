@@ -1,6 +1,10 @@
+## 2.0.8
+
+* Fix zip isFile
+
 ## 2.0.7
 
-* Fix ArchiveFile.isFile for zip archives
+* Fix zip file attributes.
 
 ## 2.0.6
 
