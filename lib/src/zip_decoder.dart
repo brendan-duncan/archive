@@ -43,11 +43,9 @@ class ZipDecoder {
       // see https://github.com/brendan-duncan/archive/issues/21
       // UNIX systems has a creator version of 3 decimal at 1 byte offset
       if (zfh.versionMadeBy >> 8 == 3) {
-        final bool isDirectory = file.mode & 0x7000 == 0x4000;
+        //final bool isDirectory = file.mode & 0x7000 == 0x4000;
         final bool isFile = file.mode & 0x3F000 == 0x8000;
-        if (isFile || isDirectory) {
-          file.isFile = isFile;
-        }
+        file.isFile = isFile;
       } else {
         file.isFile = !file.name.endsWith('/');
       }

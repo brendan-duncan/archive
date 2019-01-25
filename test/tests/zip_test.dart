@@ -212,7 +212,18 @@ void main() {
   ZipDecoder zipDecoder = new ZipDecoder();
   ZipEncoder zipEncoder = new ZipEncoder();
 
-  test('zip_executable', () async {
+  test('zip isFile', () async {
+    var file = new File(p.join(testDirPath, 'res/zip/android-javadoc.zip'));
+    var bytes = file.readAsBytesSync();
+    Archive archive = zipDecoder.decodeBytes(bytes, verify: true);
+    expect(archive.numberOfFiles(), equals(102));
+    for (var file in archive.files) {
+      //print("@ ${file.name} ${file.isFile} ${!file.name.endsWith('/')}");
+      expect(file.isFile, equals(!file.name.endsWith('/')));
+    }
+  });
+
+  test('zip executable', () async {
     // Only tested on linux so far
     if (Platform.isLinux || Platform.isMacOS) {
       var path = p.join('.dart_tool', 'archive', 'test', 'zip_executable');

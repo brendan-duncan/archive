@@ -1,5 +1,5 @@
 import '../util/archive_exception.dart';
-import '../util/crc32.dart';
+//import '../util/crc32.dart';
 import '../util/input_stream.dart';
 import 'zip_file_header.dart';
 

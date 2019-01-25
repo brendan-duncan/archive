@@ -1,5 +1,5 @@
 import 'dart:html' as Html;
-import 'dart:async' as Async;
+//import 'dart:async' as Async;
 import 'dart:typed_data';
 import 'package:archive/archive.dart';
 
