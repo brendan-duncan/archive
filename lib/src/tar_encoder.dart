@@ -4,9 +4,7 @@ import 'util/output_stream.dart';
 import 'archive.dart';
 import 'archive_file.dart';
 
-/**
- * Encode an [Archive] object into a tar formatted buffer.
- */
+/// Encode an [Archive] object into a tar formatted buffer.
 class TarEncoder {
   List<int> encode(Archive archive) {
     OutputStream output_stream = new OutputStream();

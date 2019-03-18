@@ -15,7 +15,7 @@ class _ZipFileData {
   int crc32 = 0;
   int compressedSize = 0;
   int uncompressedSize = 0;
-  InputStreamBase compressedData = null;
+  InputStreamBase compressedData;
   bool compress = true;
   String comment = "";
   int position = 0;
@@ -44,16 +44,13 @@ class _ZipEncoderData {
   }
 }
 
-
-/**
- * Encode an [Archive] object into a Zip formatted buffer.
- */
+/// Encode an [Archive] object into a Zip formatted buffer.
 class ZipEncoder {
   _ZipEncoderData _data;
   OutputStreamBase _output;
 
-  List<int> encode(Archive archive, {int level: Deflate.BEST_SPEED,
-                                     OutputStreamBase output}) {
+  List<int> encode(Archive archive,
+      {int level = Deflate.BEST_SPEED, OutputStreamBase output}) {
     if (output == null) {
       output = new OutputStream();
     }
@@ -70,7 +67,7 @@ class ZipEncoder {
     return null;
   }
 
-  void startEncode(OutputStreamBase output, {int level: Deflate.BEST_SPEED}) {
+  void startEncode(OutputStreamBase output, {int level = Deflate.BEST_SPEED}) {
     _data = new _ZipEncoderData(level);
     _output = output;
   }
@@ -106,9 +103,9 @@ class ZipEncoder {
         file.decompress();
       }
 
-      compressedData = (file.content is InputStreamBase) ?
-                       file.content :
-                       new InputStream(file.content);
+      compressedData = (file.content is InputStreamBase)
+          ? file.content
+          : new InputStream(file.content);
 
       if (file.crc32 != null) {
         crc32 = file.crc32;
@@ -140,7 +137,8 @@ class ZipEncoder {
 
     _data.localFileSize += 30 + file.name.length + compressedData.length;
 
-    _data.centralDirectorySize += 46 + file.name.length +
+    _data.centralDirectorySize += 46 +
+        file.name.length +
         (file.comment != null ? file.comment.length : 0);
 
     fileData.crc32 = crc32;
@@ -156,7 +154,7 @@ class ZipEncoder {
     fileData.compressedData = null;
   }
 
-  void endEncode({String comment: ""}) {
+  void endEncode({String comment = ""}) {
     // Write Central Directory and End Of Central Directory
     _writeCentralDirectory(_data.files, comment, _output);
   }
@@ -194,8 +192,8 @@ class ZipEncoder {
     output.writeInputStream(compressedData);
   }
 
-  void _writeCentralDirectory(List<_ZipFileData> files, String comment,
-                              OutputStreamBase output) {
+  void _writeCentralDirectory(
+      List<_ZipFileData> files, String comment, OutputStreamBase output) {
     if (comment == null) {
       comment = "";
     }
@@ -208,7 +206,8 @@ class ZipEncoder {
       int versionMadeBy = (os << 8) | version;
       int versionNeededToExtract = version;
       int generalPurposeBitFlag = 0;
-      int compressionMethod = fileData.compress ? ZipFile.DEFLATE : ZipFile.STORE;
+      int compressionMethod =
+          fileData.compress ? ZipFile.DEFLATE : ZipFile.STORE;
       int lastModifiedFileTime = fileData.time;
       int lastModifiedFileDate = fileData.date;
       int crc32 = fileData.crc32;

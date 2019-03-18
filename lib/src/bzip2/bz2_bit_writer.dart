@@ -66,10 +66,8 @@ class Bz2BitWriter {
     }
   }
 
-  /**
-   * Write any remaining bits from the buffer to the output, padding the
-   * remainder of the byte with 0's.
-   */
+  /// Write any remaining bits from the buffer to the output, padding the
+  /// remainder of the byte with 0's.
   void flush() {
     if (_bitPos != 8) {
       writeBits(_bitPos, 0);

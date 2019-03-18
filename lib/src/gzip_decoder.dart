@@ -3,9 +3,7 @@ import 'util/crc32.dart';
 import 'util/input_stream.dart';
 import 'zlib/inflate.dart';
 
-/**
- * Decompress data with the gzip format decoder.
- */
+/// Decompress data with the gzip format decoder.
 class GZipDecoder {
   static const int SIGNATURE = 0x8b1f;
   static const int DEFLATE = 8;
@@ -15,7 +13,7 @@ class GZipDecoder {
   static const int FLAG_NAME = 0x08;
   static const int FLAG_COMMENT = 0x10;
 
-  List<int> decodeBytes(List<int> data, {bool verify: false}) {
+  List<int> decodeBytes(List<int> data, {bool verify = false}) {
     return decodeBuffer(new InputStream(data), verify: verify);
   }
 
@@ -24,7 +22,7 @@ class GZipDecoder {
     new Inflate.stream(input, output);
   }
 
-  List<int> decodeBuffer(dynamic input, {bool verify: false}) {
+  List<int> decodeBuffer(dynamic input, {bool verify = false}) {
     _readHeader(input);
 
     // Inflate

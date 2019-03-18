@@ -1,14 +1,13 @@
 import 'util/input_stream.dart';
 import 'zlib/inflate.dart';
 
-/**
- * A file contained in an Archive.
- */
+/// A file contained in an Archive.
 class ArchiveFile {
   static const int STORE = 0;
   static const int DEFLATE = 8;
 
   String name;
+
   /// The uncompressed size of the file
   int size;
   int mode;
@@ -16,9 +15,11 @@ class ArchiveFile {
   int groupId = 0;
   int lastModTime;
   bool isFile = true;
+
   /// The crc32 checksum of the uncompressed content.
   int crc32;
   String comment;
+
   /// If false, this file will not be compressed when encoded to an archive
   /// format such as zip.
   bool compress = true;
@@ -27,8 +28,7 @@ class ArchiveFile {
     return mode & 0x1FF;
   }
 
-  ArchiveFile(this.name, this.size, content,
-              [this._compressionType = STORE]) {
+  ArchiveFile(this.name, this.size, content, [this._compressionType = STORE]) {
     if (content is List<int>) {
       _content = content;
       _rawContent = new InputStream(_content);
@@ -54,9 +54,7 @@ class ArchiveFile {
     _compressionType = STORE;
   }
 
-  /**
-   * Get the content of the file, decompressing on demand as necessary.
-   */
+  /// Get the content of the file, decompressing on demand as necessary.
   dynamic get content {
     if (_content == null) {
       decompress();
@@ -64,9 +62,7 @@ class ArchiveFile {
     return _content;
   }
 
-  /**
-   * If the file data is compressed, decompress it.
-   */
+  /// If the file data is compressed, decompress it.
   void decompress() {
     if (_content == null && _rawContent != null) {
       if (_compressionType == DEFLATE) {
@@ -78,19 +74,13 @@ class ArchiveFile {
     }
   }
 
-  /**
-   * Is the data stored by this file currently compressed?
-   */
+  /// Is the data stored by this file currently compressed?
   bool get isCompressed => _compressionType != STORE;
 
-  /**
-   * What type of compression is the raw data stored in
-   */
+  /// What type of compression is the raw data stored in
   int get compressionType => _compressionType;
 
-  /**
-   * Get the content without decompressing it first.
-   */
+  /// Get the content without decompressing it first.
   InputStream get rawContent => _rawContent;
 
   String toString() => name;

@@ -5,22 +5,18 @@ import '../util/input_stream.dart';
 import 'inflate.dart';
 import 'zlib_decoder_base.dart';
 
-
 ZLibDecoderBase createZLibDecoder() => new _ZLibDecoder();
 
-/**
- * Decompress data with the zlib format decoder.
- */
+/// Decompress data with the zlib format decoder.
 class _ZLibDecoder extends ZLibDecoderBase {
   static const int DEFLATE = 8;
 
-  List<int> decodeBytes(List<int> data, {bool verify: false}) {
-
-    return decodeBuffer(
-        new InputStream(data, byteOrder: BIG_ENDIAN), verify: verify);
+  List<int> decodeBytes(List<int> data, {bool verify = false}) {
+    return decodeBuffer(new InputStream(data, byteOrder: BIG_ENDIAN),
+        verify: verify);
   }
 
-  List<int> decodeBuffer(InputStream input, {bool verify: false}) {
+  List<int> decodeBuffer(InputStream input, {bool verify = false}) {
     /*
      * The zlib format has the following structure:
      * CMF  1 byte
@@ -45,7 +41,8 @@ class _ZLibDecoder extends ZLibDecoderBase {
     int cinfo = (cmf >> 3) & 8; // ignore: unused_local_variable
 
     if (method != DEFLATE) {
-      throw new ArchiveException('Only DEFLATE compression supported: ${method}');
+      throw new ArchiveException(
+          'Only DEFLATE compression supported: ${method}');
     }
 
     int fcheck = flg & 16; // ignore: unused_local_variable

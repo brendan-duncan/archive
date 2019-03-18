@@ -14,8 +14,7 @@ class TarFileEncoder {
   static const int STORE = 0;
   static const int GZIP = 1;
 
-  void tarDirectory(Directory dir, {int compression: STORE,
-                    String filename}) {
+  void tarDirectory(Directory dir, {int compression = STORE, String filename}) {
     String dirPath = dir.path;
     String tar_path = filename != null ? filename : '${dirPath}.tar';
     String tgz_path = filename != null ? filename : '${dirPath}.tar.gz';
@@ -50,7 +49,7 @@ class TarFileEncoder {
   }
 
   void addDirectory(Directory dir) {
-    List files = dir.listSync(recursive:true);
+    List files = dir.listSync(recursive: true);
 
     for (var fe in files) {
       if (fe is! File) {
@@ -65,8 +64,10 @@ class TarFileEncoder {
 
   void addFile(File file, [String filename]) {
     InputFileStream file_stream = new InputFileStream.file(file);
-    ArchiveFile f = new ArchiveFile.stream(filename == null ? file.path : filename,
-        file.lengthSync(), file_stream);
+    ArchiveFile f = new ArchiveFile.stream(
+        filename == null ? file.path : filename,
+        file.lengthSync(),
+        file_stream);
     f.lastModTime = file.lastModifiedSync().millisecondsSinceEpoch;
     f.mode = file.statSync().mode;
     _encoder.add(f);

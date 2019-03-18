@@ -6,10 +6,8 @@ import 'util/byte_order.dart';
 import 'util/input_stream.dart';
 import 'util/output_stream.dart';
 
-/**
- * Compress data using the BZip2 format.
- * Derived from libbzip2 (http://www.bzip.org).
- */
+/// Compress data using the BZip2 format.
+/// Derived from libbzip2 (http://www.bzip.org).
 class BZip2Encoder {
   List<int> encode(List<int> data) {
     input = new InputStream(data, byteOrder: BIG_ENDIAN);
@@ -187,13 +185,13 @@ class BZip2Encoder {
           zPend = 0;
         }
 
-        int rtmp  = yy[1];
+        int rtmp = yy[1];
         yy[1] = yy[0];
         int ryy_j = 1;
         int rll_i = ll_i;
-        while ( rll_i != rtmp ) {
+        while (rll_i != rtmp) {
           ryy_j++;
-          int rtmp2  = rtmp;
+          int rtmp2 = rtmp;
           rtmp = yy[ryy_j];
           yy[ryy_j] = rtmp2;
         }
@@ -274,12 +272,14 @@ class BZip2Encoder {
       int aFreq = 0;
       ge = gs - 1;
 
-      while (aFreq < tFreq && ge < alphaSize-1) {
+      while (aFreq < tFreq && ge < alphaSize - 1) {
         ge++;
         aFreq += _mtfFreq[ge];
       }
 
-      if (ge > gs && nPart != nGroups && nPart != 1 &&
+      if (ge > gs &&
+          nPart != nGroups &&
+          nPart != 1 &&
           ((nGroups - nPart) % 2 == 1)) {
         aFreq -= _mtfFreq[ge];
         ge--;
@@ -352,16 +352,56 @@ class BZip2Encoder {
             cost45 += _lenPack[icv][2];
           }
 
-          BZ_ITER(0);  BZ_ITER(1);  BZ_ITER(2);  BZ_ITER(3);  BZ_ITER(4);
-          BZ_ITER(5);  BZ_ITER(6);  BZ_ITER(7);  BZ_ITER(8);  BZ_ITER(9);
-          BZ_ITER(10); BZ_ITER(11); BZ_ITER(12); BZ_ITER(13); BZ_ITER(14);
-          BZ_ITER(15); BZ_ITER(16); BZ_ITER(17); BZ_ITER(18); BZ_ITER(19);
-          BZ_ITER(20); BZ_ITER(21); BZ_ITER(22); BZ_ITER(23); BZ_ITER(24);
-          BZ_ITER(25); BZ_ITER(26); BZ_ITER(27); BZ_ITER(28); BZ_ITER(29);
-          BZ_ITER(30); BZ_ITER(31); BZ_ITER(32); BZ_ITER(33); BZ_ITER(34);
-          BZ_ITER(35); BZ_ITER(36); BZ_ITER(37); BZ_ITER(38); BZ_ITER(39);
-          BZ_ITER(40); BZ_ITER(41); BZ_ITER(42); BZ_ITER(43); BZ_ITER(44);
-          BZ_ITER(45); BZ_ITER(46); BZ_ITER(47); BZ_ITER(48); BZ_ITER(49);
+          BZ_ITER(0);
+          BZ_ITER(1);
+          BZ_ITER(2);
+          BZ_ITER(3);
+          BZ_ITER(4);
+          BZ_ITER(5);
+          BZ_ITER(6);
+          BZ_ITER(7);
+          BZ_ITER(8);
+          BZ_ITER(9);
+          BZ_ITER(10);
+          BZ_ITER(11);
+          BZ_ITER(12);
+          BZ_ITER(13);
+          BZ_ITER(14);
+          BZ_ITER(15);
+          BZ_ITER(16);
+          BZ_ITER(17);
+          BZ_ITER(18);
+          BZ_ITER(19);
+          BZ_ITER(20);
+          BZ_ITER(21);
+          BZ_ITER(22);
+          BZ_ITER(23);
+          BZ_ITER(24);
+          BZ_ITER(25);
+          BZ_ITER(26);
+          BZ_ITER(27);
+          BZ_ITER(28);
+          BZ_ITER(29);
+          BZ_ITER(30);
+          BZ_ITER(31);
+          BZ_ITER(32);
+          BZ_ITER(33);
+          BZ_ITER(34);
+          BZ_ITER(35);
+          BZ_ITER(36);
+          BZ_ITER(37);
+          BZ_ITER(38);
+          BZ_ITER(39);
+          BZ_ITER(40);
+          BZ_ITER(41);
+          BZ_ITER(42);
+          BZ_ITER(43);
+          BZ_ITER(44);
+          BZ_ITER(45);
+          BZ_ITER(46);
+          BZ_ITER(47);
+          BZ_ITER(48);
+          BZ_ITER(49);
 
           cost[0] = cost01 & 0xffff;
           cost[1] = cost01 >> 16;
@@ -402,16 +442,56 @@ class BZip2Encoder {
             _rfreq[bt][_mtfv[gs + nn]]++;
           }
 
-          BZ_ITUR(0);  BZ_ITUR(1);  BZ_ITUR(2);  BZ_ITUR(3);  BZ_ITUR(4);
-          BZ_ITUR(5);  BZ_ITUR(6);  BZ_ITUR(7);  BZ_ITUR(8);  BZ_ITUR(9);
-          BZ_ITUR(10); BZ_ITUR(11); BZ_ITUR(12); BZ_ITUR(13); BZ_ITUR(14);
-          BZ_ITUR(15); BZ_ITUR(16); BZ_ITUR(17); BZ_ITUR(18); BZ_ITUR(19);
-          BZ_ITUR(20); BZ_ITUR(21); BZ_ITUR(22); BZ_ITUR(23); BZ_ITUR(24);
-          BZ_ITUR(25); BZ_ITUR(26); BZ_ITUR(27); BZ_ITUR(28); BZ_ITUR(29);
-          BZ_ITUR(30); BZ_ITUR(31); BZ_ITUR(32); BZ_ITUR(33); BZ_ITUR(34);
-          BZ_ITUR(35); BZ_ITUR(36); BZ_ITUR(37); BZ_ITUR(38); BZ_ITUR(39);
-          BZ_ITUR(40); BZ_ITUR(41); BZ_ITUR(42); BZ_ITUR(43); BZ_ITUR(44);
-          BZ_ITUR(45); BZ_ITUR(46); BZ_ITUR(47); BZ_ITUR(48); BZ_ITUR(49);
+          BZ_ITUR(0);
+          BZ_ITUR(1);
+          BZ_ITUR(2);
+          BZ_ITUR(3);
+          BZ_ITUR(4);
+          BZ_ITUR(5);
+          BZ_ITUR(6);
+          BZ_ITUR(7);
+          BZ_ITUR(8);
+          BZ_ITUR(9);
+          BZ_ITUR(10);
+          BZ_ITUR(11);
+          BZ_ITUR(12);
+          BZ_ITUR(13);
+          BZ_ITUR(14);
+          BZ_ITUR(15);
+          BZ_ITUR(16);
+          BZ_ITUR(17);
+          BZ_ITUR(18);
+          BZ_ITUR(19);
+          BZ_ITUR(20);
+          BZ_ITUR(21);
+          BZ_ITUR(22);
+          BZ_ITUR(23);
+          BZ_ITUR(24);
+          BZ_ITUR(25);
+          BZ_ITUR(26);
+          BZ_ITUR(27);
+          BZ_ITUR(28);
+          BZ_ITUR(29);
+          BZ_ITUR(30);
+          BZ_ITUR(31);
+          BZ_ITUR(32);
+          BZ_ITUR(33);
+          BZ_ITUR(34);
+          BZ_ITUR(35);
+          BZ_ITUR(36);
+          BZ_ITUR(37);
+          BZ_ITUR(38);
+          BZ_ITUR(39);
+          BZ_ITUR(40);
+          BZ_ITUR(41);
+          BZ_ITUR(42);
+          BZ_ITUR(43);
+          BZ_ITUR(44);
+          BZ_ITUR(45);
+          BZ_ITUR(46);
+          BZ_ITUR(47);
+          BZ_ITUR(48);
+          BZ_ITUR(49);
         } else {
           // slow version which correctly handles all situations
           for (int i = gs; i <= ge; i++) {
@@ -465,7 +545,7 @@ class BZip2Encoder {
       }
       _assert(!(maxLen > 17));
       _assert(!(minLen < 1));
-      _hbAssignCodes(_code[t], _len[t], minLen, maxLen, alphaSize );
+      _hbAssignCodes(_code[t], _len[t], minLen, maxLen, alphaSize);
     }
 
     // Transmit the mapping table.
@@ -554,21 +634,61 @@ class BZip2Encoder {
           bw.writeBits(s_len_sel_selCtr[mtfv_i], s_code_sel_selCtr[mtfv_i]);
         }
 
-        BZ_ITAH(0);  BZ_ITAH(1);  BZ_ITAH(2);  BZ_ITAH(3);  BZ_ITAH(4);
-        BZ_ITAH(5);  BZ_ITAH(6);  BZ_ITAH(7);  BZ_ITAH(8);  BZ_ITAH(9);
-        BZ_ITAH(10); BZ_ITAH(11); BZ_ITAH(12); BZ_ITAH(13); BZ_ITAH(14);
-        BZ_ITAH(15); BZ_ITAH(16); BZ_ITAH(17); BZ_ITAH(18); BZ_ITAH(19);
-        BZ_ITAH(20); BZ_ITAH(21); BZ_ITAH(22); BZ_ITAH(23); BZ_ITAH(24);
-        BZ_ITAH(25); BZ_ITAH(26); BZ_ITAH(27); BZ_ITAH(28); BZ_ITAH(29);
-        BZ_ITAH(30); BZ_ITAH(31); BZ_ITAH(32); BZ_ITAH(33); BZ_ITAH(34);
-        BZ_ITAH(35); BZ_ITAH(36); BZ_ITAH(37); BZ_ITAH(38); BZ_ITAH(39);
-        BZ_ITAH(40); BZ_ITAH(41); BZ_ITAH(42); BZ_ITAH(43); BZ_ITAH(44);
-        BZ_ITAH(45); BZ_ITAH(46); BZ_ITAH(47); BZ_ITAH(48); BZ_ITAH(49);
+        BZ_ITAH(0);
+        BZ_ITAH(1);
+        BZ_ITAH(2);
+        BZ_ITAH(3);
+        BZ_ITAH(4);
+        BZ_ITAH(5);
+        BZ_ITAH(6);
+        BZ_ITAH(7);
+        BZ_ITAH(8);
+        BZ_ITAH(9);
+        BZ_ITAH(10);
+        BZ_ITAH(11);
+        BZ_ITAH(12);
+        BZ_ITAH(13);
+        BZ_ITAH(14);
+        BZ_ITAH(15);
+        BZ_ITAH(16);
+        BZ_ITAH(17);
+        BZ_ITAH(18);
+        BZ_ITAH(19);
+        BZ_ITAH(20);
+        BZ_ITAH(21);
+        BZ_ITAH(22);
+        BZ_ITAH(23);
+        BZ_ITAH(24);
+        BZ_ITAH(25);
+        BZ_ITAH(26);
+        BZ_ITAH(27);
+        BZ_ITAH(28);
+        BZ_ITAH(29);
+        BZ_ITAH(30);
+        BZ_ITAH(31);
+        BZ_ITAH(32);
+        BZ_ITAH(33);
+        BZ_ITAH(34);
+        BZ_ITAH(35);
+        BZ_ITAH(36);
+        BZ_ITAH(37);
+        BZ_ITAH(38);
+        BZ_ITAH(39);
+        BZ_ITAH(40);
+        BZ_ITAH(41);
+        BZ_ITAH(42);
+        BZ_ITAH(43);
+        BZ_ITAH(44);
+        BZ_ITAH(45);
+        BZ_ITAH(46);
+        BZ_ITAH(47);
+        BZ_ITAH(48);
+        BZ_ITAH(49);
       } else {
         // slow version which correctly handles all situations
         for (int i = gs; i <= ge; i++) {
           bw.writeBits(_len[_selector[selCtr]][_mtfv[i]],
-                       _code[_selector[selCtr]][_mtfv[i]]);
+              _code[_selector[selCtr]][_mtfv[i]]);
         }
       }
 
@@ -579,8 +699,8 @@ class BZip2Encoder {
     _assert(selCtr == nSelectors);
   }
 
-  void _hbMakeCodeLengths(Uint8List len, Int32List freq,
-                          int alphaSize, int maxLen) {
+  void _hbMakeCodeLengths(
+      Uint8List len, Int32List freq, int alphaSize, int maxLen) {
     // Nodes and heap entries run from 1.  Entry 0
     // for both the heap and nodes is a sentinel.
     Int32List heap = new Int32List(BZ_MAX_ALPHA_SIZE + 2);
@@ -590,7 +710,7 @@ class BZip2Encoder {
     int nNodes;
 
     for (int i = 0; i < alphaSize; i++) {
-      weight[i+1] = (freq[i] == 0 ? 1 : freq[i]) << 8;
+      weight[i + 1] = (freq[i] == 0 ? 1 : freq[i]) << 8;
     }
 
     void UPHEAP(int z) {
@@ -611,7 +731,7 @@ class BZip2Encoder {
         if (yy > nHeap) {
           break;
         }
-        if (yy < nHeap && weight[heap[yy+1]] < weight[heap[yy]]) {
+        if (yy < nHeap && weight[heap[yy + 1]] < weight[heap[yy]]) {
           yy++;
         }
         if (weight[tmp] < weight[heap[yy]]) {
@@ -627,8 +747,8 @@ class BZip2Encoder {
     int DEPTHOF(int zz1) => ((zz1) & 0x000000ff);
     int MYMAX(int zz2, int zz3) => ((zz2) > (zz3) ? (zz2) : (zz3));
     int ADDWEIGHTS(int zw1, int zw2) =>
-      (WEIGHTOF(zw1) + WEIGHTOF(zw2)) |
-      (1 + MYMAX(DEPTHOF(zw1), DEPTHOF(zw2)));
+        (WEIGHTOF(zw1) + WEIGHTOF(zw2)) |
+        (1 + MYMAX(DEPTHOF(zw1), DEPTHOF(zw2)));
 
     while (true) {
       nNodes = alphaSize;
@@ -639,10 +759,10 @@ class BZip2Encoder {
       parent[0] = -2;
 
       for (int i = 1; i <= alphaSize; i++) {
-       parent[i] = -1;
-       nHeap++;
-       heap[nHeap] = i;
-       UPHEAP(nHeap);
+        parent[i] = -1;
+        nHeap++;
+        heap[nHeap] = i;
+        UPHEAP(nHeap);
       }
 
       _assert(nHeap < (BZ_MAX_ALPHA_SIZE + 2));
@@ -693,8 +813,8 @@ class BZip2Encoder {
     }
   }
 
-  void _hbAssignCodes(Int32List codes, Uint8List length,
-                      int minLen, int maxLen, int alphaSize) {
+  void _hbAssignCodes(Int32List codes, Uint8List length, int minLen, int maxLen,
+      int alphaSize) {
     int vec = 0;
     for (int n = minLen; n <= maxLen; n++) {
       for (int i = 0; i < alphaSize; i++) {
@@ -761,8 +881,8 @@ class BZip2Encoder {
     }
   }
 
-  void _fallbackSort(Uint32List fmap, Uint32List eclass,
-                     Uint32List bhtab, int nblock) {
+  void _fallbackSort(
+      Uint32List fmap, Uint32List eclass, Uint32List bhtab, int nblock) {
     Int32List ftab = new Int32List(257);
     Int32List ftabCopy = new Int32List(256);
     Uint8List eclass8 = new Uint8List.view(eclass.buffer);
@@ -810,8 +930,8 @@ class BZip2Encoder {
 
     // set sentinel bits for block-end detection
     for (int i = 0; i < 32; i++) {
-      SET_BH(nblock + 2*i);
-      CLEAR_BH(nblock + 2*i + 1);
+      SET_BH(nblock + 2 * i);
+      CLEAR_BH(nblock + 2 * i + 1);
     }
 
     // the log(N) loop
@@ -904,8 +1024,7 @@ class BZip2Encoder {
     _assert(j < 256);
   }
 
-  void _fallbackQSort3(Uint32List fmap, Uint32List eclass,
-                      int loSt, int hiSt) {
+  void _fallbackQSort3(Uint32List fmap, Uint32List eclass, int loSt, int hiSt) {
     const int FALLBACK_QSORT_SMALL_THRESH = 10;
     const int FALLBACK_QSORT_STACK_SIZE = 100;
 
@@ -929,9 +1048,8 @@ class BZip2Encoder {
         yyp1++;
         yyp2++;
         yyn--;
-       }
+      }
     }
-
 
     int r = 0;
 
@@ -961,7 +1079,7 @@ class BZip2Encoder {
       if (r3 == 0) {
         med = eclass[fmap[lo]];
       } else if (r3 == 1) {
-        med = eclass[fmap[(lo+hi)>>1]];
+        med = eclass[fmap[(lo + hi) >> 1]];
       } else {
         med = eclass[fmap[hi]];
       }
@@ -1044,8 +1162,7 @@ class BZip2Encoder {
     }
   }
 
-  void _fallbackSimpleSort(Uint32List fmap, Uint32List eclass,
-                           int lo, int hi) {
+  void _fallbackSimpleSort(Uint32List fmap, Uint32List eclass, int lo, int hi) {
     if (lo == hi) {
       return;
     }
@@ -1073,16 +1190,14 @@ class BZip2Encoder {
     }
   }
 
-  void _mainSort(Uint32List ptr, Uint8List block,
-                 Uint16List quadrant, Uint32List ftab,
-                 int nblock) {
+  void _mainSort(Uint32List ptr, Uint8List block, Uint16List quadrant,
+      Uint32List ftab, int nblock) {
     Int32List runningOrder = new Int32List(256);
     Uint8List bigDone = new Uint8List(256);
     Int32List copyStart = new Int32List(256);
     Int32List copyEnd = new Int32List(256);
 
-    int BIGFREQ(int b) =>
-        (_ftab[((b) + 1) << 8] - _ftab[(b) << 8]);
+    int BIGFREQ(int b) => (_ftab[((b) + 1) << 8] - _ftab[(b) << 8]);
 
     const int SETMASK = 2097152;
     const int CLEARMASK = 4292870143;
@@ -1131,25 +1246,25 @@ class BZip2Encoder {
     i = nblock - 1;
     for (; i >= 3; i -= 4) {
       s = (s >> 8) | (block[i] << 8);
-      j = ftab[s] -1;
+      j = ftab[s] - 1;
       ftab[s] = j;
       ptr[j] = i;
       s = (s >> 8) | (block[i - 1] << 8);
-      j = ftab[s] -1;
+      j = ftab[s] - 1;
       ftab[s] = j;
-      ptr[j] = i-1;
+      ptr[j] = i - 1;
       s = (s >> 8) | (block[i - 2] << 8);
-      j = ftab[s] -1;
+      j = ftab[s] - 1;
       ftab[s] = j;
-      ptr[j] = i-2;
+      ptr[j] = i - 2;
       s = (s >> 8) | (block[i - 3] << 8);
-      j = ftab[s] -1;
+      j = ftab[s] - 1;
       ftab[s] = j;
-      ptr[j] = i-3;
+      ptr[j] = i - 3;
     }
     for (; i >= 0; i--) {
       s = (s >> 8) | (block[i] << 8);
-      j = ftab[s] -1;
+      j = ftab[s] - 1;
       ftab[s] = j;
       ptr[j] = i;
     }
@@ -1171,8 +1286,8 @@ class BZip2Encoder {
       for (i = h; i <= 255; i++) {
         int vv = runningOrder[i];
         j = i;
-        while (BIGFREQ(runningOrder[j-h]) > BIGFREQ(vv)) {
-          runningOrder[j] = runningOrder[j-h];
+        while (BIGFREQ(runningOrder[j - h]) > BIGFREQ(vv)) {
+          runningOrder[j] = runningOrder[j - h];
           j = j - h;
           if (j <= (h - 1)) {
             break;
@@ -1206,14 +1321,7 @@ class BZip2Encoder {
             int lo = _ftab[sb] & CLEARMASK;
             int hi = (_ftab[sb + 1] & CLEARMASK) - 1;
             if (hi > lo) {
-              _mainQSort3(
-                  ptr,
-                  block,
-                  quadrant,
-                  nblock,
-                  lo,
-                  hi,
-                  BZ_N_RADIX);
+              _mainQSort3(ptr, block, quadrant, nblock, lo, hi, BZ_N_RADIX);
               numQSorted += (hi - lo + 1);
               if (_budget < 0) {
                 return;
@@ -1241,7 +1349,7 @@ class BZip2Encoder {
         if (k < 0) k += nblock;
         int c1 = block[k];
         if (bigDone[c1] == 0) {
-          ptr[ copyStart[c1]++ ] = k;
+          ptr[copyStart[c1]++] = k;
         }
       }
 
@@ -1330,9 +1438,8 @@ class BZip2Encoder {
     }
   }
 
-  void _mainQSort3(Uint32List ptr, Uint8List block,
-                  Uint16List quadrant, int nblock,
-                  int loSt, int hiSt, int dSt) {
+  void _mainQSort3(Uint32List ptr, Uint8List block, Uint16List quadrant,
+      int nblock, int loSt, int hiSt, int dSt) {
     const MAIN_QSORT_STACK_SIZE = 100;
     const MAIN_QSORT_SMALL_THRESH = 20;
     const MAIN_QSORT_DEPTH_THRESH = (BZ_N_RADIX + BZ_N_QSORT);
@@ -1413,9 +1520,8 @@ class BZip2Encoder {
         continue;
       }
 
-      int med = mmed3(block[ptr[lo] + d],
-                      block[ptr[hi] + d],
-                      block[ptr[(lo + hi) >> 1] + d]);
+      int med = mmed3(block[ptr[lo] + d], block[ptr[hi] + d],
+          block[ptr[(lo + hi) >> 1] + d]);
 
       int unLo = lo;
       int ltLo = lo;
@@ -1437,7 +1543,7 @@ class BZip2Encoder {
             unLo++;
             continue;
           }
-          if (n >  0) {
+          if (n > 0) {
             break;
           }
           unLo++;
@@ -1456,7 +1562,7 @@ class BZip2Encoder {
             unHi--;
             continue;
           }
-          if (n <  0) {
+          if (n < 0) {
             break;
           }
           unHi--;
@@ -1475,7 +1581,7 @@ class BZip2Encoder {
       _assert(unHi == unLo - 1);
 
       if (gtHi < ltLo) {
-        mpush(lo, hi, d+1 );
+        mpush(lo, hi, d + 1);
         continue;
       }
 
@@ -1516,17 +1622,29 @@ class BZip2Encoder {
     }
   }
 
-  void _mainSimpleSort(Uint32List ptr, Uint8List block,
-                      Uint16List quadrant,
-                      int nblock, int lo, int hi, int d) {
+  void _mainSimpleSort(Uint32List ptr, Uint8List block, Uint16List quadrant,
+      int nblock, int lo, int hi, int d) {
     int bigN = hi - lo + 1;
     if (bigN < 2) {
       return;
     }
 
     const List<int> incs = const [
-        1, 4, 13, 40, 121, 364, 1093, 3280, 9841, 29524, 88573, 265720,
-        797161, 2391484];
+      1,
+      4,
+      13,
+      40,
+      121,
+      364,
+      1093,
+      3280,
+      9841,
+      29524,
+      88573,
+      265720,
+      797161,
+      2391484
+    ];
 
     int hp = 0;
     while (incs[hp] < bigN) {
@@ -1594,8 +1712,8 @@ class BZip2Encoder {
     }
   }
 
-  bool _mainGtU(int i1, int i2, Uint8List block,
-                Uint16List quadrant, int nblock) {
+  bool _mainGtU(
+      int i1, int i2, Uint8List block, Uint16List quadrant, int nblock) {
     _assert(i1 != i2);
     // 1
     int c1 = block[i1];
@@ -1816,7 +1934,6 @@ class BZip2Encoder {
     return false;
   }
 
-
   void _addCharToBlock(int b) {
     if (b != _state_in_ch && _state_in_len == 1) {
       _blockCRC = BZip2.updateCrc(_state_in_ch, _blockCRC);
@@ -1844,36 +1961,36 @@ class BZip2Encoder {
     _inUse[_state_in_ch] = 1;
     switch (_state_in_len) {
       case 1:
-         _block[_nblock] = _state_in_ch;
-         _nblock++;
-         break;
+        _block[_nblock] = _state_in_ch;
+        _nblock++;
+        break;
       case 2:
-         _block[_nblock] = _state_in_ch;
-         _nblock++;
-         _block[_nblock] = _state_in_ch;
-         _nblock++;
-         break;
+        _block[_nblock] = _state_in_ch;
+        _nblock++;
+        _block[_nblock] = _state_in_ch;
+        _nblock++;
+        break;
       case 3:
-         _block[_nblock] = _state_in_ch;
-         _nblock++;
-         _block[_nblock] = _state_in_ch;
-         _nblock++;
-         _block[_nblock] = _state_in_ch;
-         _nblock++;
-         break;
+        _block[_nblock] = _state_in_ch;
+        _nblock++;
+        _block[_nblock] = _state_in_ch;
+        _nblock++;
+        _block[_nblock] = _state_in_ch;
+        _nblock++;
+        break;
       default:
-         _inUse[_state_in_len - 4] = 1;
-         _block[_nblock] = _state_in_ch;
-         _nblock++;
-         _block[_nblock] = _state_in_ch;
-         _nblock++;
-         _block[_nblock] = _state_in_ch;
-         _nblock++;
-         _block[_nblock] = _state_in_ch;
-         _nblock++;
-         _block[_nblock] = _state_in_len - 4;
-         _nblock++;
-         break;
+        _inUse[_state_in_len - 4] = 1;
+        _block[_nblock] = _state_in_ch;
+        _nblock++;
+        _block[_nblock] = _state_in_ch;
+        _nblock++;
+        _block[_nblock] = _state_in_ch;
+        _nblock++;
+        _block[_nblock] = _state_in_ch;
+        _nblock++;
+        _block[_nblock] = _state_in_len - 4;
+        _nblock++;
+        break;
     }
   }
 

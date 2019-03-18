@@ -2,8 +2,7 @@ import 'dart:typed_data';
 import '../util/input_stream.dart';
 import '../util/output_stream.dart';
 
-/**
- *  File Header (512 bytes)
+/*  File Header (512 bytes)
  *  Offst Size Field
  *      Pre-POSIX Header
  *  0     100  File name
@@ -65,7 +64,7 @@ class TarFile {
 
   TarFile();
 
-  TarFile.read(dynamic input, {bool storeData: true}) {
+  TarFile.read(dynamic input, {bool storeData = true}) {
     InputStream header = input.readBytes(512);
 
     // The name, linkname, magic, uname, and gname are null-terminated
@@ -120,9 +119,9 @@ class TarFile {
 
   set content(data) => _content = data;
 
-  int get size => _content != null ? _content.length :
-                  _rawContent != null ? _rawContent.length :
-                  0;
+  int get size => _content != null
+      ? _content.length
+      : _rawContent != null ? _rawContent.length : 0;
 
   String toString() => '[${filename}, ${mode}, ${fileSize}]';
 
@@ -196,7 +195,7 @@ class TarFile {
     int x = 0;
     try {
       x = int.parse(s, radix: 8);
-    } catch(e) {
+    } catch (e) {
       // Catch to fix a crash with bad group_id and owner_id values.
       // This occurs for POSIX archives, where some attributes like uid and
       // gid are stored in a separate PaxHeader file.

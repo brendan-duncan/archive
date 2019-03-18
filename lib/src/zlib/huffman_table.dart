@@ -1,8 +1,6 @@
 import 'dart:typed_data';
 
-/**
- * Build huffman table from length list.
- */
+/// Build huffman table from length list.
 class HuffmanTable {
   Uint32List table;
   int maxCodeLength = 0;

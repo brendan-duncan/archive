@@ -17,8 +17,8 @@ class InputFileStream extends InputStreamBase {
   int _maxBufferSize;
   static const int _kDefaultBufferSize = 4096;
 
-  InputFileStream(this.path, {this.byteOrder: LITTLE_ENDIAN,
-    int bufferSize: _kDefaultBufferSize}) {
+  InputFileStream(this.path,
+      {this.byteOrder = LITTLE_ENDIAN, int bufferSize = _kDefaultBufferSize}) {
     _maxBufferSize = bufferSize;
     _buffer = new Uint8List(_maxBufferSize);
     _file = new File(path).openSync();
@@ -27,8 +27,8 @@ class InputFileStream extends InputStreamBase {
     _readBuffer();
   }
 
-  InputFileStream.file(File file, {this.byteOrder: LITTLE_ENDIAN,
-    int bufferSize: _kDefaultBufferSize}) {
+  InputFileStream.file(File file,
+      {this.byteOrder = LITTLE_ENDIAN, int bufferSize = _kDefaultBufferSize}) {
     _maxBufferSize = bufferSize;
     _buffer = new Uint8List(_maxBufferSize);
     _file = file.openSync();
@@ -45,8 +45,8 @@ class InputFileStream extends InputStreamBase {
 
   int get position => _filePosition;
 
-  bool get isEOS => (_filePosition >= _fileSize) &&
-      (_bufferPosition >= _bufferSize);
+  bool get isEOS =>
+      (_filePosition >= _fileSize) && (_bufferPosition >= _bufferSize);
 
   int get bufferSize => _bufferSize;
 
@@ -78,10 +78,8 @@ class InputFileStream extends InputStreamBase {
     }
   }
 
-  /**
-   * Read [count] bytes from an [offset] of the current read position, without
-   * moving the read position.
-   */
+  /// Read [count] bytes from an [offset] of the current read position, without
+  /// moving the read position.
   InputStream peekBytes(int count, [int offset = 0]) {
     int end = _bufferPosition + offset + count;
     if (end > 0 && end < _bufferSize) {
@@ -130,9 +128,7 @@ class InputFileStream extends InputStreamBase {
     return _buffer[_bufferPosition++] & 0xff;
   }
 
-  /**
-   * Read a 16-bit word from the stream.
-   */
+  /// Read a 16-bit word from the stream.
   int readUint16() {
     int b1 = 0;
     int b2 = 0;
@@ -149,9 +145,7 @@ class InputFileStream extends InputStreamBase {
     return (b2 << 8) | b1;
   }
 
-  /**
-   * Read a 24-bit word from the stream.
-   */
+  /// Read a 24-bit word from the stream.
   int readUint24() {
     int b1 = 0;
     int b2 = 0;
@@ -172,9 +166,7 @@ class InputFileStream extends InputStreamBase {
     return b1 | (b2 << 8) | (b3 << 16);
   }
 
-  /**
-   * Read a 32-bit word from the stream.
-   */
+  /// Read a 32-bit word from the stream.
   int readUint32() {
     int b1 = 0;
     int b2 = 0;
@@ -198,9 +190,7 @@ class InputFileStream extends InputStreamBase {
     return (b4 << 24) | (b3 << 16) | (b2 << 8) | b1;
   }
 
-  /**
-   * Read a 64-bit word form the stream.
-   */
+  /// Read a 64-bit word form the stream.
   int readUint64() {
     int b1 = 0;
     int b2 = 0;
@@ -231,11 +221,23 @@ class InputFileStream extends InputStreamBase {
     }
 
     if (byteOrder == BIG_ENDIAN) {
-      return (b1 << 56) | (b2 << 48) | (b3 << 40) | (b4 << 32) |
-      (b5 << 24) | (b6 << 16) | (b7 << 8) | b8;
+      return (b1 << 56) |
+          (b2 << 48) |
+          (b3 << 40) |
+          (b4 << 32) |
+          (b5 << 24) |
+          (b6 << 16) |
+          (b7 << 8) |
+          b8;
     }
-    return (b8 << 56) | (b7 << 48) | (b6 << 40) | (b5 << 32) |
-    (b4 << 24) | (b3 << 16) | (b2 << 8) | b1;
+    return (b8 << 56) |
+        (b7 << 48) |
+        (b6 << 40) |
+        (b5 << 32) |
+        (b4 << 24) |
+        (b3 << 16) |
+        (b2 << 8) |
+        b1;
   }
 
   InputStream readBytes(int length) {
@@ -248,8 +250,8 @@ class InputFileStream extends InputStreamBase {
     }
 
     if (_remainingBufferSize >= length) {
-      List<int> bytes = _buffer.sublist(_bufferPosition,
-          _bufferPosition + length);
+      List<int> bytes =
+          _buffer.sublist(_bufferPosition, _bufferPosition + length);
       _bufferPosition += length;
       return new InputStream(bytes);
     }
@@ -288,28 +290,29 @@ class InputFileStream extends InputStreamBase {
     return readBytes(_fileSize).toUint8List();
   }
 
-  /**
-   * Read a null-terminated string, or if [len] is provided, that number of
-   * bytes returned as a string.
-   */
-  String readString({int size, bool utf8: true}) {
+  /// Read a null-terminated string, or if [len] is provided, that number of
+  /// bytes returned as a string.
+  String readString({int size, bool utf8 = true}) {
     if (size == null) {
       List<int> codes = [];
       while (!isEOS) {
         int c = readByte();
         if (c == 0) {
-          return utf8 ? new Utf8Decoder().convert(codes) :
-                 new String.fromCharCodes(codes);
+          return utf8
+              ? new Utf8Decoder().convert(codes)
+              : new String.fromCharCodes(codes);
         }
         codes.add(c);
       }
-      throw new ArchiveException('EOF reached without finding string terminator');
+      throw new ArchiveException(
+          'EOF reached without finding string terminator');
     }
 
     InputStream s = readBytes(size);
     Uint8List bytes = s.toUint8List();
-    String str = utf8 ? new Utf8Decoder().convert(bytes) :
-                 new String.fromCharCodes(bytes);
+    String str = utf8
+        ? new Utf8Decoder().convert(bytes)
+        : new String.fromCharCodes(bytes);
     return str;
   }
 

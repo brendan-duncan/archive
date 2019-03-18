@@ -42,8 +42,8 @@ class ZipDirectory {
 
     _readZip64Data(input);
 
-    InputStream dirContent = input.subset(centralDirectoryOffset,
-                                          centralDirectorySize);
+    InputStream dirContent =
+        input.subset(centralDirectoryOffset, centralDirectorySize);
 
     while (!dirContent.isEOS) {
       int fileSig = dirContent.readUint32();
@@ -143,6 +143,7 @@ class ZipDirectory {
       }
     }
 
-    throw new ArchiveException('Could not find End of Central Directory Record');
+    throw new ArchiveException(
+        'Could not find End of Central Directory Record');
   }
 }
