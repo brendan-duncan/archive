@@ -2,10 +2,8 @@ import 'dart:typed_data';
 import 'archive_exception.dart';
 import 'byte_order.dart';
 
-/**
- * A helper class to work with List and TypedData in a way similar to pointers
- * in C.
- */
+/// A helper class to work with List and TypedData in a way similar to pointers
+/// in C.
 class MemPtr {
   var buffer;
   int offset;
@@ -32,31 +30,21 @@ class MemPtr {
     }
   }
 
-  /**
-   * Are we at the end of the buffer?
-   */
+  /// Are we at the end of the buffer?
   bool get isEOS => offset >= _length;
 
-  /**
-   * Get a byte in the buffer relative to the current read position.
-   */
+  /// Get a byte in the buffer relative to the current read position.
   int operator[](int index) => buffer[offset + index];
 
-  /**
-   * Set a byte in the buffer relative to the current read position.
-   */
+  /// Set a byte in the buffer relative to the current read position.
   operator[]=(int index, int value) => buffer[offset + index] = value;
 
-  /**
-   * The number of bytes remaining in the buffer.
-   */
+  /// The number of bytes remaining in the buffer.
   int get length => _length - offset;
 
-  /**
-   * Copy data from [other] to this buffer, at [start] offset from the
-   * current read position, and [length] number of bytes.  [offset] is
-   * the offset in [other] to start reading.
-   */
+  /// Copy data from [other] to this buffer, at [start] offset from the
+  /// current read position, and [length] number of bytes.  [offset] is
+  /// the offset in [other] to start reading.
   void memcpy(int start, int length, other, [int offset = 0]) {
     if (other is MemPtr) {
       buffer.setRange(this.offset + start, this.offset + start + length,
@@ -67,24 +55,18 @@ class MemPtr {
     }
   }
 
-  /**
-   * Set a range of bytes in this buffer to [value], at [start] offset from the
-   * current read position, and [length] number of bytes.
-   */
+  /// Set a range of bytes in this buffer to [value], at [start] offset from the
+  /// current read position, and [length] number of bytes.
   void memset(int start, int length, int value) {
     buffer.fillRange(offset + start, offset + start + length, value);
   }
 
-  /**
-   * Read a single byte.
-   */
+  /// Read a single byte.
   int readByte() {
     return buffer[offset++];
   }
 
-  /**
-   * Read [count] bytes from the buffer.
-   */
+  /// Read [count] bytes from the buffer.
   List<int> readBytes(int count) {
     if (buffer is Uint8List) {
       Uint8List bytes = new Uint8List.view(buffer.buffer,
@@ -99,10 +81,8 @@ class MemPtr {
     return bytes;
   }
 
-  /**
-   * Read a null-terminated string, or if [len] is provided, that number of
-   * bytes returned as a string.
-   */
+  /// Read a null-terminated string, or if [len] is provided, that number of
+  /// bytes returned as a string.
   String readString([int len]) {
     if (len == null) {
       List<int> codes = [];
@@ -119,9 +99,7 @@ class MemPtr {
     return new String.fromCharCodes(readBytes(len));
   }
 
-  /**
-   * Read a 16-bit word from the stream.
-   */
+  /// Read a 16-bit word from the stream.
   int readUint16() {
     int b1 = buffer[offset++] & 0xff;
     int b2 = buffer[offset++] & 0xff;
@@ -131,9 +109,7 @@ class MemPtr {
     return (b2 << 8) | b1;
   }
 
-  /**
-   * Read a 24-bit word from the stream.
-   */
+  /// Read a 24-bit word from the stream.
   int readUint24() {
     int b1 = buffer[offset++] & 0xff;
     int b2 = buffer[offset++] & 0xff;
@@ -144,9 +120,7 @@ class MemPtr {
     return b1 | (b2 << 8) | (b3 << 16);
   }
 
-  /**
-   * Read a 32-bit word from the stream.
-   */
+  /// Read a 32-bit word from the stream.
   int readUint32() {
     int b1 = buffer[offset++] & 0xff;
     int b2 = buffer[offset++] & 0xff;
@@ -158,17 +132,13 @@ class MemPtr {
     return (b4 << 24) | (b3 << 16) | (b2 << 8) | b1;
   }
 
-  /**
-   * This assumes buffer is a Typed
-   */
+  /// This assumes buffer is a Typed
   Uint8List toUint8List([int offset = 0]) {
     return new Uint8List.view(buffer.buffer,
         buffer.offsetInBytes + this.offset + offset);
   }
 
-  /**
-   * This assumes buffer is a Typed
-   */
+  /// This assumes buffer is a Typed
   Uint32List toUint32List([int offset = 0]) {
     return new Uint32List.view(buffer.buffer,
         buffer.offsetInBytes + this.offset + offset);

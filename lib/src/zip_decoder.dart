@@ -7,9 +7,7 @@ import 'zip/zip_file.dart';
 import 'archive.dart';
 import 'archive_file.dart';
 
-/**
- * Decode a zip formatted buffer into an [Archive] object.
- */
+/// Decode a zip formatted buffer into an [Archive] object.
 class ZipDecoder {
   ZipDirectory directory;
 

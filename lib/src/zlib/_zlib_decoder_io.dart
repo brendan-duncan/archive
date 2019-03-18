@@ -5,9 +5,7 @@ import 'zlib_decoder_base.dart';
 
 ZLibDecoderBase createZLibDecoder() => new _ZLibDecoder();
 
-/**
- * Decompress data with the zlib format decoder.
- */
+/// Decompress data with the zlib format decoder.
 class _ZLibDecoder extends ZLibDecoderBase {
   List<int> decodeBytes(List<int> data, {bool verify: false}) {
     return new ZLibCodec().decoder.convert(data);

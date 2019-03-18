@@ -71,11 +71,9 @@ class ZipFile {
     }
   }
 
-  /**
-   * This will decompress the data (if necessary) in order to calculate the
-   * crc32 checksum for the decompressed data and verify it with the value
-   * stored in the zip.
-   */
+  /// This will decompress the data (if necessary) in order to calculate the
+  /// crc32 checksum for the decompressed data and verify it with the value
+  /// stored in the zip.
   bool verifyCrc32() {
     if (_computedCrc32 == null) {
       _computedCrc32 = getCrc32(content);
@@ -83,10 +81,8 @@ class ZipFile {
     return _computedCrc32 == crc32;
   }
 
-  /**
-   * Get the decompressed content from the file.  The file isn't decompressed
-   * until it is requested.
-   */
+  /// Get the decompressed content from the file.  The file isn't decompressed
+  /// until it is requested.
   List<int> get content {
     if (_content == null) {
       if (_isEncrypted) {

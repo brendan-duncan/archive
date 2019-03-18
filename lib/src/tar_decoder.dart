@@ -3,9 +3,7 @@ import 'util/input_stream.dart';
 import 'archive.dart';
 import 'archive_file.dart';
 
-/**
- * Decode a tar formatted buffer into an [Archive] object.
- */
+/// Decode a tar formatted buffer into an [Archive] object.
 class TarDecoder {
   List<TarFile> files = [];
 

@@ -3,9 +3,7 @@ import 'zlib/zlib_decoder_stub.dart'
   if (dart.library.io) 'zlib/_zlib_decoder_io.dart'
   if (dart.library.js) 'zlib/_zlib_decoder_js.dart';
 
-/**
- * Decompress data with the zlib format decoder.
- */
+/// Decompress data with the zlib format decoder.
 class ZLibDecoder {
   static const int DEFLATE = 8;
 

@@ -27,17 +27,13 @@ class OutputFileStream extends OutputStreamBase {
     _file = null;
   }
 
-  /**
-   * Write a byte to the end of the buffer.
-   */
+  /// Write a byte to the end of the buffer.
   void writeByte(int value) {
     _fp.writeByteSync(value);
     _length++;
   }
 
-  /**
-   * Write a set of bytes to the end of the buffer.
-   */
+  /// Write a set of bytes to the end of the buffer.
   void writeBytes(bytes, [int len]) {
     if (len == null) {
       len = bytes.length;
@@ -65,9 +61,7 @@ class OutputFileStream extends OutputStreamBase {
     }
   }
 
-  /**
-   * Write a 16-bit word to the end of the buffer.
-   */
+  /// Write a 16-bit word to the end of the buffer.
   void writeUint16(int value) {
     if (byteOrder == BIG_ENDIAN) {
       writeByte((value >> 8) & 0xff);
@@ -78,9 +72,7 @@ class OutputFileStream extends OutputStreamBase {
     writeByte((value >> 8) & 0xff);
   }
 
-  /**
-   * Write a 32-bit word to the end of the buffer.
-   */
+  /// Write a 32-bit word to the end of the buffer.
   void writeUint32(int value) {
     if (byteOrder == BIG_ENDIAN) {
       writeByte((value >> 24) & 0xff);

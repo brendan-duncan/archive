@@ -2,8 +2,7 @@ import 'dart:typed_data';
 import '../util/input_stream.dart';
 import '../util/output_stream.dart';
 
-/**
- *  File Header (512 bytes)
+/*  File Header (512 bytes)
  *  Offst Size Field
  *      Pre-POSIX Header
  *  0     100  File name

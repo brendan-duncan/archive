@@ -6,10 +6,8 @@ import 'util/byte_order.dart';
 import 'util/input_stream.dart';
 import 'util/output_stream.dart';
 
-/**
- * Compress data using the BZip2 format.
- * Derived from libbzip2 (http://www.bzip.org).
- */
+/// Compress data using the BZip2 format.
+/// Derived from libbzip2 (http://www.bzip.org).
 class BZip2Encoder {
   List<int> encode(List<int> data) {
     input = new InputStream(data, byteOrder: BIG_ENDIAN);

@@ -2,9 +2,7 @@ import 'dart:io' as io;
 import 'package:archive/archive.dart';
 import 'package:archive/archive_io.dart';
 
-/**
- * Print the entries in the given tar file.
- */
+/// Print the entries in the given tar file.
 void listFiles(String path) {
   io.File file = new io.File(path);
   if (!file.existsSync()) fail('${path} does not exist');
@@ -25,9 +23,7 @@ void listFiles(String path) {
   tarArchive.files.forEach((f) => print('  ${f}'));
 }
 
-/**
- * Extract the entries in the given tar file to a directory.
- */
+/// Extract the entries in the given tar file to a directory.
 io.Directory extractFiles(String inputPath, String outputPath) {
   io.Directory temp_dir;
   String tar_path = inputPath;

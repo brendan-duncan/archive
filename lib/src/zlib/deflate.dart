@@ -41,18 +41,14 @@ class Deflate {
     _flushPending();
   }
 
-  /**
-   * Get the resulting compressed bytes.
-   */
+  /// Get the resulting compressed bytes.
   List<int> getBytes() {
     _flushPending();
     return _output.getBytes();
   }
 
-  /**
-   * Get the resulting compressed bytes without storing the resulting data to
-   * minimize memory usage.
-   */
+  /// Get the resulting compressed bytes without storing the resulting data to
+  /// minimize memory usage.
   List<int> takeBytes() {
     _flushPending();
     List<int> bytes = _output.getBytes();
@@ -60,30 +56,22 @@ class Deflate {
     return bytes;
   }
 
-  /**
-   * Add more data to be deflated.
-   */
+  /// Add more data to be deflated.
   void addBytes(List<int> bytes, {int flush: FINISH}) {
     _input = new InputStream(bytes);
     _deflate(flush);
   }
 
-  /**
-   * Add more data to be deflated.
-   */
+  /// Add more data to be deflated.
   void addBuffer(InputStream buffer, {int flush: FINISH}) {
     _input = buffer;
     _deflate(flush);
   }
 
-  /**
-   * Compression level used (1..9)
-   */
+  /// Compression level used (1..9)
   int get level => _level;
 
-  /**
-   * Initialize the deflate structures for the given parameters.
-   */
+  /// Initialize the deflate structures for the given parameters.
   void _init(int level,
              {int method: Z_DEFLATED,
              int windowBits: MAX_WBITS,
@@ -146,9 +134,7 @@ class Deflate {
     _lmInit();
   }
 
-  /**
-   * Compress the current input buffer.
-   */
+  /// Compress the current input buffer.
   int _deflate(int flush) {
     if (flush > FINISH || flush < 0) {
       throw new ArchiveException('Invalid Deflate Parameter');
@@ -239,9 +225,7 @@ class Deflate {
     _insertHash = 0;
   }
 
-  /**
-   * Initialize the tree data structures for a new zlib stream.
-   */
+  /// Initialize the tree data structures for a new zlib stream.
   void _trInit() {
     _lDesc.dynamicTree = _dynamicLengthTree;
     _lDesc.staticDesc = _StaticTree.staticLDesc;
@@ -277,12 +261,10 @@ class Deflate {
     _lastLit = _matches = 0;
   }
 
-  /**
-   * Restore the heap property by moving down the tree starting at node k,
-   * exchanging a node with the smallest of its two sons if necessary, stopping
-   * when the heap property is re-established (each father smaller than its
-   * two sons).
-   */
+  /// Restore the heap property by moving down the tree starting at node k,
+  /// exchanging a node with the smallest of its two sons if necessary, stopping
+  /// when the heap property is re-established (each father smaller than its
+  /// two sons).
   void _pqdownheap(Uint16List tree, int k) {
     int v = _heap[k];
     int j = k << 1; // left son of k
@@ -384,12 +366,9 @@ class Deflate {
     return max_blindex;
   }
 
-
-  /**
-   * Send the header for a block using dynamic Huffman trees: the counts, the
-   * lengths of the bit length codes, the literal tree and the distance tree.
-   * IN assertion: lcodes >= 257, dcodes >= 1, blcodes >= 4.
-   */
+  /// Send the header for a block using dynamic Huffman trees: the counts, the
+  /// lengths of the bit length codes, the literal tree and the distance tree.
+  /// IN assertion: lcodes >= 257, dcodes >= 1, blcodes >= 4.
   void _sendAllTrees(int lcodes, int dcodes, int blcodes) {
     int rank; // index in bl_order
 
@@ -403,10 +382,8 @@ class Deflate {
     _sendTree(_dynamicDistTree, dcodes - 1); // distance tree
   }
 
-  /**
-   * Send a literal or distance tree in compressed form, using the codes in
-   * bl_tree.
-   */
+  /// Send a literal or distance tree in compressed form, using the codes in
+  /// bl_tree.
   void _sendTree(Uint16List tree, int max_code) {
     int n; // iterates over all tree elements
     int prevlen = - 1; // last emitted length
@@ -457,10 +434,8 @@ class Deflate {
     }
   }
 
-  /**
-   * Output a byte on the stream.
-   * IN assertion: there is enough room in pending_buf.
-   */
+  /// Output a byte on the stream.
+  /// IN assertion: there is enough room in pending_buf.
   void _putBytes(Uint8List p, int start, int len) {
     if (len == 0) {
       return;
@@ -496,17 +471,15 @@ class Deflate {
     }
   }
 
-  /**
-   * Send one empty static block to give enough lookahead for inflate.
-   * This takes 10 bits, of which 7 may remain in the bit buffer.
-   * The current inflate code requires 9 bits of lookahead. If the
-   * last two codes for the previous block (real code plus EOB) were coded
-   * on 5 bits or less, inflate may have only 5+3 bits of lookahead to decode
-   * the last real code. In this case we send two empty static blocks instead
-   * of one. (There are no problems if the previous block is stored or fixed.)
-   * To simplify the code, we assume the worst case of last real code encoded
-   * on one bit only.
-   */
+  /// Send one empty static block to give enough lookahead for inflate.
+  /// This takes 10 bits, of which 7 may remain in the bit buffer.
+  /// The current inflate code requires 9 bits of lookahead. If the
+  /// last two codes for the previous block (real code plus EOB) were coded
+  /// on 5 bits or less, inflate may have only 5+3 bits of lookahead to decode
+  /// the last real code. In this case we send two empty static blocks instead
+  /// of one. (There are no problems if the previous block is stored or fixed.)
+  /// To simplify the code, we assume the worst case of last real code encoded
+  /// on one bit only.
   void _trAlign() {
     _sendBits(STATIC_TREES << 1, 3);
     _sendCode(END_BLOCK, _StaticTree.STATIC_LTREE);
@@ -526,11 +499,8 @@ class Deflate {
     _lastEOBLen = 7;
   }
 
-
-  /**
-   * Save the match info and tally the frequency counts. Return true if
-   * the current block must be flushed.
-   */
+  /// Save the match info and tally the frequency counts. Return true if
+  /// the current block must be flushed.
   bool _trTally(int dist, int lc) {
     _pendingBuffer[_dbuf + _lastLit * 2] = (_rshift(dist, 8));
     _pendingBuffer[_dbuf + _lastLit * 2 + 1] = dist;
@@ -569,9 +539,7 @@ class Deflate {
     // 64K-1 bytes.
   }
 
-  /**
-   * Send the block data compressed using the given Huffman trees
-   */
+  /// Send the block data compressed using the given Huffman trees
   void _compressBlock(List<int> ltree, List<int> dtree) {
     int dist; // distance of matched string
     int lc; // match length or unmatched char (if dist == 0)
@@ -617,12 +585,10 @@ class Deflate {
     _lastEOBLen = ltree[END_BLOCK * 2 + 1];
   }
 
-  /**
-   * Set the data type to ASCII or BINARY, using a crude approximation:
-   * binary if more than 20% of the bytes are <= 6 or >= 128, ascii otherwise.
-   * IN assertion: the fields freq of dyn_ltree are set and the total of all
-   * frequencies does not exceed 64K (to fit in an int on 16 bit machines).
-   */
+  /// Set the data type to ASCII or BINARY, using a crude approximation:
+  /// binary if more than 20% of the bytes are <= 6 or >= 128, ascii otherwise.
+  /// IN assertion: the fields freq of dyn_ltree are set and the total of all
+  /// frequencies does not exceed 64K (to fit in an int on 16 bit machines).
   void setDataType() {
     int n = 0;
     int ascii_freq = 0;
@@ -640,9 +606,7 @@ class Deflate {
                 Z_BINARY : Z_ASCII);
   }
 
-  /**
-   * Flush the bit buffer, keeping at most 7 bits in it.
-   */
+  /// Flush the bit buffer, keeping at most 7 bits in it.
   void biFlush() {
     if (_numValidBits == 16) {
       _putShort(_bitBuffer);
@@ -655,9 +619,7 @@ class Deflate {
     }
   }
 
-  /**
-   * Flush the bit buffer and align the output on a byte boundary
-   */
+  /// Flush the bit buffer and align the output on a byte boundary
   void _biWindup() {
     if (_numValidBits > 8) {
       _putShort(_bitBuffer);
@@ -668,10 +630,8 @@ class Deflate {
     _numValidBits = 0;
   }
 
-  /**
-   * Copy a stored block, storing first the length and its
-   * one's complement if requested.
-   */
+  /// Copy a stored block, storing first the length and its
+  /// one's complement if requested.
   void _copyBlock(int buf, int len, bool header) {
     _biWindup(); // align on byte boundary
     _lastEOBLen = 8; // enough lookahead for inflate
@@ -691,15 +651,13 @@ class Deflate {
     _flushPending();
   }
 
-  /**
-   * Copy without compression as much as possible from the input stream, return
-   * the current block state.
-   * This function does not insert new strings in the dictionary since
-   * uncompressible data is probably not useful. This function is used
-   * only for the level=0 compression option.
-   * NOTE: this function should be optimized to avoid extra copying from
-   * window to pending_buf.
-   */
+  /// Copy without compression as much as possible from the input stream, return
+  /// the current block state.
+  /// This function does not insert new strings in the dictionary since
+  /// uncompressible data is probably not useful. This function is used
+  /// only for the level=0 compression option.
+  /// NOTE: this function should be optimized to avoid extra copying from
+  /// window to pending_buf.
   int _deflateStored(int flush) {
     // Stored blocks are limited to 0xffff bytes, pending_buf is limited
     // to pending_buf_size, and each stored block has a 5 byte header:
@@ -756,10 +714,8 @@ class Deflate {
     _copyBlock(buf, storedLen, true); // with header
   }
 
-  /**
-   * Determine the best encoding for the current block: dynamic trees, static
-   * trees or store, and output the encoded block to the zip file.
-   */
+  /// Determine the best encoding for the current block: dynamic trees, static
+  /// trees or store, and output the encoded block to the zip file.
   void _trFlushBlock(int buf, int storedLen, bool eof) {
     int optLenb;
     int staticLenb;
@@ -822,15 +778,13 @@ class Deflate {
     }
   }
 
-  /**
-   * Fill the window when the lookahead becomes insufficient.
-   * Updates strstart and lookahead.
-   * IN assertion: lookahead < MIN_LOOKAHEAD
-   * OUT assertions: strstart <= window_size-MIN_LOOKAHEAD
-   *    At least one byte has been read, or avail_in == 0; reads are
-   *    performed for at least two bytes (required for the zip translate_eol
-   *    option -- not supported here).
-   */
+  /// Fill the window when the lookahead becomes insufficient.
+  /// Updates strstart and lookahead.
+  /// IN assertion: lookahead < MIN_LOOKAHEAD
+  /// OUT assertions: strstart <= window_size-MIN_LOOKAHEAD
+  ///    At least one byte has been read, or avail_in == 0; reads are
+  ///    performed for at least two bytes (required for the zip translate_eol
+  ///    option -- not supported here).
   void _fillWindow() {
     do {
       // Amount of free space at the end of the window.
@@ -904,13 +858,11 @@ class Deflate {
     } while (_lookAhead < MIN_LOOKAHEAD && !_input.isEOS);
   }
 
-  /**
-   * Compress as much as possible from the input stream, return the current
-   * block state.
-   * This function does not perform lazy evaluation of matches and inserts
-   * new strings in the dictionary only for unmatched strings or for short
-   * matches. It is used only for the fast compression options.
-   */
+  /// Compress as much as possible from the input stream, return the current
+  /// block state.
+  /// This function does not perform lazy evaluation of matches and inserts
+  /// new strings in the dictionary only for unmatched strings or for short
+  /// matches. It is used only for the fast compression options.
   int _deflateFast(int flush) {
     int hash_head = 0; // head of the hash chain
     bool bflush; // set if current block must be flushed
@@ -1008,11 +960,9 @@ class Deflate {
     return flush == FINISH ? FINISH_DONE : BLOCK_DONE;
   }
 
-  /**
-   * Same as above, but achieves better compression. We use a lazy
-   * evaluation for matches: a match is finally adopted only if there is
-   * no better match at the next window position.
-   */
+  /// Same as above, but achieves better compression. We use a lazy
+  /// evaluation for matches: a match is finally adopted only if there is
+  /// no better match at the next window position.
   int _deflateSlow(int flush) {
     int hash_head = 0; // head of hash chain
     bool bflush; // set if current block must be flushed
@@ -1222,13 +1172,11 @@ class Deflate {
     return _lookAhead;
   }
 
-  /**
-   * Read a new buffer from the current input stream, update the adler32
-   * and total number of bytes read.  All deflate() input goes through
-   * this function so some applications may wish to modify it to avoid
-   * allocating a large strm->next_in buffer and copying from it.
-   * (See also flush_pending()).
-   */
+  /// Read a new buffer from the current input stream, update the adler32
+  /// and total number of bytes read.  All deflate() input goes through
+  /// this function so some applications may wish to modify it to avoid
+  /// allocating a large strm->next_in buffer and copying from it.
+  /// (See also flush_pending()).
   int total = 0;
   int _readBuf(Uint8List buf, int start, int size) {
     if (size == 0 || _input.isEOS) {
@@ -1252,11 +1200,9 @@ class Deflate {
     return len;
   }
 
-  /**
-   * Flush as much pending output as possible. All deflate() output goes
-   * through this function so some applications may wish to modify it
-   * to avoid allocating a large strm->next_out buffer and copying into it.
-   */
+  /// Flush as much pending output as possible. All deflate() output goes
+  /// through this function so some applications may wish to modify it
+  /// to avoid allocating a large strm->next_out buffer and copying into it.
   void _flushPending() {
     int len = _pending;
     _output.writeBytes(_pendingBuffer, len);
@@ -1669,16 +1615,14 @@ class _HuffmanTree {
   /// the corresponding static tree
   _StaticTree staticDesc;
 
-  /**
-   * Compute the optimal bit lengths for a tree and update the total bit length
-   * for the current block.
-   * IN assertion: the fields freq and dad are set, heap[heap_max] and
-   *    above are the tree nodes sorted by increasing frequency.
-   * OUT assertions: the field len is set to the optimal bit length, the
-   *     array bl_count contains the frequencies for each bit length.
-   *     The length opt_len is updated; static_len is also updated if stree is
-   *     not null.
-   */
+  /// Compute the optimal bit lengths for a tree and update the total bit length
+  /// for the current block.
+  /// IN assertion: the fields freq and dad are set, heap[heap_max] and
+  ///    above are the tree nodes sorted by increasing frequency.
+  /// OUT assertions: the field len is set to the optimal bit length, the
+  ///     array bl_count contains the frequencies for each bit length.
+  ///     The length opt_len is updated; static_len is also updated if stree is
+  ///     not null.
   void _genBitlen(Deflate s) {
     Uint16List tree = dynamicTree;
     List<int> stree = staticDesc.staticTree;
@@ -1761,14 +1705,12 @@ class _HuffmanTree {
     }
   }
 
-  /**
-   * Construct one Huffman tree and assigns the code bit strings and lengths.
-   * Update the total bit length for the current block.
-   * IN assertion: the field freq is set for all tree elements.
-   * OUT assertions: the fields len and code are set to the optimal bit length
-   *     and corresponding code. The length opt_len is updated; static_len is
-   *     also updated if stree is not null. The field max_code is set.
-   */
+  /// Construct one Huffman tree and assigns the code bit strings and lengths.
+  /// Update the total bit length for the current block.
+  /// IN assertion: the field freq is set for all tree elements.
+  /// OUT assertions: the fields len and code are set to the optimal bit length
+  ///     and corresponding code. The length opt_len is updated; static_len is
+  ///     also updated if stree is not null. The field max_code is set.
   void _buildTree(Deflate s) {
     Uint16List tree = dynamicTree;
     List<int> stree = staticDesc.staticTree;
@@ -1852,14 +1794,12 @@ class _HuffmanTree {
 
   static int _max(int a, int b) => a > b ? a : b;
 
-  /**
-   * Generate the codes for a given tree and bit counts (which need not be
-   * optimal).
-   * IN assertion: the array bl_count contains the bit length statistics for
-   * the given tree and the field len is set for all tree elements.
-   * OUT assertion: the field code is set for all tree elements of non
-   *     zero code length.
-   */
+  /// Generate the codes for a given tree and bit counts (which need not be
+  /// optimal).
+  /// IN assertion: the array bl_count contains the bit length statistics for
+  /// the given tree and the field len is set for all tree elements.
+  /// OUT assertion: the field code is set for all tree elements of non
+  ///     zero code length.
   static void  _genCodes(Uint16List tree, int max_code, Uint16List bl_count) {
     Uint16List next_code = new Uint16List(MAX_BITS + 1);
     int code = 0; // running code value
@@ -1883,11 +1823,9 @@ class _HuffmanTree {
     }
   }
 
-  /**
-   * Reverse the first len bits of a code, using straightforward code (a faster
-   * method would use a table)
-   * IN assertion: 1 <= len <= 15
-   */
+  /// Reverse the first len bits of a code, using straightforward code (a faster
+  /// method would use a table)
+  /// IN assertion: 1 <= len <= 15
   static int _reverseBits(int code, int len) {
     int res = 0;
     do {
@@ -1898,11 +1836,9 @@ class _HuffmanTree {
     return _rshift(res, 1);
   }
 
-  /**
-   * Mapping from a distance to a distance code. dist is the distance - 1 and
-   * must not have side effects. _dist_code[256] and _dist_code[257] are never
-   * used.
-   */
+  /// Mapping from a distance to a distance code. dist is the distance - 1 and
+  /// must not have side effects. _dist_code[256] and _dist_code[257] are never
+  /// used.
   static int _dCode(int dist) {
     return ((dist) < 256 ? _DIST_CODE[dist] :
            _DIST_CODE[256 + (_rshift((dist), 7))]);
@@ -1977,10 +1913,7 @@ class _StaticTree {
   _StaticTree(this.staticTree, this.extraBits, this.extraBase,
              this.numElements, this.maxLength);
 }
-
-/**
- * Performs an unsigned bitwise right shift with the specified number
- */
+/// Performs an unsigned bitwise right shift with the specified number
 int _rshift(int number, int bits) {
   if ( number >= 0) {
     return number >> bits;

@@ -1,15 +1,11 @@
 import 'dart:convert';
 import 'package:crypto/crypto.dart' as crypto;
 
-/**
- * Get the CRC-32 checksum of the given int.
- */
+/// Get the CRC-32 checksum of the given int.
 int CRC32(int crc, int b) => _CRC32_TABLE[(crc ^ b) & 0xff] ^ (crc >> 8);
 
-/**
- * Get the CRC-32 checksum of the given array. You can append bytes to an
- * already computed crc by specifying the previous [crc] value.
- */
+/// Get the CRC-32 checksum of the given array. You can append bytes to an
+/// already computed crc by specifying the previous [crc] value.
 int getCrc32(List<int> array, [int crc = 0]) {
   int len = array.length;
   crc = crc ^ 0xffffffff;
@@ -31,15 +27,11 @@ int getCrc32(List<int> array, [int crc = 0]) {
   return crc ^ 0xffffffff;
 }
 
-/**
- * A class to compute Crc-32 checksums.
- */
+/// A class to compute Crc-32 checksums.
 class Crc32 extends crypto.Hash {
   int _hash = 0;
 
-  /**
-   * Get the value of the hash directly. This returns the same value as [close].
-   */
+  /// Get the value of the hash directly. This returns the same value as [close].
   int get hash => _hash;
 
   int get blockSize => 4;
@@ -63,9 +55,7 @@ class Crc32 extends crypto.Hash {
   }
 }
 
-/**
- * A [ByteConversionSink] that computes Crc-32 checksums.
- */
+/// A [ByteConversionSink] that computes Crc-32 checksums.
 class _Crc32Sink extends ByteConversionSinkBase {
   final Sink<crypto.Digest> _inner;
 

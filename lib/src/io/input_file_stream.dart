@@ -78,10 +78,8 @@ class InputFileStream extends InputStreamBase {
     }
   }
 
-  /**
-   * Read [count] bytes from an [offset] of the current read position, without
-   * moving the read position.
-   */
+  /// Read [count] bytes from an [offset] of the current read position, without
+  /// moving the read position.
   InputStream peekBytes(int count, [int offset = 0]) {
     int end = _bufferPosition + offset + count;
     if (end > 0 && end < _bufferSize) {
@@ -130,9 +128,7 @@ class InputFileStream extends InputStreamBase {
     return _buffer[_bufferPosition++] & 0xff;
   }
 
-  /**
-   * Read a 16-bit word from the stream.
-   */
+  /// Read a 16-bit word from the stream.
   int readUint16() {
     int b1 = 0;
     int b2 = 0;
@@ -149,9 +145,7 @@ class InputFileStream extends InputStreamBase {
     return (b2 << 8) | b1;
   }
 
-  /**
-   * Read a 24-bit word from the stream.
-   */
+  /// Read a 24-bit word from the stream.
   int readUint24() {
     int b1 = 0;
     int b2 = 0;
@@ -172,9 +166,7 @@ class InputFileStream extends InputStreamBase {
     return b1 | (b2 << 8) | (b3 << 16);
   }
 
-  /**
-   * Read a 32-bit word from the stream.
-   */
+  /// Read a 32-bit word from the stream.
   int readUint32() {
     int b1 = 0;
     int b2 = 0;
@@ -198,9 +190,7 @@ class InputFileStream extends InputStreamBase {
     return (b4 << 24) | (b3 << 16) | (b2 << 8) | b1;
   }
 
-  /**
-   * Read a 64-bit word form the stream.
-   */
+  /// Read a 64-bit word form the stream.
   int readUint64() {
     int b1 = 0;
     int b2 = 0;
@@ -288,10 +278,8 @@ class InputFileStream extends InputStreamBase {
     return readBytes(_fileSize).toUint8List();
   }
 
-  /**
-   * Read a null-terminated string, or if [len] is provided, that number of
-   * bytes returned as a string.
-   */
+  /// Read a null-terminated string, or if [len] is provided, that number of
+  /// bytes returned as a string.
   String readString({int size, bool utf8: true}) {
     if (size == null) {
       List<int> codes = [];

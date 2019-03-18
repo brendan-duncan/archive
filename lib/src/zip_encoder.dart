@@ -44,10 +44,7 @@ class _ZipEncoderData {
   }
 }
 
-
-/**
- * Encode an [Archive] object into a Zip formatted buffer.
- */
+/// Encode an [Archive] object into a Zip formatted buffer.
 class ZipEncoder {
   _ZipEncoderData _data;
   OutputStreamBase _output;

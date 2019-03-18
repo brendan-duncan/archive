@@ -3,9 +3,7 @@ import 'util/crc32.dart';
 import 'util/input_stream.dart';
 import 'zlib/inflate.dart';
 
-/**
- * Decompress data with the gzip format decoder.
- */
+/// Decompress data with the gzip format decoder.
 class GZipDecoder {
   static const int SIGNATURE = 0x8b1f;
   static const int DEFLATE = 8;

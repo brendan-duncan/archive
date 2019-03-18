@@ -7,9 +7,7 @@ class Bz2BitReader {
 
   int readByte() => readBits(8);
 
-  /**
-   * Read a number of bits from the input stream.
-   */
+  /// Read a number of bits from the input stream.
   int readBits(int numBits) {
     if (numBits == 0) {
       return 0;

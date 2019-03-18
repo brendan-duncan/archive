@@ -77,9 +77,7 @@ class Inflate {
     return null;
   }
 
-  /**
-   * Get the decompressed data.
-   */
+  /// Get the decompressed data.
   List<int> getBytes() {
     return output.getBytes();
   }
@@ -96,10 +94,8 @@ class Inflate {
     }
   }
 
-  /**
-   * Parse deflated block.  Returns true if there is more to read, false
-   * if we're done.
-   */
+  /// Parse deflated block.  Returns true if there is more to read, false
+  /// if we're done.
   bool _parseBlock() {
     if (input.isEOS) {
       return false;
@@ -132,9 +128,7 @@ class Inflate {
     return !bfinal;
   }
 
-  /**
-   * Read a number of bits from the input stream.
-   */
+  /// Read a number of bits from the input stream.
   int _readBits(int length) {
     if (length == 0) {
       return 0;
@@ -162,9 +156,7 @@ class Inflate {
     return octet;
   }
 
-  /**
-   * Read huffman code using [table].
-   */
+  /// Read huffman code using [table].
   int _readCodeByTable(HuffmanTable table) {
     List<int> codeTable = table.table;
     int maxCodeLength = table.maxCodeLength;
@@ -191,9 +183,6 @@ class Inflate {
     return codeWithLength & 0xffff;
   }
 
-  /**
-   * Parse uncompressed block.
-   */
   void _parseUncompressedBlock() {
     // skip buffered header bits
     _bitBuffer = 0;
@@ -215,16 +204,10 @@ class Inflate {
     output.writeInputStream(input.readBytes(len));
   }
 
-  /**
-   * Parse a fixed huffman block.
-   */
   void _parseFixedHuffmanBlock() {
     _decodeHuffman(_fixedLiteralLengthTable, _fixedDistanceTable);
   }
 
-  /**
-   * Parse a dynamic huffman block.  Most blocks will be of this type.
-   */
   void _parseDynamicHuffmanBlock() {
     // number of literal and length codes.
     int numLitLengthCodes = _readBits(5) + 257;
@@ -310,9 +293,6 @@ class Inflate {
     }
   }
 
-  /**
-   * decode function
-   */
   List<int> _decode(int num, HuffmanTable table, List<int> lengths) {
     int prev = 0;
     int i = 0;

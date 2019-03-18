@@ -6,10 +6,8 @@ import 'util/byte_order.dart';
 import 'util/input_stream.dart';
 import 'util/output_stream.dart';
 
-/**
- * Decompress bzip2 compressed data.
- * Derived from libbzip2 (http://www.bzip.org).
- */
+/// Decompress bzip2 compressed data.
+/// Derived from libbzip2 (http://www.bzip.org).
 class BZip2Decoder {
   List<int> decodeBytes(List<int> data, {bool verify: false}) {
     return decodeBuffer(new InputStream(data, byteOrder: BIG_ENDIAN),
