@@ -1,1 +1,8 @@
-include: package:pedantic/analysis_options.yaml
+analyzer:
+  errors:
+    unused_element: error
+    unused_field: error
+    unused_local_variable: error
+  exclude:
+    - test/res/**
+    - test/out/**
