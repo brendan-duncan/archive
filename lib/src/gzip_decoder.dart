@@ -13,7 +13,7 @@ class GZipDecoder {
   static const int FLAG_NAME = 0x08;
   static const int FLAG_COMMENT = 0x10;
 
-  List<int> decodeBytes(List<int> data, {bool verify: false}) {
+  List<int> decodeBytes(List<int> data, {bool verify = false}) {
     return decodeBuffer(new InputStream(data), verify: verify);
   }
 
@@ -22,7 +22,7 @@ class GZipDecoder {
     new Inflate.stream(input, output);
   }
 
-  List<int> decodeBuffer(dynamic input, {bool verify: false}) {
+  List<int> decodeBuffer(dynamic input, {bool verify = false}) {
     _readHeader(input);
 
     // Inflate

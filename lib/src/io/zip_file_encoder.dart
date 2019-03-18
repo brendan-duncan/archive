@@ -47,8 +47,10 @@ class ZipFileEncoder {
 
   void addFile(File file, [String filename]) {
     var file_stream = new InputFileStream.file(file);
-    var f = new ArchiveFile.stream(filename == null ? path.basename(file.path) : filename,
-        file.lengthSync(), file_stream);
+    var f = new ArchiveFile.stream(
+        filename == null ? path.basename(file.path) : filename,
+        file.lengthSync(),
+        file_stream);
 
     f.lastModTime = file.lastModifiedSync().millisecondsSinceEpoch;
     f.mode = file.statSync().mode;

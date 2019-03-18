@@ -10,8 +10,8 @@ class MemPtr {
   int _length;
   int byteOrder;
 
-  MemPtr(List<int> other, [this.offset = 0, this._length = -1,
-      this.byteOrder = LITTLE_ENDIAN]) {
+  MemPtr(List<int> other,
+      [this.offset = 0, this._length = -1, this.byteOrder = LITTLE_ENDIAN]) {
     buffer = other;
     if (_length < 0 || _length > buffer.length) {
       _length = buffer.length;
@@ -34,10 +34,10 @@ class MemPtr {
   bool get isEOS => offset >= _length;
 
   /// Get a byte in the buffer relative to the current read position.
-  int operator[](int index) => buffer[offset + index];
+  int operator [](int index) => buffer[offset + index];
 
   /// Set a byte in the buffer relative to the current read position.
-  operator[]=(int index, int value) => buffer[offset + index] = value;
+  operator []=(int index, int value) => buffer[offset + index] = value;
 
   /// The number of bytes remaining in the buffer.
   int get length => _length - offset;
@@ -48,10 +48,10 @@ class MemPtr {
   void memcpy(int start, int length, other, [int offset = 0]) {
     if (other is MemPtr) {
       buffer.setRange(this.offset + start, this.offset + start + length,
-                      other.buffer, other.offset + offset);
+          other.buffer, other.offset + offset);
     } else {
-      buffer.setRange(this.offset + start, this.offset + start + length,
-                      other, offset);
+      buffer.setRange(
+          this.offset + start, this.offset + start + length, other, offset);
     }
   }
 
@@ -69,9 +69,8 @@ class MemPtr {
   /// Read [count] bytes from the buffer.
   List<int> readBytes(int count) {
     if (buffer is Uint8List) {
-      Uint8List bytes = new Uint8List.view(buffer.buffer,
-                                           buffer.offsetInBytes + offset,
-                                           count);
+      Uint8List bytes = new Uint8List.view(
+          buffer.buffer, buffer.offsetInBytes + offset, count);
       offset += bytes.length;
       return bytes;
     }
@@ -93,7 +92,8 @@ class MemPtr {
         }
         codes.add(c);
       }
-      throw new ArchiveException('EOF reached without finding string terminator');
+      throw new ArchiveException(
+          'EOF reached without finding string terminator');
     }
 
     return new String.fromCharCodes(readBytes(len));
@@ -134,13 +134,13 @@ class MemPtr {
 
   /// This assumes buffer is a Typed
   Uint8List toUint8List([int offset = 0]) {
-    return new Uint8List.view(buffer.buffer,
-        buffer.offsetInBytes + this.offset + offset);
+    return new Uint8List.view(
+        buffer.buffer, buffer.offsetInBytes + this.offset + offset);
   }
 
   /// This assumes buffer is a Typed
   Uint32List toUint32List([int offset = 0]) {
-    return new Uint32List.view(buffer.buffer,
-        buffer.offsetInBytes + this.offset + offset);
+    return new Uint32List.view(
+        buffer.buffer, buffer.offsetInBytes + this.offset + offset);
   }
 }

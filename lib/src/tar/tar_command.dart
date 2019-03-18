@@ -56,7 +56,8 @@ io.Directory extractFiles(String inputPath, String outputPath) {
     f.parent.createSync(recursive: true);
     f.writeAsBytesSync(file.content);
     print('  extracted ${file.filename}');
-  };
+  }
+  ;
 
   input.close();
 

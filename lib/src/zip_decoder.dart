@@ -11,11 +11,13 @@ import 'archive_file.dart';
 class ZipDecoder {
   ZipDirectory directory;
 
-  Archive decodeBytes(List<int> data, {bool verify: false, String password}) {
-    return decodeBuffer(new InputStream(data), verify: verify, password: password);
+  Archive decodeBytes(List<int> data, {bool verify = false, String password}) {
+    return decodeBuffer(new InputStream(data),
+        verify: verify, password: password);
   }
 
-  Archive decodeBuffer(InputStream input, {bool verify: false, String password}) {
+  Archive decodeBuffer(InputStream input,
+      {bool verify = false, String password}) {
     directory = new ZipDirectory.read(input, password: password);
     Archive archive = new Archive();
 
@@ -34,8 +36,8 @@ class ZipDecoder {
       }
 
       var content = zf.rawContent;
-      var file = new ArchiveFile(zf.filename, zf.uncompressedSize,
-          content, zf.compressionMethod);
+      var file = new ArchiveFile(
+          zf.filename, zf.uncompressedSize, content, zf.compressionMethod);
       file.mode = mode >> 16;
 
       // see https://github.com/brendan-duncan/archive/issues/21

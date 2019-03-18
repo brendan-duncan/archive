@@ -26,9 +26,9 @@ class OutputStream extends OutputStreamBase {
   final int byteOrder;
 
   /// Create a byte buffer for writing.
-  OutputStream({int size: _BLOCK_SIZE, this.byteOrder: LITTLE_ENDIAN}) :
-    _buffer = new Uint8List(size == null ? _BLOCK_SIZE : size),
-    _length = 0;
+  OutputStream({int size = _BLOCK_SIZE, this.byteOrder = LITTLE_ENDIAN})
+      : _buffer = new Uint8List(size == null ? _BLOCK_SIZE : size),
+        _length = 0;
 
   int get length => _length;
 
@@ -76,7 +76,8 @@ class OutputStream extends OutputStreamBase {
     }
 
     if (stream is InputStream) {
-      _buffer.setRange(length, length + stream.length, stream.buffer, stream.offset);
+      _buffer.setRange(
+          length, length + stream.length, stream.buffer, stream.offset);
     } else {
       var bytes = stream.toUint8List();
       _buffer.setRange(length, length + stream.length, bytes, 0);

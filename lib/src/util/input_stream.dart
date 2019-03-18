@@ -59,23 +59,22 @@ class InputStream extends InputStreamBase {
   final int byteOrder;
 
   /// Create a InputStream for reading from a List<int>
-  InputStream(data, {this.byteOrder: LITTLE_ENDIAN, int start: 0,
-              int length}) :
-    this.buffer = data is ByteData ? new Uint8List.view(data.buffer) :
-        data is List<int> ? data :
-        new List<int>.from(data),
-    this.start = start {
+  InputStream(data, {this.byteOrder = LITTLE_ENDIAN, int start = 0, int length})
+      : this.buffer = data is ByteData
+            ? new Uint8List.view(data.buffer)
+            : data is List<int> ? data : new List<int>.from(data),
+        this.start = start {
     _length = length == null ? buffer.length : length;
     offset = start;
   }
 
   /// Create a copy of [other].
-  InputStream.from(InputStream other) :
-    buffer = other.buffer,
-    offset = other.offset,
-    start = other.start,
-    _length = other._length,
-    byteOrder = other.byteOrder;
+  InputStream.from(InputStream other)
+      : buffer = other.buffer,
+        offset = other.offset,
+        start = other.start,
+        _length = other._length,
+        byteOrder = other.byteOrder;
 
   ///  The current read position relative to the start of the buffer.
   int get position => offset - start;
@@ -100,7 +99,7 @@ class InputStream extends InputStreamBase {
   }
 
   /// Access the buffer relative from the current position.
-  int operator[](int index) => buffer[offset + index];
+  int operator [](int index) => buffer[offset + index];
 
   /// Return a InputStream to read a subset of this stream.  It does not
   /// move the read position of this stream.  [position] is specified relative
@@ -118,8 +117,8 @@ class InputStream extends InputStreamBase {
       length = _length - (position - start);
     }
 
-    return new InputStream(buffer, byteOrder: byteOrder, start: position,
-                           length: length);
+    return new InputStream(buffer,
+        byteOrder: byteOrder, start: position, length: length);
   }
 
   /// Returns the position of the given [value] within the buffer, starting
@@ -128,7 +127,8 @@ class InputStream extends InputStreamBase {
   /// was not found.
   int indexOf(int value, [int offset = 0]) {
     for (int i = this.offset + offset, end = this.offset + length;
-         i < end; ++i) {
+        i < end;
+        ++i) {
       if (buffer[i] == value) {
         return i - this.start;
       }
@@ -161,24 +161,27 @@ class InputStream extends InputStreamBase {
 
   /// Read a null-terminated string, or if [len] is provided, that number of
   /// bytes returned as a string.
-  String readString({int size, bool utf8: true}) {
+  String readString({int size, bool utf8 = true}) {
     if (size == null) {
       List<int> codes = [];
       while (!isEOS) {
         int c = readByte();
         if (c == 0) {
-          return utf8 ? new Utf8Decoder().convert(codes) :
-                 new String.fromCharCodes(codes);
+          return utf8
+              ? new Utf8Decoder().convert(codes)
+              : new String.fromCharCodes(codes);
         }
         codes.add(c);
       }
-      throw new ArchiveException('EOF reached without finding string terminator');
+      throw new ArchiveException(
+          'EOF reached without finding string terminator');
     }
 
     InputStream s = readBytes(size);
     Uint8List bytes = s.toUint8List();
-    String str = utf8 ? new Utf8Decoder().convert(bytes) :
-                 new String.fromCharCodes(bytes);
+    String str = utf8
+        ? new Utf8Decoder().convert(bytes)
+        : new String.fromCharCodes(bytes);
     return str;
   }
 
@@ -226,11 +229,23 @@ class InputStream extends InputStreamBase {
     int b7 = buffer[offset++] & 0xff;
     int b8 = buffer[offset++] & 0xff;
     if (byteOrder == BIG_ENDIAN) {
-      return (b1 << 56) | (b2 << 48) | (b3 << 40) | (b4 << 32) |
-             (b5 << 24) | (b6 << 16) | (b7 << 8) | b8;
+      return (b1 << 56) |
+          (b2 << 48) |
+          (b3 << 40) |
+          (b4 << 32) |
+          (b5 << 24) |
+          (b6 << 16) |
+          (b7 << 8) |
+          b8;
     }
-    return (b8 << 56) | (b7 << 48) | (b6 << 40) | (b5 << 32) |
-           (b4 << 24) | (b3 << 16) | (b2 << 8) | b1;
+    return (b8 << 56) |
+        (b7 << 48) |
+        (b6 << 40) |
+        (b5 << 32) |
+        (b4 << 24) |
+        (b3 << 16) |
+        (b2 << 8) |
+        b1;
   }
 
   Uint8List toUint8List() {
@@ -240,7 +255,8 @@ class InputStream extends InputStreamBase {
       if ((offset + len) > b.length) {
         len = b.length - offset;
       }
-      Uint8List bytes = new Uint8List.view(b.buffer, b.offsetInBytes + offset, len);
+      Uint8List bytes =
+          new Uint8List.view(b.buffer, b.offsetInBytes + offset, len);
       return bytes;
     }
     int end = offset + len;

@@ -7,20 +7,20 @@ import 'archive_file.dart';
 class TarDecoder {
   List<TarFile> files = [];
 
-  Archive decodeBytes(List<int> data, {bool verify: false,
-      bool storeData: true}) {
-    return decodeBuffer(new InputStream(data), verify: verify,
-        storeData: storeData);
+  Archive decodeBytes(List<int> data,
+      {bool verify = false, bool storeData = true}) {
+    return decodeBuffer(new InputStream(data),
+        verify: verify, storeData: storeData);
   }
 
-  Archive decodeBuffer(dynamic input, {bool verify: false,
-      bool storeData: true}) {
+  Archive decodeBuffer(dynamic input,
+      {bool verify = false, bool storeData = true}) {
     Archive archive = new Archive();
     files.clear();
 
-    String nextName = null;
+    String nextName;
 
-    //TarFile paxHeader = null;
+    // TarFile paxHeader = null;
     while (!input.isEOS) {
       // End of archive when two consecutive 0's are found.
       InputStream end_check = input.peekBytes(2);
@@ -37,7 +37,7 @@ class TarDecoder {
 
       // In POSIX formatted tar files, a separate 'PAX' file contains extended
       // metadata for files. These are identified by having a type flag 'X'.
-      // TODO parse these metadata values.
+      // TODO: parse these metadata values.
       if (tf.typeFlag == TarFile.TYPE_G_EX_HEADER ||
           tf.typeFlag == TarFile.TYPE_G_EX_HEADER2) {
         // TODO handle PAX global header.
@@ -49,7 +49,9 @@ class TarDecoder {
         files.add(tf);
 
         ArchiveFile file = new ArchiveFile(
-            nextName != null ? nextName : tf.filename, tf.fileSize, tf.rawContent);
+            nextName != null ? nextName : tf.filename,
+            tf.fileSize,
+            tf.rawContent);
 
         file.mode = tf.mode;
         file.ownerId = tf.ownerId;

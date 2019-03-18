@@ -5,7 +5,6 @@ import '../util/input_stream.dart';
 import '../util/output_stream.dart';
 import 'input_file_stream.dart';
 
-
 class OutputFileStream extends OutputStreamBase {
   String path;
   final int byteOrder;
@@ -13,8 +12,7 @@ class OutputFileStream extends OutputStreamBase {
   File _file;
   RandomAccessFile _fp;
 
-  OutputFileStream(this.path, {this.byteOrder: LITTLE_ENDIAN})
-    : _length = 0 {
+  OutputFileStream(this.path, {this.byteOrder = LITTLE_ENDIAN}) : _length = 0 {
     _file = new File(path);
     _file.createSync(recursive: true);
     _fp = _file.openSync(mode: FileMode.write);

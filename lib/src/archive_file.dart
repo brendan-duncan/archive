@@ -7,6 +7,7 @@ class ArchiveFile {
   static const int DEFLATE = 8;
 
   String name;
+
   /// The uncompressed size of the file
   int size;
   int mode;
@@ -14,9 +15,11 @@ class ArchiveFile {
   int groupId = 0;
   int lastModTime;
   bool isFile = true;
+
   /// The crc32 checksum of the uncompressed content.
   int crc32;
   String comment;
+
   /// If false, this file will not be compressed when encoded to an archive
   /// format such as zip.
   bool compress = true;
@@ -25,8 +28,7 @@ class ArchiveFile {
     return mode & 0x1FF;
   }
 
-  ArchiveFile(this.name, this.size, content,
-              [this._compressionType = STORE]) {
+  ArchiveFile(this.name, this.size, content, [this._compressionType = STORE]) {
     if (content is List<int>) {
       _content = content;
       _rawContent = new InputStream(_content);

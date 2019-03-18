@@ -49,16 +49,16 @@ class Adler32 extends crypto.Hash {
   }
 
   List<int> close() {
-    return [((_hash >> 24) & 0xFF),
-            ((_hash >> 16) & 0xFF),
-            ((_hash >> 8) & 0xFF),
-            (_hash & 0xFF)];
+    return [
+      ((_hash >> 24) & 0xFF),
+      ((_hash >> 16) & 0xFF),
+      ((_hash >> 8) & 0xFF),
+      (_hash & 0xFF)
+    ];
   }
 }
 
-/**
- * A [ByteConversionSink] that computes Adler-32 checksums.
- */
+/// A [ByteConversionSink] that computes Adler-32 checksums.
 class _Adler32Sink extends ByteConversionSinkBase {
   final Sink<crypto.Digest> _inner;
 
