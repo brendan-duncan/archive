@@ -126,6 +126,18 @@ void main() {
     expect(same, equals(true));
   });
 
+  test('empty file', () {
+    var encoder = ZipFileEncoder();
+    encoder.create('$testDirPath/out/testEmpty.zip');
+    encoder.addFile(new File('$testDirPath/res/emptyfile.txt'));
+    encoder.close();
+
+    var zipDecoder = new ZipDecoder();
+    var f = new File('${testDirPath}/out/testEmpty.zip');
+    Archive archive = zipDecoder.decodeBytes(f.readAsBytesSync(), verify: true);
+    expect(archive.length, equals(1));
+  });
+
   test('stream tar decode', () {
     // Decode a tar from disk to memory
     var stream = new InputFileStream(p.join(testDirPath, 'res/test2.tar'));

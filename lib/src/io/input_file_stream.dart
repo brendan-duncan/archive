@@ -242,7 +242,7 @@ class InputFileStream extends InputStreamBase {
 
   InputStream readBytes(int length) {
     if (isEOS) {
-      return null;
+      return InputStream(new List<int>());
     }
 
     if (_bufferPosition == _bufferSize) {
@@ -287,7 +287,8 @@ class InputFileStream extends InputStreamBase {
   }
 
   Uint8List toUint8List() {
-    return readBytes(_fileSize).toUint8List();
+    var bytes = readBytes(_fileSize);
+    return bytes.toUint8List();
   }
 
   /// Read a null-terminated string, or if [len] is provided, that number of
