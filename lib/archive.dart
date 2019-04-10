@@ -25,6 +25,7 @@ export 'src/bzip2_decoder.dart';
 export 'src/bzip2_encoder.dart';
 export 'src/gzip_decoder.dart';
 export 'src/gzip_encoder.dart';
+export 'src/rar_decoder.dart';
 export 'src/tar_decoder.dart';
 export 'src/tar_encoder.dart';
 export 'src/zip_decoder.dart';
