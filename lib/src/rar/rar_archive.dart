@@ -12,22 +12,48 @@ enum RarVersion {
 
 class RarArchive {
   List<RarEntry> entries = [];
+  RarVersion version = RarVersion.none;
 
   RarArchive(InputStreamBase input) {
-    var version = _readSignature(input);
+    version = _readSignature(input);
     if (version == RarVersion.none) {
       throw ArchiveException("Invalid archive");
     }
 
-    var crc = input.readUint32();
-    var headerSize = _readVInt(input);
-    var headerType = _readVInt(input);
-    var headerFlags = _readVInt(input);
-    var extraAreaSize = _readVInt(input);
-    var archiveFlags = _readVInt(input);
-    var volumeNumber = _readVInt(input);
+    _readHeader(input);
+  }
 
-    print("$crc $headerSize $headerType $headerFlags $extraAreaSize $archiveFlags $volumeNumber");
+  void _readHeader(InputStreamBase input) {
+    switch (version) {
+      case RarVersion.none:
+        break;
+      case RarVersion.rar14:
+        _readHeader14(input);
+        break;
+      case RarVersion.rar15:
+        _readHeader15(input);
+        break;
+      case RarVersion.rar50:
+        _readHeader50(input);
+        break;
+      case RarVersion.future:
+        break;
+    }
+  }
+
+  void _readHeader14(InputStreamBase input) {
+  }
+
+  void _readHeader15(InputStreamBase input) {
+    var raw = input.readBytes(7);
+    var crc = raw.readUint16();
+    var headerType = raw.readByte();
+    var flags = raw.readUint16();
+    var headSize = raw.readUint16();
+  }
+
+  void _readHeader50(InputStreamBase input) {
+
   }
 
   RarVersion _readSignature(InputStreamBase input) {
@@ -44,6 +70,7 @@ class RarArchive {
         return RarVersion.rar15;
       }
       if (signature[6] == 0x01) {
+        input.skip(1); // RAR 5 signature is 8 bytes
         return RarVersion.rar50;
       }
       if (signature[6] > 1 &&signature[6] < 5) {
