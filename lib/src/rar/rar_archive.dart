@@ -247,23 +247,23 @@ class RarArchive {
       var header = RarFileHeader(crc, flags, size);
 
       var dataSize = entry.readUint32();
-      var lowUnpSize = entry.readUint32();
+      var lowUnpackSize = entry.readUint32();
       var hostOS = entry.readByte();
       var fileCrc = entry.readUint32();
       var fileTime = entry.readUint32();
-      var unpVer = entry.readByte();
+      var unpackVer = entry.readByte();
       var method = entry.readByte() - 0x30;
       var nameSize = entry.readUint16();
       var fileAttr = entry.readUint32();
 
       // RAR15 did not use the special dictionary size to mark dirs.
-      if (unpVer < 20 && (fileAttr & 0x10) != 0) {
+      if (unpackVer < 20 && (fileAttr & 0x10) != 0) {
         header.dir = true;
       }
 
       var cryptMethod = Rar.CRYPT_NONE;
       if (header.encrypted) {
-        switch (unpVer) {
+        switch (unpackVer) {
           case 13:
             cryptMethod = Rar.CRYPT_RAR13;
             break;
@@ -280,11 +280,11 @@ class RarArchive {
         }
       }
 
-      var hsType = Rar.HSYS_UNKNOWN;
+      var systemType = Rar.HSYS_UNKNOWN;
       if (hostOS == Rar.HOST_UNIX || hostOS == Rar.HOST_BEOS) {
-        hsType = Rar.HSYS_UNIX;
+        systemType = Rar.HSYS_UNIX;
       } else if (hostOS < Rar.HOST_MAX) {
-        hsType = Rar.HSYS_WINDOWS;
+        systemType = Rar.HSYS_WINDOWS;
       }
 
       //var redirType = Rar.FSREDIR_NONE;
@@ -300,34 +300,39 @@ class RarArchive {
       var largeFile = (header.flags & Rar.LHD_LARGE) != 0;
 
       var highPackSize = 0;
-      var highUnpSize = 0;
-      var unknownUnpSize = 0;
+      var highUnpackSize = 0;
+      var unknownUnpackSize = false;
       if (largeFile) {
         highPackSize = entry.readUint32();
-        highUnpSize = entry.readUint32();
-        //unknownUnpSize = (lowUnpSize == 0xffffffff && highUnpSize == 0xffffffff);
+        highUnpackSize = entry.readUint32();
+        unknownUnpackSize = lowUnpackSize == 0xffffffff && highUnpackSize == 0xffffffff;
       } else {
-        highPackSize = highUnpSize = 0;
+        highPackSize = highUnpackSize = 0;
         // UnpSize equal to 0xffffffff without LHD_LARGE flag indicates
         // that we do not know the unpacked file size and must unpack it
         // until we find the end of file marker in compressed data.
-        //unknownUnpSize = (lowUnpSize == 0xffffffff);
+        unknownUnpackSize = lowUnpackSize == 0xffffffff;
       }
 
-      /*packSize = INT32TO64(HighPackSize,hd->DataSize);
-        unpSize = INT32TO64(HighUnpSize,LowUnpSize);
-        if (unknownUnpSize) {
-          unpSize = INT64NDF;
-        }*/
+      int packSize = _INT32TO64(highPackSize, dataSize);
+      int unpSize = _INT32TO64(highUnpackSize, lowUnpackSize);
+      if (unknownUnpackSize) {
+        unpSize = _INT64NDF;
+      }
 
       var filename = entry.readString(size: nameSize);
 
-      print("@@@@ $filename");
+      var fileData = input.readBytes(packSize);
+
+      print("@@@@ $filename isDir: ${header.dir} ${fileData.length}");
       return header;
     }
 
     return RarHeader(crc, type, flags, size);
   }
+
+  static const _INT64NDF = (0x7fffffff << 32) + 0x7fffffff;
+  static int _INT32TO64(int high, int low) => (high << 32)+ low;
 
   RarHeader _readHeader50(InputStreamBase input) {
     throw ArchiveException("Unsupported archive version");
