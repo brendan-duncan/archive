@@ -1,3 +1,4 @@
+import 'dart:typed_data';
 import 'rar_entry.dart';
 import '../util/archive_exception.dart';
 import '../util/input_stream.dart';
@@ -251,19 +252,19 @@ class RarArchive {
       var hostOS = entry.readByte();
       var fileCrc = entry.readUint32();
       var fileTime = entry.readUint32();
-      var unpackVer = entry.readByte();
+      var unpackVersion = entry.readByte();
       var method = entry.readByte() - 0x30;
       var nameSize = entry.readUint16();
       var fileAttr = entry.readUint32();
 
       // RAR15 did not use the special dictionary size to mark dirs.
-      if (unpackVer < 20 && (fileAttr & 0x10) != 0) {
+      if (unpackVersion < 20 && (fileAttr & 0x10) != 0) {
         header.dir = true;
       }
 
       var cryptMethod = Rar.CRYPT_NONE;
       if (header.encrypted) {
-        switch (unpackVer) {
+        switch (unpackVersion) {
           case 13:
             cryptMethod = Rar.CRYPT_RAR13;
             break;
@@ -323,12 +324,68 @@ class RarArchive {
       var filename = entry.readString(size: nameSize);
 
       var fileData = input.readBytes(packSize);
+      var unpackedData = _unpack(unpackVersion, fileData);
 
-      print("@@@@ $filename isDir: ${header.dir} ${fileData.length}");
+      print("@@@@ $filename isDir: ${header.dir} ${fileData.length} ${unpackedData.length}");
       return header;
     }
 
     return RarHeader(crc, type, flags, size);
+  }
+
+  Uint8List _unpack(int version, InputStreamBase input) {
+    switch (version) {
+      case 15: // rar 1.5 compression
+        return _unpack15(input);
+      case 20: // rar 2.x compression
+      case 26: // files larger than 2GB (which I'm sure would kill this implementation)
+        return _unpack20(input);
+      case 29: // rar 3.x compression
+        return _unpack29(input);
+      case 50: // rar 5.0 compression
+        return _unpack5(input);
+    }
+  }
+
+  Uint8List _unpack15(InputStreamBase input) {
+    throw ArchiveException("Unsupported compression format");
+  }
+
+  Uint8List _unpack20(InputStreamBase input) {
+    throw ArchiveException("Unsupported compression format");
+  }
+
+  static const DC = 64;
+  static var DDecode = Int32List(DC);
+  static var DBits = Uint8List(DC);
+
+  Uint8List _unpack29(InputStreamBase input) {
+    const LDecode = [0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 14, 16, 20, 24, 28, 32,
+                     40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224];
+    const LBits = [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3,
+                   4, 4, 4,  4,  5,  5,  5,  5];
+    const DBitLengthCounts = [4, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 14, 0, 12];
+    const SDDecode = [0, 4, 8, 16, 32, 64, 128, 192];
+    const SDBits = [2, 2, 3, 4, 5, 6, 6, 6];
+
+    if (DDecode[1] == 0) {
+      int dist = 0;
+      int bitLength = 0;
+      int slot = 0;
+      for (int i = 0; i < DBitLengthCounts.length; ++i, ++bitLength) {
+        for (int j = 0; j < DBitLengthCounts[i]; ++j, ++slot, dist += (1 << bitLength)) {
+          DDecode[slot] = dist;
+          DBits[slot] = bitLength;
+        }
+      }
+    }
+
+    Uint8List unpacked = new Uint8List(0);
+    return unpacked;
+  }
+
+  Uint8List _unpack5(InputStreamBase input) {
+    throw ArchiveException("Unsupported compression format");
   }
 
   static const _INT64NDF = (0x7fffffff << 32) + 0x7fffffff;
