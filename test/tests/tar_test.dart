@@ -162,6 +162,15 @@ void main() {
     expect(archive.files[0].name, equals(x));
   });
 
+  test('symlink', () {
+    var file = File(p.join(testDirPath, 'res/tar/symlink_tar.tar'));
+    List<int> bytes = file.readAsBytesSync();
+    Archive archive = tar.decodeBytes(bytes, verify: true);
+    expect(archive.numberOfFiles(), equals(4));
+    expect(archive.files[1].isSymbolicLink, equals(true));
+    expect(archive.files[1].nameOfLinkedFile, equals('b/b.txt'));
+  });
+
   test('decode test2.tar', () {
     var file = File(p.join(testDirPath, 'res/test2.tar'));
     List<int> bytes = file.readAsBytesSync();
