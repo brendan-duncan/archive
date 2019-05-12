@@ -50,7 +50,7 @@ class ZipDirectory {
       if (fileSig != ZipFileHeader.SIGNATURE) {
         break;
       }
-      fileHeaders.add(new ZipFileHeader(dirContent, input, password));
+      fileHeaders.add(ZipFileHeader(dirContent, input, password));
     }
   }
 
@@ -143,7 +143,7 @@ class ZipDirectory {
       }
     }
 
-    throw new ArchiveException(
+    throw ArchiveException(
         'Could not find End of Central Directory Record');
   }
 }

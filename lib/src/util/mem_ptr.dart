@@ -69,7 +69,7 @@ class MemPtr {
   /// Read [count] bytes from the buffer.
   List<int> readBytes(int count) {
     if (buffer is Uint8List) {
-      Uint8List bytes = new Uint8List.view(
+      Uint8List bytes = Uint8List.view(
           buffer.buffer, buffer.offsetInBytes + offset, count);
       offset += bytes.length;
       return bytes;
@@ -88,15 +88,15 @@ class MemPtr {
       while (!isEOS) {
         int c = readByte();
         if (c == 0) {
-          return new String.fromCharCodes(codes);
+          return String.fromCharCodes(codes);
         }
         codes.add(c);
       }
-      throw new ArchiveException(
+      throw ArchiveException(
           'EOF reached without finding string terminator');
     }
 
-    return new String.fromCharCodes(readBytes(len));
+    return String.fromCharCodes(readBytes(len));
   }
 
   /// Read a 16-bit word from the stream.
@@ -134,13 +134,13 @@ class MemPtr {
 
   /// This assumes buffer is a Typed
   Uint8List toUint8List([int offset = 0]) {
-    return new Uint8List.view(
+    return Uint8List.view(
         buffer.buffer, buffer.offsetInBytes + this.offset + offset);
   }
 
   /// This assumes buffer is a Typed
   Uint32List toUint32List([int offset = 0]) {
-    return new Uint32List.view(
+    return Uint32List.view(
         buffer.buffer, buffer.offsetInBytes + this.offset + offset);
   }
 }

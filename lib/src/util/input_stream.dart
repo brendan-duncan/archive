@@ -61,8 +61,8 @@ class InputStream extends InputStreamBase {
   /// Create a InputStream for reading from a List<int>
   InputStream(data, {this.byteOrder = LITTLE_ENDIAN, int start = 0, int length})
       : this.buffer = data is ByteData
-            ? new Uint8List.view(data.buffer)
-            : data is List<int> ? data : new List<int>.from(data),
+            ? Uint8List.view(data.buffer)
+            : data is List<int> ? data : List<int>.from(data),
         this.start = start {
     _length = length == null ? buffer.length : length;
     offset = start;
@@ -117,7 +117,7 @@ class InputStream extends InputStreamBase {
       length = _length - (position - start);
     }
 
-    return new InputStream(buffer,
+    return InputStream(buffer,
         byteOrder: byteOrder, start: position, length: length);
   }
 
@@ -168,20 +168,20 @@ class InputStream extends InputStreamBase {
         int c = readByte();
         if (c == 0) {
           return utf8
-              ? new Utf8Decoder().convert(codes)
-              : new String.fromCharCodes(codes);
+              ? Utf8Decoder().convert(codes)
+              : String.fromCharCodes(codes);
         }
         codes.add(c);
       }
-      throw new ArchiveException(
+      throw ArchiveException(
           'EOF reached without finding string terminator');
     }
 
     InputStream s = readBytes(size);
     Uint8List bytes = s.toUint8List();
     String str = utf8
-        ? new Utf8Decoder().convert(bytes)
-        : new String.fromCharCodes(bytes);
+        ? Utf8Decoder().convert(bytes)
+        : String.fromCharCodes(bytes);
     return str;
   }
 
@@ -256,14 +256,14 @@ class InputStream extends InputStreamBase {
         len = b.length - offset;
       }
       Uint8List bytes =
-          new Uint8List.view(b.buffer, b.offsetInBytes + offset, len);
+          Uint8List.view(b.buffer, b.offsetInBytes + offset, len);
       return bytes;
     }
     int end = offset + len;
     if (end > buffer.length) {
       end = buffer.length;
     }
-    return new Uint8List.fromList(buffer.sublist(offset, end));
+    return Uint8List.fromList(buffer.sublist(offset, end));
   }
 
   int _length;

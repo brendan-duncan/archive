@@ -10,13 +10,13 @@ import 'util/output_stream.dart';
 /// Derived from libbzip2 (http://www.bzip.org).
 class BZip2Decoder {
   List<int> decodeBytes(List<int> data, {bool verify = false}) {
-    return decodeBuffer(new InputStream(data, byteOrder: BIG_ENDIAN),
+    return decodeBuffer(InputStream(data, byteOrder: BIG_ENDIAN),
         verify: verify);
   }
 
   List<int> decodeBuffer(InputStream _input, {bool verify = false}) {
-    OutputStream output = new OutputStream();
-    Bz2BitReader br = new Bz2BitReader(_input);
+    OutputStream output = OutputStream();
+    Bz2BitReader br = Bz2BitReader(_input);
 
     _groupPos = 0;
     _groupNo = 0;
@@ -26,15 +26,15 @@ class BZip2Decoder {
     if (br.readByte() != BZip2.BZH_SIGNATURE[0] ||
         br.readByte() != BZip2.BZH_SIGNATURE[1] ||
         br.readByte() != BZip2.BZH_SIGNATURE[2]) {
-      throw new ArchiveException('Invalid Signature');
+      throw ArchiveException('Invalid Signature');
     }
 
     _blockSize100k = br.readByte() - BZip2.HDR_0;
     if (_blockSize100k < 0 || _blockSize100k > 9) {
-      throw new ArchiveException('Invalid BlockSize');
+      throw ArchiveException('Invalid BlockSize');
     }
 
-    _tt = new Uint32List(_blockSize100k * 100000);
+    _tt = Uint32List(_blockSize100k * 100000);
 
     int combinedCrc = 0;
 
@@ -51,7 +51,7 @@ class BZip2Decoder {
         blockCrc = BZip2.finalizeCrc(blockCrc);
 
         if (verify && blockCrc != storedBlockCrc) {
-          throw new ArchiveException('Invalid block checksum.');
+          throw ArchiveException('Invalid block checksum.');
         }
         combinedCrc = ((combinedCrc << 1) | (combinedCrc >> 31)) & 0xffffffff;
         combinedCrc ^= blockCrc;
@@ -63,7 +63,7 @@ class BZip2Decoder {
         storedCrc = (storedCrc << 8) | br.readByte();
 
         if (verify && storedCrc != combinedCrc) {
-          throw new ArchiveException(
+          throw ArchiveException(
               'Invalid combined checksum: ${combinedCrc} : ${storedCrc}');
         }
 
@@ -87,7 +87,7 @@ class BZip2Decoder {
         eos = false;
       }
       if (!eos && !compressed) {
-        throw new ArchiveException('Invalid Block Signature');
+        throw ArchiveException('Invalid Block Signature');
       }
     }
 
@@ -101,12 +101,12 @@ class BZip2Decoder {
     origPtr = (origPtr << 8) | br.readBits(8);
 
     // Receive the mapping table
-    _inUse16 = new Uint8List(16);
+    _inUse16 = Uint8List(16);
     for (int i = 0; i < 16; ++i) {
       _inUse16[i] = br.readBits(1);
     }
 
-    _inUse = new Uint8List(256);
+    _inUse = Uint8List(256);
     for (int i = 0, k = 0; i < 16; ++i, k += 16) {
       if (_inUse16[i] != 0) {
         for (int j = 0; j < 16; ++j) {
@@ -117,7 +117,7 @@ class BZip2Decoder {
 
     _makeMaps();
     if (_numInUse == 0) {
-      throw new ArchiveException('Data error');
+      throw ArchiveException('Data error');
     }
 
     int alphaSize = _numInUse + 2;
@@ -125,16 +125,16 @@ class BZip2Decoder {
     // Now the selectors
     int numGroups = br.readBits(3);
     if (numGroups < 2 || numGroups > 6) {
-      throw new ArchiveException('Data error');
+      throw ArchiveException('Data error');
     }
 
     _numSelectors = br.readBits(15);
     if (_numSelectors < 1) {
-      throw new ArchiveException('Data error');
+      throw ArchiveException('Data error');
     }
 
-    _selectorMtf = new Uint8List(BZ_MAX_SELECTORS);
-    _selector = new Uint8List(BZ_MAX_SELECTORS);
+    _selectorMtf = Uint8List(BZ_MAX_SELECTORS);
+    _selector = Uint8List(BZ_MAX_SELECTORS);
 
     for (int i = 0; i < _numSelectors; ++i) {
       int j = 0;
@@ -145,7 +145,7 @@ class BZip2Decoder {
         }
         j++;
         if (j >= numGroups) {
-          throw new ArchiveException('Data error');
+          throw ArchiveException('Data error');
         }
       }
 
@@ -153,7 +153,7 @@ class BZip2Decoder {
     }
 
     // Undo the MTF values for the selectors.
-    Uint8List pos = new Uint8List(BZ_N_GROUPS);
+    Uint8List pos = Uint8List(BZ_N_GROUPS);
     for (int i = 0; i < numGroups; ++i) {
       pos[i] = i;
     }
@@ -170,16 +170,16 @@ class BZip2Decoder {
     }
 
     // Now the coding tables
-    _len = new List<Uint8List>(BZ_N_GROUPS);
+    _len = List<Uint8List>(BZ_N_GROUPS);
 
     for (int t = 0; t < numGroups; ++t) {
-      _len[t] = new Uint8List(BZ_MAX_ALPHA_SIZE);
+      _len[t] = Uint8List(BZ_MAX_ALPHA_SIZE);
 
       int c = br.readBits(5);
       for (int i = 0; i < alphaSize; ++i) {
         while (true) {
           if (c < 1 || c > 20) {
-            throw new ArchiveException('Data error');
+            throw ArchiveException('Data error');
           }
           int b = br.readBits(1);
           if (b == 0) {
@@ -197,15 +197,15 @@ class BZip2Decoder {
     }
 
     // Create the Huffman decoding tables
-    _limit = new List<Int32List>(BZ_N_GROUPS);
-    _base = new List<Int32List>(BZ_N_GROUPS);
-    _perm = new List<Int32List>(BZ_N_GROUPS);
-    _minLens = new Int32List(BZ_N_GROUPS);
+    _limit = List<Int32List>(BZ_N_GROUPS);
+    _base = List<Int32List>(BZ_N_GROUPS);
+    _perm = List<Int32List>(BZ_N_GROUPS);
+    _minLens = Int32List(BZ_N_GROUPS);
 
     for (int t = 0; t < numGroups; t++) {
-      _limit[t] = new Int32List(BZ_MAX_ALPHA_SIZE);
-      _base[t] = new Int32List(BZ_MAX_ALPHA_SIZE);
-      _perm[t] = new Int32List(BZ_MAX_ALPHA_SIZE);
+      _limit[t] = Int32List(BZ_MAX_ALPHA_SIZE);
+      _base[t] = Int32List(BZ_MAX_ALPHA_SIZE);
+      _perm[t] = Int32List(BZ_MAX_ALPHA_SIZE);
 
       int minLen = 32;
       int maxLen = 0;
@@ -228,11 +228,11 @@ class BZip2Decoder {
     int EOB = _numInUse + 1;
     int nblockMAX = 100000 * _blockSize100k;
 
-    _unzftab = new Int32List(256);
+    _unzftab = Int32List(256);
 
     // MTF init
-    _mtfa = new Uint8List(MTFA_SIZE);
-    _mtfbase = new Int32List(256 ~/ MTFL_SIZE);
+    _mtfa = Uint8List(MTFA_SIZE);
+    _mtfbase = Int32List(256 ~/ MTFL_SIZE);
 
     int kk = MTFA_SIZE - 1;
     for (int ii = 256 ~/ MTFL_SIZE - 1; ii >= 0; ii--) {
@@ -265,7 +265,7 @@ class BZip2Decoder {
           // million should guard against overflow without
           // rejecting any legitimate inputs.
           if (N >= 2 * 1024 * 1024) {
-            throw new ArchiveException('Data error');
+            throw ArchiveException('Data error');
           }
 
           if (nextSym == BZ_RUNA) {
@@ -286,7 +286,7 @@ class BZip2Decoder {
 
         while (es > 0) {
           if (nblock >= nblockMAX) {
-            throw new ArchiveException('Data error');
+            throw ArchiveException('Data error');
           }
 
           _tt[nblock] = uc;
@@ -299,7 +299,7 @@ class BZip2Decoder {
         continue;
       } else {
         if (nblock >= nblockMAX) {
-          throw new ArchiveException('Data error');
+          throw ArchiveException('Data error');
         }
 
         // uc = MTF ( nextSym-1 )
@@ -365,19 +365,19 @@ class BZip2Decoder {
     // Now we know what nblock is, we can do a better sanity
     // check on s->origPtr.
     if (origPtr < 0 || origPtr >= nblock) {
-      throw new ArchiveException('Data error');
+      throw ArchiveException('Data error');
     }
 
     // Set up cftab to facilitate generation of T^(-1)
     // Check: unzftab entries in range.
     for (int i = 0; i <= 255; i++) {
       if (_unzftab[i] < 0 || _unzftab[i] > nblock) {
-        throw new ArchiveException('Data error');
+        throw ArchiveException('Data error');
       }
     }
 
     // Actually generate cftab.
-    _cftab = new Int32List(257);
+    _cftab = Int32List(257);
     _cftab[0] = 0;
     for (int i = 1; i <= 256; i++) {
       _cftab[i] = _unzftab[i - 1];
@@ -391,14 +391,14 @@ class BZip2Decoder {
     for (int i = 0; i <= 256; i++) {
       if (_cftab[i] < 0 || _cftab[i] > nblock) {
         // s->cftab[i] can legitimately be == nblock
-        throw new ArchiveException('Data error');
+        throw ArchiveException('Data error');
       }
     }
 
     // Check: cftab entries non-descending.
     for (int i = 1; i <= 256; i++) {
       if (_cftab[i - 1] > _cftab[i]) {
-        throw new ArchiveException('Data error');
+        throw ArchiveException('Data error');
       }
     }
 
@@ -422,7 +422,7 @@ class BZip2Decoder {
       rTPos = 0;
 
       if (tPos >= 100000 * _blockSize100k) {
-        throw new ArchiveException('Data error');
+        throw ArchiveException('Data error');
       }
       tPos = _tt[tPos];
       k0 = tPos & 0xff;
@@ -473,14 +473,14 @@ class BZip2Decoder {
           c_state_out_len--;
         }
 
-        // can a new run be started?
+        // can a run be started?
         if (c_nblock_used == s_save_nblockPP) {
           return blockCrc;
         }
 
         // Only caused by corrupt data stream?
         if (c_nblock_used > s_save_nblockPP) {
-          throw new ArchiveException('Data error.');
+          throw ArchiveException('Data error.');
         }
 
         c_state_out_len = 1;
@@ -596,10 +596,10 @@ class BZip2Decoder {
 
         // Only caused by corrupt data stream?
         if (c_nblock_used > s_save_nblockPP) {
-          throw new ArchiveException('Data error');
+          throw ArchiveException('Data error');
         }
 
-        // can a new run be started?
+        // can a run be started?
         if (c_nblock_used == s_save_nblockPP) {
           c_state_out_len = 0;
           return blockCrc;
@@ -610,7 +610,7 @@ class BZip2Decoder {
         int k1;
 
         if (tPos >= 100000 * _blockSize100k) {
-          throw new ArchiveException('Data Error');
+          throw ArchiveException('Data Error');
         }
         tPos = _tt[tPos];
         k1 = tPos & 0xff;
@@ -634,7 +634,7 @@ class BZip2Decoder {
 
         c_state_out_len = 2;
         if (tPos >= 100000 * _blockSize100k) {
-          throw new ArchiveException('Data Error');
+          throw ArchiveException('Data Error');
         }
         tPos = _tt[tPos];
         k1 = tPos & 0xff;
@@ -652,7 +652,7 @@ class BZip2Decoder {
 
         c_state_out_len = 3;
         if (tPos >= 100000 * _blockSize100k) {
-          throw new ArchiveException('Data Error');
+          throw ArchiveException('Data Error');
         }
         tPos = _tt[tPos];
         k1 = tPos & 0xff;
@@ -669,7 +669,7 @@ class BZip2Decoder {
         }
 
         if (tPos >= 100000 * _blockSize100k) {
-          throw new ArchiveException('Data Error');
+          throw ArchiveException('Data Error');
         }
         tPos = _tt[tPos];
         k1 = tPos & 0xff;
@@ -679,7 +679,7 @@ class BZip2Decoder {
         c_state_out_len = k1 + 4;
 
         if (tPos >= 100000 * _blockSize100k) {
-          throw new ArchiveException('Data Error');
+          throw ArchiveException('Data Error');
         }
         tPos = _tt[tPos];
         c_k0 = tPos & 0xff;
@@ -696,7 +696,7 @@ class BZip2Decoder {
     if (_groupPos == 0) {
       _groupNo++;
       if (_groupNo >= _numSelectors) {
-        throw new ArchiveException('Data error');
+        throw ArchiveException('Data error');
       }
 
       _groupPos = BZ_G_SIZE;
@@ -713,7 +713,7 @@ class BZip2Decoder {
 
     while (true) {
       if (zn > 20) {
-        throw new ArchiveException('Data error');
+        throw ArchiveException('Data error');
       }
       if (zvec <= _gLimit[zn]) {
         break;
@@ -725,7 +725,7 @@ class BZip2Decoder {
     }
 
     if (zvec - _gBase[zn] < 0 || zvec - _gBase[zn] >= BZ_MAX_ALPHA_SIZE) {
-      throw new ArchiveException('Data error');
+      throw ArchiveException('Data error');
     }
 
     return _gPerm[zvec - _gBase[zn]];
@@ -774,7 +774,7 @@ class BZip2Decoder {
 
   void _makeMaps() {
     _numInUse = 0;
-    _seqToUnseq = new Uint8List(256);
+    _seqToUnseq = Uint8List(256);
     for (int i = 0; i < 256; ++i) {
       if (_inUse[i] != 0) {
         _seqToUnseq[_numInUse++] = i;

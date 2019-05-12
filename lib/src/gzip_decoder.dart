@@ -14,30 +14,30 @@ class GZipDecoder {
   static const int FLAG_COMMENT = 0x10;
 
   List<int> decodeBytes(List<int> data, {bool verify = false}) {
-    return decodeBuffer(new InputStream(data), verify: verify);
+    return decodeBuffer(InputStream(data), verify: verify);
   }
 
   void decodeStream(dynamic input, dynamic output) {
     _readHeader(input);
-    new Inflate.stream(input, output);
+    Inflate.stream(input, output);
   }
 
   List<int> decodeBuffer(dynamic input, {bool verify = false}) {
     _readHeader(input);
 
     // Inflate
-    List<int> buffer = new Inflate.buffer(input).getBytes();
+    List<int> buffer = Inflate.buffer(input).getBytes();
 
     if (verify) {
       int crc = input.readUint32();
       int computedCrc = getCrc32(buffer);
       if (crc != computedCrc) {
-        throw new ArchiveException('Invalid CRC checksum');
+        throw ArchiveException('Invalid CRC checksum');
       }
 
       int size = input.readUint32();
       if (size != buffer.length) {
-        throw new ArchiveException('Size of decompressed file not correct');
+        throw ArchiveException('Size of decompressed file not correct');
       }
     }
 
@@ -88,12 +88,12 @@ class GZipDecoder {
 
     int signature = input.readUint16();
     if (signature != SIGNATURE) {
-      throw new ArchiveException('Invalid GZip Signature');
+      throw ArchiveException('Invalid GZip Signature');
     }
 
     int compressionMethod = input.readByte();
     if (compressionMethod != DEFLATE) {
-      throw new ArchiveException('Invalid GZip Compression Methos');
+      throw ArchiveException('Invalid GZip Compression Methos');
     }
 
     int flags = input.readByte();

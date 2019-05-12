@@ -10,10 +10,10 @@ import 'util/output_stream.dart';
 /// Derived from libbzip2 (http://www.bzip.org).
 class BZip2Encoder {
   List<int> encode(List<int> data) {
-    input = new InputStream(data, byteOrder: BIG_ENDIAN);
-    OutputStream output = new OutputStream(byteOrder: BIG_ENDIAN);
+    input = InputStream(data, byteOrder: BIG_ENDIAN);
+    OutputStream output = OutputStream(byteOrder: BIG_ENDIAN);
 
-    bw = new Bz2BitWriter(output);
+    bw = Bz2BitWriter(output);
 
     final int blockSize100k = 9;
 
@@ -25,30 +25,30 @@ class BZip2Encoder {
     int combinedCRC = 0;
 
     int n = 100000 * blockSize100k;
-    _arr1 = new Uint32List(n);
-    _arr2 = new Uint32List(n + BZ_N_OVERSHOOT);
-    _ftab = new Uint32List(65537);
-    _block = new Uint8List.view(_arr2.buffer);
-    _mtfv = new Uint16List.view(_arr1.buffer);
-    _unseqToSeq = new Uint8List(256);
+    _arr1 = Uint32List(n);
+    _arr2 = Uint32List(n + BZ_N_OVERSHOOT);
+    _ftab = Uint32List(65537);
+    _block = Uint8List.view(_arr2.buffer);
+    _mtfv = Uint16List.view(_arr1.buffer);
+    _unseqToSeq = Uint8List(256);
     _blockNo = 0;
     _origPtr = 0;
 
-    _selector = new Uint8List(BZ_MAX_SELECTORS);
-    _selectorMtf = new Uint8List(BZ_MAX_SELECTORS);
-    _len = new List<Uint8List>(BZ_N_GROUPS);
-    _code = new List<Int32List>(BZ_N_GROUPS);
-    _rfreq = new List<Int32List>(BZ_N_GROUPS);
+    _selector = Uint8List(BZ_MAX_SELECTORS);
+    _selectorMtf = Uint8List(BZ_MAX_SELECTORS);
+    _len = List<Uint8List>(BZ_N_GROUPS);
+    _code = List<Int32List>(BZ_N_GROUPS);
+    _rfreq = List<Int32List>(BZ_N_GROUPS);
 
     for (int i = 0; i < BZ_N_GROUPS; ++i) {
-      _len[i] = new Uint8List(BZ_MAX_ALPHA_SIZE);
-      _code[i] = new Int32List(BZ_MAX_ALPHA_SIZE);
-      _rfreq[i] = new Int32List(BZ_MAX_ALPHA_SIZE);
+      _len[i] = Uint8List(BZ_MAX_ALPHA_SIZE);
+      _code[i] = Int32List(BZ_MAX_ALPHA_SIZE);
+      _rfreq[i] = Int32List(BZ_MAX_ALPHA_SIZE);
     }
 
-    _lenPack = new List<Uint32List>(BZ_MAX_ALPHA_SIZE);
+    _lenPack = List<Uint32List>(BZ_MAX_ALPHA_SIZE);
     for (int i = 0; i < BZ_MAX_ALPHA_SIZE; ++i) {
-      _lenPack[i] = new Uint32List(4);
+      _lenPack[i] = Uint32List(4);
     }
 
     // Write blocks
@@ -67,7 +67,7 @@ class BZip2Encoder {
   }
 
   int _writeBlock() {
-    _inUse = new Uint8List(256);
+    _inUse = Uint8List(256);
 
     _nblock = 0;
     _blockCRC = BZip2.INITIAL_CRC;
@@ -113,7 +113,7 @@ class BZip2Encoder {
   }
 
   void _generateMTFValues() {
-    Uint8List yy = new Uint8List(256);
+    Uint8List yy = Uint8List(256);
 
     // After sorting (eg, here),
     // s->arr1 [ 0 .. s->nblock-1 ] holds sorted order,
@@ -141,7 +141,7 @@ class BZip2Encoder {
 
     final int EOB = _nInUse + 1;
 
-    _mtfFreq = new Int32List(BZ_MAX_ALPHA_SIZE);
+    _mtfFreq = Int32List(BZ_MAX_ALPHA_SIZE);
 
     int wr = 0;
     int zPend = 0;
@@ -235,8 +235,8 @@ class BZip2Encoder {
   }
 
   void _sendMTFValues() {
-    Uint16List cost = new Uint16List(BZ_N_GROUPS);
-    Int32List fave = new Int32List(BZ_N_GROUPS);
+    Uint16List cost = Uint16List(BZ_N_GROUPS);
+    Int32List fave = Int32List(BZ_N_GROUPS);
     int nSelectors = 0;
 
     int alphaSize = _nInUse + 2;
@@ -512,7 +512,7 @@ class BZip2Encoder {
     _assert(nSelectors < 32768 && nSelectors <= (2 + (900000 ~/ BZ_G_SIZE)));
 
     // Compute MTF values for the selectors.
-    Uint8List pos = new Uint8List(BZ_N_GROUPS);
+    Uint8List pos = Uint8List(BZ_N_GROUPS);
     for (int i = 0; i < nGroups; i++) {
       pos[i] = i;
     }
@@ -549,7 +549,7 @@ class BZip2Encoder {
     }
 
     // Transmit the mapping table.
-    Uint8List inUse16 = new Uint8List(16);
+    Uint8List inUse16 = Uint8List(16);
     for (int i = 0; i < 16; i++) {
       inUse16[i] = 0;
       for (int j = 0; j < 16; j++) {
@@ -703,9 +703,9 @@ class BZip2Encoder {
       Uint8List len, Int32List freq, int alphaSize, int maxLen) {
     // Nodes and heap entries run from 1.  Entry 0
     // for both the heap and nodes is a sentinel.
-    Int32List heap = new Int32List(BZ_MAX_ALPHA_SIZE + 2);
-    Int32List weight = new Int32List(BZ_MAX_ALPHA_SIZE * 2);
-    Int32List parent = new Int32List(BZ_MAX_ALPHA_SIZE * 2);
+    Int32List heap = Int32List(BZ_MAX_ALPHA_SIZE + 2);
+    Int32List weight = Int32List(BZ_MAX_ALPHA_SIZE * 2);
+    Int32List parent = Int32List(BZ_MAX_ALPHA_SIZE * 2);
     int nHeap;
     int nNodes;
 
@@ -839,7 +839,7 @@ class BZip2Encoder {
       if (i & 1 != 0) {
         i++;
       }
-      Uint16List quadrant = new Uint16List.view(_block.buffer, i);
+      Uint16List quadrant = Uint16List.view(_block.buffer, i);
 
       int wfact = _workFactor;
       // (wfact-1) / 3 puts the default-factor-30
@@ -877,15 +877,15 @@ class BZip2Encoder {
 
   void _assert(bool cond) {
     if (!cond) {
-      throw new ArchiveException('Data error');
+      throw ArchiveException('Data error');
     }
   }
 
   void _fallbackSort(
       Uint32List fmap, Uint32List eclass, Uint32List bhtab, int nblock) {
-    Int32List ftab = new Int32List(257);
-    Int32List ftabCopy = new Int32List(256);
-    Uint8List eclass8 = new Uint8List.view(eclass.buffer);
+    Int32List ftab = Int32List(257);
+    Int32List ftabCopy = Int32List(256);
+    Uint8List eclass8 = Uint8List.view(eclass.buffer);
 
     int SET_BH(int zz) => bhtab[zz >> 5] |= (1 << (zz & 31));
     int CLEAR_BH(int zz) => bhtab[zz >> 5] &= ~(1 << (zz & 31));
@@ -1028,8 +1028,8 @@ class BZip2Encoder {
     const int FALLBACK_QSORT_SMALL_THRESH = 10;
     const int FALLBACK_QSORT_STACK_SIZE = 100;
 
-    Int32List stackLo = new Int32List(FALLBACK_QSORT_STACK_SIZE);
-    Int32List stackHi = new Int32List(FALLBACK_QSORT_STACK_SIZE);
+    Int32List stackLo = Int32List(FALLBACK_QSORT_STACK_SIZE);
+    Int32List stackHi = Int32List(FALLBACK_QSORT_STACK_SIZE);
     int sp = 0;
 
     void fpush(int lz, int hz) {
@@ -1192,10 +1192,10 @@ class BZip2Encoder {
 
   void _mainSort(Uint32List ptr, Uint8List block, Uint16List quadrant,
       Uint32List ftab, int nblock) {
-    Int32List runningOrder = new Int32List(256);
-    Uint8List bigDone = new Uint8List(256);
-    Int32List copyStart = new Int32List(256);
-    Int32List copyEnd = new Int32List(256);
+    Int32List runningOrder = Int32List(256);
+    Uint8List bigDone = Uint8List(256);
+    Int32List copyStart = Int32List(256);
+    Int32List copyEnd = Int32List(256);
 
     int BIGFREQ(int b) => (_ftab[((b) + 1) << 8] - _ftab[(b) << 8]);
 
@@ -1444,13 +1444,13 @@ class BZip2Encoder {
     const MAIN_QSORT_SMALL_THRESH = 20;
     const MAIN_QSORT_DEPTH_THRESH = (BZ_N_RADIX + BZ_N_QSORT);
 
-    Int32List stackLo = new Int32List(MAIN_QSORT_STACK_SIZE);
-    Int32List stackHi = new Int32List(MAIN_QSORT_STACK_SIZE);
-    Int32List stackD = new Int32List(MAIN_QSORT_STACK_SIZE);
+    Int32List stackLo = Int32List(MAIN_QSORT_STACK_SIZE);
+    Int32List stackHi = Int32List(MAIN_QSORT_STACK_SIZE);
+    Int32List stackD = Int32List(MAIN_QSORT_STACK_SIZE);
 
-    Int32List nextLo = new Int32List(3);
-    Int32List nextHi = new Int32List(3);
-    Int32List nextD = new Int32List(3);
+    Int32List nextLo = Int32List(3);
+    Int32List nextHi = Int32List(3);
+    Int32List nextD = Int32List(3);
 
     int sp = 0;
     void mpush(int lz, int hz, int dz) {

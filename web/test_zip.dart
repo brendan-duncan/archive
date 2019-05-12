@@ -11,14 +11,14 @@ void main() {
   img.remove();
 
   // Use an http request to get the image file from disk.
-  var req = new HttpRequest();
+  var req = HttpRequest();
   req.open('GET', path + '/readme.zip');
   req.responseType = 'arraybuffer';
   req.onLoadEnd.listen((e) {
     if (req.status == 200) {
       // Convert the text to binary byte list.
-      Uint8List bytes = new Uint8List.view(req.response);
-      var archive = new ZipDecoder().decodeBytes(bytes, verify: true);
+      Uint8List bytes = Uint8List.view(req.response);
+      var archive = ZipDecoder().decodeBytes(bytes, verify: true);
       print("NUMBER OF FILES ${archive.numberOfFiles()}");
     }
  });

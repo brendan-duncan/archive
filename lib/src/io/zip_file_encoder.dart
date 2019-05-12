@@ -26,8 +26,8 @@ class ZipFileEncoder {
   void create(String zip_path) {
     this.zip_path = zip_path;
 
-    _output = new OutputFileStream(zip_path);
-    _encoder = new ZipEncoder();
+    _output = OutputFileStream(zip_path);
+    _encoder = ZipEncoder();
     _encoder.startEncode(_output);
   }
 
@@ -46,8 +46,8 @@ class ZipFileEncoder {
   }
 
   void addFile(File file, [String filename]) {
-    var file_stream = new InputFileStream.file(file);
-    var f = new ArchiveFile.stream(
+    var file_stream = InputFileStream.file(file);
+    var f = ArchiveFile.stream(
         filename == null ? path.basename(file.path) : filename,
         file.lengthSync(),
         file_stream);

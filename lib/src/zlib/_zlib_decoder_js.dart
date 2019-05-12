@@ -5,14 +5,14 @@ import '../util/input_stream.dart';
 import 'inflate.dart';
 import 'zlib_decoder_base.dart';
 
-ZLibDecoderBase createZLibDecoder() => new _ZLibDecoder();
+ZLibDecoderBase createZLibDecoder() => _ZLibDecoder();
 
 /// Decompress data with the zlib format decoder.
 class _ZLibDecoder extends ZLibDecoderBase {
   static const int DEFLATE = 8;
 
   List<int> decodeBytes(List<int> data, {bool verify = false}) {
-    return decodeBuffer(new InputStream(data, byteOrder: BIG_ENDIAN),
+    return decodeBuffer(InputStream(data, byteOrder: BIG_ENDIAN),
         verify: verify);
   }
 
@@ -41,7 +41,7 @@ class _ZLibDecoder extends ZLibDecoderBase {
     int cinfo = (cmf >> 3) & 8; // ignore: unused_local_variable
 
     if (method != DEFLATE) {
-      throw new ArchiveException(
+      throw ArchiveException(
           'Only DEFLATE compression supported: ${method}');
     }
 
@@ -51,24 +51,24 @@ class _ZLibDecoder extends ZLibDecoderBase {
 
     // FCHECK is set such that (cmf * 256 + flag) must be a multiple of 31.
     if (((cmf << 8) + flg) % 31 != 0) {
-      throw new ArchiveException('Invalid FCHECK');
+      throw ArchiveException('Invalid FCHECK');
     }
 
     int dictid; // ignore: unused_local_variable
     if (fdict != 0) {
       dictid = input.readUint32();
-      throw new ArchiveException('FDICT Encoding not currently supported');
+      throw ArchiveException('FDICT Encoding not currently supported');
     }
 
     // Inflate
-    List<int> buffer = new Inflate.buffer(input).getBytes();
+    List<int> buffer = Inflate.buffer(input).getBytes();
 
     // verify adler-32
     int adler32 = input.readUint32();
     if (verify) {
       int a = getAdler32(buffer);
       if (adler32 != a) {
-        throw new ArchiveException('Invalid adler-32 checksum');
+        throw ArchiveException('Invalid adler-32 checksum');
       }
     }
 

@@ -6,7 +6,7 @@ import 'input_file_stream.dart';
 
 Archive createArchiveFromDirectory(Directory dir,
     {bool includeDirName = true}) {
-  Archive archive = new Archive();
+  Archive archive = Archive();
 
   String dir_name = path.basename(dir.path);
   List files = dir.listSync(recursive: true);
@@ -19,10 +19,10 @@ Archive createArchiveFromDirectory(Directory dir,
     String filename = path.relative(f.path, from: dir.path);
     filename = includeDirName ? (dir_name + "/" + filename) : filename;
 
-    InputFileStream file_stream = new InputFileStream.file(file);
+    InputFileStream file_stream = InputFileStream.file(file);
 
     ArchiveFile af =
-        new ArchiveFile.stream(filename, file.lengthSync(), file_stream);
+        ArchiveFile.stream(filename, file.lengthSync(), file_stream);
     af.lastModTime = file.lastModifiedSync().millisecondsSinceEpoch;
     af.mode = file.statSync().mode;
 

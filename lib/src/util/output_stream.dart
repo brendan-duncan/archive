@@ -27,7 +27,7 @@ class OutputStream extends OutputStreamBase {
 
   /// Create a byte buffer for writing.
   OutputStream({int size = _BLOCK_SIZE, this.byteOrder = LITTLE_ENDIAN})
-      : _buffer = new Uint8List(size == null ? _BLOCK_SIZE : size),
+      : _buffer = Uint8List(size == null ? _BLOCK_SIZE : size),
         _length = 0;
 
   int get length => _length;
@@ -36,12 +36,12 @@ class OutputStream extends OutputStreamBase {
 
   /// Get the resulting bytes from the buffer.
   List<int> getBytes() {
-    return new Uint8List.view(_buffer.buffer, 0, length);
+    return Uint8List.view(_buffer.buffer, 0, length);
   }
 
   /// Clear the buffer.
   void clear() {
-    _buffer = new Uint8List(_BLOCK_SIZE);
+    _buffer = Uint8List(_BLOCK_SIZE);
     length = 0;
   }
 
@@ -127,7 +127,7 @@ class OutputStream extends OutputStreamBase {
       end = length + end;
     }
 
-    return new Uint8List.view(_buffer.buffer, start, end - start);
+    return Uint8List.view(_buffer.buffer, start, end - start);
   }
 
   /// Grow the buffer to accommodate additional data.
@@ -139,7 +139,7 @@ class OutputStream extends OutputStreamBase {
       }
     }
     int newLength = (_buffer.length + blockSize) * 2;
-    Uint8List newBuffer = new Uint8List(newLength);
+    Uint8List newBuffer = Uint8List(newLength);
     newBuffer.setRange(0, _buffer.length, _buffer);
     _buffer = newBuffer;
   }

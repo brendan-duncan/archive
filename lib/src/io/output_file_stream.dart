@@ -13,7 +13,7 @@ class OutputFileStream extends OutputStreamBase {
   RandomAccessFile _fp;
 
   OutputFileStream(this.path, {this.byteOrder = LITTLE_ENDIAN}) : _length = 0 {
-    _file = new File(path);
+    _file = File(path);
     _file.createSync(recursive: true);
     _fp = _file.openSync(mode: FileMode.write);
   }
@@ -98,7 +98,7 @@ class OutputFileStream extends OutputStreamBase {
     }
     length = (end - start);
     _fp.setPositionSync(start);
-    Uint8List buffer = new Uint8List(length);
+    Uint8List buffer = Uint8List(length);
     _fp.readIntoSync(buffer);
     _fp.setPositionSync(pos);
     return buffer;

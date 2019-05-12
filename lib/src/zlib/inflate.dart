@@ -9,23 +9,23 @@ class Inflate {
   final dynamic output;
 
   Inflate(List<int> bytes, [int uncompressedSize])
-      : input = new InputStream(bytes),
-        output = new OutputStream(size: uncompressedSize) {
+      : input = InputStream(bytes),
+        output = OutputStream(size: uncompressedSize) {
     _inflate();
   }
 
   Inflate.buffer(this.input, [int uncompressedSize])
-      : output = new OutputStream(size: uncompressedSize) {
+      : output = OutputStream(size: uncompressedSize) {
     _inflate();
   }
 
   Inflate.stream([this.input, dynamic output_stream])
-      : output = output_stream != null ? output_stream : new OutputStream() {
+      : output = output_stream != null ? output_stream : OutputStream() {
     if (input == null || input is List<int>) {
       _bitBuffer = 0;
       _bitBufferLen = 0;
       if (input != null) {
-        input = new InputStream(input);
+        input = InputStream(input);
       }
       return;
     }
@@ -42,12 +42,12 @@ class Inflate {
     if (newLen < 0) {
       print(newLen);
     }
-    Uint8List newBytes = new Uint8List(newLen);
+    Uint8List newBytes = Uint8List(newLen);
     if (input != null) {
       newBytes.setRange(0, input.length, input.buffer, input.offset);
     }
     newBytes.setRange(inputLen, newLen, bytes, 0);
-    input = new InputStream(newBytes);
+    input = InputStream(newBytes);
   }
 
   List<int> inflateNext() {
@@ -121,7 +121,7 @@ class Inflate {
         break;
       default:
         // reserved or other
-        throw new ArchiveException('unknown BTYPE: $btype');
+        throw ArchiveException('unknown BTYPE: $btype');
     }
 
     // Continue while not the final block
@@ -137,7 +137,7 @@ class Inflate {
     // not enough buffer
     while (_bitBufferLen < length) {
       if (input.isEOS) {
-        throw new ArchiveException('input buffer is broken');
+        throw ArchiveException('input buffer is broken');
       }
 
       // input byte
@@ -193,12 +193,12 @@ class Inflate {
 
     // Make sure the block size checksum is valid.
     if (len != 0 && len != nlen) {
-      throw new ArchiveException('Invalid uncompressed block header');
+      throw ArchiveException('Invalid uncompressed block header');
     }
 
     // check size
     if (len > input.length) {
-      throw new ArchiveException('Input buffer is broken');
+      throw ArchiveException('Input buffer is broken');
     }
 
     output.writeInputStream(input.readBytes(len));
@@ -217,25 +217,25 @@ class Inflate {
     int numCodeLengths = _readBits(4) + 4;
 
     // decode code lengths
-    Uint8List codeLengths = new Uint8List(_ORDER.length);
+    Uint8List codeLengths = Uint8List(_ORDER.length);
     for (int i = 0; i < numCodeLengths; ++i) {
       codeLengths[_ORDER[i]] = _readBits(3);
     }
 
-    HuffmanTable codeLengthsTable = new HuffmanTable(codeLengths);
+    HuffmanTable codeLengthsTable = HuffmanTable(codeLengths);
 
     // literal and length code
-    Uint8List litlenLengths = new Uint8List(numLitLengthCodes);
+    Uint8List litlenLengths = Uint8List(numLitLengthCodes);
 
     // distance code
-    Uint8List distLengths = new Uint8List(numDistanceCodes);
+    Uint8List distLengths = Uint8List(numDistanceCodes);
 
     List<int> litlen =
         _decode(numLitLengthCodes, codeLengthsTable, litlenLengths);
 
     List<int> dist = _decode(numDistanceCodes, codeLengthsTable, distLengths);
 
-    _decodeHuffman(new HuffmanTable(litlen), new HuffmanTable(dist));
+    _decodeHuffman(HuffmanTable(litlen), HuffmanTable(dist));
   }
 
   void _decodeHuffman(HuffmanTable litlen, HuffmanTable dist) {
@@ -243,7 +243,7 @@ class Inflate {
       int code = _readCodeByTable(litlen);
 
       if (code < 0 || code > 285) {
-        throw new ArchiveException('Invalid Huffman Code $code');
+        throw ArchiveException('Invalid Huffman Code $code');
       }
 
       // 256 - End of Huffman block
@@ -282,7 +282,7 @@ class Inflate {
           output.writeBytes(output.subset(-distance, codeLength - distance));
         }
       } else {
-        throw new ArchiveException('Illegal unused distance symbol');
+        throw ArchiveException('Illegal unused distance symbol');
       }
     }
 
@@ -324,7 +324,7 @@ class Inflate {
         default: // [0, 15]
           // Literal bitlength for this code.
           if (code < 0 || code > 15) {
-            throw new ArchiveException('Invalid Huffman Code: $code');
+            throw ArchiveException('Invalid Huffman Code: $code');
           }
           lengths[i++] = code;
           prev = code;
@@ -636,7 +636,7 @@ class Inflate {
     8
   ];
   final HuffmanTable _fixedLiteralLengthTable =
-      new HuffmanTable(_FIXED_LITERAL_LENGTHS);
+      HuffmanTable(_FIXED_LITERAL_LENGTHS);
 
   /// Fixed huffman distance code table
   static const List<int> _FIXED_DISTANCE_TABLE = const [
@@ -672,7 +672,7 @@ class Inflate {
     5
   ];
   final HuffmanTable _fixedDistanceTable =
-      new HuffmanTable(_FIXED_DISTANCE_TABLE);
+      HuffmanTable(_FIXED_DISTANCE_TABLE);
 
   /// Max backward length for LZ77.
   static const int _MAX_BACKWARD_LENGTH = 32768; // ignore: unused_field

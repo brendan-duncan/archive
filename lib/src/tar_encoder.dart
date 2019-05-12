@@ -7,7 +7,7 @@ import 'archive_file.dart';
 /// Encode an [Archive] object into a tar formatted buffer.
 class TarEncoder {
   List<int> encode(Archive archive) {
-    OutputStream output_stream = new OutputStream();
+    OutputStream output_stream = OutputStream();
     start(output_stream);
 
     for (ArchiveFile file in archive.files) {
@@ -20,7 +20,7 @@ class TarEncoder {
   }
 
   void start([dynamic output_stream]) {
-    _output_stream = output_stream != null ? output_stream : new OutputStream();
+    _output_stream = output_stream != null ? output_stream : OutputStream();
   }
 
   void add(ArchiveFile file) {
@@ -30,7 +30,7 @@ class TarEncoder {
 
     // GNU tar files store extra long file names in a separate file
     if (file.name.length > 100) {
-      TarFile ts = new TarFile();
+      TarFile ts = TarFile();
       ts.filename = '././@LongLink';
       ts.fileSize = file.name.length;
       ts.mode = 0;
@@ -41,7 +41,7 @@ class TarEncoder {
       ts.write(_output_stream);
     }
 
-    TarFile ts = new TarFile();
+    TarFile ts = TarFile();
     ts.filename = file.name;
     ts.fileSize = file.size;
     ts.mode = file.mode;
@@ -55,7 +55,7 @@ class TarEncoder {
   void finish() {
     // At the end of the archive file there are two 512-byte blocks filled
     // with binary zeros as an end-of-file marker.
-    Uint8List eof = new Uint8List(1024);
+    Uint8List eof = Uint8List(1024);
     _output_stream.writeBytes(eof);
     _output_stream = null;
   }
