@@ -8,7 +8,7 @@ class ZLibEncoder {
   static const int DEFLATE = 8;
 
   List<int> encode(List<int> data, {int level}) {
-    OutputStream output = new OutputStream(byteOrder: BIG_ENDIAN);
+    OutputStream output = OutputStream(byteOrder: BIG_ENDIAN);
 
     // Compression Method and Flags
     int cm = DEFLATE;
@@ -35,9 +35,9 @@ class ZLibEncoder {
 
     int adler32 = getAdler32(data);
 
-    InputStream input = new InputStream(data, byteOrder: BIG_ENDIAN);
+    InputStream input = InputStream(data, byteOrder: BIG_ENDIAN);
 
-    List<int> compressed = new Deflate.buffer(input, level: level).getBytes();
+    List<int> compressed = Deflate.buffer(input, level: level).getBytes();
     output.writeBytes(compressed);
 
     output.writeUint32(adler32);

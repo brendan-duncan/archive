@@ -209,11 +209,11 @@ List zipTests = [
 ];
 
 void main() {
-  ZipDecoder zipDecoder = new ZipDecoder();
-  ZipEncoder zipEncoder = new ZipEncoder();
+  ZipDecoder zipDecoder = ZipDecoder();
+  ZipEncoder zipEncoder = ZipEncoder();
 
   test('zip isFile', () async {
-    var file = new File(p.join(testDirPath, 'res/zip/android-javadoc.zip'));
+    var file = File(p.join(testDirPath, 'res/zip/android-javadoc.zip'));
     var bytes = file.readAsBytesSync();
     Archive archive = zipDecoder.decodeBytes(bytes, verify: true);
     expect(archive.numberOfFiles(), equals(102));
@@ -262,21 +262,21 @@ void main() {
   });
 
   test('encode', () {
-    Archive archive = new Archive();
+    Archive archive = Archive();
     var bdata = 'hello world';
-    var bytes = new Uint8List.fromList(bdata.codeUnits);
+    var bytes = Uint8List.fromList(bdata.codeUnits);
     String name = 'abc.txt';
     ArchiveFile afile =
-        new ArchiveFile.noCompress(name, bytes.lengthInBytes, bytes);
+        ArchiveFile.noCompress(name, bytes.lengthInBytes, bytes);
     archive.addFile(afile);
 
-    var zip_data = new ZipEncoder().encode(archive);
+    var zip_data = ZipEncoder().encode(archive);
 
-    new File(p.join(testDirPath, 'out/uncompressed.zip'))
+    File(p.join(testDirPath, 'out/uncompressed.zip'))
       ..createSync(recursive: true)
       ..writeAsBytesSync(zip_data);
 
-    var arc = new ZipDecoder().decodeBytes(zip_data, verify: true);
+    var arc = ZipDecoder().decodeBytes(zip_data, verify: true);
     expect(arc.numberOfFiles(), equals(1));
     var arcData = arc.fileData(0);
     expect(arcData.length, equals(bdata.length));
@@ -286,10 +286,10 @@ void main() {
   });
 
   test('password', () {
-    var file = new File(p.join(testDirPath, 'res/zip/password_zipcrypto.zip'));
+    var file = File(p.join(testDirPath, 'res/zip/password_zipcrypto.zip'));
     var bytes = file.readAsBytesSync();
 
-    var b = new File(p.join(testDirPath, 'res/zip/hello.txt'));
+    var b = File(p.join(testDirPath, 'res/zip/hello.txt'));
     List<int> b_bytes = b.readAsBytesSync();
 
     Archive archive = zipDecoder.decodeBytes(bytes, verify: true, password: "test1234");
@@ -300,19 +300,19 @@ void main() {
       if (archive.fileName(i) == 'hello.txt') {
         compare_bytes(z_bytes, b_bytes);
       } else {
-        throw new TestFailure('Invalid file found');
+        throw TestFailure('Invalid file found');
       }
     }
   });
 
   test('decode/encode', () {
-    var file = new File(p.join(testDirPath, 'res/test.zip'));
+    var file = File(p.join(testDirPath, 'res/test.zip'));
     var bytes = file.readAsBytesSync();
 
     Archive archive = zipDecoder.decodeBytes(bytes, verify: true);
     expect(archive.numberOfFiles(), equals(2));
 
-    var b = new File(p.join(testDirPath, 'res/cat.jpg'));
+    var b = File(p.join(testDirPath, 'res/cat.jpg'));
     List<int> b_bytes = b.readAsBytesSync();
     List<int> a_bytes = a_txt.codeUnits;
 
@@ -323,14 +323,14 @@ void main() {
       } else if (archive.fileName(i) == 'cat.jpg') {
         compare_bytes(z_bytes, b_bytes);
       } else {
-        throw new TestFailure('Invalid file found');
+        throw TestFailure('Invalid file found');
       }
     }
 
     // Encode the archive we just decoded
     List<int> zipped = zipEncoder.encode(archive);
 
-    File f = new File(p.join(testDirPath, 'out/test.zip'));
+    File f = File(p.join(testDirPath, 'out/test.zip'));
     f.createSync(recursive: true);
     f.writeAsBytesSync(zipped);
 
@@ -346,7 +346,7 @@ void main() {
 
   for (Map z in zipTests) {
     test('unzip ${z['Name']}', () {
-      var file = new File(p.join(testDirPath, z['Name']));
+      var file = File(p.join(testDirPath, z['Name']));
       var bytes = file.readAsBytesSync();
 
       Archive archive = zipDecoder.decodeBytes(bytes, verify: true);

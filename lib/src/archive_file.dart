@@ -31,9 +31,9 @@ class ArchiveFile {
   ArchiveFile(this.name, this.size, content, [this._compressionType = STORE]) {
     if (content is List<int>) {
       _content = content;
-      _rawContent = new InputStream(_content);
+      _rawContent = InputStream(_content);
     } else if (content is InputStream) {
-      _rawContent = new InputStream.from(content);
+      _rawContent = InputStream.from(content);
     }
   }
 
@@ -41,9 +41,9 @@ class ArchiveFile {
     compress = false;
     if (content is List<int>) {
       _content = content;
-      _rawContent = new InputStream(_content);
+      _rawContent = InputStream(_content);
     } else if (content is InputStream) {
-      _rawContent = new InputStream.from(content);
+      _rawContent = InputStream.from(content);
     }
   }
 
@@ -66,7 +66,7 @@ class ArchiveFile {
   void decompress() {
     if (_content == null && _rawContent != null) {
       if (_compressionType == DEFLATE) {
-        _content = new Inflate.buffer(_rawContent, size).getBytes();
+        _content = Inflate.buffer(_rawContent, size).getBytes();
       } else {
         _content = _rawContent.toUint8List();
       }

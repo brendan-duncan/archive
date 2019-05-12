@@ -22,8 +22,8 @@ class Deflate {
 
   Deflate(List<int> bytes,
       {int level = DEFAULT_COMPRESSION, int flush = FINISH, dynamic output})
-      : _input = new InputStream(bytes),
-        _output = output != null ? output : new OutputStream() {
+      : _input = InputStream(bytes),
+        _output = output != null ? output : OutputStream() {
     crc32 = 0;
     _init(level);
     _deflate(flush);
@@ -31,7 +31,7 @@ class Deflate {
 
   Deflate.buffer(this._input,
       {int level = DEFAULT_COMPRESSION, int flush = FINISH, dynamic output})
-      : _output = output != null ? output : new OutputStream() {
+      : _output = output != null ? output : OutputStream() {
     crc32 = 0;
     _init(level);
     _deflate(flush);
@@ -58,7 +58,7 @@ class Deflate {
 
   /// Add more data to be deflated.
   void addBytes(List<int> bytes, {int flush = FINISH}) {
-    _input = new InputStream(bytes);
+    _input = InputStream(bytes);
     _deflate(flush);
   }
 
@@ -92,12 +92,12 @@ class Deflate {
         level > 9 ||
         strategy < 0 ||
         strategy > Z_HUFFMAN_ONLY) {
-      throw new ArchiveException('Invalid Deflate parameter');
+      throw ArchiveException('Invalid Deflate parameter');
     }
 
-    _dynamicLengthTree = new Uint16List(HEAP_SIZE * 2);
-    _dynamicDistTree = new Uint16List((2 * D_CODES + 1) * 2);
-    _bitLengthTree = new Uint16List((2 * BL_CODES + 1) * 2);
+    _dynamicLengthTree = Uint16List(HEAP_SIZE * 2);
+    _dynamicDistTree = Uint16List((2 * D_CODES + 1) * 2);
+    _bitLengthTree = Uint16List((2 * BL_CODES + 1) * 2);
 
     _windowBits = windowBits;
     _windowSize = 1 << _windowBits;
@@ -108,15 +108,15 @@ class Deflate {
     _hashMask = _hashSize - 1;
     _hashShift = ((_hashBits + MIN_MATCH - 1) ~/ MIN_MATCH);
 
-    _window = new Uint8List(_windowSize * 2);
-    _prev = new Uint16List(_windowSize);
-    _head = new Uint16List(_hashSize);
+    _window = Uint8List(_windowSize * 2);
+    _prev = Uint16List(_windowSize);
+    _head = Uint16List(_hashSize);
 
     _litBufferSize = 1 << (memLevel + 6); // 16K elements by default
 
     // We overlay pending_buf and d_buf+l_buf. This works since the average
     // output size for (length,distance) codes is <= 24 bits.
-    _pendingBuffer = new Uint8List(_litBufferSize * 4);
+    _pendingBuffer = Uint8List(_litBufferSize * 4);
     _pendingBufferSize = _litBufferSize * 4;
 
     _dbuf = _litBufferSize;
@@ -143,7 +143,7 @@ class Deflate {
   /// Compress the current input buffer.
   int _deflate(int flush) {
     if (flush > FINISH || flush < 0) {
-      throw new ArchiveException('Invalid Deflate Parameter');
+      throw ArchiveException('Invalid Deflate Parameter');
     }
 
     _lastFlush = flush;
@@ -156,7 +156,7 @@ class Deflate {
       _flushPending();
     }
 
-    // Start a new block or continue the current one.
+    // Start a block or continue the current one.
     if (!_input.isEOS ||
         _lookAhead != 0 ||
         (flush != NO_FLUSH && _status != FINISH_STATE)) {
@@ -232,7 +232,7 @@ class Deflate {
     _insertHash = 0;
   }
 
-  /// Initialize the tree data structures for a new zlib stream.
+  /// Initialize the tree data structures for a zlib stream.
   void _trInit() {
     _lDesc.dynamicTree = _dynamicLengthTree;
     _lDesc.staticDesc = _StaticTree.staticLDesc;
@@ -671,7 +671,7 @@ class Deflate {
 
   /// Copy without compression as much as possible from the input stream, return
   /// the current block state.
-  /// This function does not insert new strings in the dictionary since
+  /// This function does not insert strings in the dictionary since
   /// uncompressible data is probably not useful. This function is used
   /// only for the level=0 compression option.
   /// NOTE: this function should be optimized to avoid extra copying from
@@ -878,7 +878,7 @@ class Deflate {
   /// Compress as much as possible from the input stream, return the current
   /// block state.
   /// This function does not perform lazy evaluation of matches and inserts
-  /// new strings in the dictionary only for unmatched strings or for short
+  /// strings in the dictionary only for unmatched strings or for short
   /// matches. It is used only for the fast compression options.
   int _deflateFast(int flush) {
     int hash_head = 0; // head of the hash chain
@@ -931,7 +931,7 @@ class Deflate {
 
         _lookAhead -= _matchLength;
 
-        // Insert new strings in the hash table only if the match length
+        // Insert strings in the hash table only if the match length
         // is not too large. This saves time but degrades compression.
         if (_matchLength <= _config.maxLazy && _lookAhead >= MIN_MATCH) {
           _matchLength--; // string at strstart already in hash table
@@ -1194,7 +1194,7 @@ class Deflate {
     return _lookAhead;
   }
 
-  /// Read a new buffer from the current input stream, update the adler32
+  /// Read a buffer from the current input stream, update the adler32
   /// and total number of bytes read.  All deflate() input goes through
   /// this function so some applications may wish to modify it to avoid
   /// allocating a large strm->next_in buffer and copying from it.
@@ -1240,26 +1240,26 @@ class Deflate {
     switch (level) {
       //                             good  lazy  nice  chain
       case 0:
-        return new _DeflaterConfig(0, 0, 0, 0, STORED);
+        return _DeflaterConfig(0, 0, 0, 0, STORED);
       case 1:
-        return new _DeflaterConfig(4, 4, 8, 4, FAST);
+        return _DeflaterConfig(4, 4, 8, 4, FAST);
       case 2:
-        return new _DeflaterConfig(4, 5, 16, 8, FAST);
+        return _DeflaterConfig(4, 5, 16, 8, FAST);
       case 3:
-        return new _DeflaterConfig(4, 6, 32, 32, FAST);
+        return _DeflaterConfig(4, 6, 32, 32, FAST);
 
       case 4:
-        return new _DeflaterConfig(4, 4, 16, 16, SLOW);
+        return _DeflaterConfig(4, 4, 16, 16, SLOW);
       case 5:
-        return new _DeflaterConfig(8, 16, 32, 32, SLOW);
+        return _DeflaterConfig(8, 16, 32, 32, SLOW);
       case 6:
-        return new _DeflaterConfig(8, 16, 128, 128, SLOW);
+        return _DeflaterConfig(8, 16, 128, 128, SLOW);
       case 7:
-        return new _DeflaterConfig(8, 32, 128, 256, SLOW);
+        return _DeflaterConfig(8, 32, 128, 256, SLOW);
       case 8:
-        return new _DeflaterConfig(32, 128, 258, 1024, SLOW);
+        return _DeflaterConfig(32, 128, 258, 1024, SLOW);
       case 9:
-        return new _DeflaterConfig(32, 258, 258, 4096, SLOW);
+        return _DeflaterConfig(32, 258, 258, 4096, SLOW);
     }
     return null;
   }
@@ -1442,7 +1442,7 @@ class Deflate {
   /// are discarded. This is used in the lazy match evaluation.
   int _prevLength;
 
-  // Insert new strings in the hash table only if the match length is not
+  // Insert strings in the hash table only if the match length is not
   // greater than this length. This saves time but degrades compression.
   // max_insert_length is used only for compression levels <= 3.
 
@@ -1462,19 +1462,19 @@ class Deflate {
   Uint16List _bitLengthTree;
 
   /// desc for literal tree
-  _HuffmanTree _lDesc = new _HuffmanTree();
+  _HuffmanTree _lDesc = _HuffmanTree();
 
   /// desc for distance tree
-  _HuffmanTree _dDesc = new _HuffmanTree();
+  _HuffmanTree _dDesc = _HuffmanTree();
 
   /// desc for bit length tree
-  _HuffmanTree _blDesc = new _HuffmanTree();
+  _HuffmanTree _blDesc = _HuffmanTree();
 
   /// number of codes at each bit length for an optimal tree
-  Uint16List _bitLengthCount = new Uint16List(MAX_BITS + 1);
+  Uint16List _bitLengthCount = Uint16List(MAX_BITS + 1);
 
   /// heap used to build the Huffman trees
-  Uint32List _heap = new Uint32List(2 * L_CODES + 1);
+  Uint32List _heap = Uint32List(2 * L_CODES + 1);
 
   /// number of elements in the heap
   int _heapLen;
@@ -1485,7 +1485,7 @@ class Deflate {
   // The same heap array is used to build all trees.
 
   /// Depth of each subtree used as tie breaker for trees of equal frequency
-  Uint8List _depth = new Uint8List(2 * L_CODES + 1);
+  Uint8List _depth = Uint8List(2 * L_CODES + 1);
 
   /// index for literals or lengths
   int _lbuf;
@@ -1500,7 +1500,7 @@ class Deflate {
   ///   - if compression is not successful for a file smaller than 64K, we can
   ///     even emit a stored file instead of a stored block (saving 5 bytes).
   ///     This is applicable only for zip (not gzip or zlib).
-  ///   - creating new Huffman trees less frequently may not provide fast
+  ///   - creating Huffman trees less frequently may not provide fast
   ///     adaptation to changes in the input data statistics. (Take for
   ///     example a binary file with poorly compressible code followed by
   ///     a highly compressible string table.) Smaller buffer sizes give
@@ -2658,7 +2658,7 @@ class _HuffmanTree {
     int elems = staticDesc.numElements;
     int n, m; // iterate over heap elements
     int max_code = -1; // largest code with non zero frequency
-    int node; // new node being created
+    int node; // node being created
 
     // Construct the initial heap, with least frequent element in
     // heap[1]. The sons of heap[n] are heap[2*n] and heap[2*n+1].
@@ -2712,12 +2712,12 @@ class _HuffmanTree {
       s._heap[--s._heapMax] = n; // keep the nodes sorted by frequency
       s._heap[--s._heapMax] = m;
 
-      // Create a new node father of n and m
+      // Create a node father of n and m
       tree[node * 2] = (tree[n * 2] + tree[m * 2]);
       s._depth[node] = (_max(s._depth[n], s._depth[m]) + 1);
       tree[n * 2 + 1] = tree[m * 2 + 1] = node;
 
-      // and insert the new node in the heap
+      // and insert the node in the heap
       s._heap[1] = node++;
       s._pqdownheap(tree, 1);
     } while (s._heapLen >= 2);
@@ -2742,7 +2742,7 @@ class _HuffmanTree {
   /// OUT assertion: the field code is set for all tree elements of non
   ///     zero code length.
   static void _genCodes(Uint16List tree, int max_code, Uint16List bl_count) {
-    Uint16List next_code = new Uint16List(MAX_BITS + 1);
+    Uint16List next_code = Uint16List(MAX_BITS + 1);
     int code = 0; // running code value
     int bits; // bit index
     int n; // code index
@@ -3441,13 +3441,13 @@ class _StaticTree {
     5
   ];
 
-  static _StaticTree staticLDesc = new _StaticTree(
+  static _StaticTree staticLDesc = _StaticTree(
       STATIC_LTREE, _HuffmanTree.EXTRA_L_BITS, LITERALS + 1, L_CODES, MAX_BITS);
 
-  static _StaticTree staticDDesc = new _StaticTree(
+  static _StaticTree staticDDesc = _StaticTree(
       STATIC_DTREE, _HuffmanTree.EXTRA_D_BITS, 0, D_CODES, MAX_BITS);
 
-  static _StaticTree staticBlDesc = new _StaticTree(
+  static _StaticTree staticBlDesc = _StaticTree(
       null, _HuffmanTree.EXTRA_BL_BITS, 0, BL_CODES, MAX_BL_BITS);
 
   List<int> staticTree; // static tree or null

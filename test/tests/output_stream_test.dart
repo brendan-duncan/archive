@@ -3,13 +3,13 @@ import 'package:test/test.dart';
 
 void main() {
   test('empty', () {
-    OutputStream out = new OutputStream();
+    OutputStream out = OutputStream();
     List<int> bytes = out.getBytes();
     expect(bytes.length, equals(0));
   });
 
   test('writeByte', () {
-    OutputStream out = new OutputStream();
+    OutputStream out = OutputStream();
     for (int i = 0; i < 10000; ++i) {
       out.writeByte(i % 256);
     }
@@ -21,7 +21,7 @@ void main() {
   });
 
   test('writeUint16', () {
-    OutputStream out = new OutputStream();
+    OutputStream out = OutputStream();
 
     const int LEN = 0xffff;
     for (int i = 0; i < LEN; ++i) {
@@ -31,7 +31,7 @@ void main() {
     List<int> bytes = out.getBytes();
     expect(bytes.length, equals(LEN * 2));
 
-    InputStream input = new InputStream(bytes);
+    InputStream input = InputStream(bytes);
     for (int i = 0; i < LEN; ++i) {
       int x = input.readUint16();
       expect(x, equals(i));
@@ -39,7 +39,7 @@ void main() {
   });
 
   test('writeUint32', () {
-    OutputStream out = new OutputStream();
+    OutputStream out = OutputStream();
 
     const int LEN = 0xffff;
     for (int i = 0; i < LEN; ++i) {
@@ -49,7 +49,7 @@ void main() {
     List<int> bytes = out.getBytes();
     expect(bytes.length, equals(LEN * 4));
 
-    InputStream input = new InputStream(bytes);
+    InputStream input = InputStream(bytes);
     for (int i = 0; i < LEN; ++i) {
       int x = input.readUint32();
       expect(x, equals(0xffff + i));

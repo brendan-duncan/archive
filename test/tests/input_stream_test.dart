@@ -3,14 +3,14 @@ import 'package:test/test.dart';
 
 void main() {
   test('empty', () {
-    InputStream input = new InputStream([]);
+    InputStream input = InputStream([]);
     expect(input.length, equals(0));
     expect(input.isEOS, equals(true));
   });
 
   test('readByte', () {
     const List<int> data = const [0xaa, 0xbb, 0xcc];
-    InputStream input = new InputStream(data);
+    InputStream input = InputStream(data);
     expect(input.length, equals(3));
     expect(input.readByte(), equals(0xaa));
     expect(input.readByte(), equals(0xbb));
@@ -21,7 +21,7 @@ void main() {
   test('peakBytes', () {
     const List<int> data = const [0xaa, 0xbb, 0xcc];
 
-    InputStream input = new InputStream(data);
+    InputStream input = InputStream(data);
     expect(input.readByte(), equals(0xaa));
 
     InputStream bytes = input.peekBytes(2);
@@ -34,7 +34,7 @@ void main() {
 
   test('skip', () {
     const List<int> data = const [0xaa, 0xbb, 0xcc];
-    InputStream input = new InputStream(data);
+    InputStream input = InputStream(data);
     expect(input.length, equals(3));
     expect(input.readByte(), equals(0xaa));
     input.skip(1);
@@ -44,7 +44,7 @@ void main() {
 
   test('subset', () {
     const List<int> data = const [0xaa, 0xbb, 0xcc, 0xdd, 0xee];
-    InputStream input = new InputStream(data);
+    InputStream input = InputStream(data);
     expect(input.length, equals(5));
     expect(input.readByte(), equals(0xaa));
 
@@ -63,7 +63,7 @@ void main() {
 
   test('readString', () {
     const List<int> data = const [84, 101, 115, 116, 0];
-    InputStream input = new InputStream(data);
+    InputStream input = InputStream(data);
     String s = input.readString();
     expect(s, equals('Test'));
     expect(input.isEOS, equals(true));
@@ -78,7 +78,7 @@ void main() {
 
   test('readBytes', () {
     const List<int> data = const [84, 101, 115, 116, 0];
-    InputStream input = new InputStream(data);
+    InputStream input = InputStream(data);
     InputStream b = input.readBytes(3);
     expect(b.length, equals(3));
     expect(b[0], equals(84));
@@ -92,33 +92,33 @@ void main() {
   test('readUint16', () {
     const List<int> data = const [0xaa, 0xbb, 0xcc, 0xdd, 0xee];
     // Little endian (by default)
-    InputStream input = new InputStream(data);
+    InputStream input = InputStream(data);
     expect(input.readUint16(), equals(0xbbaa));
 
     // Big endian
-    InputStream i2 = new InputStream(data, byteOrder: BIG_ENDIAN);
+    InputStream i2 = InputStream(data, byteOrder: BIG_ENDIAN);
     expect(i2.readUint16(), equals(0xaabb));
   });
 
   test('readUint24', () {
     const List<int> data = const [0xaa, 0xbb, 0xcc, 0xdd, 0xee];
     // Little endian (by default)
-    InputStream input = new InputStream(data);
+    InputStream input = InputStream(data);
     expect(input.readUint24(), equals(0xccbbaa));
 
     // Big endian
-    InputStream i2 = new InputStream(data, byteOrder: BIG_ENDIAN);
+    InputStream i2 = InputStream(data, byteOrder: BIG_ENDIAN);
     expect(i2.readUint24(), equals(0xaabbcc));
   });
 
   test('readUint32', () {
     const List<int> data = const [0xaa, 0xbb, 0xcc, 0xdd, 0xee];
     // Little endian (by default)
-    InputStream input = new InputStream(data);
+    InputStream input = InputStream(data);
     expect(input.readUint32(), equals(0xddccbbaa));
 
     // Big endian
-    InputStream i2 = new InputStream(data, byteOrder: BIG_ENDIAN);
+    InputStream i2 = InputStream(data, byteOrder: BIG_ENDIAN);
     expect(i2.readUint32(), equals(0xaabbccdd));
   });
 
@@ -134,11 +134,11 @@ void main() {
       0xdd
     ];
     // Little endian (by default)
-    InputStream input = new InputStream(data);
+    InputStream input = InputStream(data);
     expect(input.readUint64(), equals(0xddeeffeeddccbbaa));
 
     // Big endian
-    InputStream i2 = new InputStream(data, byteOrder: BIG_ENDIAN);
+    InputStream i2 = InputStream(data, byteOrder: BIG_ENDIAN);
     expect(i2.readUint64(), equals(0xaabbccddeeffeedd));
   });
 }

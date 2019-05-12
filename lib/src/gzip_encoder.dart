@@ -28,7 +28,7 @@ class GZipEncoder {
   static const int OS_UNKNOWN = 255;
 
   List<int> encode(data, {int level, dynamic output}) {
-    dynamic output_stream = output != null ? output : new OutputStream();
+    dynamic output_stream = output != null ? output : OutputStream();
 
     // The GZip format has the following structure:
     // Offset   Length   Contents
@@ -75,7 +75,7 @@ class GZipEncoder {
     output_stream.writeByte(DEFLATE);
 
     int flags = 0;
-    int fileModTime = new DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    int fileModTime = DateTime.now().millisecondsSinceEpoch ~/ 1000;
     int extraFlags = 0;
     int osType = OS_UNKNOWN;
 
@@ -86,9 +86,9 @@ class GZipEncoder {
 
     Deflate deflate;
     if (data is List<int>) {
-      deflate = new Deflate(data, level: level, output: output_stream);
+      deflate = Deflate(data, level: level, output: output_stream);
     } else {
-      deflate = new Deflate.buffer(data, level: level, output: output_stream);
+      deflate = Deflate.buffer(data, level: level, output: output_stream);
     }
 
     if (!(output_stream is OutputStream)) {

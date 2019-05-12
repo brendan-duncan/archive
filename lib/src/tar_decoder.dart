@@ -9,13 +9,13 @@ class TarDecoder {
 
   Archive decodeBytes(List<int> data,
       {bool verify = false, bool storeData = true}) {
-    return decodeBuffer(new InputStream(data),
+    return decodeBuffer(InputStream(data),
         verify: verify, storeData: storeData);
   }
 
   Archive decodeBuffer(dynamic input,
       {bool verify = false, bool storeData = true}) {
-    Archive archive = new Archive();
+    Archive archive = Archive();
     files.clear();
 
     String nextName;
@@ -28,7 +28,7 @@ class TarDecoder {
         break;
       }
 
-      TarFile tf = new TarFile.read(input, storeData: storeData);
+      TarFile tf = TarFile.read(input, storeData: storeData);
       // GNU tar puts filenames in files when they exceed tar's native length.
       if (tf.filename == '././@LongLink') {
         nextName = tf.rawContent.readString();
@@ -48,7 +48,7 @@ class TarDecoder {
       } else {
         files.add(tf);
 
-        ArchiveFile file = new ArchiveFile(
+        ArchiveFile file = ArchiveFile(
             nextName != null ? nextName : tf.filename,
             tf.fileSize,
             tf.rawContent);

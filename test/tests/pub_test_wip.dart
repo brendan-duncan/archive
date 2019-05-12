@@ -6,7 +6,7 @@ import 'package:test/test.dart';
 import 'test_utils.dart';
 
 void extract7z(List urls) {
-  io.File script = new io.File(io.Platform.script.toFilePath());
+  io.File script = io.File(io.Platform.script.toFilePath());
   String path = script.parent.path;
 
   for (String url in urls) {
@@ -16,7 +16,7 @@ void extract7z(List urls) {
     String outputPath = path + '\\out\\' + filename + '.7z';
     print('$inputPath : $outputPath');
 
-    io.Directory outDir = new io.Directory(outputPath);
+    io.Directory outDir = io.Directory(outputPath);
     if (!outDir.existsSync()) {
       outDir.createSync(recursive: true);
     }
@@ -26,19 +26,19 @@ void extract7z(List urls) {
 
     String tar_filename = filename.substring(0, filename.lastIndexOf('.'));
     String tar_path = '$outputPath\\$tar_filename';
-    if (!new io.File(tar_path).existsSync()) {
+    if (!io.File(tar_path).existsSync()) {
       tar_path = '$outputPath\\intermediate.tar';
     }
     print('TAR $tar_path');
 
     io.Process.runSync('7z', ['x', '-y', '-o${outputPath}', '$tar_path']);
 
-    new io.File(tar_path).deleteSync();
+    io.File(tar_path).deleteSync();
   }
 }
 
 downloadUrls(io.HttpClient client, List urls) async {
-  io.File script = new io.File(io.Platform.script.toFilePath());
+  io.File script = io.File(io.Platform.script.toFilePath());
   String path = script.parent.path;
 
   List downloads = [];
@@ -47,11 +47,11 @@ downloadUrls(io.HttpClient client, List urls) async {
 
     String filename = url.split('/').last;
 
-    var download = new io.HttpClient()
+    var download = io.HttpClient()
         .getUrl(Uri.parse(url))
         .then((io.HttpClientRequest request) => request.close())
         .then((io.HttpClientResponse response) =>
-            response.pipe(new io.File(path + '/out/' + filename).openWrite()));
+            response.pipe(io.File(path + '/out/' + filename).openWrite()));
 
     downloads.add(download);
   }
@@ -62,7 +62,7 @@ downloadUrls(io.HttpClient client, List urls) async {
 }
 
 void extractDart(List urls) {
-  io.File script = new io.File(io.Platform.script.toFilePath());
+  io.File script = io.File(io.Platform.script.toFilePath());
   String path = script.parent.path;
 
   for (String url in urls) {
@@ -74,15 +74,15 @@ void extractDart(List urls) {
 
     print('EXTRACTING $inputPath');
 
-    io.File fp = new io.File(path + '/out/' + filename);
+    io.File fp = io.File(path + '/out/' + filename);
     List<int> data = fp.readAsBytesSync();
 
-    TarDecoder tarArchive = new TarDecoder();
-    tarArchive.decodeBytes(new GZipDecoder().decodeBytes(data));
+    TarDecoder tarArchive = TarDecoder();
+    tarArchive.decodeBytes(GZipDecoder().decodeBytes(data));
 
     print('EXTRACTING $filename');
 
-    io.Directory outDir = new io.Directory(outputPath);
+    io.Directory outDir = io.Directory(outputPath);
     if (!outDir.existsSync()) {
       outDir.createSync(recursive: true);
     }
@@ -94,7 +94,7 @@ void extractDart(List urls) {
       String filename = file.filename;
       try {
         io.File f =
-            new io.File('${outputPath}${io.Platform.pathSeparator}${filename}');
+            io.File('${outputPath}${io.Platform.pathSeparator}${filename}');
         f.parent.createSync(recursive: true);
         f.writeAsBytesSync(file.content);
       } catch (e) {
@@ -105,7 +105,7 @@ void extractDart(List urls) {
 }
 
 void compareDirs(List urls) {
-  io.File script = new io.File(io.Platform.script.toFilePath());
+  io.File script = io.File(io.Platform.script.toFilePath());
   String path = script.parent.path;
 
   for (String url in urls) {
@@ -115,9 +115,9 @@ void compareDirs(List urls) {
     print('$outPathDart : $outPath7z');
 
     List files7z = [];
-    ListDir(files7z, new io.Directory(outPath7z));
+    ListDir(files7z, io.Directory(outPath7z));
     List filesDart = [];
-    ListDir(filesDart, new io.Directory(outPathDart));
+    ListDir(filesDart, io.Directory(outPathDart));
 
     expect(filesDart.length, files7z.length);
     //print("#${filesDart.length} : ${files7z.length}");
@@ -143,7 +143,7 @@ void definePubTests() {
     io.HttpClient client;
 
     setUpAll(() {
-      client = new io.HttpClient();
+      client = io.HttpClient();
     });
 
     tearDownAll(() {
@@ -151,9 +151,9 @@ void definePubTests() {
     });
 
     test('PUB ARCHIVES', () async {
-      io.File script = new io.File(io.Platform.script.toFilePath());
+      io.File script = io.File(io.Platform.script.toFilePath());
       String path = script.parent.path;
-      io.File fp = new io.File(path + '/res/tarurls.txt');
+      io.File fp = io.File(path + '/res/tarurls.txt');
       List urls = fp.readAsLinesSync();
 
       await downloadUrls(client, urls);

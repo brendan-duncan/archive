@@ -4,7 +4,7 @@ import 'package:archive/archive.dart';
 import 'package:test/test.dart';
 
 void main() {
-  List<int> buffer = new List<int>(0xfffff);
+  List<int> buffer = List<int>(0xfffff);
   for (int i = 0; i < buffer.length; ++i) {
     buffer[i] = i % 256;
   }
@@ -12,15 +12,15 @@ void main() {
   test('stream/NO_COMPRESSION', () {
     // compress the buffer (assumption: deflate works correctly).
     List<int> deflated =
-        new Deflate(buffer, level: Deflate.NO_COMPRESSION).getBytes();
+        Deflate(buffer, level: Deflate.NO_COMPRESSION).getBytes();
 
     // re-cast the deflated bytes as a Uint8List (which is it's native type).
     // Do this so we can use use Uint8List.view to section off chunks of the
     // data to test streamed inflation.
     Uint8List deflatedBytes = deflated as Uint8List;
 
-    // Create a new stream inflator.
-    Inflate inflate = new Inflate.stream();
+    // Create a stream inflator.
+    Inflate inflate = Inflate.stream();
 
     int bi = 0;
 
@@ -32,10 +32,10 @@ void main() {
       // Create a view of the input data for the bytes we're currently
       // streaming.
       Uint8List streamBytes =
-          new Uint8List.view(deflatedBytes.buffer, streamOffset, streamSize);
+          Uint8List.view(deflatedBytes.buffer, streamOffset, streamSize);
       streamOffset += streamBytes.length;
 
-      // Set the new bytes as the stream input.
+      // Set the bytes as the stream input.
       inflate.streamInput(streamBytes);
 
       // Inflate all of blocks available from the stream input.
@@ -51,7 +51,7 @@ void main() {
   });
 
   test('git inflate block', () {
-    List<int> output = new ZLibDecoder().decodeBytes(gitInflateInput);
+    List<int> output = ZLibDecoder().decodeBytes(gitInflateInput);
     expect(output, equals(gitExpectedOutput));
   });
 }

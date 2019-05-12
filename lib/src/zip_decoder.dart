@@ -12,14 +12,14 @@ class ZipDecoder {
   ZipDirectory directory;
 
   Archive decodeBytes(List<int> data, {bool verify = false, String password}) {
-    return decodeBuffer(new InputStream(data),
+    return decodeBuffer(InputStream(data),
         verify: verify, password: password);
   }
 
   Archive decodeBuffer(InputStream input,
       {bool verify = false, String password}) {
-    directory = new ZipDirectory.read(input, password: password);
-    Archive archive = new Archive();
+    directory = ZipDirectory.read(input, password: password);
+    Archive archive = Archive();
 
     for (ZipFileHeader zfh in directory.fileHeaders) {
       ZipFile zf = zfh.file;
@@ -31,12 +31,12 @@ class ZipDecoder {
       if (verify) {
         int computedCrc = getCrc32(zf.content);
         if (computedCrc != zf.crc32) {
-          throw new ArchiveException('Invalid CRC for file in archive.');
+          throw ArchiveException('Invalid CRC for file in archive.');
         }
       }
 
       var content = zf.rawContent;
-      var file = new ArchiveFile(
+      var file = ArchiveFile(
           zf.filename, zf.uncompressedSize, content, zf.compressionMethod);
       file.mode = mode >> 16;
 

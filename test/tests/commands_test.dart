@@ -28,15 +28,15 @@ void main() {
             io.Directory.systemTemp.createTempSync('dart_archive');
         String tar_path =
             '${temp_dir.path}${io.Platform.pathSeparator}temp.tar';
-        InputFileStream input = new InputFileStream(inputPath);
-        OutputFileStream output = new OutputFileStream(tar_path);
-        new GZipDecoder().decodeStream(input, output);
+        InputFileStream input = InputFileStream(inputPath);
+        OutputFileStream output = OutputFileStream(tar_path);
+        GZipDecoder().decodeStream(input, output);
         input.close();
         output.close();
 
-        List<int> a_bytes = new io.File(tar_path).readAsBytesSync();
+        List<int> a_bytes = io.File(tar_path).readAsBytesSync();
         List<int> b_bytes =
-            new io.File(p.join(testDirPath, 'res/test2.tar')).readAsBytesSync();
+            io.File(p.join(testDirPath, 'res/test2.tar')).readAsBytesSync();
 
         expect(a_bytes.length, equals(b_bytes.length));
         bool same = true;
@@ -59,7 +59,7 @@ void main() {
   test('tar create', () {
     io.Directory dir = io.Directory.systemTemp.createTempSync('foo');
     io.File file =
-        new io.File('${dir.path}${io.Platform.pathSeparator}foo.txt');
+        io.File('${dir.path}${io.Platform.pathSeparator}foo.txt');
     file.writeAsStringSync('foo bar');
 
     try {

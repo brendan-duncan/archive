@@ -27,15 +27,15 @@ class TarFileEncoder {
 
     // Encode a directory from disk to disk, no memory
     open(tar_path);
-    addDirectory(new Directory(dirPath));
+    addDirectory(Directory(dirPath));
     close();
 
     if (compression == GZIP) {
-      InputFileStream input = new InputFileStream(tar_path);
-      OutputFileStream output = new OutputFileStream(tgz_path);
-      new GZipEncoder().encode(input, output: output);
+      InputFileStream input = InputFileStream(tar_path);
+      OutputFileStream output = OutputFileStream(tgz_path);
+      GZipEncoder().encode(input, output: output);
       input.close();
-      new File(input.path).deleteSync();
+      File(input.path).deleteSync();
     }
   }
 
@@ -43,8 +43,8 @@ class TarFileEncoder {
 
   void create(String tar_path) {
     this.tar_path = tar_path;
-    _output = new OutputFileStream(tar_path);
-    _encoder = new TarEncoder();
+    _output = OutputFileStream(tar_path);
+    _encoder = TarEncoder();
     _encoder.start(_output);
   }
 
@@ -63,8 +63,8 @@ class TarFileEncoder {
   }
 
   void addFile(File file, [String filename]) {
-    InputFileStream file_stream = new InputFileStream.file(file);
-    ArchiveFile f = new ArchiveFile.stream(
+    InputFileStream file_stream = InputFileStream.file(file);
+    ArchiveFile f = ArchiveFile.stream(
         filename == null ? file.path : filename,
         file.lengthSync(),
         file_stream);

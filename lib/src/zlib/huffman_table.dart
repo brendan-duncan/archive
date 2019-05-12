@@ -19,7 +19,7 @@ class HuffmanTable {
     }
 
     int size = 1 << maxCodeLength;
-    table = new Uint32List(size);
+    table = Uint32List(size);
 
     for (int bitLength = 1, code = 0, skip = 2; bitLength <= maxCodeLength;) {
       for (int i = 0; i < listSize; ++i) {

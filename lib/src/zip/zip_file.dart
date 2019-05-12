@@ -28,7 +28,7 @@ class ZipFile {
     if (input != null) {
       signature = input.readUint32();
       if (signature != SIGNATURE) {
-        throw new ArchiveException('Invalid Zip Signature');
+        throw ArchiveException('Invalid Zip Signature');
       }
 
       version = input.readUint16();
@@ -91,7 +91,7 @@ class ZipFile {
       }
 
       if (compressionMethod == DEFLATE) {
-        _content = new Inflate.buffer(_rawContent, uncompressedSize).getBytes();
+        _content = Inflate.buffer(_rawContent, uncompressedSize).getBytes();
         compressionMethod = STORE;
       } else {
         _content = _rawContent.toUint8List();
@@ -147,7 +147,7 @@ class ZipFile {
       _updateKeys(temp);
       bytes[i] = temp;
     }
-    return new InputStream(bytes);
+    return InputStream(bytes);
   }
 
   /// Content of the file.  If compressionMethod is not STORE, then it is

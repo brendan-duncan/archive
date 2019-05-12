@@ -20,8 +20,8 @@ class InputFileStream extends InputStreamBase {
   InputFileStream(this.path,
       {this.byteOrder = LITTLE_ENDIAN, int bufferSize = _kDefaultBufferSize}) {
     _maxBufferSize = bufferSize;
-    _buffer = new Uint8List(_maxBufferSize);
-    _file = new File(path).openSync();
+    _buffer = Uint8List(_maxBufferSize);
+    _file = File(path).openSync();
     _fileSize = _file.lengthSync();
 
     _readBuffer();
@@ -30,7 +30,7 @@ class InputFileStream extends InputStreamBase {
   InputFileStream.file(File file,
       {this.byteOrder = LITTLE_ENDIAN, int bufferSize = _kDefaultBufferSize}) {
     _maxBufferSize = bufferSize;
-    _buffer = new Uint8List(_maxBufferSize);
+    _buffer = Uint8List(_maxBufferSize);
     _file = file.openSync();
     _fileSize = _file.lengthSync();
     _readBuffer();
@@ -84,10 +84,10 @@ class InputFileStream extends InputStreamBase {
     int end = _bufferPosition + offset + count;
     if (end > 0 && end < _bufferSize) {
       List<int> bytes = _buffer.sublist(_bufferPosition + offset, end);
-      return new InputStream(bytes);
+      return InputStream(bytes);
     }
 
-    Uint8List bytes = new Uint8List(count);
+    Uint8List bytes = Uint8List(count);
 
     int remaining = _bufferSize - (_bufferPosition + offset);
     if (remaining > 0) {
@@ -98,7 +98,7 @@ class InputFileStream extends InputStreamBase {
     _file.readIntoSync(bytes, remaining, count);
     _file.setPositionSync(_filePosition);
 
-    return new InputStream(bytes);
+    return InputStream(bytes);
   }
 
   void rewind([int count = 1]) {
@@ -242,7 +242,7 @@ class InputFileStream extends InputStreamBase {
 
   InputStream readBytes(int length) {
     if (isEOS) {
-      return InputStream(new List<int>());
+      return InputStream(List<int>());
     }
 
     if (_bufferPosition == _bufferSize) {
@@ -253,7 +253,7 @@ class InputFileStream extends InputStreamBase {
       List<int> bytes =
           _buffer.sublist(_bufferPosition, _bufferPosition + length);
       _bufferPosition += length;
-      return new InputStream(bytes);
+      return InputStream(bytes);
     }
 
     int total_remaining = fileRemaining + _remainingBufferSize;
@@ -261,7 +261,7 @@ class InputFileStream extends InputStreamBase {
       length = total_remaining;
     }
 
-    Uint8List bytes = new Uint8List(length);
+    Uint8List bytes = Uint8List(length);
 
     int offset = 0;
     while (length > 0) {
@@ -283,7 +283,7 @@ class InputFileStream extends InputStreamBase {
       }
     }
 
-    return new InputStream(bytes);
+    return InputStream(bytes);
   }
 
   Uint8List toUint8List() {
@@ -300,20 +300,20 @@ class InputFileStream extends InputStreamBase {
         int c = readByte();
         if (c == 0) {
           return utf8
-              ? new Utf8Decoder().convert(codes)
-              : new String.fromCharCodes(codes);
+              ? Utf8Decoder().convert(codes)
+              : String.fromCharCodes(codes);
         }
         codes.add(c);
       }
-      throw new ArchiveException(
+      throw ArchiveException(
           'EOF reached without finding string terminator');
     }
 
     InputStream s = readBytes(size);
     Uint8List bytes = s.toUint8List();
     String str = utf8
-        ? new Utf8Decoder().convert(bytes)
-        : new String.fromCharCodes(bytes);
+        ? Utf8Decoder().convert(bytes)
+        : String.fromCharCodes(bytes);
     return str;
   }
 

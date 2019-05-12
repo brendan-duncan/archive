@@ -131,7 +131,7 @@ class TarFile {
     // The name, linkname, magic, uname, and gname are null-terminated
     // character strings. All other fields are zero-filled octal numbers in
     // ASCII. Each numeric field of width w contains w minus 1 digits, and a null.
-    OutputStream header = new OutputStream();
+    OutputStream header = OutputStream();
     _writeString(header, filename, 100);
     _writeInt(header, mode, 8);
     _writeInt(header, ownerId, 8);
@@ -142,7 +142,7 @@ class TarFile {
     _writeString(header, typeFlag, 1);
 
     int remainder = 512 - header.length;
-    var nulls = new Uint8List(remainder); // typed arrays default to 0.
+    var nulls = Uint8List(remainder); // typed arrays default to 0.
     header.writeBytes(nulls);
 
     List<int> headerBytes = header.getBytes();
@@ -181,7 +181,7 @@ class TarFile {
       int remainder = fileSize % 512;
       if (remainder != 0) {
         int skiplen = 512 - remainder;
-        nulls = new Uint8List(skiplen); // typed arrays default to 0.
+        nulls = Uint8List(skiplen); // typed arrays default to 0.
         output.writeBytes(nulls);
       }
     }
@@ -208,12 +208,12 @@ class TarFile {
     int r = codes.indexOf(0);
     InputStream s = codes.subset(0, r < 0 ? null : r);
     List<int> b = s.toUint8List();
-    String str = new String.fromCharCodes(b).trim();
+    String str = String.fromCharCodes(b).trim();
     return str;
   }
 
   void _writeString(OutputStream output, String value, int numBytes) {
-    List<int> codes = new List<int>.filled(numBytes, 0);
+    List<int> codes = List<int>.filled(numBytes, 0);
     int end = numBytes < value.length ? numBytes : value.length;
     codes.setRange(0, end, value.codeUnits);
     output.writeBytes(codes);

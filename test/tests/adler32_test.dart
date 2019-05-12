@@ -26,21 +26,21 @@ void main() {
 
   group('adler32 class', () {
     test('empty', () {
-      Adler32 adler = new Adler32();
+      Adler32 adler = Adler32();
       expect(adler.close(), [0, 0, 0, 1]);
     });
     test('1 byte', () {
-      Adler32 adler = new Adler32();
+      Adler32 adler = Adler32();
       adler.add([1]);
       expect(adler.close(), [0, 0x02, 0, 0x02]);
     });
     test('10 bytes', () {
-      Adler32 adler = new Adler32();
+      Adler32 adler = Adler32();
       adler.add([1, 2, 3, 4, 5, 6, 7, 8, 9, 0]);
       expect(adler.close(), [0, 0xDC, 0, 0x2E]);
     });
     test('100000 bytes', () {
-      Adler32 adler = new Adler32();
+      Adler32 adler = Adler32();
       for (int i = 0; i < 10000; i++) {
         adler.add([1, 2, 3, 4, 5, 6, 7, 8, 9, 0]);
       }

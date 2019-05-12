@@ -33,7 +33,7 @@ class _ZipEncoderData {
   List<_ZipFileData> files = [];
 
   _ZipEncoderData(this.level) {
-    DateTime dateTime = new DateTime.now();
+    DateTime dateTime = DateTime.now();
     int t1 = ((dateTime.minute & 0x7) << 5) | (dateTime.second ~/ 2);
     int t2 = (dateTime.hour << 3) | (dateTime.minute >> 3);
     time = ((t2 & 0xff) << 8) | (t1 & 0xff);
@@ -52,7 +52,7 @@ class ZipEncoder {
   List<int> encode(Archive archive,
       {int level = Deflate.BEST_SPEED, OutputStreamBase output}) {
     if (output == null) {
-      output = new OutputStream();
+      output = OutputStream();
     }
 
     startEncode(output, level: level);
@@ -68,7 +68,7 @@ class ZipEncoder {
   }
 
   void startEncode(OutputStreamBase output, {int level = Deflate.BEST_SPEED}) {
-    _data = new _ZipEncoderData(level);
+    _data = _ZipEncoderData(level);
     _output = output;
   }
 
@@ -84,7 +84,7 @@ class ZipEncoder {
   }
 
   void addFile(ArchiveFile file) {
-    _ZipFileData fileData = new _ZipFileData();
+    _ZipFileData fileData = _ZipFileData();
     _data.files.add(fileData);
 
     fileData.name = file.name;
@@ -105,7 +105,7 @@ class ZipEncoder {
 
       compressedData = (file.content is InputStreamBase)
           ? file.content
-          : new InputStream(file.content);
+          : InputStream(file.content);
 
       if (file.crc32 != null) {
         crc32 = file.crc32;
@@ -131,8 +131,8 @@ class ZipEncoder {
       if (bytes is InputStreamBase) {
         bytes = bytes.toUint8List();
       }
-      bytes = new Deflate(bytes, level: _data.level).getBytes();
-      compressedData = new InputStream(bytes);
+      bytes = Deflate(bytes, level: _data.level).getBytes();
+      compressedData = InputStream(bytes);
     }
 
     _data.localFileSize += 30 + file.name.length + compressedData.length;
