@@ -207,6 +207,7 @@ class RarArchive {
       case RarVersion.future:
         return RarHeader();
     }
+    return RarHeader();
   }
 
   RarHeader _readHeader14(InputStreamBase input) {
@@ -248,12 +249,12 @@ class RarArchive {
       var header = RarFileHeader(crc, flags, size);
 
       var dataSize = entry.readUint32();
-      var lowUnpackSize = entry.readUint32();
+      /*var lowUnpackSize =*/ entry.readUint32();
       var hostOS = entry.readByte();
-      var fileCrc = entry.readUint32();
-      var fileTime = entry.readUint32();
+      /*var fileCrc =*/ entry.readUint32();
+      /*var fileTime =*/ entry.readUint32();
       var unpackVersion = entry.readByte();
-      var method = entry.readByte() - 0x30;
+      /*var method =*/ entry.readByte() - 0x30;
       var nameSize = entry.readUint16();
       var fileAttr = entry.readUint32();
 
@@ -262,7 +263,7 @@ class RarArchive {
         header.dir = true;
       }
 
-      var cryptMethod = Rar.CRYPT_NONE;
+      /*var cryptMethod = Rar.CRYPT_NONE;
       if (header.encrypted) {
         switch (unpackVersion) {
           case 13:
@@ -279,14 +280,14 @@ class RarArchive {
             cryptMethod = Rar.CRYPT_RAR30;
             break;
         }
-      }
+      }*/
 
-      var systemType = Rar.HSYS_UNKNOWN;
+      /*var systemType = Rar.HSYS_UNKNOWN;
       if (hostOS == Rar.HOST_UNIX || hostOS == Rar.HOST_BEOS) {
         systemType = Rar.HSYS_UNIX;
       } else if (hostOS < Rar.HOST_MAX) {
         systemType = Rar.HSYS_WINDOWS;
-      }
+      }*/
 
       //var redirType = Rar.FSREDIR_NONE;
 
@@ -296,30 +297,31 @@ class RarArchive {
         //redirName = "";
       }
 
-      var inherited = false;//!fileBlock && (subFlags & SUBHEAD_FLAGS_INHERITED)!=0;
+      //var inherited = false;//!fileBlock && (subFlags & SUBHEAD_FLAGS_INHERITED)!=0;
 
       var largeFile = (header.flags & Rar.LHD_LARGE) != 0;
 
       var highPackSize = 0;
-      var highUnpackSize = 0;
-      var unknownUnpackSize = false;
+      //var highUnpackSize = 0;
+      //var unknownUnpackSize = false;
       if (largeFile) {
         highPackSize = entry.readUint32();
-        highUnpackSize = entry.readUint32();
-        unknownUnpackSize = lowUnpackSize == 0xffffffff && highUnpackSize == 0xffffffff;
+//        highUnpackSize = entry.readUint32();
+        //unknownUnpackSize = lowUnpackSize == 0xffffffff && highUnpackSize == 0xffffffff;
       } else {
-        highPackSize = highUnpackSize = 0;
+        highPackSize = 0;
+        //highUnpackSize = 0;
         // UnpSize equal to 0xffffffff without LHD_LARGE flag indicates
         // that we do not know the unpacked file size and must unpack it
         // until we find the end of file marker in compressed data.
-        unknownUnpackSize = lowUnpackSize == 0xffffffff;
+        //unknownUnpackSize = lowUnpackSize == 0xffffffff;
       }
 
       int packSize = _INT32TO64(highPackSize, dataSize);
-      int unpSize = _INT32TO64(highUnpackSize, lowUnpackSize);
+      /*int unpackSize = _INT32TO64(highUnpackSize, lowUnpackSize);
       if (unknownUnpackSize) {
-        unpSize = _INT64NDF;
-      }
+        unpackSize = _INT64NDF;
+      }*/
 
       var filename = entry.readString(size: nameSize);
 
@@ -345,6 +347,7 @@ class RarArchive {
       case 50: // rar 5.0 compression
         return _unpack5(input);
     }
+    return Uint8List(0);
   }
 
   Uint8List _unpack15(InputStreamBase input) {
@@ -360,13 +363,13 @@ class RarArchive {
   static var DBits = Uint8List(DC);
 
   Uint8List _unpack29(InputStreamBase input) {
-    const LDecode = [0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 14, 16, 20, 24, 28, 32,
-                     40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224];
-    const LBits = [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3,
-                   4, 4, 4,  4,  5,  5,  5,  5];
+    //const LDecode = [0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 14, 16, 20, 24, 28, 32,
+    //                 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224];
+    //const LBits = [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3,
+    //               4, 4, 4,  4,  5,  5,  5,  5];
     const DBitLengthCounts = [4, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 14, 0, 12];
-    const SDDecode = [0, 4, 8, 16, 32, 64, 128, 192];
-    const SDBits = [2, 2, 3, 4, 5, 6, 6, 6];
+    //const SDDecode = [0, 4, 8, 16, 32, 64, 128, 192];
+    //const SDBits = [2, 2, 3, 4, 5, 6, 6, 6];
 
     if (DDecode[1] == 0) {
       int dist = 0;
@@ -388,7 +391,7 @@ class RarArchive {
     throw ArchiveException("Unsupported compression format");
   }
 
-  static const _INT64NDF = (0x7fffffff << 32) + 0x7fffffff;
+  //static const _INT64NDF = (0x7fffffff << 32) + 0x7fffffff;
   static int _INT32TO64(int high, int low) => (high << 32)+ low;
 
   RarHeader _readHeader50(InputStreamBase input) {
@@ -419,7 +422,7 @@ class RarArchive {
     return RarVersion.none;
   }
 
-  int _readVInt(InputStreamBase input) {
+  /*int _readVInt(InputStreamBase input) {
     int result = 0;
     for (int shift = 0; !input.isEOS && shift < 64; shift += 7) {
       var curByte = input.readByte();
@@ -430,5 +433,5 @@ class RarArchive {
     }
     // out of buffer border
     return 0;
-  }
+  }*/
 }
