@@ -1,3 +1,9 @@
+include: package:pedantic/analysis_options.yaml
+
+linter:
+  rules:
+    - camel_case_types
+
 analyzer:
   errors:
     unused_element: error
@@ -6,3 +12,6 @@ analyzer:
   exclude:
     - test/res/**
     - test/out/**
+#  strong-mode:
+#    implicit-casts: false
+#    implicit-dynamic: false
