@@ -97,7 +97,9 @@ void extractDart(List urls) {
             new io.File('${outputPath}${io.Platform.pathSeparator}${filename}');
         f.parent.createSync(recursive: true);
         f.writeAsBytesSync(file.content);
-      } catch (e) {}
+      } catch (e) {
+        print(e);
+      }
     }
   }
 }

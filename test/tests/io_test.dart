@@ -153,7 +153,9 @@ void main() {
         var f = new File('${testDirPath}/out/${filename}');
         f.parent.createSync(recursive: true);
         f.writeAsBytesSync(file.content);
-      } catch (e) {}
+      } catch (e) {
+        print(e);
+      }
     }
 
     expect(tarArchive.files.length, equals(4));
