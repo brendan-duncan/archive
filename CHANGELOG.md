@@ -1,3 +1,8 @@
+## 2.0.9 - May 16, 2019
+
+* Add isSymbolicLink and nameOfLinkedFile to ArchiveFile.
+* Fix for encoding empty files.
+
 ## 2.0.8
 
 * Fix zip isFile
