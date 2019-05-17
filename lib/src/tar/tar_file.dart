@@ -108,6 +108,8 @@ class TarFile {
 
   bool get isFile => typeFlag != TYPE_DIRECTORY;
 
+  bool get isSymLink => typeFlag == TYPE_SYMBOLIC_LINK;
+
   InputStream get rawContent => _rawContent;
 
   get content {

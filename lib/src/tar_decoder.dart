@@ -58,6 +58,8 @@ class TarDecoder {
         file.groupId = tf.groupId;
         file.lastModTime = tf.lastModTime;
         file.isFile = tf.isFile;
+        file.isSymbolicLink = tf.typeFlag == TarFile.TYPE_SYMBOLIC_LINK;
+        file.nameOfLinkedFile = tf.nameOfLinkedFile;
 
         archive.addFile(file);
 

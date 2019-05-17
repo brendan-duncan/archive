@@ -15,6 +15,8 @@ class ArchiveFile {
   int groupId = 0;
   int lastModTime;
   bool isFile = true;
+  bool isSymbolicLink = false;
+  String nameOfLinkedFile = "";
 
   /// The crc32 checksum of the uncompressed content.
   int crc32;
