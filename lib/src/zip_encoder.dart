@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'util/crc32.dart';
 import 'util/input_stream.dart';
 import 'util/output_stream.dart';
@@ -135,11 +137,14 @@ class ZipEncoder {
       compressedData = InputStream(bytes);
     }
 
-    _data.localFileSize += 30 + file.name.length + compressedData.length;
+    var filename = Utf8Encoder().convert(file.name);
+    var comment = file.comment != null ? Utf8Encoder().convert(file.comment) : null;
+
+    _data.localFileSize += 30 + filename.length + compressedData.length;
 
     _data.centralDirectorySize += 46 +
-        file.name.length +
-        (file.comment != null ? file.comment.length : 0);
+        filename.length +
+        (comment != null ? comment.length : 0);
 
     fileData.crc32 = crc32;
     fileData.compressedSize = compressedData.length;
@@ -176,6 +181,8 @@ class ZipEncoder {
 
     InputStreamBase compressedData = fileData.compressedData;
 
+    var filenameUtf8 = Utf8Encoder().convert(filename);
+
     output.writeUint16(version);
     output.writeUint16(flags);
     output.writeUint16(compressionMethod);
@@ -184,9 +191,9 @@ class ZipEncoder {
     output.writeUint32(crc32);
     output.writeUint32(compressedSize);
     output.writeUint32(uncompressedSize);
-    output.writeUint16(filename.length);
+    output.writeUint16(filenameUtf8.length);
     output.writeUint16(extra.length);
-    output.writeBytes(filename.codeUnits);
+    output.writeBytes(filenameUtf8);
     output.writeBytes(extra);
 
     output.writeInputStream(compressedData);
@@ -197,6 +204,7 @@ class ZipEncoder {
     if (comment == null) {
       comment = "";
     }
+    var commentUtf8 = Utf8Encoder().convert(comment);
 
     int centralDirPosition = output.length;
     int version = VERSION;
@@ -226,6 +234,9 @@ class ZipEncoder {
         fileComment = '';
       }
 
+      var filenameUtf8 = Utf8Encoder().convert(fileData.name);
+      var fileCommentUtf8 = Utf8Encoder().convert(fileComment);
+
       output.writeUint32(ZipFileHeader.SIGNATURE);
       output.writeUint16(versionMadeBy);
       output.writeUint16(versionNeededToExtract);
@@ -236,16 +247,16 @@ class ZipEncoder {
       output.writeUint32(crc32);
       output.writeUint32(compressedSize);
       output.writeUint32(uncompressedSize);
-      output.writeUint16(fileData.name.length);
+      output.writeUint16(filenameUtf8.length);
       output.writeUint16(extraField.length);
-      output.writeUint16(fileComment.length);
+      output.writeUint16(fileCommentUtf8.length);
       output.writeUint16(diskNumberStart);
       output.writeUint16(internalFileAttributes);
       output.writeUint32(externalFileAttributes);
       output.writeUint32(localHeaderOffset);
-      output.writeBytes(fileData.name.codeUnits);
+      output.writeBytes(filenameUtf8);
       output.writeBytes(extraField);
-      output.writeBytes(fileComment.codeUnits);
+      output.writeBytes(fileCommentUtf8);
     }
 
     int numberOfThisDisk = 0;
@@ -262,8 +273,8 @@ class ZipEncoder {
     output.writeUint16(totalCentralDirectoryEntries);
     output.writeUint32(centralDirectorySize);
     output.writeUint32(centralDirectoryOffset);
-    output.writeUint16(comment.length);
-    output.writeBytes(comment.codeUnits);
+    output.writeUint16(commentUtf8.length);
+    output.writeBytes(commentUtf8);
   }
 
   static const int VERSION = 20;

@@ -1,6 +1,6 @@
 import 'dart:io';
 import 'dart:typed_data';
-
+import 'dart:convert';
 import 'package:archive/archive_io.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
@@ -221,6 +221,31 @@ void main() {
       //print("@ ${file.name} ${file.isFile} ${!file.name.endsWith('/')}");
       expect(file.isFile, equals(!file.name.endsWith('/')));
     }
+  });
+
+  test('file decode utf file', () {
+    var bytes = File(p.join(testDirPath, 'res/zip/utf.zip')).readAsBytesSync();
+    Archive archive = zipDecoder.decodeBytes(bytes, verify: true);
+    expect(archive.numberOfFiles(), equals(5));
+  });
+
+  test('file encoding zip file', () {
+    String origialFileName = "fileöäüÖÄÜß.txt";
+    List<int> bytes = Utf8Codec().encode("test");
+    ArchiveFile archiveFile = ArchiveFile(origialFileName, bytes.length, bytes);
+    Archive archive = Archive();
+    archive.addFile(archiveFile);
+
+    ZipEncoder encoder = ZipEncoder();
+    ZipDecoder decoder = ZipDecoder();
+
+    var encodedBytes = encoder.encode(archive);
+
+    Archive archiveDecoded = decoder.decodeBytes(encodedBytes);
+
+    ArchiveFile decodedFile = archiveDecoded.files.first;
+
+    expect(decodedFile.name, origialFileName);
   });
 
   test('zip executable', () async {
