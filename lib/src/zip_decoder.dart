@@ -36,8 +36,9 @@ class ZipDecoder {
       }
 
       var content = zf.rawContent;
-      var file = ArchiveFile(
-          zf.filename, zf.uncompressedSize, content, zf.compressionMethod);
+      var file = ArchiveFile(zf.filename, zf.uncompressedSize, content,
+          zf.compressionMethod);
+
       file.mode = mode >> 16;
 
       // see https://github.com/brendan-duncan/archive/issues/21
@@ -52,6 +53,7 @@ class ZipDecoder {
 
       file.crc32 = zf.crc32;
       file.compress = compress;
+      file.lastModTime = zf.lastModFileDate << 16 | zf.lastModFileTime;
 
       archive.addFile(file);
     }

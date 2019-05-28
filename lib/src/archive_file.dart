@@ -13,7 +13,7 @@ class ArchiveFile {
   int mode;
   int ownerId = 0;
   int groupId = 0;
-  int lastModTime;
+  int lastModTime = 0;
   bool isFile = true;
   bool isSymbolicLink = false;
   String nameOfLinkedFile = "";
