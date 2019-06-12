@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import '../util/archive_exception.dart';
 import '../util/input_stream.dart';
 import '../util/output_stream.dart';
 
@@ -206,12 +207,16 @@ class TarFile {
   }
 
   String _parseString(InputStream input, int numBytes) {
-    InputStream codes = input.readBytes(numBytes);
-    int r = codes.indexOf(0);
-    InputStream s = codes.subset(0, r < 0 ? null : r);
-    List<int> b = s.toUint8List();
-    String str = String.fromCharCodes(b).trim();
-    return str;
+    try {
+      InputStream codes = input.readBytes(numBytes);
+      int r = codes.indexOf(0);
+      InputStream s = codes.subset(0, r < 0 ? null : r);
+      List<int> b = s.toUint8List();
+      String str = String.fromCharCodes(b).trim();
+      return str;
+    } catch (e) {
+      throw ArchiveException("Invalid Archive");
+    }
   }
 
   void _writeString(OutputStream output, String value, int numBytes) {

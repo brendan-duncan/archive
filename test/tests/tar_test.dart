@@ -148,6 +148,14 @@ void main() {
   TarDecoder tar = TarDecoder();
   TarEncoder tarEncoder = TarEncoder();
 
+  test('tar invalid archive', () {
+    try {
+      TarDecoder().decodeBytes([1, 2, 3]);
+      assert(false);
+    } catch (e) {
+    }
+  });
+
   test('tar file', () {
     TarEncoder().encode(Archive()
       ..addFile(ArchiveFile("file.txt", 1, [100])));

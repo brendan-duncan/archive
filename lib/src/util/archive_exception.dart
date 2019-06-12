@@ -1,9 +1,6 @@
+
 /// An exception thrown when there was a problem in the archive library.
-class ArchiveException implements Exception {
-  /// A message describing the error.
-  final String message;
-
-  ArchiveException(this.message);
-
-  String toString() => "ArchiveException: $message";
+class ArchiveException extends FormatException {
+  ArchiveException(String message, [var source, var offset])
+    : super(message, source, offset);
 }
