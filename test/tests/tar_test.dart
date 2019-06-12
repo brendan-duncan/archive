@@ -148,6 +148,11 @@ void main() {
   TarDecoder tar = TarDecoder();
   TarEncoder tarEncoder = TarEncoder();
 
+  test('tar file', () {
+    TarEncoder().encode(Archive()
+      ..addFile(ArchiveFile("file.txt", 1, [100])));
+  });
+
   test('long file name', () {
     var file = File(p.join(testDirPath, 'res/tar/x.tar'));
     List<int> bytes = file.readAsBytesSync();

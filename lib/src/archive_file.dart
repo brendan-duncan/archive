@@ -9,8 +9,8 @@ class ArchiveFile {
   String name;
 
   /// The uncompressed size of the file
-  int size;
-  int mode;
+  int size = 0;
+  int mode = 0;
   int ownerId = 0;
   int groupId = 0;
   int lastModTime = 0;
