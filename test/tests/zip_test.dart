@@ -209,13 +209,14 @@ List zipTests = [
 ];
 
 void main() {
-  ZipDecoder zipDecoder = ZipDecoder();
-  ZipEncoder zipEncoder = ZipEncoder();
+  test('zip empty', () async {
+    ZipDecoder().decodeBytes(ZipEncoder().encode(Archive()));
+  });
 
   test('zip isFile', () async {
     var file = File(p.join(testDirPath, 'res/zip/android-javadoc.zip'));
     var bytes = file.readAsBytesSync();
-    Archive archive = zipDecoder.decodeBytes(bytes, verify: true);
+    Archive archive = ZipDecoder().decodeBytes(bytes, verify: true);
     expect(archive.numberOfFiles(), equals(102));
     for (var file in archive.files) {
       //print("@ ${file.name} ${file.isFile} ${!file.name.endsWith('/')}");
@@ -225,7 +226,7 @@ void main() {
 
   test('file decode utf file', () {
     var bytes = File(p.join(testDirPath, 'res/zip/utf.zip')).readAsBytesSync();
-    Archive archive = zipDecoder.decodeBytes(bytes, verify: true);
+    Archive archive = ZipDecoder().decodeBytes(bytes, verify: true);
     expect(archive.numberOfFiles(), equals(5));
   });
 
@@ -317,7 +318,7 @@ void main() {
     var b = File(p.join(testDirPath, 'res/zip/hello.txt'));
     List<int> b_bytes = b.readAsBytesSync();
 
-    Archive archive = zipDecoder.decodeBytes(bytes, verify: true, password: "test1234");
+    Archive archive = ZipDecoder().decodeBytes(bytes, verify: true, password: "test1234");
     expect(archive.numberOfFiles(), equals(1));
 
     for (int i = 0; i < archive.numberOfFiles(); ++i) {
@@ -334,7 +335,7 @@ void main() {
     var file = File(p.join(testDirPath, 'res/test.zip'));
     var bytes = file.readAsBytesSync();
 
-    Archive archive = zipDecoder.decodeBytes(bytes, verify: true);
+    Archive archive = ZipDecoder().decodeBytes(bytes, verify: true);
     expect(archive.numberOfFiles(), equals(2));
 
     var b = File(p.join(testDirPath, 'res/cat.jpg'));
@@ -353,14 +354,14 @@ void main() {
     }
 
     // Encode the archive we just decoded
-    List<int> zipped = zipEncoder.encode(archive);
+    List<int> zipped = ZipEncoder().encode(archive);
 
     File f = File(p.join(testDirPath, 'out/test.zip'));
     f.createSync(recursive: true);
     f.writeAsBytesSync(zipped);
 
     // Decode the archive we just encoded
-    Archive archive2 = zipDecoder.decodeBytes(zipped, verify: true);
+    Archive archive2 = ZipDecoder().decodeBytes(zipped, verify: true);
 
     expect(archive2.numberOfFiles(), equals(archive.numberOfFiles()));
     for (int i = 0; i < archive2.numberOfFiles(); ++i) {
@@ -374,7 +375,8 @@ void main() {
       var file = File(p.join(testDirPath, z['Name']));
       var bytes = file.readAsBytesSync();
 
-      Archive archive = zipDecoder.decodeBytes(bytes, verify: true);
+      final zipDecoder = ZipDecoder();
+      Archive archive =zipDecoder.decodeBytes(bytes, verify: true);
       List<ZipFileHeader> zipFiles = zipDecoder.directory.fileHeaders;
 
       if (z.containsKey('Comment')) {

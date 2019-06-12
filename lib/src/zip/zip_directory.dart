@@ -68,6 +68,9 @@ class ZipDirectory {
     // total number of disks           4 bytes
 
     int locPos = filePosition - ZIP64_EOCD_LOCATOR_SIZE;
+    if (locPos < 0) {
+      return;
+    }
     InputStream zip64 = input.subset(locPos, ZIP64_EOCD_LOCATOR_SIZE);
 
     int sig = zip64.readUint32();
@@ -134,7 +137,7 @@ class ZipDirectory {
     // The directory and archive contents are written to the end of the zip
     // file.  We need to search from the end to find these structures,
     // starting with the 'End of central directory' record (EOCD).
-    for (int ip = length - 4; ip > 0; --ip) {
+    for (int ip = length - 4; ip >= 0; --ip) {
       input.offset = ip;
       int sig = input.readUint32();
       if (sig == SIGNATURE) {
