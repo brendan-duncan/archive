@@ -50,8 +50,9 @@ downloadUrls(io.HttpClient client, List urls) async {
     var download = io.HttpClient()
         .getUrl(Uri.parse(url))
         .then((io.HttpClientRequest request) => request.close())
-        .then((io.HttpClientResponse response) =>
-            response.pipe(io.File(path + '/out/' + filename).openWrite()));
+        .then((io.HttpClientResponse response) => response
+            .cast<List<int>>()
+            .pipe(io.File(path + '/out/' + filename).openWrite()));
 
     downloads.add(download);
   }
