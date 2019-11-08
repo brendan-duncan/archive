@@ -1,3 +1,7 @@
+## 2.0.11 - November 8, 2019
+
+* Set the default permission for ArchiveFile to something more reasonable (0644 -rw-r--r--)
+
 ## 2.0.10 - June 11, 2019
 
 * Fix for decoding empty zip files.
