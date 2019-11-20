@@ -209,7 +209,14 @@ List zipTests = [
 ];
 
 void main() {
-  test('zip empty', () async {
+  test('utf8-aes-password', () async {
+    var bytes = File(p.join(testDirPath, 'res/30.book.zip')).readAsBytesSync();
+
+    Archive archive = ZipDecoder().decodeBytes(bytes, verify: true,
+        password: "白日依山尽，黄河入海流。");
+    expect(archive.numberOfFiles(), equals(1));
+  });
+  /*test('zip empty', () async {
     ZipDecoder().decodeBytes(ZipEncoder().encode(Archive()));
   });
 
@@ -408,5 +415,5 @@ void main() {
         }
       }
     });
-  }
+  }*/
 }

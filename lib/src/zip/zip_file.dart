@@ -1,8 +1,78 @@
+import 'dart:convert';
 import '../util/archive_exception.dart';
 import '../util/crc32.dart';
 import '../util/input_stream.dart';
 import '../zlib/inflate.dart';
 import 'zip_file_header.dart';
+import 'package:crypto/crypto.dart';
+
+abstract class Encryption {
+  InputStream decode(InputStream input);
+}
+
+class PkzipEncryption extends Encryption {
+  List<int> _keys = [0, 0, 0];
+
+  PkzipEncryption(String password) {
+    _initKeys(password);
+  }
+
+  @override
+  InputStream decode(InputStream input) {
+    for (int i = 0; i < 12; ++i) {
+      _decodeByte(input.readByte());
+    }
+
+    var bytes = input.toUint8List();
+    for (int i = 0; i < bytes.length; ++i) {
+      int temp = bytes[i] ^ _decryptByte();
+      _updateKeys(temp);
+      bytes[i] = temp;
+    }
+
+    return InputStream(bytes);
+  }
+
+  int _decryptByte() {
+    int temp = (_keys[2] & 0xffff) | 2;
+    return ((temp * (temp ^ 1)) >> 8) & 0xff;
+  }
+
+  void _decodeByte(int c) {
+    c ^= _decryptByte();
+    _updateKeys(c);
+  }
+
+  void _initKeys(String password) {
+    _keys[0] = 305419896;
+    _keys[1] = 591751049;
+    _keys[2] = 878082192;
+    var pass = utf8.encode(password);
+    for (int c in pass) {
+      _updateKeys(c);
+    }
+  }
+
+  void _updateKeys(int c) {
+    _keys[0] = CRC32(_keys[0], c);
+    _keys[1] += _keys[0] & 0xff;
+    _keys[1] = _keys[1] * 134775813 + 1;
+    _keys[2] = CRC32(_keys[2], _keys[1] >> 24);
+  }
+}
+
+class AESEncryption extends Encryption {
+  AESEncryption(String password) {
+    _hmac = Hmac(sha1, utf8.encode(password));
+  }
+
+  @override
+  InputStream decode(InputStream input) {
+    
+  }
+
+  Hmac _hmac;
+}
 
 class ZipFile {
   static const int STORE = 0;
@@ -47,9 +117,11 @@ class ZipFile {
       // Read compressedSize bytes for the compressed data.
       _rawContent = input.readBytes(header.compressedSize);
 
+      _isEncrypted = (flags & 0x1) != 0;
+      //bool strongEncryption = (flags & 0x20) != 0;
+
       if (password != null) {
-        _initKeys(password);
-        _isEncrypted = true;
+        _encryption = PkzipEncryption(password);
       }
 
       // If bit 3 (0x08) of the flags field is set, then the CRC-32 and file
@@ -86,7 +158,7 @@ class ZipFile {
   List<int> get content {
     if (_content == null) {
       if (_isEncrypted) {
-        _rawContent = _decodeRawContent(_rawContent);
+        _rawContent = _encryption.decode(_rawContent);
         _isEncrypted = false;
       }
 
@@ -111,50 +183,11 @@ class ZipFile {
 
   String toString() => filename;
 
-  void _initKeys(String password) {
-    _keys[0] = 305419896;
-    _keys[1] = 591751049;
-    _keys[2] = 878082192;
-    for (int c in password.codeUnits) {
-      _updateKeys(c);
-    }
-  }
-
-  void _updateKeys(int c) {
-    _keys[0] = CRC32(_keys[0], c);
-    _keys[1] += _keys[0] & 0xff;
-    _keys[1] = _keys[1] * 134775813 + 1;
-    _keys[2] = CRC32(_keys[2], _keys[1] >> 24);
-  }
-
-  int _decryptByte() {
-    int temp = (_keys[2] & 0xffff) | 2;
-    return ((temp * (temp ^ 1)) >> 8) & 0xff;
-  }
-
-  void _decodeByte(int c) {
-    c ^= _decryptByte();
-    _updateKeys(c);
-  }
-
-  InputStream _decodeRawContent(InputStream input) {
-    for (int i = 0; i < 12; ++i) {
-      _decodeByte(_rawContent.readByte());
-    }
-    var bytes = _rawContent.toUint8List();
-    for (int i = 0; i < bytes.length; ++i) {
-      int temp = bytes[i] ^ _decryptByte();
-      _updateKeys(temp);
-      bytes[i] = temp;
-    }
-    return InputStream(bytes);
-  }
-
   /// Content of the file.  If compressionMethod is not STORE, then it is
   /// still compressed.
   InputStream _rawContent;
   List<int> _content;
   int _computedCrc32;
   bool _isEncrypted = false;
-  List<int> _keys = [0, 0, 0];
+  Encryption _encryption;
 }
