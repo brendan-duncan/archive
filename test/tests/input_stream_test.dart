@@ -9,7 +9,7 @@ void main() {
   });
 
   test('readByte', () {
-    const List<int> data = const [0xaa, 0xbb, 0xcc];
+    const List<int> data = [0xaa, 0xbb, 0xcc];
     InputStream input = InputStream(data);
     expect(input.length, equals(3));
     expect(input.readByte(), equals(0xaa));
@@ -19,7 +19,7 @@ void main() {
   });
 
   test('peakBytes', () {
-    const List<int> data = const [0xaa, 0xbb, 0xcc];
+    const List<int> data = [0xaa, 0xbb, 0xcc];
 
     InputStream input = InputStream(data);
     expect(input.readByte(), equals(0xaa));
@@ -33,7 +33,7 @@ void main() {
   });
 
   test('skip', () {
-    const List<int> data = const [0xaa, 0xbb, 0xcc];
+    const List<int> data = [0xaa, 0xbb, 0xcc];
     InputStream input = InputStream(data);
     expect(input.length, equals(3));
     expect(input.readByte(), equals(0xaa));
@@ -43,7 +43,7 @@ void main() {
   });
 
   test('subset', () {
-    const List<int> data = const [0xaa, 0xbb, 0xcc, 0xdd, 0xee];
+    const List<int> data = [0xaa, 0xbb, 0xcc, 0xdd, 0xee];
     InputStream input = InputStream(data);
     expect(input.length, equals(5));
     expect(input.readByte(), equals(0xaa));
@@ -62,7 +62,7 @@ void main() {
   });
 
   test('readString', () {
-    const List<int> data = const [84, 101, 115, 116, 0];
+    const List<int> data = [84, 101, 115, 116, 0];
     InputStream input = InputStream(data);
     String s = input.readString();
     expect(s, equals('Test'));
@@ -77,7 +77,7 @@ void main() {
   });
 
   test('readBytes', () {
-    const List<int> data = const [84, 101, 115, 116, 0];
+    const List<int> data = [84, 101, 115, 116, 0];
     InputStream input = InputStream(data);
     InputStream b = input.readBytes(3);
     expect(b.length, equals(3));
@@ -90,7 +90,7 @@ void main() {
   });
 
   test('readUint16', () {
-    const List<int> data = const [0xaa, 0xbb, 0xcc, 0xdd, 0xee];
+    const List<int> data = [0xaa, 0xbb, 0xcc, 0xdd, 0xee];
     // Little endian (by default)
     InputStream input = InputStream(data);
     expect(input.readUint16(), equals(0xbbaa));
@@ -101,7 +101,7 @@ void main() {
   });
 
   test('readUint24', () {
-    const List<int> data = const [0xaa, 0xbb, 0xcc, 0xdd, 0xee];
+    const List<int> data = [0xaa, 0xbb, 0xcc, 0xdd, 0xee];
     // Little endian (by default)
     InputStream input = InputStream(data);
     expect(input.readUint24(), equals(0xccbbaa));
@@ -112,7 +112,7 @@ void main() {
   });
 
   test('readUint32', () {
-    const List<int> data = const [0xaa, 0xbb, 0xcc, 0xdd, 0xee];
+    const List<int> data = [0xaa, 0xbb, 0xcc, 0xdd, 0xee];
     // Little endian (by default)
     InputStream input = InputStream(data);
     expect(input.readUint32(), equals(0xddccbbaa));
@@ -123,7 +123,7 @@ void main() {
   });
 
   test('readUint64', () {
-    const List<int> data = const [
+    const List<int> data = [
       0xaa,
       0xbb,
       0xcc,

@@ -1629,7 +1629,7 @@ class BZip2Encoder {
       return;
     }
 
-    const List<int> incs = const [
+    const List<int> incs = [
       1,
       4,
       13,

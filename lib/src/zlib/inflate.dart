@@ -345,7 +345,7 @@ class Inflate {
   static const int _BLOCK_DYNAMIC_HUFFMAN = 2;
 
   /// Fixed huffman length code table
-  static const List<int> _FIXED_LITERAL_LENGTHS = const [
+  static const List<int> _FIXED_LITERAL_LENGTHS = [
     8,
     8,
     8,
@@ -639,7 +639,7 @@ class Inflate {
       HuffmanTable(_FIXED_LITERAL_LENGTHS);
 
   /// Fixed huffman distance code table
-  static const List<int> _FIXED_DISTANCE_TABLE = const [
+  static const List<int> _FIXED_DISTANCE_TABLE = [
     5,
     5,
     5,
@@ -681,7 +681,7 @@ class Inflate {
   static const int _MAX_COPY_LENGTH = 258; // ignore: unused_field
 
   /// Huffman order
-  static const List<int> _ORDER = const [
+  static const List<int> _ORDER = [
     16,
     17,
     18,
@@ -704,7 +704,7 @@ class Inflate {
   ];
 
   /// Huffman length code table.
-  static const List<int> _LENGTH_CODE_TABLE = const [
+  static const List<int> _LENGTH_CODE_TABLE = [
     3,
     4,
     5,
@@ -737,7 +737,7 @@ class Inflate {
   ];
 
   /// Huffman length extra-bits table.
-  static const List<int> _LENGTH_EXTRA_TABLE = const [
+  static const List<int> _LENGTH_EXTRA_TABLE = [
     0,
     0,
     0,
@@ -772,7 +772,7 @@ class Inflate {
   ];
 
   /// Huffman dist code table.
-  static const List<int> _DIST_CODE_TABLE = const [
+  static const List<int> _DIST_CODE_TABLE = [
     1,
     2,
     3,
@@ -806,7 +806,7 @@ class Inflate {
   ];
 
   /// Huffman dist extra-bits table.
-  static const List<int> _DIST_EXTRA_TABLE = const [
+  static const List<int> _DIST_EXTRA_TABLE = [
     0,
     0,
     0,

@@ -89,7 +89,7 @@ class _Crc32Sink extends ByteConversionSinkBase {
 }
 
 // Precomputed CRC table for faster calculations.
-const List<int> _CRC32_TABLE = const [
+const List<int> _CRC32_TABLE = [
   0,
   1996959894,
   3993919788,

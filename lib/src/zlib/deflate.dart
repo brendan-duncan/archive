@@ -1588,7 +1588,7 @@ class _HuffmanTree {
   static const int REPZ_11_138 = 18;
 
   /// extra bits for each length code
-  static const List<int> EXTRA_L_BITS = const [
+  static const List<int> EXTRA_L_BITS = [
     0,
     0,
     0,
@@ -1621,7 +1621,7 @@ class _HuffmanTree {
   ];
 
   /// extra bits for each distance code
-  static const List<int> EXTRA_D_BITS = const [
+  static const List<int> EXTRA_D_BITS = [
     0,
     0,
     0,
@@ -1655,7 +1655,7 @@ class _HuffmanTree {
   ];
 
   /// extra bits for each bit length code
-  static const List<int> EXTRA_BL_BITS = const [
+  static const List<int> EXTRA_BL_BITS = [
     0,
     0,
     0,
@@ -1677,7 +1677,7 @@ class _HuffmanTree {
     7
   ];
 
-  static const List<int> BL_ORDER = const [
+  static const List<int> BL_ORDER = [
     16,
     17,
     18,
@@ -1707,7 +1707,7 @@ class _HuffmanTree {
   /// see definition of array dist_code below
   static const int DIST_CODE_LEN = 512;
 
-  static const List<int> _DIST_CODE = const [
+  static const List<int> _DIST_CODE = [
     0,
     1,
     2,
@@ -2222,7 +2222,7 @@ class _HuffmanTree {
     29
   ];
 
-  static const List<int> LENGTH_CODE = const [
+  static const List<int> LENGTH_CODE = [
     0,
     1,
     2,
@@ -2481,7 +2481,7 @@ class _HuffmanTree {
     28
   ];
 
-  static const List<int> BASE_LENGTH = const [
+  static const List<int> BASE_LENGTH = [
     0,
     1,
     2,
@@ -2513,7 +2513,7 @@ class _HuffmanTree {
     0
   ];
 
-  static const List<int> BASE_DIST = const [
+  static const List<int> BASE_DIST = [
     0,
     1,
     2,
@@ -2799,7 +2799,7 @@ class _StaticTree {
   // Bit length codes must not exceed MAX_BL_BITS bits
   static const int MAX_BL_BITS = 7;
 
-  static const List<int> STATIC_LTREE = const [
+  static const List<int> STATIC_LTREE = [
     12,
     8,
     140,
@@ -3378,7 +3378,7 @@ class _StaticTree {
     8
   ];
 
-  static const List<int> STATIC_DTREE = const [
+  static const List<int> STATIC_DTREE = [
     0,
     5,
     16,

@@ -11,11 +11,11 @@ class BZip2 {
     return crc ^ 0xffffffff;
   }
 
-  static const List<int> BZH_SIGNATURE = const [0x42, 0x5a, 0x68];
+  static const List<int> BZH_SIGNATURE = [0x42, 0x5a, 0x68];
 
   static const int HDR_0 = 0x30;
 
-  static const List<int> COMPRESSED_MAGIC = const [
+  static const List<int> COMPRESSED_MAGIC = [
     0x31,
     0x41,
     0x59,
@@ -24,9 +24,9 @@ class BZip2 {
     0x59
   ];
 
-  static const List<int> EOS_MAGIC = const [0x17, 0x72, 0x45, 0x38, 0x50, 0x90];
+  static const List<int> EOS_MAGIC = [0x17, 0x72, 0x45, 0x38, 0x50, 0x90];
 
-  static const List<int> _BZ2_CRC32_TABLE = const [
+  static const List<int> _BZ2_CRC32_TABLE = [
     0x00000000,
     0x04c11db7,
     0x09823b6e,

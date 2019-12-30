@@ -45,5 +45,5 @@ class Bz2BitReader {
   int _bitBuffer = 0;
   int _bitPos = 0;
 
-  static const List<int> _BIT_MASK = const [0, 1, 3, 7, 15, 31, 63, 127, 255];
+  static const List<int> _BIT_MASK = [0, 1, 3, 7, 15, 31, 63, 127, 255];
 }

@@ -153,6 +153,7 @@ void main() {
       TarDecoder().decodeBytes([1, 2, 3]);
       assert(false);
     } catch (e) {
+      // pass
     }
   });
 

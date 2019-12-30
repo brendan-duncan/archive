@@ -824,7 +824,7 @@ class BZip2Decoder {
   static const int BLOCK_COMPRESSED = 0;
   static const int BLOCK_EOS = 2;
 
-  static const List<int> BZ2_rNums = const [
+  static const List<int> BZ2_rNums = [
     619,
     720,
     127,
