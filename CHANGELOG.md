@@ -1,3 +1,7 @@
+## 2.0.12 - December 30, 2019
+
+* Fix dartanalyzer warnings
+
 ## 2.0.11 - November 8, 2019
 
 * Set the default permission for ArchiveFile to something more reasonable (0644 -rw-r--r--)
