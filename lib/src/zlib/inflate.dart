@@ -20,7 +20,7 @@ class Inflate {
   }
 
   Inflate.stream([this.input, dynamic output_stream])
-      : output = output_stream != null ? output_stream : OutputStream() {
+      : output = output_stream ?? OutputStream() {
     if (input == null || input is List<int>) {
       _bitBuffer = 0;
       _bitBufferLen = 0;
@@ -37,14 +37,12 @@ class Inflate {
     if (input != null && input is InputStream) {
       input.offset = _blockPos;
     }
-    int inputLen = input == null ? 0 : input.length;
-    int newLen = inputLen + bytes.length;
-    if (newLen < 0) {
-      print(newLen);
-    }
-    Uint8List newBytes = Uint8List(newLen);
+    final inputLen = (input == null ? 0 : input.length) as int;
+    final newLen = inputLen + bytes.length;
+    final newBytes = Uint8List(newLen);
     if (input != null) {
-      newBytes.setRange(0, input.length, input.buffer, input.offset);
+      newBytes.setRange(0, input.length as int, input.buffer as List<int>,
+          input.offset as int);
     }
     newBytes.setRange(inputLen, newLen, bytes, 0);
     input = InputStream(newBytes);
@@ -62,7 +60,7 @@ class Inflate {
 
     try {
       if (input is InputStream) {
-        _blockPos = input.offset;
+        _blockPos = input.offset as int;
       }
       _parseBlock();
       // If it didn't finish reading the block, it will have thrown an exception
@@ -72,7 +70,7 @@ class Inflate {
     }
 
     if (output is OutputStream) {
-      return output.getBytes();
+      return output.getBytes() as List<int>;
     }
     return null;
   }
@@ -87,7 +85,7 @@ class Inflate {
     _bitBufferLen = 0;
 
     while (!input.isEOS) {
-      bool more = _parseBlock();
+      final more = _parseBlock();
       if (!more) {
         break;
       }
@@ -102,13 +100,13 @@ class Inflate {
     }
 
     // Each block has a 3-bit header
-    int hdr = _readBits(3);
+    final hdr = _readBits(3);
 
     // BFINAL (is this the final block)?
-    bool bfinal = (hdr & 0x1) != 0;
+    final bfinal = (hdr & 0x1) != 0;
 
     // BTYPE (the type of block)
-    int btype = hdr >> 1;
+    final btype = hdr >> 1;
     switch (btype) {
       case _BLOCK_UNCOMPRESSED:
         _parseUncompressedBlock();
@@ -141,7 +139,7 @@ class Inflate {
       }
 
       // input byte
-      int octet = input.readByte();
+      int octet = input.readByte() as int;
 
       // concat octet
       _bitBuffer |= octet << _bitBufferLen;
@@ -149,7 +147,7 @@ class Inflate {
     }
 
     // output byte
-    int octet = _bitBuffer & ((1 << length) - 1);
+    final octet = _bitBuffer & ((1 << length) - 1);
     _bitBuffer >>= length;
     _bitBufferLen -= length;
 
@@ -167,15 +165,15 @@ class Inflate {
         break;
       }
 
-      int octet = input.readByte();
+      final octet = input.readByte() as int;
 
       _bitBuffer |= octet << _bitBufferLen;
       _bitBufferLen += 8;
     }
 
     // read max length
-    int codeWithLength = codeTable[_bitBuffer & ((1 << maxCodeLength) - 1)];
-    int codeLength = codeWithLength >> 16;
+    final codeWithLength = codeTable[_bitBuffer & ((1 << maxCodeLength) - 1)];
+    final codeLength = codeWithLength >> 16;
 
     _bitBuffer >>= codeLength;
     _bitBufferLen -= codeLength;
@@ -188,8 +186,8 @@ class Inflate {
     _bitBuffer = 0;
     _bitBufferLen = 0;
 
-    int len = _readBits(16);
-    int nlen = _readBits(16) ^ 0xffff;
+    final len = _readBits(16);
+    final nlen = _readBits(16) ^ 0xffff;
 
     // Make sure the block size checksum is valid.
     if (len != 0 && len != nlen) {
@@ -197,7 +195,7 @@ class Inflate {
     }
 
     // check size
-    if (len > input.length) {
+    if (len > (input.length as int)) {
       throw ArchiveException('Input buffer is broken');
     }
 
@@ -210,37 +208,37 @@ class Inflate {
 
   void _parseDynamicHuffmanBlock() {
     // number of literal and length codes.
-    int numLitLengthCodes = _readBits(5) + 257;
+    final numLitLengthCodes = _readBits(5) + 257;
     // number of distance codes.
-    int numDistanceCodes = _readBits(5) + 1;
+    final numDistanceCodes = _readBits(5) + 1;
     // number of code lengths.
-    int numCodeLengths = _readBits(4) + 4;
+    final numCodeLengths = _readBits(4) + 4;
 
     // decode code lengths
-    Uint8List codeLengths = Uint8List(_ORDER.length);
-    for (int i = 0; i < numCodeLengths; ++i) {
+    final codeLengths = Uint8List(_ORDER.length);
+    for (var i = 0; i < numCodeLengths; ++i) {
       codeLengths[_ORDER[i]] = _readBits(3);
     }
 
-    HuffmanTable codeLengthsTable = HuffmanTable(codeLengths);
+    final codeLengthsTable = HuffmanTable(codeLengths);
 
     // literal and length code
-    Uint8List litlenLengths = Uint8List(numLitLengthCodes);
+    final litlenLengths = Uint8List(numLitLengthCodes);
 
     // distance code
-    Uint8List distLengths = Uint8List(numDistanceCodes);
+    final distLengths = Uint8List(numDistanceCodes);
 
-    List<int> litlen =
+    final litlen =
         _decode(numLitLengthCodes, codeLengthsTable, litlenLengths);
 
-    List<int> dist = _decode(numDistanceCodes, codeLengthsTable, distLengths);
+    final dist = _decode(numDistanceCodes, codeLengthsTable, distLengths);
 
     _decodeHuffman(HuffmanTable(litlen), HuffmanTable(dist));
   }
 
   void _decodeHuffman(HuffmanTable litlen, HuffmanTable dist) {
     while (true) {
-      int code = _readCodeByTable(litlen);
+      final code = _readCodeByTable(litlen);
 
       if (code < 0 || code > 285) {
         throw ArchiveException('Invalid Huffman Code $code');
@@ -259,15 +257,15 @@ class Inflate {
 
       // [257, 285] Dictionary Lookup
       // length code
-      int ti = code - 257;
+      final ti = code - 257;
 
-      int codeLength =
+      var codeLength =
           _LENGTH_CODE_TABLE[ti] + _readBits(_LENGTH_EXTRA_TABLE[ti]);
 
       // distance code
-      int distCode = _readCodeByTable(dist);
+      final distCode = _readCodeByTable(dist);
       if (distCode >= 0 && distCode <= 29) {
-        int distance =
+        final distance =
             _DIST_CODE_TABLE[distCode] + _readBits(_DIST_EXTRA_TABLE[distCode]);
 
         // lz77 decode
@@ -293,21 +291,21 @@ class Inflate {
   }
 
   List<int> _decode(int num, HuffmanTable table, List<int> lengths) {
-    int prev = 0;
-    int i = 0;
+    var prev = 0;
+    var i = 0;
     while (i < num) {
-      int code = _readCodeByTable(table);
+      final code = _readCodeByTable(table);
       switch (code) {
         case 16:
           // Repeat last code
-          int repeat = 3 + _readBits(2);
+          var repeat = 3 + _readBits(2);
           while (repeat-- > 0) {
             lengths[i++] = prev;
           }
           break;
         case 17:
           // Repeat 0
-          int repeat = 3 + _readBits(3);
+          var repeat = 3 + _readBits(3);
           while (repeat-- > 0) {
             lengths[i++] = 0;
           }
@@ -315,7 +313,7 @@ class Inflate {
           break;
         case 18:
           // Repeat lots of 0s.
-          int repeat = 11 + _readBits(7);
+          var repeat = 11 + _readBits(7);
           while (repeat-- > 0) {
             lengths[i++] = 0;
           }

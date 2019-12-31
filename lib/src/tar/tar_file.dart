@@ -65,8 +65,8 @@ class TarFile {
 
   TarFile();
 
-  TarFile.read(dynamic input, {bool storeData = true}) {
-    InputStream header = input.readBytes(512);
+  TarFile.read(InputStreamBase input, {bool storeData = true}) {
+    final header = input.readBytes(512);
 
     // The name, linkname, magic, uname, and gname are null-terminated
     // character strings. All other fields are zero-filled octal numbers in
@@ -98,8 +98,8 @@ class TarFile {
     }
 
     if (isFile && fileSize > 0) {
-      int remainder = fileSize % 512;
-      int skiplen = 0;
+      final remainder = fileSize % 512;
+      var skiplen = 0;
       if (remainder != 0) {
         skiplen = 512 - remainder;
         input.skip(skiplen);
@@ -113,19 +113,20 @@ class TarFile {
 
   InputStream get rawContent => _rawContent;
 
-  get content {
-    if (_content == null) {
-      _content = _rawContent.toUint8List();
-    }
+  dynamic get content {
+    _content ??= _rawContent.toUint8List();
     return _content;
   }
 
-  set content(data) => _content = data;
+  List<int> get contentBytes => content as List<int>;
+
+  set content(dynamic data) => _content = data;
 
   int get size => _content != null
-      ? _content.length
+      ? _content.length as int
       : _rawContent != null ? _rawContent.length : 0;
 
+  @override
   String toString() => '[${filename}, ${mode}, ${fileSize}]';
 
   void write(dynamic output) {
@@ -134,7 +135,7 @@ class TarFile {
     // The name, linkname, magic, uname, and gname are null-terminated
     // character strings. All other fields are zero-filled octal numbers in
     // ASCII. Each numeric field of width w contains w minus 1 digits, and a null.
-    OutputStream header = OutputStream();
+    final header = OutputStream();
     _writeString(header, filename, 100);
     _writeInt(header, mode, 8);
     _writeInt(header, ownerId, 8);
@@ -144,28 +145,28 @@ class TarFile {
     _writeString(header, '        ', 8); // checksum placeholder
     _writeString(header, typeFlag, 1);
 
-    int remainder = 512 - header.length;
+    final remainder = 512 - header.length;
     var nulls = Uint8List(remainder); // typed arrays default to 0.
     header.writeBytes(nulls);
 
-    List<int> headerBytes = header.getBytes();
+    final headerBytes = header.getBytes();
 
     // The checksum is calculated by taking the sum of the unsigned byte values
     // of the header record with the eight checksum bytes taken to be ascii
     // spaces (decimal value 32). It is stored as a six digit octal number
     // with leading zeroes followed by a NUL and then a space.
-    int sum = 0;
-    for (int b in headerBytes) {
+    var sum = 0;
+    for (var b in headerBytes) {
       sum += b;
     }
 
-    String sum_str = sum.toRadixString(8); // octal basis
+    var sum_str = sum.toRadixString(8); // octal basis
     while (sum_str.length < 6) {
       sum_str = '0' + sum_str;
     }
 
-    int checksum_index = 148; // checksum is at 148th byte
-    for (int i = 0; i < 6; ++i) {
+    var checksum_index = 148; // checksum is at 148th byte
+    for (var i = 0; i < 6; ++i) {
       headerBytes[checksum_index++] = sum_str.codeUnits[i];
     }
     headerBytes[154] = 0;
@@ -181,9 +182,9 @@ class TarFile {
 
     if (isFile && fileSize > 0) {
       // Pad to 512-byte boundary
-      int remainder = fileSize % 512;
+      final remainder = fileSize % 512;
       if (remainder != 0) {
-        int skiplen = 512 - remainder;
+        final skiplen = 512 - remainder;
         nulls = Uint8List(skiplen); // typed arrays default to 0.
         output.writeBytes(nulls);
       }
@@ -191,11 +192,11 @@ class TarFile {
   }
 
   int _parseInt(InputStream input, int numBytes) {
-    String s = _parseString(input, numBytes);
+    var s = _parseString(input, numBytes);
     if (s.isEmpty) {
       return 0;
     }
-    int x = 0;
+    var x = 0;
     try {
       x = int.parse(s, radix: 8);
     } catch (e) {
@@ -208,26 +209,26 @@ class TarFile {
 
   String _parseString(InputStream input, int numBytes) {
     try {
-      InputStream codes = input.readBytes(numBytes);
-      int r = codes.indexOf(0);
-      InputStream s = codes.subset(0, r < 0 ? null : r);
-      List<int> b = s.toUint8List();
-      String str = String.fromCharCodes(b).trim();
+      final codes = input.readBytes(numBytes);
+      final r = codes.indexOf(0);
+      final s = codes.subset(0, r < 0 ? null : r);
+      final b = s.toUint8List();
+      final str = String.fromCharCodes(b).trim();
       return str;
     } catch (e) {
-      throw ArchiveException("Invalid Archive");
+      throw ArchiveException('Invalid Archive');
     }
   }
 
   void _writeString(OutputStream output, String value, int numBytes) {
-    List<int> codes = List<int>.filled(numBytes, 0);
-    int end = numBytes < value.length ? numBytes : value.length;
+    final codes = List<int>.filled(numBytes, 0);
+    final end = numBytes < value.length ? numBytes : value.length;
     codes.setRange(0, end, value.codeUnits);
     output.writeBytes(codes);
   }
 
   void _writeInt(OutputStream output, int value, int numBytes) {
-    String s = value.toRadixString(8);
+    var s = value.toRadixString(8);
     while (s.length < numBytes - 1) {
       s = '0' + s;
     }

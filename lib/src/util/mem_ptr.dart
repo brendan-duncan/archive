@@ -5,7 +5,7 @@ import 'byte_order.dart';
 /// A helper class to work with List and TypedData in a way similar to pointers
 /// in C.
 class MemPtr {
-  var buffer;
+  dynamic buffer;
   int offset;
   int _length;
   int byteOrder;
@@ -63,19 +63,19 @@ class MemPtr {
 
   /// Read a single byte.
   int readByte() {
-    return buffer[offset++];
+    return buffer[offset++] as int;
   }
 
   /// Read [count] bytes from the buffer.
   List<int> readBytes(int count) {
     if (buffer is Uint8List) {
-      Uint8List bytes = Uint8List.view(
+      final bytes = Uint8List.view(
           buffer.buffer, buffer.offsetInBytes + offset, count);
       offset += bytes.length;
       return bytes;
     }
 
-    List<int> bytes = (buffer as List<int>).sublist(offset, offset + count);
+    final bytes = (buffer as List<int>).sublist(offset, offset + count);
     offset += bytes.length;
     return bytes;
   }
@@ -84,9 +84,9 @@ class MemPtr {
   /// bytes returned as a string.
   String readString([int len]) {
     if (len == null) {
-      List<int> codes = [];
+      final codes = <int>[];
       while (!isEOS) {
-        int c = readByte();
+        final c = readByte();
         if (c == 0) {
           return String.fromCharCodes(codes);
         }
@@ -101,8 +101,8 @@ class MemPtr {
 
   /// Read a 16-bit word from the stream.
   int readUint16() {
-    int b1 = buffer[offset++] & 0xff;
-    int b2 = buffer[offset++] & 0xff;
+    final b1 = buffer[offset++] & 0xff;
+    final b2 = buffer[offset++] & 0xff;
     if (byteOrder == BIG_ENDIAN) {
       return (b1 << 8) | b2;
     }
@@ -111,9 +111,9 @@ class MemPtr {
 
   /// Read a 24-bit word from the stream.
   int readUint24() {
-    int b1 = buffer[offset++] & 0xff;
-    int b2 = buffer[offset++] & 0xff;
-    int b3 = buffer[offset++] & 0xff;
+    final b1 = buffer[offset++] & 0xff as int;
+    final b2 = buffer[offset++] & 0xff as int;
+    final b3 = buffer[offset++] & 0xff as int;
     if (byteOrder == BIG_ENDIAN) {
       return b3 | (b2 << 8) | (b1 << 16);
     }
@@ -122,10 +122,10 @@ class MemPtr {
 
   /// Read a 32-bit word from the stream.
   int readUint32() {
-    int b1 = buffer[offset++] & 0xff;
-    int b2 = buffer[offset++] & 0xff;
-    int b3 = buffer[offset++] & 0xff;
-    int b4 = buffer[offset++] & 0xff;
+    final b1 = buffer[offset++] & 0xff as int;
+    final b2 = buffer[offset++] & 0xff as int;
+    final b3 = buffer[offset++] & 0xff as int;
+    final b4 = buffer[offset++] & 0xff as int;
     if (byteOrder == BIG_ENDIAN) {
       return (b1 << 24) | (b2 << 16) | (b3 << 8) | b4;
     }

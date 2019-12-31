@@ -1,58 +1,58 @@
-import 'dart:io' as io;
+import 'dart:io';
 
 import 'package:archive/archive.dart';
 import 'package:test/test.dart';
 
 import 'test_utils.dart';
 
-void extract7z(List urls) {
-  io.File script = io.File(io.Platform.script.toFilePath());
-  String path = script.parent.path;
+void extract7z(List<String> urls) {
+  final script = File(Platform.script.toFilePath());
+  final path = script.parent.path;
 
-  for (String url in urls) {
-    String filename = url.split('/').last;
-    String inputPath = '$path\\out\\$filename';
+  for (final url in urls) {
+    final filename = url.split('/').last;
+    final inputPath = '$path\\out\\$filename';
 
-    String outputPath = path + '\\out\\' + filename + '.7z';
+    final outputPath = path + '\\out\\' + filename + '.7z';
     print('$inputPath : $outputPath');
 
-    io.Directory outDir = io.Directory(outputPath);
+    final outDir = Directory(outputPath);
     if (!outDir.existsSync()) {
       outDir.createSync(recursive: true);
     }
 
     print('EXTRACTING $inputPath');
-    io.Process.runSync('7z', ['x', '-o${outputPath}', '$inputPath']);
+    Process.runSync('7z', ['x', '-o${outputPath}', '$inputPath']);
 
-    String tar_filename = filename.substring(0, filename.lastIndexOf('.'));
-    String tar_path = '$outputPath\\$tar_filename';
-    if (!io.File(tar_path).existsSync()) {
+    final tar_filename = filename.substring(0, filename.lastIndexOf('.'));
+    var tar_path = '$outputPath\\$tar_filename';
+    if (!File(tar_path).existsSync()) {
       tar_path = '$outputPath\\intermediate.tar';
     }
     print('TAR $tar_path');
 
-    io.Process.runSync('7z', ['x', '-y', '-o${outputPath}', '$tar_path']);
+    Process.runSync('7z', ['x', '-y', '-o${outputPath}', '$tar_path']);
 
-    io.File(tar_path).deleteSync();
+    File(tar_path).deleteSync();
   }
 }
 
-downloadUrls(io.HttpClient client, List urls) async {
-  io.File script = io.File(io.Platform.script.toFilePath());
-  String path = script.parent.path;
+void downloadUrls(HttpClient client, List<String> urls) async {
+  final script = File(Platform.script.toFilePath());
+  final path = script.parent.path;
 
-  List downloads = [];
-  for (String url in urls) {
+  final downloads = <dynamic>[];
+  for (final url in urls) {
     print(url);
 
-    String filename = url.split('/').last;
+    final filename = url.split('/').last;
 
-    var download = io.HttpClient()
+    var download = HttpClient()
         .getUrl(Uri.parse(url))
-        .then((io.HttpClientRequest request) => request.close())
-        .then((io.HttpClientResponse response) => response
+        .then((HttpClientRequest request) => request.close())
+        .then<dynamic>((HttpClientResponse response) => response
             .cast<List<int>>()
-            .pipe(io.File(path + '/out/' + filename).openWrite()));
+            .pipe(File(path + '/out/' + filename).openWrite()));
 
     downloads.add(download);
   }
@@ -62,42 +62,42 @@ downloadUrls(io.HttpClient client, List urls) async {
   }
 }
 
-void extractDart(List urls) {
-  io.File script = io.File(io.Platform.script.toFilePath());
-  String path = script.parent.path;
+void extractDart(List<String> urls) {
+  final script = File(Platform.script.toFilePath());
+  final path = script.parent.path;
 
-  for (String url in urls) {
-    String filename = url.split('/').last;
-    String inputPath = '$path\\out\\$filename';
+  for (final url in urls) {
+    final filename = url.split('/').last;
+    final inputPath = '$path\\out\\$filename';
 
-    String outputPath = path + '\\out\\' + filename + '.out';
+    final outputPath = path + '\\out\\' + filename + '.out';
     print('$inputPath : $outputPath');
 
     print('EXTRACTING $inputPath');
 
-    io.File fp = io.File(path + '/out/' + filename);
-    List<int> data = fp.readAsBytesSync();
+    final fp = File(path + '/out/' + filename);
+    final data = fp.readAsBytesSync();
 
-    TarDecoder tarArchive = TarDecoder();
+    final tarArchive = TarDecoder();
     tarArchive.decodeBytes(GZipDecoder().decodeBytes(data));
 
     print('EXTRACTING $filename');
 
-    io.Directory outDir = io.Directory(outputPath);
+    final outDir = Directory(outputPath);
     if (!outDir.existsSync()) {
       outDir.createSync(recursive: true);
     }
 
-    for (TarFile file in tarArchive.files) {
+    for (final file in tarArchive.files) {
       if (!file.isFile) {
         continue;
       }
-      String filename = file.filename;
+      final filename = file.filename;
       try {
-        io.File f =
-            io.File('${outputPath}${io.Platform.pathSeparator}${filename}');
+        final f =
+            File('${outputPath}${Platform.pathSeparator}${filename}');
         f.parent.createSync(recursive: true);
-        f.writeAsBytesSync(file.content);
+        f.writeAsBytesSync(file.content as List<int>);
       } catch (e) {
         print(e);
       }
@@ -105,34 +105,34 @@ void extractDart(List urls) {
   }
 }
 
-void compareDirs(List urls) {
-  io.File script = io.File(io.Platform.script.toFilePath());
-  String path = script.parent.path;
+void compareDirs(List<String> urls) {
+  final script = File(Platform.script.toFilePath());
+  final path = script.parent.path;
 
-  for (String url in urls) {
-    String filename = url.split('/').last;
-    String outPath7z = '$path\\out\\${filename}.7z';
-    String outPathDart = '$path\\out\\${filename}.out';
+  for (final url in urls) {
+    final filename = url.split('/').last;
+    final outPath7z = '$path\\out\\${filename}.7z';
+    final outPathDart = '$path\\out\\${filename}.out';
     print('$outPathDart : $outPath7z');
 
-    List files7z = [];
-    ListDir(files7z, io.Directory(outPath7z));
-    List filesDart = [];
-    ListDir(filesDart, io.Directory(outPathDart));
+    final files7z = <File>[];
+    ListDir(files7z, Directory(outPath7z));
+    final filesDart = <File>[];
+    ListDir(filesDart, Directory(outPathDart));
 
     expect(filesDart.length, files7z.length);
     //print("#${filesDart.length} : ${files7z.length}");
 
-    for (int i = 0; i < filesDart.length; ++i) {
-      io.File fd = filesDart[i];
-      io.File f7z = files7z[i];
+    for (var i = 0; i < filesDart.length; ++i) {
+      final fd = filesDart[i];
+      final f7z = files7z[i];
 
       List bytes_dart = fd.readAsBytesSync();
       List bytes_7z = f7z.readAsBytesSync();
 
       expect(bytes_dart.length, bytes_7z.length);
 
-      for (int j = 0; j < bytes_dart.length; ++j) {
+      for (var j = 0; j < bytes_dart.length; ++j) {
         expect(bytes_dart[j], bytes_7z[j]);
       }
     }
@@ -141,10 +141,10 @@ void compareDirs(List urls) {
 
 void definePubTests() {
   group('pub archives', () {
-    io.HttpClient client;
+    HttpClient client;
 
     setUpAll(() {
-      client = io.HttpClient();
+      client = HttpClient();
     });
 
     tearDownAll(() {
@@ -152,10 +152,10 @@ void definePubTests() {
     });
 
     test('PUB ARCHIVES', () async {
-      io.File script = io.File(io.Platform.script.toFilePath());
-      String path = script.parent.path;
-      io.File fp = io.File(path + '/res/tarurls.txt');
-      List urls = fp.readAsLinesSync();
+      final script = File(Platform.script.toFilePath());
+      final path = script.parent.path;
+      final fp = File(path + '/res/tarurls.txt');
+      final urls = fp.readAsLinesSync();
 
       await downloadUrls(client, urls);
       extractDart(urls);

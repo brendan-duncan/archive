@@ -18,6 +18,7 @@ class OutputFileStream extends OutputStreamBase {
     _fp = _file.openSync(mode: FileMode.write);
   }
 
+  @override
   int get length => _length;
 
   void close() {
@@ -26,28 +27,30 @@ class OutputFileStream extends OutputStreamBase {
   }
 
   /// Write a byte to the end of the buffer.
+  @override
   void writeByte(int value) {
     _fp.writeByteSync(value);
     _length++;
   }
 
   /// Write a set of bytes to the end of the buffer.
-  void writeBytes(bytes, [int len]) {
-    if (len == null) {
-      len = bytes.length;
-    }
+  @override
+  void writeBytes(dynamic bytes, [int len]) {
+    len ??= bytes.length as int;
+
     if (bytes is InputFileStream) {
       while (!bytes.isEOS) {
-        int len = bytes.bufferRemaining;
-        InputStream data = bytes.readBytes(len);
+        final len = bytes.bufferRemaining;
+        final data = bytes.readBytes(len);
         writeInputStream(data);
       }
     } else {
-      _fp.writeFromSync(bytes, 0, len);
+      _fp.writeFromSync(bytes as List<int>, 0, len);
     }
     _length += len;
   }
 
+  @override
   void writeInputStream(InputStreamBase stream) {
     if (stream is InputStream) {
       _fp.writeFromSync(stream.buffer, stream.offset, stream.length);
@@ -60,6 +63,7 @@ class OutputFileStream extends OutputStreamBase {
   }
 
   /// Write a 16-bit word to the end of the buffer.
+  @override
   void writeUint16(int value) {
     if (byteOrder == BIG_ENDIAN) {
       writeByte((value >> 8) & 0xff);
@@ -71,6 +75,7 @@ class OutputFileStream extends OutputStreamBase {
   }
 
   /// Write a 32-bit word to the end of the buffer.
+  @override
   void writeUint32(int value) {
     if (byteOrder == BIG_ENDIAN) {
       writeByte((value >> 24) & 0xff);
@@ -86,11 +91,11 @@ class OutputFileStream extends OutputStreamBase {
   }
 
   List<int> subset(int start, [int end]) {
-    int pos = _fp.positionSync();
+    final pos = _fp.positionSync();
     if (start < 0) {
       start = pos + start;
     }
-    int length = 0;
+    var length = 0;
     if (end == null) {
       end = pos;
     } else if (end < 0) {
@@ -98,7 +103,7 @@ class OutputFileStream extends OutputStreamBase {
     }
     length = (end - start);
     _fp.setPositionSync(start);
-    Uint8List buffer = Uint8List(length);
+    final buffer = Uint8List(length);
     _fp.readIntoSync(buffer);
     _fp.setPositionSync(pos);
     return buffer;

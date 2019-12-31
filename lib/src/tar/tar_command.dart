@@ -1,10 +1,10 @@
-import 'dart:io' as io;
+import 'dart:io';
 import 'package:archive/archive.dart';
 import 'package:archive/archive_io.dart';
 
 /// Print the entries in the given tar file.
 void listFiles(String path) {
-  io.File file = io.File(path);
+  final file = File(path);
   if (!file.existsSync()) fail('${path} does not exist');
 
   List<int> data = file.readAsBytesSync();
@@ -14,7 +14,7 @@ void listFiles(String path) {
     data = BZip2Decoder().decodeBytes(data);
   }
 
-  TarDecoder tarArchive = TarDecoder();
+  final tarArchive = TarDecoder();
   // Tell the decoder not to store the actual file data since we don't need
   // it.
   tarArchive.decodeBytes(data, storeData: false);
@@ -24,40 +24,39 @@ void listFiles(String path) {
 }
 
 /// Extract the entries in the given tar file to a directory.
-io.Directory extractFiles(String inputPath, String outputPath) {
-  io.Directory temp_dir;
-  String tar_path = inputPath;
+Directory extractFiles(String inputPath, String outputPath) {
+  Directory temp_dir;
+  var tar_path = inputPath;
 
   if (inputPath.endsWith('tar.gz') || inputPath.endsWith('tgz')) {
-    temp_dir = io.Directory.systemTemp.createTempSync('dart_archive');
-    tar_path = '${temp_dir.path}${io.Platform.pathSeparator}temp.tar';
-    InputFileStream input = InputFileStream(inputPath);
-    OutputFileStream output = OutputFileStream(tar_path);
+    temp_dir = Directory.systemTemp.createTempSync('dart_archive');
+    tar_path = '${temp_dir.path}${Platform.pathSeparator}temp.tar';
+    final input = InputFileStream(inputPath);
+    final output = OutputFileStream(tar_path);
     GZipDecoder().decodeStream(input, output);
     input.close();
     output.close();
   }
 
-  io.Directory outDir = io.Directory(outputPath);
+  final outDir = Directory(outputPath);
   if (!outDir.existsSync()) {
     outDir.createSync(recursive: true);
   }
 
-  InputFileStream input = InputFileStream(tar_path);
+  final input = InputFileStream(tar_path);
 
-  TarDecoder tarArchive = TarDecoder()..decodeBuffer(input);
+  final tarArchive = TarDecoder()..decodeBuffer(input);
 
-  for (TarFile file in tarArchive.files) {
+  for (final file in tarArchive.files) {
     if (!file.isFile) {
       continue;
     }
-    io.File f = io.File(
-        '${outputPath}${io.Platform.pathSeparator}${file.filename}');
+    final f = File(
+        '${outputPath}${Platform.pathSeparator}${file.filename}');
     f.parent.createSync(recursive: true);
-    f.writeAsBytesSync(file.content);
+    f.writeAsBytesSync(file.contentBytes);
     print('  extracted ${file.filename}');
   }
-  ;
 
   input.close();
 
@@ -65,10 +64,10 @@ io.Directory extractFiles(String inputPath, String outputPath) {
     temp_dir.delete(recursive: true);
   }
 
-  /*io.File inputFile = io.File(inputPath);
+  /*File inputFile = File(inputPath);
   if (!inputFile.existsSync()) fail('${inputPath} does not exist');
 
-  io.Directory outDir = io.Directory(outputPath);
+  Directory outDir = Directory(outputPath);
   if (!outDir.existsSync()) {
     outDir.createSync(recursive: true);
   }
@@ -83,14 +82,14 @@ io.Directory extractFiles(String inputPath, String outputPath) {
   TarDecoder tarArchive = TarDecoder();
   tarArchive.decodeBytes(data);*
 
-  print('extracting to ${outDir.path}${io.Platform.pathSeparator}...');
+  print('extracting to ${outDir.path}${Platform.pathSeparator}...');
 
   for (TarFile file in tarArchive.files) {
     if (!file.isFile) {
       continue;
     }
-    io.File f = io.File(
-        '${outputPath}${io.Platform.pathSeparator}${file.filename}');
+    File f = File(
+        '${outputPath}${Platform.pathSeparator}${file.filename}');
     f.parent.createSync(recursive: true);
     f.writeAsBytesSync(file.content);
     print('  extracted ${file.filename}');
@@ -100,15 +99,15 @@ io.Directory extractFiles(String inputPath, String outputPath) {
 }
 
 void createTarFile(String dirPath) {
-  io.Directory dir = io.Directory(dirPath);
+  final dir = Directory(dirPath);
   if (!dir.existsSync()) fail('${dirPath} does not exist');
 
   // Encode a directory from disk to disk, no memory
-  TarFileEncoder encoder = TarFileEncoder();
+  final encoder = TarFileEncoder();
   encoder.tarDirectory(dir, compression: TarFileEncoder.GZIP);
 }
 
 void fail(String message) {
   print(message);
-  io.exit(1);
+  exit(1);
 }

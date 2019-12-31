@@ -12,6 +12,6 @@ analyzer:
   exclude:
     - test/res/**
     - test/out/**
-#  strong-mode:
-#    implicit-casts: false
-#    implicit-dynamic: false
+  strong-mode:
+    implicit-casts: false
+    implicit-dynamic: false

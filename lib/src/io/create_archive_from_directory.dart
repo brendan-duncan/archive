@@ -6,25 +6,25 @@ import 'input_file_stream.dart';
 
 Archive createArchiveFromDirectory(Directory dir,
     {bool includeDirName = true}) {
-  Archive archive = Archive();
+  final archive = Archive();
 
-  String dir_name = path.basename(dir.path);
+  final dir_name = path.basename(dir.path);
   List files = dir.listSync(recursive: true);
   for (var file in files) {
     if (file is! File) {
       continue;
     }
 
-    File f = file as File;
-    String filename = path.relative(f.path, from: dir.path);
-    filename = includeDirName ? (dir_name + "/" + filename) : filename;
+    final f = file as File;
+    var filename = path.relative(f.path, from: dir.path);
+    filename = includeDirName ? (dir_name + '/' + filename) : filename;
 
-    InputFileStream file_stream = InputFileStream.file(file);
+    final file_stream = InputFileStream.file(f);
 
-    ArchiveFile af =
-        ArchiveFile.stream(filename, file.lengthSync(), file_stream);
-    af.lastModTime = file.lastModifiedSync().millisecondsSinceEpoch;
-    af.mode = file.statSync().mode;
+    final af =
+        ArchiveFile.stream(filename, f.lengthSync(), file_stream);
+    af.lastModTime = f.lastModifiedSync().millisecondsSinceEpoch;
+    af.mode = f.statSync().mode;
 
     archive.addFile(af);
   }

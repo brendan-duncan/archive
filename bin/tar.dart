@@ -16,15 +16,15 @@ void main(List<String> arguments) {
   ArgResults results = args.parse(arguments);
   List<String> files = results.rest;
 
-  if (results['list']) {
+  if (results['list'] != null) {
     if (files.isEmpty) fail('expected the archive to act on');
 
     listFiles(files.first);
-  } else if (results['create']) {
+  } else if (results['create'] != null) {
     if (files.isEmpty) fail('expected the directory to tar');
 
     createTarFile(files.first);
-  } else if (results['extract']) {
+  } else if (results['extract'] != null) {
     if (files.isEmpty) fail('expected the archive to extract');
     if (files.length < 2) fail('expected the directory to extract to');
 
