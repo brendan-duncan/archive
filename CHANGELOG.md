@@ -1,3 +1,7 @@
+## 2.0.13 - January 02, 2020
+
+* Switch to dart strong mode; refactor code to resolve all dartanalyzer warnings.
+
 ## 2.0.12 - December 30, 2019
 
 * Fix dartanalyzer warnings
