@@ -5,14 +5,14 @@ import 'package:crypto/crypto.dart' as crypto;
 /// already computed adler checksum by specifying the previous [adler] value.
 int getAdler32(List<int> array, [int adler = 1]) {
   // largest prime smaller than 65536
-  const int BASE = 65521;
+  const BASE = 65521;
 
-  int s1 = adler & 0xffff;
-  int s2 = adler >> 16;
-  int len = array.length;
-  int i = 0;
+  var s1 = adler & 0xffff;
+  var s2 = adler >> 16;
+  var len = array.length;
+  var i = 0;
   while (len > 0) {
-    int n = 3800;
+    var n = 3800;
     if (n > len) {
       n = len;
     }
@@ -35,12 +35,14 @@ class Adler32 extends crypto.Hash {
   /// Get the value of the hash directly. This returns the same value as [close].
   int get hash => _hash;
 
+  @override
   int get blockSize => 4;
 
   Adler32();
 
   Adler32 newInstance() => Adler32();
 
+  @override
   ByteConversionSink startChunkedConversion(Sink<crypto.Digest> sink) =>
       _Adler32Sink(sink);
 
@@ -69,11 +71,13 @@ class _Adler32Sink extends ByteConversionSinkBase {
 
   _Adler32Sink(this._inner);
 
+  @override
   void add(List<int> data) {
     if (_isClosed) throw StateError('Hash.add() called after close().');
     _hash = getAdler32(data, _hash);
   }
 
+  @override
   void close() {
     if (_isClosed) return;
     _isClosed = true;

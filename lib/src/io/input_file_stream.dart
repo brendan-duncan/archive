@@ -41,10 +41,13 @@ class InputFileStream extends InputStreamBase {
     _fileSize = 0;
   }
 
+  @override
   int get length => _fileSize;
 
+  @override
   int get position => _filePosition;
 
+  @override
   bool get isEOS =>
       (_filePosition >= _fileSize) && (_bufferPosition >= _bufferSize);
 
@@ -56,17 +59,19 @@ class InputFileStream extends InputStreamBase {
 
   int get fileRemaining => _fileSize - _filePosition;
 
+  @override
   void reset() {
     _filePosition = 0;
     _file.setPositionSync(0);
     _readBuffer();
   }
 
+  @override
   void skip(int length) {
     if ((_bufferPosition + length) < _bufferSize) {
       _bufferPosition += length;
     } else {
-      int remaining = length - (_bufferSize - _bufferPosition);
+      var remaining = length - (_bufferSize - _bufferPosition);
       while (!isEOS) {
         _readBuffer();
         if (remaining < _bufferSize) {
@@ -80,18 +85,19 @@ class InputFileStream extends InputStreamBase {
 
   /// Read [count] bytes from an [offset] of the current read position, without
   /// moving the read position.
+  @override
   InputStream peekBytes(int count, [int offset = 0]) {
-    int end = _bufferPosition + offset + count;
+    var end = _bufferPosition + offset + count;
     if (end > 0 && end < _bufferSize) {
-      List<int> bytes = _buffer.sublist(_bufferPosition + offset, end);
+      final bytes = _buffer.sublist(_bufferPosition + offset, end);
       return InputStream(bytes);
     }
 
-    Uint8List bytes = Uint8List(count);
+    final bytes = Uint8List(count);
 
-    int remaining = _bufferSize - (_bufferPosition + offset);
+    var remaining = _bufferSize - (_bufferPosition + offset);
     if (remaining > 0) {
-      List<int> bytes1 = _buffer.sublist(_bufferPosition + offset, _bufferSize);
+      final bytes1 = _buffer.sublist(_bufferPosition + offset, _bufferSize);
       bytes.setRange(0, remaining, bytes1);
     }
 
@@ -101,9 +107,10 @@ class InputFileStream extends InputStreamBase {
     return InputStream(bytes);
   }
 
+  @override
   void rewind([int count = 1]) {
     if (_bufferPosition - count < 0) {
-      int remaining = (_bufferPosition - count).abs();
+      var remaining = (_bufferPosition - count).abs();
       _filePosition = _filePosition - _bufferSize - remaining;
       if (_filePosition < 0) {
         _filePosition = 0;
@@ -115,6 +122,7 @@ class InputFileStream extends InputStreamBase {
     _bufferPosition -= count;
   }
 
+  @override
   int readByte() {
     if (isEOS) {
       return 0;
@@ -129,9 +137,10 @@ class InputFileStream extends InputStreamBase {
   }
 
   /// Read a 16-bit word from the stream.
+  @override
   int readUint16() {
-    int b1 = 0;
-    int b2 = 0;
+    var b1 = 0;
+    var b2 = 0;
     if ((_bufferPosition + 2) < _bufferSize) {
       b1 = _buffer[_bufferPosition++] & 0xff;
       b2 = _buffer[_bufferPosition++] & 0xff;
@@ -146,10 +155,11 @@ class InputFileStream extends InputStreamBase {
   }
 
   /// Read a 24-bit word from the stream.
+  @override
   int readUint24() {
-    int b1 = 0;
-    int b2 = 0;
-    int b3 = 0;
+    var b1 = 0;
+    var b2 = 0;
+    var b3 = 0;
     if ((_bufferPosition + 3) < _bufferSize) {
       b1 = _buffer[_bufferPosition++] & 0xff;
       b2 = _buffer[_bufferPosition++] & 0xff;
@@ -167,11 +177,12 @@ class InputFileStream extends InputStreamBase {
   }
 
   /// Read a 32-bit word from the stream.
+  @override
   int readUint32() {
-    int b1 = 0;
-    int b2 = 0;
-    int b3 = 0;
-    int b4 = 0;
+    var b1 = 0;
+    var b2 = 0;
+    var b3 = 0;
+    var b4 = 0;
     if ((_bufferPosition + 4) < _bufferSize) {
       b1 = _buffer[_bufferPosition++] & 0xff;
       b2 = _buffer[_bufferPosition++] & 0xff;
@@ -191,15 +202,16 @@ class InputFileStream extends InputStreamBase {
   }
 
   /// Read a 64-bit word form the stream.
+  @override
   int readUint64() {
-    int b1 = 0;
-    int b2 = 0;
-    int b3 = 0;
-    int b4 = 0;
-    int b5 = 0;
-    int b6 = 0;
-    int b7 = 0;
-    int b8 = 0;
+    var b1 = 0;
+    var b2 = 0;
+    var b3 = 0;
+    var b4 = 0;
+    var b5 = 0;
+    var b6 = 0;
+    var b7 = 0;
+    var b8 = 0;
     if ((_bufferPosition + 8) < _bufferSize) {
       b1 = _buffer[_bufferPosition++] & 0xff;
       b2 = _buffer[_bufferPosition++] & 0xff;
@@ -240,9 +252,10 @@ class InputFileStream extends InputStreamBase {
         b1;
   }
 
+  @override
   InputStream readBytes(int length) {
     if (isEOS) {
-      return InputStream(List<int>());
+      return InputStream(<int>[]);
     }
 
     if (_bufferPosition == _bufferSize) {
@@ -250,26 +263,26 @@ class InputFileStream extends InputStreamBase {
     }
 
     if (_remainingBufferSize >= length) {
-      List<int> bytes =
+      final bytes =
           _buffer.sublist(_bufferPosition, _bufferPosition + length);
       _bufferPosition += length;
       return InputStream(bytes);
     }
 
-    int total_remaining = fileRemaining + _remainingBufferSize;
+    var total_remaining = fileRemaining + _remainingBufferSize;
     if (length > total_remaining) {
       length = total_remaining;
     }
 
-    Uint8List bytes = Uint8List(length);
+    final bytes = Uint8List(length);
 
-    int offset = 0;
+    var offset = 0;
     while (length > 0) {
-      int remaining = _bufferSize - _bufferPosition;
-      int end = (length > remaining) ? _bufferSize : (_bufferPosition + length);
-      List<int> l = _buffer.sublist(_bufferPosition, end);
+      var remaining = _bufferSize - _bufferPosition;
+      var end = (length > remaining) ? _bufferSize : (_bufferPosition + length);
+      final l = _buffer.sublist(_bufferPosition, end);
       // TODO probably better to use bytes.setRange here.
-      for (int i = 0; i < l.length; ++i) {
+      for (var i = 0; i < l.length; ++i) {
         bytes[offset + i] = l[i];
       }
       offset += l.length;
@@ -286,6 +299,7 @@ class InputFileStream extends InputStreamBase {
     return InputStream(bytes);
   }
 
+  @override
   Uint8List toUint8List() {
     var bytes = readBytes(_fileSize);
     return bytes.toUint8List();
@@ -293,11 +307,12 @@ class InputFileStream extends InputStreamBase {
 
   /// Read a null-terminated string, or if [len] is provided, that number of
   /// bytes returned as a string.
+  @override
   String readString({int size, bool utf8 = true}) {
     if (size == null) {
-      List<int> codes = [];
+      final codes = <int>[];
       while (!isEOS) {
-        int c = readByte();
+        var c = readByte();
         if (c == 0) {
           return utf8
               ? Utf8Decoder().convert(codes)
@@ -309,9 +324,9 @@ class InputFileStream extends InputStreamBase {
           'EOF reached without finding string terminator');
     }
 
-    InputStream s = readBytes(size);
-    Uint8List bytes = s.toUint8List();
-    String str = utf8
+    final s = readBytes(size);
+    final bytes = s.toUint8List();
+    final str = utf8
         ? Utf8Decoder().convert(bytes)
         : String.fromCharCodes(bytes);
     return str;

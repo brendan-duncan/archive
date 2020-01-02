@@ -8,7 +8,7 @@ class Bz2BitWriter {
   void writeByte(int byte) => writeBits(8, byte);
 
   void writeBytes(List<int> bytes) {
-    for (int i = 0; i < bytes.length; ++i) {
+    for (var i = 0; i < bytes.length; ++i) {
       writeBits(8, bytes[i]);
     }
   }
@@ -55,7 +55,7 @@ class Bz2BitWriter {
 
     while (numBits > 0) {
       numBits--;
-      int b = (value >> numBits) & 0x1;
+      final b = (value >> numBits) & 0x1;
       _bitBuffer = (_bitBuffer << 1) | b;
       _bitPos--;
       if (_bitPos == 0) {

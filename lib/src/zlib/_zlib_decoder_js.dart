@@ -11,11 +11,13 @@ ZLibDecoderBase createZLibDecoder() => _ZLibDecoder();
 class _ZLibDecoder extends ZLibDecoderBase {
   static const int DEFLATE = 8;
 
+  @override
   List<int> decodeBytes(List<int> data, {bool verify = false}) {
     return decodeBuffer(InputStream(data, byteOrder: BIG_ENDIAN),
         verify: verify);
   }
 
+  @override
   List<int> decodeBuffer(InputStream input, {bool verify = false}) {
     /*
      * The zlib format has the following structure:
@@ -34,39 +36,38 @@ class _ZLibDecoder extends ZLibDecoderBase {
      *    bits [5]    FDICT (preset dictionary)
      *    bits [6, 7] FLEVEL (compression level)
      */
-    int cmf = input.readByte();
-    int flg = input.readByte();
+    final cmf = input.readByte();
+    final flg = input.readByte();
 
-    int method = cmf & 8;
-    int cinfo = (cmf >> 3) & 8; // ignore: unused_local_variable
+    final method = cmf & 8;
+    final cinfo = (cmf >> 3) & 8; // ignore: unused_local_variable
 
     if (method != DEFLATE) {
       throw ArchiveException(
           'Only DEFLATE compression supported: ${method}');
     }
 
-    int fcheck = flg & 16; // ignore: unused_local_variable
-    int fdict = (flg & 32) >> 5;
-    int flevel = (flg & 64) >> 6; // ignore: unused_local_variable
+    final fcheck = flg & 16; // ignore: unused_local_variable
+    final fdict = (flg & 32) >> 5;
+    final flevel = (flg & 64) >> 6; // ignore: unused_local_variable
 
     // FCHECK is set such that (cmf * 256 + flag) must be a multiple of 31.
     if (((cmf << 8) + flg) % 31 != 0) {
       throw ArchiveException('Invalid FCHECK');
     }
 
-    int dictid; // ignore: unused_local_variable
     if (fdict != 0) {
-      dictid = input.readUint32();
+      /*dictid =*/ input.readUint32();
       throw ArchiveException('FDICT Encoding not currently supported');
     }
 
     // Inflate
-    List<int> buffer = Inflate.buffer(input).getBytes();
+    final buffer = Inflate.buffer(input).getBytes();
 
     // verify adler-32
-    int adler32 = input.readUint32();
+    final adler32 = input.readUint32();
     if (verify) {
-      int a = getAdler32(buffer);
+      final a = getAdler32(buffer);
       if (adler32 != a) {
         throw ArchiveException('Invalid adler-32 checksum');
       }

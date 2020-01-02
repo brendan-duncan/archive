@@ -8,13 +8,13 @@ import 'package:archive/src/tar/tar_command.dart';
 // tar --create <source>
 
 void main(List<String> arguments) {
-  ArgParser args = ArgParser();
+  final args = ArgParser();
   args.addFlag('list', abbr: 't', help: '<file>', negatable: false);
   args.addFlag('extract', abbr: 'x', help: '<file> <dest>', negatable: false);
   args.addFlag('create', abbr: 'c', help: '<directory>', negatable: false);
 
-  ArgResults results = args.parse(arguments);
-  List<String> files = results.rest;
+  final results = args.parse(arguments);
+  final files = results.rest;
 
   if (results['list'] != null) {
     if (files.isEmpty) fail('expected the archive to act on');

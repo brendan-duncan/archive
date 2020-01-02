@@ -32,9 +32,9 @@ class ZipFileHeader {
       crc32 = input.readUint32();
       compressedSize = input.readUint32();
       uncompressedSize = input.readUint32();
-      int fname_len = input.readUint16();
-      int extra_len = input.readUint16();
-      int comment_len = input.readUint16();
+      final fname_len = input.readUint16();
+      final extra_len = input.readUint16();
+      final comment_len = input.readUint16();
       diskNumberStart = input.readUint16();
       internalFileAttributes = input.readUint16();
       externalFileAttributes = input.readUint32();
@@ -45,11 +45,11 @@ class ZipFileHeader {
       }
 
       if (extra_len > 0) {
-        InputStream extra = input.readBytes(extra_len);
+        final extra = input.readBytes(extra_len);
         extraField = extra.toUint8List();
 
-        int id = extra.readUint16();
-        int size = extra.readUint16();
+        final id = extra.readUint16();
+        final size = extra.readUint16();
         if (id == 1) {
           // Zip64 extended information
           // Original
@@ -87,5 +87,6 @@ class ZipFileHeader {
     }
   }
 
+  @override
   String toString() => filename;
 }

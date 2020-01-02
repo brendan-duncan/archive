@@ -18,12 +18,12 @@ void main() {
     List<int> file =
         io.File(p.join(testDirPath, 'res/cat.jpg')).readAsBytesSync();
 
-    List<int> compressed = BZip2Encoder().encode(file);
+    final compressed = BZip2Encoder().encode(file);
 
-    List<int> d2 = BZip2Decoder().decodeBytes(compressed, verify: true);
+    final d2 = BZip2Decoder().decodeBytes(compressed, verify: true);
 
     expect(d2.length, equals(file.length));
-    for (int i = 0, len = d2.length; i < len; ++i) {
+    for (var i = 0, len = d2.length; i < len; ++i) {
       expect(d2[i], equals(file[i]));
     }
   });

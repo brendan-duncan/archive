@@ -1,5 +1,6 @@
 import 'util/output_stream.dart';
 import 'zlib/deflate.dart';
+import 'util/input_stream.dart';
 
 class GZipEncoder {
   static const int SIGNATURE = 0x8b1f;
@@ -27,8 +28,8 @@ class GZipEncoder {
   static const int OS_ACORN_RISCOS = 13;
   static const int OS_UNKNOWN = 255;
 
-  List<int> encode(data, {int level, dynamic output}) {
-    dynamic output_stream = output != null ? output : OutputStream();
+  List<int> encode(dynamic data, {int level, dynamic output}) {
+    dynamic output_stream = output ?? OutputStream();
 
     // The GZip format has the following structure:
     // Offset   Length   Contents
@@ -74,10 +75,10 @@ class GZipEncoder {
     output_stream.writeUint16(SIGNATURE);
     output_stream.writeByte(DEFLATE);
 
-    int flags = 0;
-    int fileModTime = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-    int extraFlags = 0;
-    int osType = OS_UNKNOWN;
+    var flags = 0;
+    var fileModTime = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    var extraFlags = 0;
+    var osType = OS_UNKNOWN;
 
     output_stream.writeByte(flags);
     output_stream.writeUint32(fileModTime);
@@ -88,7 +89,7 @@ class GZipEncoder {
     if (data is List<int>) {
       deflate = Deflate(data, level: level, output: output_stream);
     } else {
-      deflate = Deflate.buffer(data, level: level, output: output_stream);
+      deflate = Deflate.buffer(data as InputStreamBase, level: level, output: output_stream);
     }
 
     if (!(output_stream is OutputStream)) {

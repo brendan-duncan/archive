@@ -39,8 +39,8 @@ class ZipFile {
       crc32 = input.readUint32();
       compressedSize = input.readUint32();
       uncompressedSize = input.readUint32();
-      int fn_len = input.readUint16();
-      int ex_len = input.readUint16();
+      final fn_len = input.readUint16();
+      final ex_len = input.readUint16();
       filename = input.readString(size: fn_len);
       extraField = input.readBytes(ex_len).toUint8List();
 
@@ -58,7 +58,7 @@ class ZipFile {
       // appended in a 12-byte structure (optionally preceded by a 4-byte
       // signature) immediately after the compressed data:
       if (flags & 0x08 != 0) {
-        int sigOrCrc = input.readUint32();
+        final sigOrCrc = input.readUint32();
         if (sigOrCrc == 0x08074b50) {
           crc32 = input.readUint32();
         } else {
@@ -75,9 +75,7 @@ class ZipFile {
   /// crc32 checksum for the decompressed data and verify it with the value
   /// stored in the zip.
   bool verifyCrc32() {
-    if (_computedCrc32 == null) {
-      _computedCrc32 = getCrc32(content);
-    }
+    _computedCrc32 ??= getCrc32(content);
     return _computedCrc32 == crc32;
   }
 
@@ -109,13 +107,14 @@ class ZipFile {
     }
   }
 
+  @override
   String toString() => filename;
 
   void _initKeys(String password) {
     _keys[0] = 305419896;
     _keys[1] = 591751049;
     _keys[2] = 878082192;
-    for (int c in password.codeUnits) {
+    for (final c in password.codeUnits) {
       _updateKeys(c);
     }
   }
@@ -128,7 +127,7 @@ class ZipFile {
   }
 
   int _decryptByte() {
-    int temp = (_keys[2] & 0xffff) | 2;
+    final temp = (_keys[2] & 0xffff) | 2;
     return ((temp * (temp ^ 1)) >> 8) & 0xff;
   }
 
@@ -138,23 +137,23 @@ class ZipFile {
   }
 
   InputStream _decodeRawContent(InputStream input) {
-    for (int i = 0; i < 12; ++i) {
+    for (var i = 0; i < 12; ++i) {
       _decodeByte(_rawContent.readByte());
     }
     var bytes = _rawContent.toUint8List();
-    for (int i = 0; i < bytes.length; ++i) {
-      int temp = bytes[i] ^ _decryptByte();
+    for (var i = 0; i < bytes.length; ++i) {
+      final temp = bytes[i] ^ _decryptByte();
       _updateKeys(temp);
       bytes[i] = temp;
     }
     return InputStream(bytes);
   }
 
-  /// Content of the file.  If compressionMethod is not STORE, then it is
+  /// Content of the file. If compressionMethod is not STORE, then it is
   /// still compressed.
   InputStream _rawContent;
   List<int> _content;
   int _computedCrc32;
   bool _isEncrypted = false;
-  List<int> _keys = [0, 0, 0];
+  final _keys = <int>[0, 0, 0];
 }

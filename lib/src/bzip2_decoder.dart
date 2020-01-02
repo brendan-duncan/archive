@@ -15,8 +15,8 @@ class BZip2Decoder {
   }
 
   List<int> decodeBuffer(InputStream _input, {bool verify = false}) {
-    OutputStream output = OutputStream();
-    Bz2BitReader br = Bz2BitReader(_input);
+    final output = OutputStream();
+    final br = Bz2BitReader(_input);
 
     _groupPos = 0;
     _groupNo = 0;
@@ -36,18 +36,18 @@ class BZip2Decoder {
 
     _tt = Uint32List(_blockSize100k * 100000);
 
-    int combinedCrc = 0;
+    var combinedCrc = 0;
 
     while (true) {
-      int type = _readBlockType(br);
+      final type = _readBlockType(br);
       if (type == BLOCK_COMPRESSED) {
-        int storedBlockCrc = 0;
+        var storedBlockCrc = 0;
         storedBlockCrc = (storedBlockCrc << 8) | br.readByte();
         storedBlockCrc = (storedBlockCrc << 8) | br.readByte();
         storedBlockCrc = (storedBlockCrc << 8) | br.readByte();
         storedBlockCrc = (storedBlockCrc << 8) | br.readByte();
 
-        int blockCrc = _readCompressed(br, output);
+        var blockCrc = _readCompressed(br, output);
         blockCrc = BZip2.finalizeCrc(blockCrc);
 
         if (verify && blockCrc != storedBlockCrc) {
@@ -56,7 +56,7 @@ class BZip2Decoder {
         combinedCrc = ((combinedCrc << 1) | (combinedCrc >> 31)) & 0xffffffff;
         combinedCrc ^= blockCrc;
       } else if (type == BLOCK_EOS) {
-        int storedCrc = 0;
+        var storedCrc = 0;
         storedCrc = (storedCrc << 8) | br.readByte();
         storedCrc = (storedCrc << 8) | br.readByte();
         storedCrc = (storedCrc << 8) | br.readByte();
@@ -73,13 +73,13 @@ class BZip2Decoder {
   }
 
   int _readBlockType(Bz2BitReader br) {
-    bool eos = true;
-    bool compressed = true;
+    var eos = true;
+    var compressed = true;
 
     // .eos_magic:48        0x177245385090 (BCD sqrt(pi))
     // .compressed_magic:48 0x314159265359 (BCD (pi))
-    for (int i = 0; i < 6; ++i) {
-      int b = br.readByte();
+    for (var i = 0; i < 6; ++i) {
+      var b = br.readByte();
       if (b != BZip2.COMPRESSED_MAGIC[i]) {
         compressed = false;
       }
@@ -95,21 +95,21 @@ class BZip2Decoder {
   }
 
   int _readCompressed(Bz2BitReader br, OutputStream output) {
-    int blockRandomized = br.readBits(1);
-    int origPtr = br.readBits(8);
+    var blockRandomized = br.readBits(1);
+    var origPtr = br.readBits(8);
     origPtr = (origPtr << 8) | br.readBits(8);
     origPtr = (origPtr << 8) | br.readBits(8);
 
     // Receive the mapping table
     _inUse16 = Uint8List(16);
-    for (int i = 0; i < 16; ++i) {
+    for (var i = 0; i < 16; ++i) {
       _inUse16[i] = br.readBits(1);
     }
 
     _inUse = Uint8List(256);
-    for (int i = 0, k = 0; i < 16; ++i, k += 16) {
+    for (var i = 0, k = 0; i < 16; ++i, k += 16) {
       if (_inUse16[i] != 0) {
-        for (int j = 0; j < 16; ++j) {
+        for (var j = 0; j < 16; ++j) {
           _inUse[k + j] = br.readBits(1);
         }
       }
@@ -120,10 +120,10 @@ class BZip2Decoder {
       throw ArchiveException('Data error');
     }
 
-    int alphaSize = _numInUse + 2;
+    var alphaSize = _numInUse + 2;
 
     // Now the selectors
-    int numGroups = br.readBits(3);
+    var numGroups = br.readBits(3);
     if (numGroups < 2 || numGroups > 6) {
       throw ArchiveException('Data error');
     }
@@ -136,10 +136,10 @@ class BZip2Decoder {
     _selectorMtf = Uint8List(BZ_MAX_SELECTORS);
     _selector = Uint8List(BZ_MAX_SELECTORS);
 
-    for (int i = 0; i < _numSelectors; ++i) {
-      int j = 0;
+    for (var i = 0; i < _numSelectors; ++i) {
+      var j = 0;
       while (true) {
-        int b = br.readBits(1);
+        var b = br.readBits(1);
         if (b == 0) {
           break;
         }
@@ -153,14 +153,14 @@ class BZip2Decoder {
     }
 
     // Undo the MTF values for the selectors.
-    Uint8List pos = Uint8List(BZ_N_GROUPS);
-    for (int i = 0; i < numGroups; ++i) {
+    final pos = Uint8List(BZ_N_GROUPS);
+    for (var i = 0; i < numGroups; ++i) {
       pos[i] = i;
     }
 
-    for (int i = 0; i < _numSelectors; ++i) {
-      int v = _selectorMtf[i];
-      int tmp = pos[v];
+    for (var i = 0; i < _numSelectors; ++i) {
+      var v = _selectorMtf[i];
+      var tmp = pos[v];
       while (v > 0) {
         pos[v] = pos[v - 1];
         v--;
@@ -172,16 +172,16 @@ class BZip2Decoder {
     // Now the coding tables
     _len = List<Uint8List>(BZ_N_GROUPS);
 
-    for (int t = 0; t < numGroups; ++t) {
+    for (var t = 0; t < numGroups; ++t) {
       _len[t] = Uint8List(BZ_MAX_ALPHA_SIZE);
 
-      int c = br.readBits(5);
-      for (int i = 0; i < alphaSize; ++i) {
+      var c = br.readBits(5);
+      for (var i = 0; i < alphaSize; ++i) {
         while (true) {
           if (c < 1 || c > 20) {
             throw ArchiveException('Data error');
           }
-          int b = br.readBits(1);
+          var b = br.readBits(1);
           if (b == 0) {
             break;
           }
@@ -202,14 +202,14 @@ class BZip2Decoder {
     _perm = List<Int32List>(BZ_N_GROUPS);
     _minLens = Int32List(BZ_N_GROUPS);
 
-    for (int t = 0; t < numGroups; t++) {
+    for (var t = 0; t < numGroups; t++) {
       _limit[t] = Int32List(BZ_MAX_ALPHA_SIZE);
       _base[t] = Int32List(BZ_MAX_ALPHA_SIZE);
       _perm[t] = Int32List(BZ_MAX_ALPHA_SIZE);
 
-      int minLen = 32;
-      int maxLen = 0;
-      for (int i = 0; i < alphaSize; ++i) {
+      var minLen = 32;
+      var maxLen = 0;
+      for (var i = 0; i < alphaSize; ++i) {
         if (_len[t][i] > maxLen) {
           maxLen = _len[t][i];
         }
@@ -218,15 +218,15 @@ class BZip2Decoder {
         }
       }
 
-      _hbCreateDecodeTables(
-          _limit[t], _base[t], _perm[t], _len[t], minLen, maxLen, alphaSize);
+      _hbCreateDecodeTables(_limit[t], _base[t], _perm[t], _len[t],
+          minLen, maxLen, alphaSize);
 
       _minLens[t] = minLen;
     }
 
     // Now the MTF values
-    int EOB = _numInUse + 1;
-    int nblockMAX = 100000 * _blockSize100k;
+    var EOB = _numInUse + 1;
+    var nblockMAX = 100000 * _blockSize100k;
 
     _unzftab = Int32List(256);
 
@@ -234,20 +234,20 @@ class BZip2Decoder {
     _mtfa = Uint8List(MTFA_SIZE);
     _mtfbase = Int32List(256 ~/ MTFL_SIZE);
 
-    int kk = MTFA_SIZE - 1;
-    for (int ii = 256 ~/ MTFL_SIZE - 1; ii >= 0; ii--) {
-      for (int jj = MTFL_SIZE - 1; jj >= 0; jj--) {
+    var kk = MTFA_SIZE - 1;
+    for (var ii = 256 ~/ MTFL_SIZE - 1; ii >= 0; ii--) {
+      for (var jj = MTFL_SIZE - 1; jj >= 0; jj--) {
         _mtfa[kk] = ii * MTFL_SIZE + jj;
         kk--;
       }
       _mtfbase[ii] = kk + 1;
     }
 
-    int nblock = 0;
+    var nblock = 0;
     _groupPos = 0;
     _groupNo = -1;
-    int nextSym = _getMtfVal(br);
-    int uc = 0;
+    var nextSym = _getMtfVal(br);
+    var uc = 0;
 
     while (true) {
       if (nextSym == EOB) {
@@ -255,8 +255,8 @@ class BZip2Decoder {
       }
 
       if (nextSym == BZ_RUNA || nextSym == BZ_RUNB) {
-        int es = -1;
-        int N = 1;
+        var es = -1;
+        var N = 1;
         do {
           // Check that N doesn't get too big, so that es doesn't
           // go negative.  The maximum value that can be
@@ -303,14 +303,14 @@ class BZip2Decoder {
         }
 
         // uc = MTF ( nextSym-1 )
-        int nn = nextSym - 1;
+        var nn = nextSym - 1;
 
         if (nn < MTFL_SIZE) {
           // avoid general-case expense
-          int pp = _mtfbase[0];
+          var pp = _mtfbase[0];
           uc = _mtfa[pp + nn];
           while (nn > 3) {
-            int z = pp + nn;
+            var z = pp + nn;
             _mtfa[(z)] = _mtfa[(z) - 1];
             _mtfa[(z) - 1] = _mtfa[(z) - 2];
             _mtfa[(z) - 2] = _mtfa[(z) - 3];
@@ -324,9 +324,9 @@ class BZip2Decoder {
           _mtfa[pp] = uc;
         } else {
           // general case
-          int lno = nn ~/ MTFL_SIZE;
-          int off = nn % MTFL_SIZE;
-          int pp = _mtfbase[lno] + off;
+          var lno = nn ~/ MTFL_SIZE;
+          var off = nn % MTFL_SIZE;
+          var pp = _mtfbase[lno] + off;
           uc = _mtfa[pp];
           while (pp > _mtfbase[lno]) {
             _mtfa[pp] = _mtfa[pp - 1];
@@ -342,8 +342,8 @@ class BZip2Decoder {
           _mtfa[_mtfbase[0]] = uc;
           if (_mtfbase[0] == 0) {
             kk = MTFA_SIZE - 1;
-            for (int ii = 256 ~/ MTFL_SIZE - 1; ii >= 0; ii--) {
-              for (int jj = MTFL_SIZE - 1; jj >= 0; jj--) {
+            for (var ii = 256 ~/ MTFL_SIZE - 1; ii >= 0; ii--) {
+              for (var jj = MTFL_SIZE - 1; jj >= 0; jj--) {
                 _mtfa[kk] = _mtfa[_mtfbase[ii] + jj];
                 kk--;
               }
@@ -370,7 +370,7 @@ class BZip2Decoder {
 
     // Set up cftab to facilitate generation of T^(-1)
     // Check: unzftab entries in range.
-    for (int i = 0; i <= 255; i++) {
+    for (var i = 0; i <= 255; i++) {
       if (_unzftab[i] < 0 || _unzftab[i] > nblock) {
         throw ArchiveException('Data error');
       }
@@ -379,16 +379,16 @@ class BZip2Decoder {
     // Actually generate cftab.
     _cftab = Int32List(257);
     _cftab[0] = 0;
-    for (int i = 1; i <= 256; i++) {
+    for (var i = 1; i <= 256; i++) {
       _cftab[i] = _unzftab[i - 1];
     }
 
-    for (int i = 1; i <= 256; i++) {
+    for (var i = 1; i <= 256; i++) {
       _cftab[i] += _cftab[i - 1];
     }
 
     // Check: cftab entries in range.
-    for (int i = 0; i <= 256; i++) {
+    for (var i = 0; i <= 256; i++) {
       if (_cftab[i] < 0 || _cftab[i] > nblock) {
         // s->cftab[i] can legitimately be == nblock
         throw ArchiveException('Data error');
@@ -396,26 +396,26 @@ class BZip2Decoder {
     }
 
     // Check: cftab entries non-descending.
-    for (int i = 1; i <= 256; i++) {
+    for (var i = 1; i <= 256; i++) {
       if (_cftab[i - 1] > _cftab[i]) {
         throw ArchiveException('Data error');
       }
     }
 
     // compute the T^(-1) vector
-    for (int i = 0; i < nblock; i++) {
+    for (var i = 0; i < nblock; i++) {
       uc = (_tt[i] & 0xff);
       _tt[_cftab[uc]] |= (i << 8);
       _cftab[uc]++;
     }
 
-    int blockCrc = BZip2.INITIAL_CRC;
+    var blockCrc = BZip2.INITIAL_CRC;
 
-    int tPos = _tt[origPtr] >> 8;
-    int numBlockUsed = 0;
+    var tPos = _tt[origPtr] >> 8;
+    var numBlockUsed = 0;
     int k0;
-    int rNToGo = 0;
-    int rTPos = 0;
+    var rNToGo = 0;
+    var rTPos = 0;
 
     if (blockRandomized != 0) {
       rNToGo = 0;
@@ -452,11 +452,11 @@ class BZip2Decoder {
     }
 
     // UnRLE to output
-    int c_state_out_len = 0;
-    int c_state_out_ch = 0;
-    int s_save_nblockPP = nblock + 1;
-    int c_nblock_used = numBlockUsed;
-    int c_k0 = k0;
+    var c_state_out_len = 0;
+    var c_state_out_ch = 0;
+    var s_save_nblockPP = nblock + 1;
+    var c_nblock_used = numBlockUsed;
+    var c_k0 = k0;
     int k1;
 
     if (blockRandomized != 0) {
@@ -708,8 +708,8 @@ class BZip2Decoder {
     }
 
     _groupPos--;
-    int zn = _gMinlen;
-    int zvec = br.readBits(zn);
+    var zn = _gMinlen;
+    var zvec = br.readBits(zn);
 
     while (true) {
       if (zn > 20) {
@@ -720,7 +720,7 @@ class BZip2Decoder {
       }
 
       zn++;
-      int zj = br.readBits(1);
+      var zj = br.readBits(1);
       zvec = (zvec << 1) | zj;
     }
 
@@ -733,9 +733,9 @@ class BZip2Decoder {
 
   void _hbCreateDecodeTables(Int32List limit, Int32List base, Int32List perm,
       Uint8List length, int minLen, int maxLen, int alphaSize) {
-    int pp = 0;
-    for (int i = minLen; i <= maxLen; i++) {
-      for (int j = 0; j < alphaSize; j++) {
+    var pp = 0;
+    for (var i = minLen; i <= maxLen; i++) {
+      for (var j = 0; j < alphaSize; j++) {
         if (length[j] == i) {
           perm[pp] = j;
           pp++;
@@ -743,31 +743,31 @@ class BZip2Decoder {
       }
     }
 
-    for (int i = 0; i < BZ_MAX_CODE_LEN; i++) {
+    for (var i = 0; i < BZ_MAX_CODE_LEN; i++) {
       base[i] = 0;
     }
 
-    for (int i = 0; i < alphaSize; i++) {
+    for (var i = 0; i < alphaSize; i++) {
       base[length[i] + 1]++;
     }
 
-    for (int i = 1; i < BZ_MAX_CODE_LEN; i++) {
+    for (var i = 1; i < BZ_MAX_CODE_LEN; i++) {
       base[i] += base[i - 1];
     }
 
-    for (int i = 0; i < BZ_MAX_CODE_LEN; i++) {
+    for (var i = 0; i < BZ_MAX_CODE_LEN; i++) {
       limit[i] = 0;
     }
 
-    int vec = 0;
+    var vec = 0;
 
-    for (int i = minLen; i <= maxLen; i++) {
+    for (var i = minLen; i <= maxLen; i++) {
       vec += (base[i + 1] - base[i]);
       limit[i] = vec - 1;
       vec <<= 1;
     }
 
-    for (int i = minLen + 1; i <= maxLen; i++) {
+    for (var i = minLen + 1; i <= maxLen; i++) {
       base[i] = ((limit[i - 1] + 1) << 1) - base[i];
     }
   }
@@ -775,7 +775,7 @@ class BZip2Decoder {
   void _makeMaps() {
     _numInUse = 0;
     _seqToUnseq = Uint8List(256);
-    for (int i = 0; i < 256; ++i) {
+    for (var i = 0; i < 256; ++i) {
       if (_inUse[i] != 0) {
         _seqToUnseq[_numInUse++] = i;
       }

@@ -4,16 +4,16 @@ import 'package:archive/archive_io.dart';
 
 void main() {
   // Read the Zip file from disk.
-  List<int> bytes = File('test.zip').readAsBytesSync();
+  final bytes = File('test.zip').readAsBytesSync();
 
   // Decode the Zip file
-  Archive archive = ZipDecoder().decodeBytes(bytes);
+  final archive = ZipDecoder().decodeBytes(bytes);
 
   // Extract the contents of the Zip archive to disk.
-  for (ArchiveFile file in archive) {
-    String filename = file.name;
+  for (final file in archive) {
+    final filename = file.name;
     if (file.isFile) {
-      List<int> data = file.content;
+      final data = file.content as List<int>;
       File('out/' + filename)
         ..createSync(recursive: true)
         ..writeAsBytesSync(data);
@@ -24,11 +24,11 @@ void main() {
   }
 
   // Encode the archive as a BZip2 compressed Tar file.
-  List<int> tar_data = TarEncoder().encode(archive);
-  List<int> tar_bz2 = BZip2Encoder().encode(tar_data);
+  final tar_data = TarEncoder().encode(archive);
+  final tar_bz2 = BZip2Encoder().encode(tar_data);
 
   // Write the compressed tar file to disk.
-  File fp = File('test.tbz');
+  final fp = File('test.tbz');
   fp.writeAsBytesSync(tar_bz2);
 
   // Zip a directory to out.zip using the zipDirectory convenience method

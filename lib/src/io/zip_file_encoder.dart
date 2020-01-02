@@ -14,8 +14,8 @@ class ZipFileEncoder {
   static const int GZIP = 1;
 
   void zipDirectory(Directory dir, {String filename}) {
-    String dirPath = dir.path;
-    String zip_path = filename != null ? filename : '${dirPath}.zip';
+    final dirPath = dir.path;
+    final zip_path = filename ?? '${dirPath}.zip';
     create(zip_path);
     addDirectory(dir, includeDirName: false);
     close();
@@ -38,17 +38,17 @@ class ZipFileEncoder {
         continue;
       }
 
-      File f = file as File;
-      String dir_name = path.basename(dir.path);
-      String rel_path = path.relative(f.path, from: dir.path);
-      addFile(f, includeDirName ? (dir_name + "/" + rel_path) : rel_path);
+      final f = file as File;
+      final dir_name = path.basename(dir.path);
+      final rel_path = path.relative(f.path, from: dir.path);
+      addFile(f, includeDirName ? (dir_name + '/' + rel_path) : rel_path);
     }
   }
 
   void addFile(File file, [String filename]) {
     var file_stream = InputFileStream.file(file);
     var f = ArchiveFile.stream(
-        filename == null ? path.basename(file.path) : filename,
+        filename ?? path.basename(file.path),
         file.lengthSync(),
         file_stream);
 

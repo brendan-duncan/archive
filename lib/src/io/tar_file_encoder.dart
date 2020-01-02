@@ -15,9 +15,9 @@ class TarFileEncoder {
   static const int GZIP = 1;
 
   void tarDirectory(Directory dir, {int compression = STORE, String filename}) {
-    String dirPath = dir.path;
-    String tar_path = filename != null ? filename : '${dirPath}.tar';
-    String tgz_path = filename != null ? filename : '${dirPath}.tar.gz';
+    final dirPath = dir.path;
+    var tar_path = filename ?? '${dirPath}.tar';
+    final tgz_path = filename ?? '${dirPath}.tar.gz';
 
     Directory temp_dir;
     if (compression == GZIP) {
@@ -31,8 +31,8 @@ class TarFileEncoder {
     close();
 
     if (compression == GZIP) {
-      InputFileStream input = InputFileStream(tar_path);
-      OutputFileStream output = OutputFileStream(tgz_path);
+      final input = InputFileStream(tar_path);
+      final output = OutputFileStream(tgz_path);
       GZipEncoder().encode(input, output: output);
       input.close();
       File(input.path).deleteSync();
@@ -56,16 +56,16 @@ class TarFileEncoder {
         continue;
       }
 
-      File f = fe as File;
-      String rel_path = path.relative(f.path, from: dir.path);
+      final f = fe as File;
+      final rel_path = path.relative(f.path, from: dir.path);
       addFile(f, rel_path);
     }
   }
 
   void addFile(File file, [String filename]) {
-    InputFileStream file_stream = InputFileStream.file(file);
-    ArchiveFile f = ArchiveFile.stream(
-        filename == null ? file.path : filename,
+    final file_stream = InputFileStream.file(file);
+    final f = ArchiveFile.stream(
+        filename ?? file.path,
         file.lengthSync(),
         file_stream);
     f.lastModTime = file.lastModifiedSync().millisecondsSinceEpoch;

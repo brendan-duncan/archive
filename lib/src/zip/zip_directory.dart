@@ -27,7 +27,7 @@ class ZipDirectory {
   ZipDirectory.read(InputStream input, {String password}) {
     filePosition = _findSignature(input);
     input.offset = filePosition;
-    int signature = input.readUint32(); // ignore: unused_local_variable
+    final signature = input.readUint32(); // ignore: unused_local_variable
     numberOfThisDisk = input.readUint16();
     diskWithTheStartOfTheCentralDirectory = input.readUint16();
     totalCentralDirectoryEntriesOnThisDisk = input.readUint16();
@@ -35,18 +35,18 @@ class ZipDirectory {
     centralDirectorySize = input.readUint32();
     centralDirectoryOffset = input.readUint32();
 
-    int len = input.readUint16();
+    final len = input.readUint16();
     if (len > 0) {
       zipFileComment = input.readString(size: len);
     }
 
     _readZip64Data(input);
 
-    InputStream dirContent =
+    final dirContent =
         input.subset(centralDirectoryOffset, centralDirectorySize);
 
     while (!dirContent.isEOS) {
-      int fileSig = dirContent.readUint32();
+      final fileSig = dirContent.readUint32();
       if (fileSig != ZipFileHeader.SIGNATURE) {
         break;
       }
@@ -55,7 +55,7 @@ class ZipDirectory {
   }
 
   void _readZip64Data(InputStream input) {
-    int ip = input.offset;
+    final ip = input.offset;
     // Check for zip64 data.
 
     // Zip64 end of central directory locator
@@ -67,22 +67,22 @@ class ZipDirectory {
     // end of central directory record 8 bytes
     // total number of disks           4 bytes
 
-    int locPos = filePosition - ZIP64_EOCD_LOCATOR_SIZE;
+    final locPos = filePosition - ZIP64_EOCD_LOCATOR_SIZE;
     if (locPos < 0) {
       return;
     }
-    InputStream zip64 = input.subset(locPos, ZIP64_EOCD_LOCATOR_SIZE);
+    final zip64 = input.subset(locPos, ZIP64_EOCD_LOCATOR_SIZE);
 
-    int sig = zip64.readUint32();
+    var sig = zip64.readUint32();
     // If this ins't the signature we're looking for, nothing more to do.
     if (sig != ZIP64_EOCD_LOCATOR_SIGNATURE) {
       input.offset = ip;
       return;
     }
 
-    int startZip64Disk = zip64.readUint32(); // ignore: unused_local_variable
-    int zip64DirOffset = zip64.readUint64();
-    int numZip64Disks = zip64.readUint32(); // ignore: unused_local_variable
+    final startZip64Disk = zip64.readUint32(); // ignore: unused_local_variable
+    final zip64DirOffset = zip64.readUint64();
+    final numZip64Disks = zip64.readUint32(); // ignore: unused_local_variable
 
     input.offset = zip64DirOffset;
 
@@ -110,15 +110,15 @@ class ZipDirectory {
       return;
     }
 
-    int zip64EOCDSize = input.readUint64(); // ignore: unused_local_variable
-    int zip64Version = input.readUint16(); // ignore: unused_local_variable
-    int zip64VersionNeeded = input.readUint16(); // ignore: unused_local_variable
-    int zip64DiskNumber = input.readUint32();
-    int zip64StartDisk = input.readUint32();
-    int zip64NumEntriesOnDisk = input.readUint64();
-    int zip64NumEntries = input.readUint64();
-    int dirSize = input.readUint64();
-    int dirOffset = input.readUint64();
+    final zip64EOCDSize = input.readUint64(); // ignore: unused_local_variable
+    final zip64Version = input.readUint16(); // ignore: unused_local_variable
+    final zip64VersionNeeded = input.readUint16(); // ignore: unused_local_variable
+    final zip64DiskNumber = input.readUint32();
+    final zip64StartDisk = input.readUint32();
+    final zip64NumEntriesOnDisk = input.readUint64();
+    final zip64NumEntries = input.readUint64();
+    final dirSize = input.readUint64();
+    final dirOffset = input.readUint64();
 
     numberOfThisDisk = zip64DiskNumber;
     diskWithTheStartOfTheCentralDirectory = zip64StartDisk;
@@ -131,22 +131,21 @@ class ZipDirectory {
   }
 
   int _findSignature(InputStream input) {
-    int pos = input.offset;
-    int length = input.length;
+    final pos = input.offset;
+    final length = input.length;
 
     // The directory and archive contents are written to the end of the zip
     // file.  We need to search from the end to find these structures,
     // starting with the 'End of central directory' record (EOCD).
-    for (int ip = length - 4; ip >= 0; --ip) {
+    for (var ip = length - 4; ip >= 0; --ip) {
       input.offset = ip;
-      int sig = input.readUint32();
+      final sig = input.readUint32();
       if (sig == SIGNATURE) {
         input.offset = pos;
         return ip;
       }
     }
 
-    throw ArchiveException(
-        'Could not find End of Central Directory Record');
+    throw ArchiveException('Could not find End of Central Directory Record');
   }
 }

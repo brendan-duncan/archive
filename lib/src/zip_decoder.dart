@@ -2,7 +2,6 @@ import 'util/archive_exception.dart';
 import 'util/crc32.dart';
 import 'util/input_stream.dart';
 import 'zip/zip_directory.dart';
-import 'zip/zip_file_header.dart';
 import 'zip/zip_file.dart';
 import 'archive.dart';
 import 'archive_file.dart';
@@ -19,23 +18,23 @@ class ZipDecoder {
   Archive decodeBuffer(InputStream input,
       {bool verify = false, String password}) {
     directory = ZipDirectory.read(input, password: password);
-    Archive archive = Archive();
+    final archive = Archive();
 
-    for (ZipFileHeader zfh in directory.fileHeaders) {
-      ZipFile zf = zfh.file;
+    for (final zfh in directory.fileHeaders) {
+      final zf = zfh.file;
 
       // The attributes are stored in base 8
       final mode = zfh.externalFileAttributes;
       final compress = zf.compressionMethod != ZipFile.STORE;
 
       if (verify) {
-        int computedCrc = getCrc32(zf.content);
+        final computedCrc = getCrc32(zf.content);
         if (computedCrc != zf.crc32) {
           throw ArchiveException('Invalid CRC for file in archive.');
         }
       }
 
-      var content = zf.rawContent;
+      dynamic content = zf.rawContent;
       var file = ArchiveFile(zf.filename, zf.uncompressedSize, content,
           zf.compressionMethod);
 
@@ -45,7 +44,7 @@ class ZipDecoder {
       // UNIX systems has a creator version of 3 decimal at 1 byte offset
       if (zfh.versionMadeBy >> 8 == 3) {
         //final bool isDirectory = file.mode & 0x7000 == 0x4000;
-        final bool isFile = file.mode & 0x3F000 == 0x8000;
+        final isFile = file.mode & 0x3F000 == 0x8000;
         file.isFile = isFile;
       } else {
         file.isFile = !file.name.endsWith('/');

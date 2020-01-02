@@ -53,13 +53,14 @@ abstract class InputStreamBase {
 
 /// A buffer that can be read as a stream of bytes
 class InputStream extends InputStreamBase {
-  final List<int> buffer;
+  List<int> buffer;
   int offset;
-  final int start;
-  final int byteOrder;
+  int start;
+  int byteOrder;
 
   /// Create a InputStream for reading from a List<int>
-  InputStream(dynamic data, {this.byteOrder = LITTLE_ENDIAN, int start = 0, int length})
+  InputStream(dynamic data,
+      {this.byteOrder = LITTLE_ENDIAN, int start = 0, int length})
       : buffer = data is ByteData
             ? Uint8List.view(data.buffer)
             : data is List<int> ? data : List<int>.from(data as Iterable<dynamic>),
@@ -174,6 +175,9 @@ class InputStream extends InputStreamBase {
   String readString({int size, bool utf8 = true}) {
     if (size == null) {
       final codes = <int>[];
+      if (isEOS) {
+        return '';
+      }
       while (!isEOS) {
         final c = readByte();
         if (c == 0) {

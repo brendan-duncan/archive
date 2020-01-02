@@ -91,7 +91,7 @@ class TarFile {
       deviceMinorNumber = _parseInt(header, 8);
     }
 
-    if (storeData) {
+    if (storeData || filename == '././@LongLink') {
       _rawContent = input.readBytes(fileSize);
     } else {
       input.skip(fileSize);

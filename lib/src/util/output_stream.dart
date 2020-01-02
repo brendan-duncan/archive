@@ -9,7 +9,7 @@ abstract class OutputStreamBase {
   void writeByte(int value);
 
   /// Write a set of bytes to the output stream.
-  void writeBytes(bytes, [int len]);
+  void writeBytes(List<int> bytes, [int len]);
 
   /// Write an InputStream to the output stream.
   void writeInputStream(InputStreamBase bytes);
@@ -27,9 +27,10 @@ class OutputStream extends OutputStreamBase {
 
   /// Create a byte buffer for writing.
   OutputStream({int size = _BLOCK_SIZE, this.byteOrder = LITTLE_ENDIAN})
-      : _buffer = Uint8List(size == null ? _BLOCK_SIZE : size),
+      : _buffer = Uint8List(size ?? _BLOCK_SIZE),
         _length = 0;
 
+  @override
   int get length => _length;
 
   set length(int l) => _length = l;
@@ -51,6 +52,7 @@ class OutputStream extends OutputStreamBase {
   }
 
   /// Write a byte to the end of the buffer.
+  @override
   void writeByte(int value) {
     if (length == _buffer.length) {
       _expandBuffer();
@@ -59,10 +61,10 @@ class OutputStream extends OutputStreamBase {
   }
 
   /// Write a set of bytes to the end of the buffer.
-  void writeBytes(bytes, [int len]) {
-    if (len == null) {
-      len = bytes.length;
-    }
+  @override
+  void writeBytes(List<int> bytes, [int len]) {
+    len ??= bytes.length;
+
     while (length + len > _buffer.length) {
       _expandBuffer((length + len) - _buffer.length);
     }
@@ -70,6 +72,7 @@ class OutputStream extends OutputStreamBase {
     length += len;
   }
 
+  @override
   void writeInputStream(InputStreamBase stream) {
     while (length + stream.length > _buffer.length) {
       _expandBuffer((length + stream.length) - _buffer.length);
@@ -86,6 +89,7 @@ class OutputStream extends OutputStreamBase {
   }
 
   /// Write a 16-bit word to the end of the buffer.
+  @override
   void writeUint16(int value) {
     if (byteOrder == BIG_ENDIAN) {
       writeByte((value >> 8) & 0xff);
@@ -97,6 +101,7 @@ class OutputStream extends OutputStreamBase {
   }
 
   /// Write a 32-bit word to the end of the buffer.
+  @override
   void writeUint32(int value) {
     if (byteOrder == BIG_ENDIAN) {
       writeByte((value >> 24) & 0xff);
@@ -132,18 +137,18 @@ class OutputStream extends OutputStreamBase {
 
   /// Grow the buffer to accommodate additional data.
   void _expandBuffer([int required]) {
-    int blockSize = _BLOCK_SIZE;
+    var blockSize = _BLOCK_SIZE;
     if (required != null) {
       if (required > blockSize) {
         blockSize = required;
       }
     }
-    int newLength = (_buffer.length + blockSize) * 2;
-    Uint8List newBuffer = Uint8List(newLength);
+    final newLength = (_buffer.length + blockSize) * 2;
+    final newBuffer = Uint8List(newLength);
     newBuffer.setRange(0, _buffer.length, _buffer);
     _buffer = newBuffer;
   }
 
-  static const int _BLOCK_SIZE = 0x8000; // 32k block-size
+  static const _BLOCK_SIZE = 0x8000; // 32k block-size
   Uint8List _buffer;
 }

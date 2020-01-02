@@ -5,7 +5,7 @@ import 'byte_order.dart';
 /// A helper class to work with List and TypedData in a way similar to pointers
 /// in C.
 class MemPtr {
-  dynamic buffer;
+  List<int> buffer;
   int offset;
   int _length;
   int byteOrder;
@@ -45,13 +45,14 @@ class MemPtr {
   /// Copy data from [other] to this buffer, at [start] offset from the
   /// current read position, and [length] number of bytes.  [offset] is
   /// the offset in [other] to start reading.
-  void memcpy(int start, int length, other, [int offset = 0]) {
+  void memcpy(int start, int length, dynamic other, [int offset = 0]) {
     if (other is MemPtr) {
       buffer.setRange(this.offset + start, this.offset + start + length,
           other.buffer, other.offset + offset);
     } else {
       buffer.setRange(
-          this.offset + start, this.offset + start + length, other, offset);
+          this.offset + start, this.offset + start + length,
+          other as List<int>, offset);
     }
   }
 
@@ -63,19 +64,20 @@ class MemPtr {
 
   /// Read a single byte.
   int readByte() {
-    return buffer[offset++] as int;
+    return buffer[offset++];
   }
 
   /// Read [count] bytes from the buffer.
   List<int> readBytes(int count) {
     if (buffer is Uint8List) {
+      final b = buffer as Uint8List;
       final bytes = Uint8List.view(
-          buffer.buffer, buffer.offsetInBytes + offset, count);
+          b.buffer, b.offsetInBytes + offset, count);
       offset += bytes.length;
       return bytes;
     }
 
-    final bytes = (buffer as List<int>).sublist(offset, offset + count);
+    final bytes = buffer.sublist(offset, offset + count);
     offset += bytes.length;
     return bytes;
   }
@@ -111,9 +113,9 @@ class MemPtr {
 
   /// Read a 24-bit word from the stream.
   int readUint24() {
-    final b1 = buffer[offset++] & 0xff as int;
-    final b2 = buffer[offset++] & 0xff as int;
-    final b3 = buffer[offset++] & 0xff as int;
+    final b1 = buffer[offset++] & 0xff;
+    final b2 = buffer[offset++] & 0xff;
+    final b3 = buffer[offset++] & 0xff;
     if (byteOrder == BIG_ENDIAN) {
       return b3 | (b2 << 8) | (b1 << 16);
     }
@@ -122,10 +124,10 @@ class MemPtr {
 
   /// Read a 32-bit word from the stream.
   int readUint32() {
-    final b1 = buffer[offset++] & 0xff as int;
-    final b2 = buffer[offset++] & 0xff as int;
-    final b3 = buffer[offset++] & 0xff as int;
-    final b4 = buffer[offset++] & 0xff as int;
+    final b1 = buffer[offset++] & 0xff;
+    final b2 = buffer[offset++] & 0xff;
+    final b3 = buffer[offset++] & 0xff;
+    final b4 = buffer[offset++] & 0xff;
     if (byteOrder == BIG_ENDIAN) {
       return (b1 << 24) | (b2 << 16) | (b3 << 8) | b4;
     }
@@ -134,13 +136,21 @@ class MemPtr {
 
   /// This assumes buffer is a Typed
   Uint8List toUint8List([int offset = 0]) {
-    return Uint8List.view(
-        buffer.buffer, buffer.offsetInBytes + this.offset + offset);
+    if (buffer is TypedData) {
+      final b = buffer as TypedData;
+      return Uint8List.view(
+          b.buffer, b.offsetInBytes + this.offset + offset);
+    }
+    return null;
   }
 
   /// This assumes buffer is a Typed
   Uint32List toUint32List([int offset = 0]) {
-    return Uint32List.view(
-        buffer.buffer, buffer.offsetInBytes + this.offset + offset);
+    if (buffer is TypedData) {
+      final b = buffer as TypedData;
+      return Uint32List.view(
+          b.buffer, b.offsetInBytes + this.offset + offset);
+    }
+    return null;
   }
 }

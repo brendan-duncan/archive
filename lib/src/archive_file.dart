@@ -16,7 +16,7 @@ class ArchiveFile {
   int lastModTime = 0;
   bool isFile = true;
   bool isSymbolicLink = false;
-  String nameOfLinkedFile = "";
+  String nameOfLinkedFile = '';
 
   /// The crc32 checksum of the uncompressed content.
   int crc32;
@@ -30,7 +30,7 @@ class ArchiveFile {
     return mode & 0x1FF;
   }
 
-  ArchiveFile(this.name, this.size, content, [this._compressionType = STORE]) {
+  ArchiveFile(this.name, this.size, dynamic content, [this._compressionType = STORE]) {
     if (content is List<int>) {
       _content = content;
       _rawContent = InputStream(_content);
@@ -39,7 +39,7 @@ class ArchiveFile {
     }
   }
 
-  ArchiveFile.noCompress(this.name, this.size, content) {
+  ArchiveFile.noCompress(this.name, this.size, dynamic content) {
     compress = false;
     if (content is List<int>) {
       _content = content;
@@ -49,7 +49,7 @@ class ArchiveFile {
     }
   }
 
-  ArchiveFile.stream(this.name, this.size, content_stream) {
+  ArchiveFile.stream(this.name, this.size, dynamic content_stream) {
     compress = true;
     _content = content_stream;
     //_rawContent = content_stream;
@@ -85,6 +85,7 @@ class ArchiveFile {
   /// Get the content without decompressing it first.
   InputStream get rawContent => _rawContent;
 
+  @override
   String toString() => name;
 
   int _compressionType;

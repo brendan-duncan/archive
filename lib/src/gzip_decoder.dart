@@ -17,25 +17,25 @@ class GZipDecoder {
     return decodeBuffer(InputStream(data), verify: verify);
   }
 
-  void decodeStream(dynamic input, dynamic output) {
+  void decodeStream(InputStreamBase input, dynamic output) {
     _readHeader(input);
     Inflate.stream(input, output);
   }
 
-  List<int> decodeBuffer(dynamic input, {bool verify = false}) {
+  List<int> decodeBuffer(InputStreamBase input, {bool verify = false}) {
     _readHeader(input);
 
     // Inflate
-    List<int> buffer = Inflate.buffer(input).getBytes();
+    final buffer = Inflate.buffer(input).getBytes();
 
     if (verify) {
-      int crc = input.readUint32();
-      int computedCrc = getCrc32(buffer);
+      var crc = input.readUint32();
+      var computedCrc = getCrc32(buffer);
       if (crc != computedCrc) {
         throw ArchiveException('Invalid CRC checksum');
       }
 
-      int size = input.readUint32();
+      var size = input.readUint32();
       if (size != buffer.length) {
         throw ArchiveException('Size of decompressed file not correct');
       }
@@ -44,7 +44,7 @@ class GZipDecoder {
     return buffer;
   }
 
-  void _readHeader(dynamic input) {
+  void _readHeader(InputStreamBase input) {
     // The GZip format has the following structure:
     // Offset   Length   Contents
     // 0      2 bytes  magic header  0x1f, 0x8b (\037 \213)
@@ -86,23 +86,23 @@ class GZipDecoder {
     //        4 bytes  crc32
     //        4 bytes  uncompressed input size modulo 2^32
 
-    int signature = input.readUint16();
+    final signature = input.readUint16();
     if (signature != SIGNATURE) {
       throw ArchiveException('Invalid GZip Signature');
     }
 
-    int compressionMethod = input.readByte();
+    final compressionMethod = input.readByte();
     if (compressionMethod != DEFLATE) {
       throw ArchiveException('Invalid GZip Compression Methos');
     }
 
-    int flags = input.readByte();
+    final flags = input.readByte();
     /*int fileModTime =*/ input.readUint32();
     /*int extraFlags =*/ input.readByte();
     /*int osType =*/ input.readByte();
 
     if (flags & FLAG_EXTRA != 0) {
-      int t = input.readUint16();
+      final t = input.readUint16();
       input.readBytes(t);
     }
 

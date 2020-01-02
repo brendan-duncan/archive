@@ -8,13 +8,13 @@ class ZLibEncoder {
   static const int DEFLATE = 8;
 
   List<int> encode(List<int> data, {int level}) {
-    OutputStream output = OutputStream(byteOrder: BIG_ENDIAN);
+    final output = OutputStream(byteOrder: BIG_ENDIAN);
 
     // Compression Method and Flags
-    int cm = DEFLATE;
-    int cinfo = 7; //2^(7+8) = 32768 window size
+    final cm = DEFLATE;
+    final cinfo = 7; //2^(7+8) = 32768 window size
 
-    int cmf = (cinfo << 4) | cm;
+    final cmf = (cinfo << 4) | cm;
     output.writeByte(cmf);
 
     // 0x01, (00 0 00001) (FLG)
@@ -22,22 +22,22 @@ class ZLibEncoder {
     // bit  5       FDICT   (preset dictionary)
     // bits 6 to 7  FLEVEL  (compression level)
     // FCHECK is set such that (cmf * 256 + flag) must be a multiple of 31.
-    int fdict = 0;
-    int flevel = 0;
-    int flag = ((flevel & 0x3) << 7) | ((fdict & 0x1) << 5);
-    int fcheck = 0;
-    int cmf256 = cmf * 256;
+    final fdict = 0;
+    final flevel = 0;
+    var flag = ((flevel & 0x3) << 7) | ((fdict & 0x1) << 5);
+    var fcheck = 0;
+    final cmf256 = cmf * 256;
     while ((cmf256 + (flag | fcheck)) % 31 != 0) {
       fcheck++;
     }
     flag |= fcheck;
     output.writeByte(flag);
 
-    int adler32 = getAdler32(data);
+    final adler32 = getAdler32(data);
 
-    InputStream input = InputStream(data, byteOrder: BIG_ENDIAN);
+    final input = InputStream(data, byteOrder: BIG_ENDIAN);
 
-    List<int> compressed = Deflate.buffer(input, level: level).getBytes();
+    final compressed = Deflate.buffer(input, level: level).getBytes();
     output.writeBytes(compressed);
 
     output.writeUint32(adler32);

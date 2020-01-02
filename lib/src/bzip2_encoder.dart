@@ -11,20 +11,20 @@ import 'util/output_stream.dart';
 class BZip2Encoder {
   List<int> encode(List<int> data) {
     input = InputStream(data, byteOrder: BIG_ENDIAN);
-    OutputStream output = OutputStream(byteOrder: BIG_ENDIAN);
+    final output = OutputStream(byteOrder: BIG_ENDIAN);
 
     bw = Bz2BitWriter(output);
 
-    final int blockSize100k = 9;
+    final blockSize100k = 9;
 
     bw.writeBytes(BZip2.BZH_SIGNATURE);
     bw.writeByte(BZip2.HDR_0 + blockSize100k);
 
     _nblockMax = 100000 * blockSize100k - 19;
     _workFactor = 30;
-    int combinedCRC = 0;
+    var combinedCRC = 0;
 
-    int n = 100000 * blockSize100k;
+    var n = 100000 * blockSize100k;
     _arr1 = Uint32List(n);
     _arr2 = Uint32List(n + BZ_N_OVERSHOOT);
     _ftab = Uint32List(65537);
@@ -40,20 +40,20 @@ class BZip2Encoder {
     _code = List<Int32List>(BZ_N_GROUPS);
     _rfreq = List<Int32List>(BZ_N_GROUPS);
 
-    for (int i = 0; i < BZ_N_GROUPS; ++i) {
+    for (var i = 0; i < BZ_N_GROUPS; ++i) {
       _len[i] = Uint8List(BZ_MAX_ALPHA_SIZE);
       _code[i] = Int32List(BZ_MAX_ALPHA_SIZE);
       _rfreq[i] = Int32List(BZ_MAX_ALPHA_SIZE);
     }
 
     _lenPack = List<Uint32List>(BZ_MAX_ALPHA_SIZE);
-    for (int i = 0; i < BZ_MAX_ALPHA_SIZE; ++i) {
+    for (var i = 0; i < BZ_MAX_ALPHA_SIZE; ++i) {
       _lenPack[i] = Uint32List(4);
     }
 
     // Write blocks
     while (!input.isEOS) {
-      int blockCRC = _writeBlock();
+      var blockCRC = _writeBlock();
       combinedCRC = ((combinedCRC << 1) | (combinedCRC >> 31)) & 0xffffffff;
       combinedCRC ^= blockCRC;
       _blockNo++;
@@ -113,7 +113,7 @@ class BZip2Encoder {
   }
 
   void _generateMTFValues() {
-    Uint8List yy = Uint8List(256);
+    final yy = Uint8List(256);
 
     // After sorting (eg, here),
     // s->arr1 [ 0 .. s->nblock-1 ] holds sorted order,
@@ -132,31 +132,31 @@ class BZip2Encoder {
     //      area starting at
     //         (UChar*) (&((UChar*)s->arr2)[s->nblock])
     _nInUse = 0;
-    for (int i = 0; i < 256; i++) {
+    for (var i = 0; i < 256; i++) {
       if (_inUse[i] != 0) {
         _unseqToSeq[i] = _nInUse;
         _nInUse++;
       }
     }
 
-    final int EOB = _nInUse + 1;
+    final EOB = _nInUse + 1;
 
     _mtfFreq = Int32List(BZ_MAX_ALPHA_SIZE);
 
-    int wr = 0;
-    int zPend = 0;
-    for (int i = 0; i < _nInUse; i++) {
+    var wr = 0;
+    var zPend = 0;
+    for (var i = 0; i < _nInUse; i++) {
       yy[i] = i;
     }
 
-    for (int i = 0; i < _nblock; i++) {
+    for (var i = 0; i < _nblock; i++) {
       _assert(wr <= i);
-      int j = _arr1[i] - 1;
+      var j = _arr1[i] - 1;
       if (j < 0) {
         j += _nblock;
       }
 
-      int ll_i = _unseqToSeq[_block[j]];
+      var ll_i = _unseqToSeq[_block[j]];
       _assert(ll_i < _nInUse);
 
       if (yy[0] == ll_i) {
@@ -185,13 +185,13 @@ class BZip2Encoder {
           zPend = 0;
         }
 
-        int rtmp = yy[1];
+        var rtmp = yy[1];
         yy[1] = yy[0];
-        int ryy_j = 1;
-        int rll_i = ll_i;
+        var ryy_j = 1;
+        var rll_i = ll_i;
         while (rll_i != rtmp) {
           ryy_j++;
-          int rtmp2 = rtmp;
+          var rtmp2 = rtmp;
           rtmp = yy[ryy_j];
           yy[ryy_j] = rtmp2;
         }
@@ -235,13 +235,13 @@ class BZip2Encoder {
   }
 
   void _sendMTFValues() {
-    Uint16List cost = Uint16List(BZ_N_GROUPS);
-    Int32List fave = Int32List(BZ_N_GROUPS);
-    int nSelectors = 0;
+    final cost = Uint16List(BZ_N_GROUPS);
+    final fave = Int32List(BZ_N_GROUPS);
+    var nSelectors = 0;
 
-    int alphaSize = _nInUse + 2;
-    for (int t = 0; t < BZ_N_GROUPS; t++) {
-      for (int v = 0; v < alphaSize; v++) {
+    var alphaSize = _nInUse + 2;
+    for (var t = 0; t < BZ_N_GROUPS; t++) {
+      for (var v = 0; v < alphaSize; v++) {
         _len[t][v] = BZ_GREATER_ICOST;
       }
     }
@@ -262,14 +262,14 @@ class BZip2Encoder {
     }
 
     // Generate an initial set of coding tables
-    int nPart = nGroups;
-    int remF = _nMTF;
-    int gs = 0;
-    int ge = 0;
+    var nPart = nGroups;
+    var remF = _nMTF;
+    var gs = 0;
+    var ge = 0;
 
     while (nPart > 0) {
-      int tFreq = remF ~/ nPart;
-      int aFreq = 0;
+      var tFreq = remF ~/ nPart;
+      var aFreq = 0;
       ge = gs - 1;
 
       while (aFreq < tFreq && ge < alphaSize - 1) {
@@ -285,7 +285,7 @@ class BZip2Encoder {
         ge--;
       }
 
-      for (int v = 0; v < alphaSize; v++) {
+      for (var v = 0; v < alphaSize; v++) {
         if (v >= gs && v <= ge) {
           _len[nPart - 1][v] = BZ_LESSER_ICOST;
         } else {
@@ -299,12 +299,12 @@ class BZip2Encoder {
     }
 
     // Iterate up to BZ_N_ITERS times to improve the tables.
-    for (int iter = 0; iter < BZ_N_ITERS; iter++) {
-      for (int t = 0; t < nGroups; t++) {
+    for (var iter = 0; iter < BZ_N_ITERS; iter++) {
+      for (var t = 0; t < nGroups; t++) {
         fave[t] = 0;
       }
-      for (int t = 0; t < nGroups; t++) {
-        for (int v = 0; v < alphaSize; v++) {
+      for (var t = 0; t < nGroups; t++) {
+        for (var v = 0; v < alphaSize; v++) {
           _rfreq[t][v] = 0;
         }
       }
@@ -312,7 +312,7 @@ class BZip2Encoder {
       // Set up an auxiliary length table which is used to fast-track
       // the common case (nGroups == 6).
       if (nGroups == 6) {
-        for (int v = 0; v < alphaSize; v++) {
+        for (var v = 0; v < alphaSize; v++) {
           _lenPack[v][0] = (_len[1][v] << 16) | _len[0][v];
           _lenPack[v][1] = (_len[3][v] << 16) | _len[2][v];
           _lenPack[v][2] = (_len[5][v] << 16) | _len[4][v];
@@ -320,7 +320,7 @@ class BZip2Encoder {
       }
 
       nSelectors = 0;
-      int totc = 0; // ignore: unused_local_variable
+      var totc = 0; // ignore: unused_local_variable
       gs = 0;
       while (true) {
         // Set group start & end marks.
@@ -328,25 +328,25 @@ class BZip2Encoder {
           break;
         }
 
-        int ge = gs + BZ_G_SIZE - 1;
+        var ge = gs + BZ_G_SIZE - 1;
         if (ge >= _nMTF) {
           ge = _nMTF - 1;
         }
 
         // Calculate the cost of this group as coded
         // by each of the coding tables.
-        for (int t = 0; t < nGroups; t++) {
+        for (var t = 0; t < nGroups; t++) {
           cost[t] = 0;
         }
 
         if (nGroups == 6 && 50 == ge - gs + 1) {
           // fast track the common case
-          int cost01 = 0;
-          int cost23 = 0;
-          int cost45 = 0;
+          var cost01 = 0;
+          var cost23 = 0;
+          var cost45 = 0;
 
           void BZ_ITER(int nn) {
-            int icv = _mtfv[gs + nn];
+            var icv = _mtfv[gs + nn];
             cost01 += _lenPack[icv][0];
             cost23 += _lenPack[icv][1];
             cost45 += _lenPack[icv][2];
@@ -411,9 +411,9 @@ class BZip2Encoder {
           cost[5] = cost45 >> 16;
         } else {
           // slow version which correctly handles all situations
-          for (int i = gs; i <= ge; i++) {
-            int icv = _mtfv[i];
-            for (int t = 0; t < nGroups; t++) {
+          for (var i = gs; i <= ge; i++) {
+            var icv = _mtfv[i];
+            for (var t = 0; t < nGroups; t++) {
               cost[t] += _len[t][icv];
             }
           }
@@ -421,9 +421,9 @@ class BZip2Encoder {
 
         // Find the coding table which is best for this group,
         // and record its identity in the selector table.
-        int bc = 999999999;
-        int bt = -1;
-        for (int t = 0; t < nGroups; t++) {
+        var bc = 999999999;
+        var bt = -1;
+        for (var t = 0; t < nGroups; t++) {
           if (cost[t] < bc) {
             bc = cost[t];
             bt = t;
@@ -494,7 +494,7 @@ class BZip2Encoder {
           BZ_ITUR(49);
         } else {
           // slow version which correctly handles all situations
-          for (int i = gs; i <= ge; i++) {
+          for (var i = gs; i <= ge; i++) {
             _rfreq[bt][_mtfv[i]]++;
           }
         }
@@ -503,7 +503,7 @@ class BZip2Encoder {
       }
 
       // Recompute the tables based on the accumulated frequencies.
-      for (int t = 0; t < nGroups; t++) {
+      for (var t = 0; t < nGroups; t++) {
         _hbMakeCodeLengths(_len[t], _rfreq[t], alphaSize, 17);
       }
     }
@@ -512,18 +512,18 @@ class BZip2Encoder {
     _assert(nSelectors < 32768 && nSelectors <= (2 + (900000 ~/ BZ_G_SIZE)));
 
     // Compute MTF values for the selectors.
-    Uint8List pos = Uint8List(BZ_N_GROUPS);
-    for (int i = 0; i < nGroups; i++) {
+    final pos = Uint8List(BZ_N_GROUPS);
+    for (var i = 0; i < nGroups; i++) {
       pos[i] = i;
     }
 
-    for (int i = 0; i < nSelectors; i++) {
-      int ll_i = _selector[i];
-      int j = 0;
-      int tmp = pos[j];
+    for (var i = 0; i < nSelectors; i++) {
+      var ll_i = _selector[i];
+      var j = 0;
+      var tmp = pos[j];
       while (ll_i != tmp) {
         j++;
-        int tmp2 = tmp;
+        var tmp2 = tmp;
         tmp = pos[j];
         pos[j] = tmp2;
       }
@@ -532,10 +532,10 @@ class BZip2Encoder {
     }
 
     // Assign actual codes for the tables.
-    for (int t = 0; t < nGroups; t++) {
-      int minLen = 32;
-      int maxLen = 0;
-      for (int i = 0; i < alphaSize; i++) {
+    for (var t = 0; t < nGroups; t++) {
+      var minLen = 32;
+      var maxLen = 0;
+      for (var i = 0; i < alphaSize; i++) {
         if (_len[t][i] > maxLen) {
           maxLen = _len[t][i];
         }
@@ -549,17 +549,17 @@ class BZip2Encoder {
     }
 
     // Transmit the mapping table.
-    Uint8List inUse16 = Uint8List(16);
-    for (int i = 0; i < 16; i++) {
+    final inUse16 = Uint8List(16);
+    for (var i = 0; i < 16; i++) {
       inUse16[i] = 0;
-      for (int j = 0; j < 16; j++) {
+      for (var j = 0; j < 16; j++) {
         if (_inUse[i * 16 + j] != 0) {
           inUse16[i] = 1;
         }
       }
     }
 
-    for (int i = 0; i < 16; i++) {
+    for (var i = 0; i < 16; i++) {
       if (inUse16[i] != 0) {
         bw.writeBits(1, 1);
       } else {
@@ -567,9 +567,9 @@ class BZip2Encoder {
       }
     }
 
-    for (int i = 0; i < 16; i++) {
+    for (var i = 0; i < 16; i++) {
       if (inUse16[i] != 0) {
-        for (int j = 0; j < 16; j++) {
+        for (var j = 0; j < 16; j++) {
           if (_inUse[i * 16 + j] != 0) {
             bw.writeBits(1, 1);
           } else {
@@ -582,18 +582,18 @@ class BZip2Encoder {
     // Now the selectors.
     bw.writeBits(3, nGroups);
     bw.writeBits(15, nSelectors);
-    for (int i = 0; i < nSelectors; i++) {
-      for (int j = 0; j < _selectorMtf[i]; j++) {
+    for (var i = 0; i < nSelectors; i++) {
+      for (var j = 0; j < _selectorMtf[i]; j++) {
         bw.writeBits(1, 1);
       }
       bw.writeBits(1, 0);
     }
 
     // Now the coding tables.
-    for (int t = 0; t < nGroups; t++) {
-      int curr = _len[t][0];
+    for (var t = 0; t < nGroups; t++) {
+      var curr = _len[t][0];
       bw.writeBits(5, curr);
-      for (int i = 0; i < alphaSize; i++) {
+      for (var i = 0; i < alphaSize; i++) {
         while (curr < _len[t][i]) {
           bw.writeBits(2, 2);
           curr++; // 10
@@ -609,14 +609,14 @@ class BZip2Encoder {
     }
 
     // And finally, the block data proper
-    int selCtr = 0;
+    var selCtr = 0;
     gs = 0;
     while (true) {
       if (gs >= _nMTF) {
         break;
       }
 
-      int ge = gs + BZ_G_SIZE - 1;
+      var ge = gs + BZ_G_SIZE - 1;
       if (ge >= _nMTF) {
         ge = _nMTF - 1;
       }
@@ -626,8 +626,8 @@ class BZip2Encoder {
       if (nGroups == 6 && 50 == ge - gs + 1) {
         // fast track the common case
         int mtfv_i;
-        Uint8List s_len_sel_selCtr = _len[_selector[selCtr]];
-        Int32List s_code_sel_selCtr = _code[_selector[selCtr]];
+        final s_len_sel_selCtr = _len[_selector[selCtr]];
+        final s_code_sel_selCtr = _code[_selector[selCtr]];
 
         void BZ_ITAH(int nn) {
           mtfv_i = _mtfv[gs + nn];
@@ -686,7 +686,7 @@ class BZip2Encoder {
         BZ_ITAH(49);
       } else {
         // slow version which correctly handles all situations
-        for (int i = gs; i <= ge; i++) {
+        for (var i = gs; i <= ge; i++) {
           bw.writeBits(_len[_selector[selCtr]][_mtfv[i]],
               _code[_selector[selCtr]][_mtfv[i]]);
         }
@@ -703,19 +703,19 @@ class BZip2Encoder {
       Uint8List len, Int32List freq, int alphaSize, int maxLen) {
     // Nodes and heap entries run from 1.  Entry 0
     // for both the heap and nodes is a sentinel.
-    Int32List heap = Int32List(BZ_MAX_ALPHA_SIZE + 2);
-    Int32List weight = Int32List(BZ_MAX_ALPHA_SIZE * 2);
-    Int32List parent = Int32List(BZ_MAX_ALPHA_SIZE * 2);
+    var heap = Int32List(BZ_MAX_ALPHA_SIZE + 2);
+    var weight = Int32List(BZ_MAX_ALPHA_SIZE * 2);
+    var parent = Int32List(BZ_MAX_ALPHA_SIZE * 2);
     int nHeap;
     int nNodes;
 
-    for (int i = 0; i < alphaSize; i++) {
+    for (var i = 0; i < alphaSize; i++) {
       weight[i + 1] = (freq[i] == 0 ? 1 : freq[i]) << 8;
     }
 
     void UPHEAP(int z) {
-      int zz = z;
-      int tmp = heap[zz];
+      var zz = z;
+      var tmp = heap[zz];
       while (weight[tmp] < weight[heap[zz >> 1]]) {
         heap[zz] = heap[zz >> 1];
         zz >>= 1;
@@ -724,10 +724,10 @@ class BZip2Encoder {
     }
 
     void DOWNHEAP(int z) {
-      int zz = z;
-      int tmp = heap[zz];
+      var zz = z;
+      var tmp = heap[zz];
       while (true) {
-        int yy = zz << 1;
+        var yy = zz << 1;
         if (yy > nHeap) {
           break;
         }
@@ -758,7 +758,7 @@ class BZip2Encoder {
       weight[0] = 0;
       parent[0] = -2;
 
-      for (int i = 1; i <= alphaSize; i++) {
+      for (var i = 1; i <= alphaSize; i++) {
         parent[i] = -1;
         nHeap++;
         heap[nHeap] = i;
@@ -768,11 +768,11 @@ class BZip2Encoder {
       _assert(nHeap < (BZ_MAX_ALPHA_SIZE + 2));
 
       while (nHeap > 1) {
-        int n1 = heap[1];
+        var n1 = heap[1];
         heap[1] = heap[nHeap];
         nHeap--;
         DOWNHEAP(1);
-        int n2 = heap[1];
+        var n2 = heap[1];
         heap[1] = heap[nHeap];
         nHeap--;
         DOWNHEAP(1);
@@ -787,10 +787,10 @@ class BZip2Encoder {
 
       _assert(nNodes < (BZ_MAX_ALPHA_SIZE * 2));
 
-      bool tooLong = false;
-      for (int i = 1; i <= alphaSize; i++) {
-        int j = 0;
-        int k = i;
+      var tooLong = false;
+      for (var i = 1; i <= alphaSize; i++) {
+        var j = 0;
+        var k = i;
         while (parent[k] >= 0) {
           k = parent[k];
           j++;
@@ -805,8 +805,8 @@ class BZip2Encoder {
         break;
       }
 
-      for (int i = 1; i <= alphaSize; i++) {
-        int j = weight[i] >> 8;
+      for (var i = 1; i <= alphaSize; i++) {
+        var j = weight[i] >> 8;
         j = 1 + (j ~/ 2);
         weight[i] = j << 8;
       }
@@ -815,9 +815,9 @@ class BZip2Encoder {
 
   void _hbAssignCodes(Int32List codes, Uint8List length, int minLen, int maxLen,
       int alphaSize) {
-    int vec = 0;
-    for (int n = minLen; n <= maxLen; n++) {
-      for (int i = 0; i < alphaSize; i++) {
+    var vec = 0;
+    for (var n = minLen; n <= maxLen; n++) {
+      for (var i = 0; i < alphaSize; i++) {
         if (length[i] == n) {
           codes[i] = vec;
           vec++;
@@ -835,13 +835,13 @@ class BZip2Encoder {
       // the alignment right.  Assumes that &(block[0]) is at least
       // 2-byte aligned -- this should be ok since block is really
       // the first section of arr2.
-      int i = _nblock + BZ_N_OVERSHOOT;
+      var i = _nblock + BZ_N_OVERSHOOT;
       if (i & 1 != 0) {
         i++;
       }
-      Uint16List quadrant = Uint16List.view(_block.buffer, i);
+      final quadrant = Uint16List.view(_block.buffer, i);
 
-      int wfact = _workFactor;
+      var wfact = _workFactor;
       // (wfact-1) / 3 puts the default-factor-30
       // transition point at very roughly the same place as
       // with v0.1 and v0.9.0.
@@ -855,7 +855,7 @@ class BZip2Encoder {
         wfact = 100;
       }
 
-      int budgetInit = _nblock * ((wfact - 1) ~/ 3);
+      var budgetInit = _nblock * ((wfact - 1) ~/ 3);
       _budget = budgetInit;
 
       _mainSort(_arr1, _block, quadrant, _ftab, _nblock);
@@ -865,7 +865,7 @@ class BZip2Encoder {
     }
 
     _origPtr = -1;
-    for (int i = 0; i < _nblock; i++) {
+    for (var i = 0; i < _nblock; i++) {
       if (_arr1[i] == 0) {
         _origPtr = i;
         break;
@@ -883,9 +883,9 @@ class BZip2Encoder {
 
   void _fallbackSort(
       Uint32List fmap, Uint32List eclass, Uint32List bhtab, int nblock) {
-    Int32List ftab = Int32List(257);
-    Int32List ftabCopy = Int32List(256);
-    Uint8List eclass8 = Uint8List.view(eclass.buffer);
+    final ftab = Int32List(257);
+    final ftabCopy = Int32List(256);
+    final eclass8 = Uint8List.view(eclass.buffer);
 
     int SET_BH(int zz) => bhtab[zz >> 5] |= (1 << (zz & 31));
     int CLEAR_BH(int zz) => bhtab[zz >> 5] &= ~(1 << (zz & 31));
@@ -895,32 +895,32 @@ class BZip2Encoder {
 
     // Initial 1-char radix sort to generate
     // initial fmap and initial BH bits.
-    for (int i = 0; i < 257; i++) {
+    for (var i = 0; i < 257; i++) {
       ftab[i] = 0;
     }
-    for (int i = 0; i < nblock; i++) {
+    for (var i = 0; i < nblock; i++) {
       ftab[eclass8[i]]++;
     }
-    for (int i = 0; i < 256; i++) {
+    for (var i = 0; i < 256; i++) {
       ftabCopy[i] = ftab[i];
     }
-    for (int i = 1; i < 257; i++) {
+    for (var i = 1; i < 257; i++) {
       ftab[i] += ftab[i - 1];
     }
 
-    for (int i = 0; i < nblock; i++) {
-      int j = eclass8[i];
-      int k = ftab[j] - 1;
+    for (var i = 0; i < nblock; i++) {
+      final j = eclass8[i];
+      final k = ftab[j] - 1;
       ftab[j] = k;
       fmap[k] = i;
     }
 
-    int nBhtab = 2 + (nblock ~/ 32);
-    for (int i = 0; i < nBhtab; i++) {
+    final nBhtab = 2 + (nblock ~/ 32);
+    for (var i = 0; i < nBhtab; i++) {
       bhtab[i] = 0;
     }
 
-    for (int i = 0; i < 256; i++) {
+    for (var i = 0; i < 256; i++) {
       SET_BH(ftab[i]);
     }
 
@@ -929,31 +929,31 @@ class BZip2Encoder {
     // Manber-Myers suffix array construction algorithm.
 
     // set sentinel bits for block-end detection
-    for (int i = 0; i < 32; i++) {
+    for (var i = 0; i < 32; i++) {
       SET_BH(nblock + 2 * i);
       CLEAR_BH(nblock + 2 * i + 1);
     }
 
     // the log(N) loop
-    int H = 1;
+    var H = 1;
     while (true) {
-      int j = 0;
-      for (int i = 0; i < nblock; i++) {
+      var j = 0;
+      for (var i = 0; i < nblock; i++) {
         if (ISSET_BH(i)) {
           j = i;
         }
-        int k = fmap[i] - H;
+        var k = fmap[i] - H;
         if (k < 0) {
           k += nblock;
         }
         eclass[k] = j;
       }
 
-      int nNotDone = 0;
-      int r = -1;
+      var nNotDone = 0;
+      var r = -1;
       while (true) {
         // find the next non-singleton bucket
-        int k = r + 1;
+        var k = r + 1;
         while (ISSET_BH(k) && UNALIGNED_BH(k)) {
           k++;
         }
@@ -966,7 +966,7 @@ class BZip2Encoder {
           }
         }
 
-        int l = k - 1;
+        var l = k - 1;
         if (l >= nblock) {
           break;
         }
@@ -993,9 +993,9 @@ class BZip2Encoder {
           _fallbackQSort3(fmap, eclass, l, r);
 
           // scan bucket and generate header bits
-          int cc = -1;
-          for (int i = l; i <= r; i++) {
-            int cc1 = eclass[fmap[i]];
+          var cc = -1;
+          for (var i = l; i <= r; i++) {
+            var cc1 = eclass[fmap[i]];
             if (cc != cc1) {
               SET_BH(i);
               cc = cc1;
@@ -1013,8 +1013,8 @@ class BZip2Encoder {
     // Reconstruct the original block in
     // eclass8 [0 .. nblock-1], since the
     // previous phase destroyed it.
-    int j = 0;
-    for (int i = 0; i < nblock; i++) {
+    var j = 0;
+    for (var i = 0; i < nblock; i++) {
       while (ftabCopy[j] == 0) {
         j++;
       }
@@ -1025,12 +1025,12 @@ class BZip2Encoder {
   }
 
   void _fallbackQSort3(Uint32List fmap, Uint32List eclass, int loSt, int hiSt) {
-    const int FALLBACK_QSORT_SMALL_THRESH = 10;
-    const int FALLBACK_QSORT_STACK_SIZE = 100;
+    const FALLBACK_QSORT_SMALL_THRESH = 10;
+    const FALLBACK_QSORT_STACK_SIZE = 100;
 
-    Int32List stackLo = Int32List(FALLBACK_QSORT_STACK_SIZE);
-    Int32List stackHi = Int32List(FALLBACK_QSORT_STACK_SIZE);
-    int sp = 0;
+    final stackLo = Int32List(FALLBACK_QSORT_STACK_SIZE);
+    final stackHi = Int32List(FALLBACK_QSORT_STACK_SIZE);
+    var sp = 0;
 
     void fpush(int lz, int hz) {
       stackLo[sp] = lz;
@@ -1040,9 +1040,9 @@ class BZip2Encoder {
 
     int fmin(int a, int b) => ((a) < (b)) ? (a) : (b);
 
-    void fvswap(yyp1, yyp2, yyn) {
+    void fvswap(int yyp1, int yyp2, int yyn) {
       while (yyn > 0) {
-        int t = fmap[yyp1];
+        final t = fmap[yyp1];
         fmap[yyp1] = fmap[yyp2];
         fmap[yyp2] = t;
         yyp1++;
@@ -1051,7 +1051,7 @@ class BZip2Encoder {
       }
     }
 
-    int r = 0;
+    var r = 0;
 
     fpush(loSt, hiSt);
 
@@ -1059,8 +1059,8 @@ class BZip2Encoder {
       _assert(sp < FALLBACK_QSORT_STACK_SIZE - 1);
 
       sp--;
-      int lo = stackLo[sp];
-      int hi = stackHi[sp];
+      final lo = stackLo[sp];
+      final hi = stackHi[sp];
 
       if (hi - lo < FALLBACK_QSORT_SMALL_THRESH) {
         _fallbackSimpleSort(fmap, eclass, lo, hi);
@@ -1074,7 +1074,7 @@ class BZip2Encoder {
       // 7621 and 32768 is taken from Sedgewick's algorithms
       // book, chapter 35.
       r = ((r * 7621) + 1) % 32768;
-      int r3 = r % 3;
+      var r3 = r % 3;
       int med;
       if (r3 == 0) {
         med = eclass[fmap[lo]];
@@ -1084,10 +1084,10 @@ class BZip2Encoder {
         med = eclass[fmap[hi]];
       }
 
-      int unLo = lo;
-      int ltLo = lo;
-      int unHi = hi;
-      int gtHi = hi;
+      var unLo = lo;
+      var ltLo = lo;
+      var unHi = hi;
+      var gtHi = hi;
 
       while (true) {
         while (true) {
@@ -1095,9 +1095,9 @@ class BZip2Encoder {
             break;
           }
 
-          int n = eclass[fmap[unLo]] - med;
+          var n = eclass[fmap[unLo]] - med;
           if (n == 0) {
-            int t = fmap[unLo];
+            var t = fmap[unLo];
             fmap[unLo] = fmap[ltLo];
             fmap[ltLo] = t;
             ltLo++;
@@ -1113,9 +1113,9 @@ class BZip2Encoder {
           if (unLo > unHi) {
             break;
           }
-          int n = eclass[fmap[unHi]] - med;
+          var n = eclass[fmap[unHi]] - med;
           if (n == 0) {
-            int t = fmap[unHi];
+            var t = fmap[unHi];
             fmap[unHi] = fmap[gtHi];
             fmap[gtHi] = t;
             gtHi--;
@@ -1131,7 +1131,7 @@ class BZip2Encoder {
           break;
         }
 
-        int t = fmap[unLo];
+        var t = fmap[unLo];
         fmap[unLo] = fmap[unHi];
         fmap[unHi] = t;
         unLo++;
@@ -1144,9 +1144,9 @@ class BZip2Encoder {
         continue;
       }
 
-      int n = fmin(ltLo - lo, unLo - ltLo);
+      var n = fmin(ltLo - lo, unLo - ltLo);
       fvswap(lo, unLo - n, n);
-      int m = fmin(hi - gtHi, gtHi - unHi);
+      var m = fmin(hi - gtHi, gtHi - unHi);
       fvswap(unLo, hi - m + 1, m);
 
       n = lo + unLo - ltLo - 1;
@@ -1168,9 +1168,9 @@ class BZip2Encoder {
     }
 
     if (hi - lo > 3) {
-      for (int i = hi - 4; i >= lo; i--) {
-        int tmp = fmap[i];
-        int ec_tmp = eclass[tmp];
+      for (var i = hi - 4; i >= lo; i--) {
+        var tmp = fmap[i];
+        var ec_tmp = eclass[tmp];
         int j;
         for (j = i + 4; j <= hi && ec_tmp > eclass[fmap[j]]; j += 4) {
           fmap[j - 4] = fmap[j];
@@ -1179,9 +1179,9 @@ class BZip2Encoder {
       }
     }
 
-    for (int i = hi - 1; i >= lo; i--) {
-      int tmp = fmap[i];
-      int ec_tmp = eclass[tmp];
+    for (var i = hi - 1; i >= lo; i--) {
+      var tmp = fmap[i];
+      var ec_tmp = eclass[tmp];
       int j;
       for (j = i + 1; j <= hi && ec_tmp > eclass[fmap[j]]; j++) {
         fmap[j - 1] = fmap[j];
@@ -1192,23 +1192,23 @@ class BZip2Encoder {
 
   void _mainSort(Uint32List ptr, Uint8List block, Uint16List quadrant,
       Uint32List ftab, int nblock) {
-    Int32List runningOrder = Int32List(256);
-    Uint8List bigDone = Uint8List(256);
-    Int32List copyStart = Int32List(256);
-    Int32List copyEnd = Int32List(256);
+    final runningOrder = Int32List(256);
+    final bigDone = Uint8List(256);
+    final copyStart = Int32List(256);
+    final copyEnd = Int32List(256);
 
     int BIGFREQ(int b) => (_ftab[((b) + 1) << 8] - _ftab[(b) << 8]);
 
-    const int SETMASK = 2097152;
-    const int CLEARMASK = 4292870143;
+    const SETMASK = 2097152;
+    const CLEARMASK = 4292870143;
 
     // set up the 2-byte frequency table
-    for (int i = 65536; i >= 0; i--) {
+    for (var i = 65536; i >= 0; i--) {
       ftab[i] = 0;
     }
 
-    int j = block[0] << 8;
-    int i = nblock - 1;
+    var j = block[0] << 8;
+    var i = nblock - 1;
 
     for (; i >= 3; i -= 4) {
       quadrant[i] = 0;
@@ -1242,7 +1242,7 @@ class BZip2Encoder {
       ftab[i] += ftab[i - 1];
     }
 
-    int s = block[0] << 8;
+    var s = block[0] << 8;
     i = nblock - 1;
     for (; i >= 3; i -= 4) {
       s = (s >> 8) | (block[i] << 8);
@@ -1277,14 +1277,14 @@ class BZip2Encoder {
       runningOrder[i] = i;
     }
 
-    int h = 1;
+    var h = 1;
     do {
       h = 3 * h + 1;
     } while (h <= 256);
     do {
       h = h ~/ 3;
       for (i = h; i <= 255; i++) {
-        int vv = runningOrder[i];
+        var vv = runningOrder[i];
         j = i;
         while (BIGFREQ(runningOrder[j - h]) > BIGFREQ(vv)) {
           runningOrder[j] = runningOrder[j - h];
@@ -1299,14 +1299,14 @@ class BZip2Encoder {
 
     // The main sorting loop.
 
-    int numQSorted = 0; // ignore: unused_local_variable
+    var numQSorted = 0; // ignore: unused_local_variable
 
     for (i = 0; i <= 255; i++) {
       // Process big buckets, starting with the least full.
       // Basically this is a 3-step process in which we call
       // mainQSort3 to sort the small buckets [ss, j], but
       // also make a big effort to avoid the calls if we can.
-      int ss = runningOrder[i];
+      var ss = runningOrder[i];
 
       // Step 1:
       // Complete the big bucket [ss] by quicksorting
@@ -1316,10 +1316,10 @@ class BZip2Encoder {
       // we don't have to sort them at all.
       for (j = 0; j <= 255; j++) {
         if (j != ss) {
-          int sb = (ss << 8) + j;
+          var sb = (ss << 8) + j;
           if ((_ftab[sb] & SETMASK) == 0) {
-            int lo = _ftab[sb] & CLEARMASK;
-            int hi = (_ftab[sb + 1] & CLEARMASK) - 1;
+            var lo = _ftab[sb] & CLEARMASK;
+            var hi = (_ftab[sb + 1] & CLEARMASK) - 1;
             if (hi > lo) {
               _mainQSort3(ptr, block, quadrant, nblock, lo, hi, BZ_N_RADIX);
               numQSorted += (hi - lo + 1);
@@ -1345,20 +1345,20 @@ class BZip2Encoder {
       }
 
       for (j = _ftab[ss << 8] & CLEARMASK; j < copyStart[ss]; j++) {
-        int k = ptr[j] - 1;
+        var k = ptr[j] - 1;
         if (k < 0) k += nblock;
-        int c1 = block[k];
+        var c1 = block[k];
         if (bigDone[c1] == 0) {
           ptr[copyStart[c1]++] = k;
         }
       }
 
       for (j = (_ftab[(ss + 1) << 8] & CLEARMASK) - 1; j > copyEnd[ss]; j--) {
-        int k = ptr[j] - 1;
+        var k = ptr[j] - 1;
         if (k < 0) {
           k += nblock;
         }
-        int c1 = block[k];
+        var c1 = block[k];
         if (bigDone[c1] == 0) {
           ptr[copyEnd[c1]--] = k;
         }
@@ -1415,9 +1415,9 @@ class BZip2Encoder {
       bigDone[ss] = 1;
 
       if (i < 255) {
-        int bbStart = _ftab[ss << 8] & CLEARMASK;
-        int bbSize = (_ftab[(ss + 1) << 8] & CLEARMASK) - bbStart;
-        int shifts = 0;
+        var bbStart = _ftab[ss << 8] & CLEARMASK;
+        var bbSize = (_ftab[(ss + 1) << 8] & CLEARMASK) - bbStart;
+        var shifts = 0;
 
         if (bbSize > 0) {
           while ((bbSize >> shifts) > 65534) {
@@ -1425,8 +1425,8 @@ class BZip2Encoder {
           }
 
           for (j = bbSize - 1; j >= 0; j--) {
-            int a2update = ptr[bbStart + j];
-            int qVal = (j >> shifts) & 0xffff;
+            var a2update = ptr[bbStart + j];
+            var qVal = (j >> shifts) & 0xffff;
             quadrant[a2update] = qVal;
             if (a2update < BZ_N_OVERSHOOT) {
               quadrant[a2update + nblock] = qVal;
@@ -1444,15 +1444,15 @@ class BZip2Encoder {
     const MAIN_QSORT_SMALL_THRESH = 20;
     const MAIN_QSORT_DEPTH_THRESH = (BZ_N_RADIX + BZ_N_QSORT);
 
-    Int32List stackLo = Int32List(MAIN_QSORT_STACK_SIZE);
-    Int32List stackHi = Int32List(MAIN_QSORT_STACK_SIZE);
-    Int32List stackD = Int32List(MAIN_QSORT_STACK_SIZE);
+    final stackLo = Int32List(MAIN_QSORT_STACK_SIZE);
+    final stackHi = Int32List(MAIN_QSORT_STACK_SIZE);
+    final stackD = Int32List(MAIN_QSORT_STACK_SIZE);
 
-    Int32List nextLo = Int32List(3);
-    Int32List nextHi = Int32List(3);
-    Int32List nextD = Int32List(3);
+    final nextLo = Int32List(3);
+    final nextHi = Int32List(3);
+    final nextD = Int32List(3);
 
-    int sp = 0;
+    var sp = 0;
     void mpush(int lz, int hz, int dz) {
       stackLo[sp] = lz;
       stackHi[sp] = hz;
@@ -1462,7 +1462,7 @@ class BZip2Encoder {
 
     int mmed3(int a, int b, int c) {
       if (a > b) {
-        int t = a;
+        var t = a;
         a = b;
         b = t;
       }
@@ -1477,7 +1477,7 @@ class BZip2Encoder {
 
     void mvswap(int yyp1, int yyp2, int yyn) {
       while (yyn > 0) {
-        int t = ptr[yyp1];
+        var t = ptr[yyp1];
         ptr[yyp1] = ptr[yyp2];
         ptr[yyp2] = t;
         yyp1++;
@@ -1491,7 +1491,7 @@ class BZip2Encoder {
     int mnextsize(int az) => (nextHi[az] - nextLo[az]);
 
     void mnextswap(int az, int bz) {
-      int tz = nextLo[az];
+      var tz = nextLo[az];
       nextLo[az] = nextLo[bz];
       nextLo[bz] = tz;
       tz = nextHi[az];
@@ -1508,9 +1508,9 @@ class BZip2Encoder {
       _assert(sp < MAIN_QSORT_STACK_SIZE - 2);
 
       sp--;
-      int lo = stackLo[sp];
-      int hi = stackHi[sp];
-      int d = stackD[sp];
+      var lo = stackLo[sp];
+      var hi = stackHi[sp];
+      var d = stackD[sp];
 
       if (hi - lo < MAIN_QSORT_SMALL_THRESH || d > MAIN_QSORT_DEPTH_THRESH) {
         _mainSimpleSort(ptr, block, quadrant, nblock, lo, hi, d);
@@ -1520,13 +1520,13 @@ class BZip2Encoder {
         continue;
       }
 
-      int med = mmed3(block[ptr[lo] + d], block[ptr[hi] + d],
+      var med = mmed3(block[ptr[lo] + d], block[ptr[hi] + d],
           block[ptr[(lo + hi) >> 1] + d]);
 
-      int unLo = lo;
-      int ltLo = lo;
-      int unHi = hi;
-      int gtHi = hi;
+      var unLo = lo;
+      var ltLo = lo;
+      var unHi = hi;
+      var gtHi = hi;
 
       while (true) {
         while (true) {
@@ -1534,9 +1534,9 @@ class BZip2Encoder {
             break;
           }
 
-          int n = (block[ptr[unLo] + d]) - med;
+          var n = (block[ptr[unLo] + d]) - med;
           if (n == 0) {
-            int t = ptr[unLo];
+            var t = ptr[unLo];
             ptr[unLo] = ptr[ltLo];
             ptr[ltLo] = t;
             ltLo++;
@@ -1553,9 +1553,9 @@ class BZip2Encoder {
             break;
           }
 
-          int n = (block[ptr[unHi] + d]) - med;
+          var n = (block[ptr[unHi] + d]) - med;
           if (n == 0) {
-            int t = ptr[unHi];
+            var t = ptr[unHi];
             ptr[unHi] = ptr[gtHi];
             ptr[gtHi] = t;
             gtHi--;
@@ -1571,7 +1571,7 @@ class BZip2Encoder {
           break;
         }
 
-        int t = ptr[unLo];
+        var t = ptr[unLo];
         ptr[unLo] = ptr[unHi];
         ptr[unHi] = t;
         unLo++;
@@ -1585,9 +1585,9 @@ class BZip2Encoder {
         continue;
       }
 
-      int n = mmin(ltLo - lo, unLo - ltLo);
+      var n = mmin(ltLo - lo, unLo - ltLo);
       mvswap(lo, unLo - n, n);
-      int m = mmin(hi - gtHi, gtHi - unHi);
+      var m = mmin(hi - gtHi, gtHi - unHi);
       mvswap(unLo, hi - m + 1, m);
 
       n = lo + unLo - ltLo - 1;
@@ -1624,12 +1624,12 @@ class BZip2Encoder {
 
   void _mainSimpleSort(Uint32List ptr, Uint8List block, Uint16List quadrant,
       int nblock, int lo, int hi, int d) {
-    int bigN = hi - lo + 1;
+    var bigN = hi - lo + 1;
     if (bigN < 2) {
       return;
     }
 
-    const List<int> incs = [
+    const incs = [
       1,
       4,
       13,
@@ -1646,23 +1646,23 @@ class BZip2Encoder {
       2391484
     ];
 
-    int hp = 0;
+    var hp = 0;
     while (incs[hp] < bigN) {
       hp++;
     }
     hp--;
 
     for (; hp >= 0; hp--) {
-      int h = incs[hp];
+      var h = incs[hp];
 
-      int i = lo + h;
+      var i = lo + h;
       while (true) {
         // copy 1
         if (i > hi) {
           break;
         }
-        int v = ptr[i];
-        int j = i;
+        var v = ptr[i];
+        var j = i;
         while (_mainGtU(ptr[j - h] + d, v + d, block, quadrant, nblock)) {
           ptr[j] = ptr[j - h];
           j = j - h;
@@ -1716,8 +1716,8 @@ class BZip2Encoder {
       int i1, int i2, Uint8List block, Uint16List quadrant, int nblock) {
     _assert(i1 != i2);
     // 1
-    int c1 = block[i1];
-    int c2 = block[i2];
+    var c1 = block[i1];
+    var c2 = block[i2];
     if (c1 != c2) {
       return (c1 > c2);
     }
@@ -1812,7 +1812,7 @@ class BZip2Encoder {
     i1++;
     i2++;
 
-    int k = nblock + 8;
+    var k = nblock + 8;
 
     do {
       // 1
@@ -1821,8 +1821,8 @@ class BZip2Encoder {
       if (c1 != c2) {
         return (c1 > c2);
       }
-      int s1 = quadrant[i1];
-      int s2 = quadrant[i2];
+      var s1 = quadrant[i1];
+      var s2 = quadrant[i2];
       if (s1 != s2) {
         return (s1 > s2);
       }
@@ -1955,7 +1955,7 @@ class BZip2Encoder {
   }
 
   void _addPairToBlock() {
-    for (int i = 0; i < _state_in_len; i++) {
+    for (var i = 0; i < _state_in_len; i++) {
       _blockCRC = BZip2.updateCrc(_state_in_ch, _blockCRC);
     }
     _inUse[_state_in_ch] = 1;

@@ -13,9 +13,9 @@ class TarDecoder {
         verify: verify, storeData: storeData);
   }
 
-  Archive decodeBuffer(dynamic input,
+  Archive decodeBuffer(InputStreamBase input,
       {bool verify = false, bool storeData = true}) {
-    Archive archive = Archive();
+    final archive = Archive();
     files.clear();
 
     String nextName;
@@ -23,12 +23,12 @@ class TarDecoder {
     // TarFile paxHeader = null;
     while (!input.isEOS) {
       // End of archive when two consecutive 0's are found.
-      InputStream end_check = input.peekBytes(2);
+      final end_check = input.peekBytes(2);
       if (end_check.length < 2 || (end_check[0] == 0 && end_check[1] == 0)) {
         break;
       }
 
-      TarFile tf = TarFile.read(input, storeData: storeData);
+      final tf = TarFile.read(input, storeData: storeData);
       // GNU tar puts filenames in files when they exceed tar's native length.
       if (tf.filename == '././@LongLink') {
         nextName = tf.rawContent.readString();
@@ -48,8 +48,8 @@ class TarDecoder {
       } else {
         files.add(tf);
 
-        ArchiveFile file = ArchiveFile(
-            nextName != null ? nextName : tf.filename,
+        final file = ArchiveFile(
+            nextName ?? tf.filename,
             tf.fileSize,
             tf.rawContent);
 

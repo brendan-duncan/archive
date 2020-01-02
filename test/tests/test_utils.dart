@@ -13,13 +13,13 @@ final String testDirPath = p.dirname(p.fromUri(currentMirrorSystem()
 
 void compare_bytes(List<int> a, List<int> b) {
   expect(a.length, equals(b.length));
-  int len = a.length;
-  for (int i = 0; i < len; ++i) {
+  final len = a.length;
+  for (var i = 0; i < len; ++i) {
     expect(a[i], equals(b[i]));
   }
 }
 
-const String a_txt = """this is a test
+const a_txt = '''this is a test
 of the
 zip archive
 format.
@@ -31,7 +31,7 @@ this is a test
 of the
 zip archive
 format.
-""";
+''';
 
 
 void ListDir(List files, io.Directory dir) {

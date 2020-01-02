@@ -5,8 +5,8 @@ import '../util/output_stream.dart';
 import 'huffman_table.dart';
 
 class Inflate {
-  dynamic input;
-  final dynamic output;
+  InputStreamBase input;
+  dynamic output;
 
   Inflate(List<int> bytes, [int uncompressedSize])
       : input = InputStream(bytes),
@@ -21,31 +21,26 @@ class Inflate {
 
   Inflate.stream([this.input, dynamic output_stream])
       : output = output_stream ?? OutputStream() {
-    if (input == null || input is List<int>) {
-      _bitBuffer = 0;
-      _bitBufferLen = 0;
-      if (input != null) {
-        input = InputStream(input);
-      }
-      return;
-    }
-
     _inflate();
   }
 
   void streamInput(List<int> bytes) {
-    if (input != null && input is InputStream) {
-      input.offset = _blockPos;
+    if (input is InputStream) {
+      var i = input as InputStream;
+      if (input != null) {
+        i.offset = _blockPos;
+      }
+      final inputLen = (input == null ? 0 : input.length);
+      final newLen = inputLen + bytes.length;
+      final newBytes = Uint8List(newLen);
+      if (input != null) {
+        newBytes.setRange(0, input.length, i.buffer, i.offset);
+      }
+      newBytes.setRange(inputLen, newLen, bytes, 0);
+      input = InputStream(newBytes);
+    } else {
+      input = InputStream(bytes);
     }
-    final inputLen = (input == null ? 0 : input.length) as int;
-    final newLen = inputLen + bytes.length;
-    final newBytes = Uint8List(newLen);
-    if (input != null) {
-      newBytes.setRange(0, input.length as int, input.buffer as List<int>,
-          input.offset as int);
-    }
-    newBytes.setRange(inputLen, newLen, bytes, 0);
-    input = InputStream(newBytes);
   }
 
   List<int> inflateNext() {
@@ -60,7 +55,8 @@ class Inflate {
 
     try {
       if (input is InputStream) {
-        _blockPos = input.offset as int;
+        var i = input as InputStream;
+        _blockPos = i.offset;
       }
       _parseBlock();
       // If it didn't finish reading the block, it will have thrown an exception
@@ -77,12 +73,15 @@ class Inflate {
 
   /// Get the decompressed data.
   List<int> getBytes() {
-    return output.getBytes();
+    return output.getBytes() as List<int>;
   }
 
   void _inflate() {
     _bitBuffer = 0;
     _bitBufferLen = 0;
+    if (input == null) {
+      return;
+    }
 
     while (!input.isEOS) {
       final more = _parseBlock();
@@ -139,7 +138,7 @@ class Inflate {
       }
 
       // input byte
-      int octet = input.readByte() as int;
+      final octet = input.readByte();
 
       // concat octet
       _bitBuffer |= octet << _bitBufferLen;
@@ -156,8 +155,8 @@ class Inflate {
 
   /// Read huffman code using [table].
   int _readCodeByTable(HuffmanTable table) {
-    List<int> codeTable = table.table;
-    int maxCodeLength = table.maxCodeLength;
+    final codeTable = table.table;
+    final maxCodeLength = table.maxCodeLength;
 
     // Not enough buffer
     while (_bitBufferLen < maxCodeLength) {
@@ -165,7 +164,7 @@ class Inflate {
         break;
       }
 
-      final octet = input.readByte() as int;
+      final octet = input.readByte();
 
       _bitBuffer |= octet << _bitBufferLen;
       _bitBufferLen += 8;
@@ -195,7 +194,7 @@ class Inflate {
     }
 
     // check size
-    if (len > (input.length as int)) {
+    if (len > input.length) {
       throw ArchiveException('Input buffer is broken');
     }
 
