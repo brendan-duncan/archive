@@ -63,10 +63,12 @@ class InputStream extends InputStreamBase {
       {this.byteOrder = LITTLE_ENDIAN, int start = 0, int length})
       : buffer = data is TypedData
             ? Uint8List.view(data.buffer)
-            : data is List<int> ? data : List<int>.from(data as Iterable<dynamic>),
+            : data is List<int>
+                ? data
+                : List<int>.from(data as Iterable<dynamic>),
+        offset = start,
         start = start {
     _length = length ?? buffer.length;
-    offset = start;
   }
 
   /// Create a copy of [other].
@@ -132,9 +134,8 @@ class InputStream extends InputStreamBase {
   /// returned is relative to the start of the buffer, or -1 if the [value]
   /// was not found.
   int indexOf(int value, [int offset = 0]) {
-    for (var i = offset + offset, end = offset + length;
-        i < end;
-        ++i) {
+    for (var i = this.offset + offset, end = this.offset + length;
+        i < end; ++i) {
       if (buffer[i] == value) {
         return i - start;
       }
