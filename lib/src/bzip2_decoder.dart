@@ -1,4 +1,6 @@
 import 'dart:typed_data';
+import 'package:archive/archive_io.dart';
+
 import 'bzip2/bzip2.dart';
 import 'bzip2/bz2_bit_reader.dart';
 import 'util/archive_exception.dart';
@@ -14,8 +16,9 @@ class BZip2Decoder {
         verify: verify);
   }
 
-  List<int> decodeBuffer(InputStream _input, {bool verify = false}) {
-    final output = OutputStream();
+  List<int> decodeBuffer(InputStreamBase _input, {bool verify = false,
+                         OutputStreamBase output}) {
+    output ??= OutputStream();
     final br = Bz2BitReader(_input);
 
     _groupPos = 0;
@@ -67,7 +70,11 @@ class BZip2Decoder {
               'Invalid combined checksum: ${combinedCrc} : ${storedCrc}');
         }
 
-        return output.getBytes();
+        if (output is! OutputStream) {
+          return [];
+        }
+
+        return (output as OutputStream).getBytes();
       }
     }
   }
@@ -94,7 +101,7 @@ class BZip2Decoder {
     return (compressed) ? BLOCK_COMPRESSED : BLOCK_EOS;
   }
 
-  int _readCompressed(Bz2BitReader br, OutputStream output) {
+  int _readCompressed(Bz2BitReader br, OutputStreamBase output) {
     var blockRandomized = br.readBits(1);
     var origPtr = br.readBits(8);
     origPtr = (origPtr << 8) | br.readBits(8);

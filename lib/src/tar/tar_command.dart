@@ -44,7 +44,6 @@ Directory extractFiles(String inputPath, String outputPath) {
   }
 
   final input = InputFileStream(tar_path);
-
   final tarArchive = TarDecoder()..decodeBuffer(input);
 
   for (final file in tarArchive.files) {
