@@ -1565,27 +1565,27 @@ class _DeflaterConfig {
 
 class _HuffmanTree {
   static const int MAX_BITS = 15;
-  static const int BL_CODES = 19;
-  static const int D_CODES = 30;
+  //static const int BL_CODES = 19;
+  //static const int D_CODES = 30;
   static const int LITERALS = 256;
   static const int LENGTH_CODES = 29;
   static const int L_CODES = (LITERALS + 1 + LENGTH_CODES);
   static const int HEAP_SIZE = (2 * L_CODES + 1);
 
   /// Bit length codes must not exceed MAX_BL_BITS bits
-  static const int MAX_BL_BITS = 7;
+  //static const int MAX_BL_BITS = 7;
 
   /// end of block literal code
-  static const int END_BLOCK = 256;
+  //static const int END_BLOCK = 256;
 
   /// repeat previous bit length 3-6 times (2 bits of repeat count)
-  static const int REP_3_6 = 16;
+  //static const int REP_3_6 = 16;
 
   /// repeat a zero length 3-10 times  (3 bits of repeat count)
-  static const int REPZ_3_10 = 17;
+  //static const int REPZ_3_10 = 17;
 
   /// repeat a zero length 11-138 times  (7 bits of repeat count)
-  static const int REPZ_11_138 = 18;
+  //static const int REPZ_11_138 = 18;
 
   /// extra bits for each length code
   static const List<int> EXTRA_L_BITS = [
@@ -1702,10 +1702,10 @@ class _HuffmanTree {
   /// The lengths of the bit length codes are sent in order of decreasing
   /// probability, to avoid transmitting the lengths for unused bit
   /// length codes.
-  static const int BUF_SIZE = 8 * 2;
+  //static const int BUF_SIZE = 8 * 2;
 
   /// see definition of array dist_code below
-  static const int DIST_CODE_LEN = 512;
+  //static const int DIST_CODE_LEN = 512;
 
   static const List<int> _DIST_CODE = [
     0,
