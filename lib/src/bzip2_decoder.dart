@@ -1,5 +1,4 @@
 import 'dart:typed_data';
-import 'package:archive/archive_io.dart';
 
 import 'bzip2/bzip2.dart';
 import 'bzip2/bz2_bit_reader.dart';
