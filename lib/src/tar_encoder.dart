@@ -37,7 +37,7 @@ class TarEncoder {
       ts.ownerId = 0;
       ts.groupId = 0;
       ts.lastModTime = 0;
-      ts.content = file.name;
+      ts.content = file.name.codeUnits;
       ts.write(_output_stream);
     }
 
