@@ -7,7 +7,13 @@ import 'zlib/deflate.dart';
 class ZLibEncoder {
   static const int DEFLATE = 8;
 
-  List<int> encode(List<int> data, {int level}) {
+  List<int> encode(List<int> data, {int level, bool raw = false}) {
+    final input = InputStream(data, byteOrder: BIG_ENDIAN);
+
+    if (raw) {
+      return Deflate.buffer(input, level: level).getBytes();
+    }
+
     final output = OutputStream(byteOrder: BIG_ENDIAN);
 
     // Compression Method and Flags
@@ -34,8 +40,6 @@ class ZLibEncoder {
     output.writeByte(flag);
 
     final adler32 = getAdler32(data);
-
-    final input = InputStream(data, byteOrder: BIG_ENDIAN);
 
     final compressed = Deflate.buffer(input, level: level).getBytes();
     output.writeBytes(compressed);

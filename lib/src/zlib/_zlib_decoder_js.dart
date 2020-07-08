@@ -12,13 +12,18 @@ class _ZLibDecoder extends ZLibDecoderBase {
   static const int DEFLATE = 8;
 
   @override
-  List<int> decodeBytes(List<int> data, {bool verify = false}) {
+  List<int> decodeBytes(List<int> data,
+      {bool verify = false, bool raw = false}) {
     return decodeBuffer(InputStream(data, byteOrder: BIG_ENDIAN),
-        verify: verify);
+        verify: verify, raw: raw);
   }
 
   @override
-  List<int> decodeBuffer(InputStream input, {bool verify = false}) {
+  List<int> decodeBuffer(InputStream input,
+      {bool verify = false, bool raw = false}) {
+    if (raw) {
+      return Inflate.buffer(input).getBytes();
+    }
     /*
      * The zlib format has the following structure:
      * CMF  1 byte
@@ -43,8 +48,7 @@ class _ZLibDecoder extends ZLibDecoderBase {
     final cinfo = (cmf >> 3) & 8; // ignore: unused_local_variable
 
     if (method != DEFLATE) {
-      throw ArchiveException(
-          'Only DEFLATE compression supported: ${method}');
+      throw ArchiveException('Only DEFLATE compression supported: ${method}');
     }
 
     final fcheck = flg & 16; // ignore: unused_local_variable
