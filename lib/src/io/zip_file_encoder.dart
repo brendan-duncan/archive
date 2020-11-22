@@ -63,6 +63,10 @@ class ZipFileEncoder {
     _encoder.addFile(archiveFile);
     file_stream.close();
   }
+  
+  void addArchiveFile(ArchiveFile file){
+    _encoder.addFile(file);
+  }
 
   void close() {
     _encoder.endEncode();
