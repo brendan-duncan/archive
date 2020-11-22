@@ -1,6 +1,9 @@
 # archive
 [![Build Status](https://travis-ci.org/brendan-duncan/archive.svg?branch=master)](https://travis-ci.org/brendan-duncan/archive)
 
+# NOTICE
+Due to the constraints of life, I am unable to maintain this library any longer. I appologize to everyone using it that I won't be able to continue support. If others want to take over development, I would be happy to see it continue. Please message me if you would like to take over the development.
+
 ## Overview
 
 A Dart library to encode and decode various archive and compression formats.
