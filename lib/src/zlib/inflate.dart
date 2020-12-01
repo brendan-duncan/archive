@@ -5,51 +5,56 @@ import '../util/output_stream.dart';
 import 'huffman_table.dart';
 
 class Inflate {
-  InputStreamBase input;
+  late InputStreamBase input;
+  bool inputSet = false;
   dynamic output;
 
-  Inflate(List<int> bytes, [int uncompressedSize])
+  Inflate(List<int> bytes, [int? uncompressedSize])
       : input = InputStream(bytes),
         output = OutputStream(size: uncompressedSize) {
+    inputSet = true;
     _inflate();
   }
 
-  Inflate.buffer(this.input, [int uncompressedSize])
+  Inflate.buffer(this.input, [int? uncompressedSize])
       : output = OutputStream(size: uncompressedSize) {
+    inputSet = true;
     _inflate();
   }
 
-  Inflate.stream([this.input, dynamic output_stream])
+  Inflate.stream([InputStreamBase? input, dynamic output_stream])
       : output = output_stream ?? OutputStream() {
+    if (input != null) {
+      this.input = input;
+      inputSet = true;
+    }
     _inflate();
   }
 
   void streamInput(List<int> bytes) {
-    if (input is InputStream) {
+    if (inputSet && input is InputStream) {
       var i = input as InputStream;
-      if (input != null) {
-        i.offset = _blockPos;
-      }
-      final inputLen = (input == null ? 0 : input.length);
+      i.offset = _blockPos;
+      final inputLen = input.length;
       final newLen = inputLen + bytes.length;
       final newBytes = Uint8List(newLen);
-      if (input != null) {
-        newBytes.setRange(0, input.length, i.buffer, i.offset);
-      }
+      newBytes.setRange(0, inputLen, i.buffer, i.offset);
       newBytes.setRange(inputLen, newLen, bytes, 0);
+
       input = InputStream(newBytes);
     } else {
       input = InputStream(bytes);
     }
+    inputSet = true;
   }
 
-  List<int> inflateNext() {
+  List<int>? inflateNext() {
     _bitBuffer = 0;
     _bitBufferLen = 0;
     if (output is OutputStream) {
       output.clear();
     }
-    if (input == null || input.isEOS) {
+    if (!inputSet || input.isEOS) {
       return null;
     }
 
@@ -79,7 +84,7 @@ class Inflate {
   void _inflate() {
     _bitBuffer = 0;
     _bitBufferLen = 0;
-    if (input == null) {
+    if (!inputSet) {
       return;
     }
 
@@ -227,8 +232,7 @@ class Inflate {
     // distance code
     final distLengths = Uint8List(numDistanceCodes);
 
-    final litlen =
-        _decode(numLitLengthCodes, codeLengthsTable, litlenLengths);
+    final litlen = _decode(numLitLengthCodes, codeLengthsTable, litlenLengths);
 
     final dist = _decode(numDistanceCodes, codeLengthsTable, distLengths);
 
@@ -668,8 +672,7 @@ class Inflate {
     5,
     5
   ];
-  final HuffmanTable _fixedDistanceTable =
-      HuffmanTable(_FIXED_DISTANCE_TABLE);
+  final HuffmanTable _fixedDistanceTable = HuffmanTable(_FIXED_DISTANCE_TABLE);
 
   /// Max backward length for LZ77.
   static const int _MAX_BACKWARD_LENGTH = 32768; // ignore: unused_field

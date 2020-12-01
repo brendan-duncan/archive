@@ -1,3 +1,7 @@
+## 3.0.0-nullsafety.0 - November 01, 2020
+
+* Migrate to null safety.
+
 ## 2.0.13 - January 02, 2020
 
 * Switch to dart strong mode; refactor code to resolve all dartanalyzer warnings.

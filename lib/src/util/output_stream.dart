@@ -9,7 +9,7 @@ abstract class OutputStreamBase {
   void writeByte(int value);
 
   /// Write a set of bytes to the output stream.
-  void writeBytes(List<int> bytes, [int len]);
+  void writeBytes(List<int> bytes, [int? len]);
 
   /// Write an InputStream to the output stream.
   void writeInputStream(InputStreamBase bytes);
@@ -26,7 +26,7 @@ class OutputStream extends OutputStreamBase {
   final int byteOrder;
 
   /// Create a byte buffer for writing.
-  OutputStream({int size = _BLOCK_SIZE, this.byteOrder = LITTLE_ENDIAN})
+  OutputStream({int? size = _BLOCK_SIZE, this.byteOrder = LITTLE_ENDIAN})
       : _buffer = Uint8List(size ?? _BLOCK_SIZE),
         _length = 0;
 
@@ -62,7 +62,7 @@ class OutputStream extends OutputStreamBase {
 
   /// Write a set of bytes to the end of the buffer.
   @override
-  void writeBytes(List<int> bytes, [int len]) {
+  void writeBytes(List<int> bytes, [int? len]) {
     len ??= bytes.length;
 
     while (length + len > _buffer.length) {
@@ -121,7 +121,7 @@ class OutputStream extends OutputStreamBase {
   /// If [start] or [end] are < 0 then it is relative to the end of the buffer.
   /// If [end] is not specified (or null), then it is the end of the buffer.
   /// This is equivalent to the python list range operator.
-  List<int> subset(int start, [int end]) {
+  List<int> subset(int start, [int? end]) {
     if (start < 0) {
       start = (length) + start;
     }
@@ -136,7 +136,7 @@ class OutputStream extends OutputStreamBase {
   }
 
   /// Grow the buffer to accommodate additional data.
-  void _expandBuffer([int required]) {
+  void _expandBuffer([int? required]) {
     var blockSize = _BLOCK_SIZE;
     if (required != null) {
       if (required > blockSize) {

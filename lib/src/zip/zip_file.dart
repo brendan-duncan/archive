@@ -17,14 +17,14 @@ class ZipFile {
   int compressionMethod = 0; // 2 bytes
   int lastModFileTime = 0; // 2 bytes
   int lastModFileDate = 0; // 2 bytes
-  int crc32; // 4 bytes
-  int compressedSize; // 4 bytes
-  int uncompressedSize; // 4 bytes
+  int? crc32; // 4 bytes
+  int? compressedSize; // 4 bytes
+  int? uncompressedSize; // 4 bytes
   String filename = ''; // 2 bytes length, n-bytes data
   List<int> extraField = []; // 2 bytes length, n-bytes data
-  ZipFileHeader header;
+  ZipFileHeader? header;
 
-  ZipFile([InputStream input, this.header, String password]) {
+  ZipFile([InputStream? input, this.header, String? password]) {
     if (input != null) {
       signature = input.readUint32();
       if (signature != SIGNATURE) {
@@ -45,7 +45,7 @@ class ZipFile {
       extraField = input.readBytes(ex_len).toUint8List();
 
       // Read compressedSize bytes for the compressed data.
-      _rawContent = input.readBytes(header.compressedSize);
+      _rawContent = input.readBytes(header!.compressedSize!);
 
       if (password != null) {
         _initKeys(password);
@@ -96,7 +96,7 @@ class ZipFile {
       }
     }
 
-    return _content;
+    return _content!;
   }
 
   dynamic get rawContent {
@@ -151,9 +151,9 @@ class ZipFile {
 
   /// Content of the file. If compressionMethod is not STORE, then it is
   /// still compressed.
-  InputStream _rawContent;
-  List<int> _content;
-  int _computedCrc32;
+  late InputStream _rawContent;
+  List<int>? _content;
+  int? _computedCrc32;
   bool _isEncrypted = false;
   final _keys = <int>[0, 0, 0];
 }

@@ -25,7 +25,7 @@ void listFiles(String path) {
 
 /// Extract the entries in the given tar file to a directory.
 Directory extractFiles(String inputPath, String outputPath) {
-  Directory temp_dir;
+  Directory? temp_dir;
   var tar_path = inputPath;
 
   if (inputPath.endsWith('tar.gz') || inputPath.endsWith('tgz')) {
@@ -50,8 +50,7 @@ Directory extractFiles(String inputPath, String outputPath) {
     if (!file.isFile) {
       continue;
     }
-    final f = File(
-        '${outputPath}${Platform.pathSeparator}${file.filename}');
+    final f = File('${outputPath}${Platform.pathSeparator}${file.filename}');
     f.parent.createSync(recursive: true);
     f.writeAsBytesSync(file.contentBytes);
     print('  extracted ${file.filename}');

@@ -15,14 +15,13 @@ Archive createArchiveFromDirectory(Directory dir,
       continue;
     }
 
-    final f = file as File;
+    final f = file;
     var filename = path.relative(f.path, from: dir.path);
     filename = includeDirName ? (dir_name + '/' + filename) : filename;
 
     final file_stream = InputFileStream.file(f);
 
-    final af =
-        ArchiveFile.stream(filename, f.lengthSync(), file_stream);
+    final af = ArchiveFile.stream(filename, f.lengthSync(), file_stream);
     af.lastModTime = f.lastModifiedSync().millisecondsSinceEpoch;
     af.mode = f.statSync().mode;
 

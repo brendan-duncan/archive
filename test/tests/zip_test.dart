@@ -210,7 +210,7 @@ final zipTests = <dynamic>[
 
 void main() {
   test('zip empty', () async {
-    ZipDecoder().decodeBytes(ZipEncoder().encode(Archive()));
+    ZipDecoder().decodeBytes(ZipEncoder().encode(Archive())!);
   });
 
   test('zip isFile', () async {
@@ -240,7 +240,7 @@ void main() {
     final encoder = ZipEncoder();
     final decoder = ZipDecoder();
 
-    var encodedBytes = encoder.encode(archive);
+    var encodedBytes = encoder.encode(archive)!;
 
     final archiveDecoded = decoder.decodeBytes(encodedBytes);
 
@@ -252,11 +252,11 @@ void main() {
   test('zip executable', () async {
     // Only tested on linux so far
     if (Platform.isLinux || Platform.isMacOS) {
-      var path = p.join('.dart_tool', 'archive', 'test', 'zip_executable');
+      var path = Directory.systemTemp.createTempSync('zip_executable').path;
       var srcPath = p.join(path, 'src');
 
       try {
-        await Directory(path).deleteSync(recursive: true);
+        Directory(path).deleteSync(recursive: true);
       } catch (_) {}
       final dir = Directory(srcPath);
       await dir.create(recursive: true);
@@ -267,7 +267,7 @@ void main() {
       await Process.run('chmod', ['+x', file.path]);
 
       final subdir = Directory(p.join(dir.path, 'subdir'));
-      await subdir.createSync(recursive: true);
+      subdir.createSync(recursive: true);
       var file2 = File(p.join(subdir.path, 'test2.bin'));
       await file2.writeAsString('bin2', flush: true);
       await Process.run('chmod', ['+x', file2.path]);
@@ -292,11 +292,10 @@ void main() {
     var bdata = 'hello world';
     var bytes = Uint8List.fromList(bdata.codeUnits);
     final name = 'abc.txt';
-    final afile =
-        ArchiveFile.noCompress(name, bytes.lengthInBytes, bytes);
+    final afile = ArchiveFile.noCompress(name, bytes.lengthInBytes, bytes);
     archive.addFile(afile);
 
-    var zip_data = ZipEncoder().encode(archive);
+    var zip_data = ZipEncoder().encode(archive)!;
 
     File(p.join(testDirPath, 'out/uncompressed.zip'))
       ..createSync(recursive: true)
@@ -318,7 +317,8 @@ void main() {
     var b = File(p.join(testDirPath, 'res/zip/hello.txt'));
     final b_bytes = b.readAsBytesSync();
 
-    final archive = ZipDecoder().decodeBytes(bytes, verify: true, password: 'test1234');
+    final archive =
+        ZipDecoder().decodeBytes(bytes, verify: true, password: 'test1234');
     expect(archive.numberOfFiles(), equals(1));
 
     for (var i = 0; i < archive.numberOfFiles(); ++i) {
@@ -354,7 +354,7 @@ void main() {
     }
 
     // Encode the archive we just decoded
-    final zipped = ZipEncoder().encode(archive);
+    final zipped = ZipEncoder().encode(archive)!;
 
     final f = File(p.join(testDirPath, 'out/test.zip'));
     f.createSync(recursive: true);
@@ -377,7 +377,7 @@ void main() {
       var bytes = file.readAsBytesSync();
 
       final zipDecoder = ZipDecoder();
-      final archive =zipDecoder.decodeBytes(bytes, verify: true);
+      final archive = zipDecoder.decodeBytes(bytes, verify: true);
       final zipFiles = zipDecoder.directory.fileHeaders;
 
       if (z.containsKey('Comment')) {
@@ -396,16 +396,16 @@ void main() {
         var hdr = z['File'][i] as Map<String, dynamic>;
 
         if (hdr.containsKey('Name')) {
-          expect(zipFile.filename, equals(hdr['Name']));
+          expect(zipFile!.filename, equals(hdr['Name']));
         }
         if (hdr.containsKey('Content')) {
-          expect(zipFile.content, equals(hdr['Content']));
+          expect(zipFile!.content, equals(hdr['Content']));
         }
         if (hdr.containsKey('VerifyChecksum')) {
-          expect(zipFile.verifyCrc32(), equals(hdr['VerifyChecksum']));
+          expect(zipFile!.verifyCrc32(), equals(hdr['VerifyChecksum']));
         }
         if (hdr.containsKey('isFile')) {
-          expect(archive.findFile(zipFile.filename).isFile, hdr['isFile']);
+          expect(archive.findFile(zipFile!.filename)!.isFile, hdr['isFile']);
         }
       }
     });

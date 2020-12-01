@@ -9,19 +9,19 @@ class ZipFileHeader {
   int compressionMethod = 0; // 2 bytes
   int lastModifiedFileTime = 0; // 2 bytes
   int lastModifiedFileDate = 0; // 2 bytes
-  int crc32; // 4 bytes
-  int compressedSize; // 4 bytes
-  int uncompressedSize; // 4 bytes
-  int diskNumberStart; // 2 bytes
-  int internalFileAttributes; // 2 bytes
-  int externalFileAttributes; // 4 bytes
-  int localHeaderOffset; // 4 bytes
+  int? crc32; // 4 bytes
+  int? compressedSize; // 4 bytes
+  int? uncompressedSize; // 4 bytes
+  int? diskNumberStart; // 2 bytes
+  int? internalFileAttributes; // 2 bytes
+  int? externalFileAttributes; // 4 bytes
+  int? localHeaderOffset; // 4 bytes
   String filename = '';
   List<int> extraField = [];
   String fileComment = '';
-  ZipFile file;
+  ZipFile? file;
 
-  ZipFileHeader([InputStream input, InputStream bytes, String password]) {
+  ZipFileHeader([InputStream? input, InputStream? bytes, String? password]) {
     if (input != null) {
       versionMadeBy = input.readUint16();
       versionNeededToExtract = input.readUint16();
@@ -81,7 +81,7 @@ class ZipFileHeader {
       }
 
       if (bytes != null) {
-        bytes.offset = localHeaderOffset;
+        bytes.offset = localHeaderOffset!;
         file = ZipFile(bytes, this, password);
       }
     }

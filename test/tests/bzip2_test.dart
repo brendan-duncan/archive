@@ -8,8 +8,8 @@ import 'test_utils.dart';
 
 void main() {
   test('decode', () {
-    List<int> orig = io.File(p.join(testDirPath, 'res/bzip2/test.bz2'))
-        .readAsBytesSync();
+    List<int> orig =
+        io.File(p.join(testDirPath, 'res/bzip2/test.bz2')).readAsBytesSync();
 
     BZip2Decoder().decodeBytes(orig, verify: true);
   });

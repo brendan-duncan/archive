@@ -7,7 +7,7 @@ class Archive extends IterableBase<ArchiveFile> {
   List<ArchiveFile> files = [];
 
   /// A global comment for the archive.
-  String comment;
+  String? comment;
 
   /// Add a file to the archive.
   void addFile(ArchiveFile file) {
@@ -23,7 +23,7 @@ class Archive extends IterableBase<ArchiveFile> {
 
   /// Find a file with the given [name] in the archive. If the file isn't found,
   /// null will be returned.
-  ArchiveFile findFile(String name) {
+  ArchiveFile? findFile(String name) {
     for (final f in files) {
       if (f.name == name) {
         return f;

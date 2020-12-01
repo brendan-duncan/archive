@@ -8,15 +8,14 @@ import 'test_utils.dart';
 
 void main() {
   group('gzip', () {
-    final buffer = List<int>(10000);
+    final buffer = List<int>.filled(10000, 0);
     for (var i = 0; i < buffer.length; ++i) {
       buffer[i] = i % 256;
     }
 
     test('encode/decode', () {
       final compressed = GZipEncoder().encode(buffer);
-      final decompressed =
-          GZipDecoder().decodeBytes(compressed, verify: true);
+      final decompressed = GZipDecoder().decodeBytes(compressed!, verify: true);
       expect(decompressed.length, equals(buffer.length));
       for (var i = 0; i < buffer.length; ++i) {
         expect(decompressed[i], equals(buffer[i]));
@@ -62,7 +61,7 @@ void main() {
       final compressed = GZipEncoder().encode(b_bytes);
       final f = File(p.join(testDirPath, 'out/cat.jpg.gz'));
       f.createSync(recursive: true);
-      f.writeAsBytesSync(compressed);
+      f.writeAsBytesSync(compressed!);
     });
   });
 }
