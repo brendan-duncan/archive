@@ -34,7 +34,7 @@ abstract class InputStreamBase {
 
   /// Read a null-terminated string, or if [len] is provided, that number of
   /// bytes returned as a string.
-  String readString({int size, bool utf8});
+  String readString({int? size, bool utf8 = true});
 
   /// Read a 16-bit word from the stream.
   int readUint16();
@@ -60,9 +60,10 @@ class InputStream extends InputStreamBase {
 
   /// Create a InputStream for reading from a List<int>
   InputStream(dynamic data,
-      {this.byteOrder = LITTLE_ENDIAN, int start = 0, int length})
+      {this.byteOrder = LITTLE_ENDIAN, int start = 0, int? length})
       : buffer = data is TypedData
-            ? Uint8List.view(data.buffer, data.offsetInBytes, data.lengthInBytes)
+            ? Uint8List.view(
+                data.buffer, data.offsetInBytes, data.lengthInBytes)
             : data is List<int>
                 ? data
                 : List<int>.from(data as Iterable<dynamic>),
@@ -114,7 +115,7 @@ class InputStream extends InputStreamBase {
   /// to the start of the buffer.  If [position] is not specified, the current
   /// read position is used. If [length] is not specified, the remainder of this
   /// stream is used.
-  InputStream subset([int position, int length]) {
+  InputStream subset([int? position, int? length]) {
     if (position == null) {
       position = offset;
     } else {
@@ -135,7 +136,8 @@ class InputStream extends InputStreamBase {
   /// was not found.
   int indexOf(int value, [int offset = 0]) {
     for (var i = this.offset + offset, end = this.offset + length;
-        i < end; ++i) {
+        i < end;
+        ++i) {
       if (buffer[i] == value) {
         return i - start;
       }
@@ -173,7 +175,7 @@ class InputStream extends InputStreamBase {
   /// Read a null-terminated string, or if [len] is provided, that number of
   /// bytes returned as a string.
   @override
-  String readString({int size, bool utf8 = true}) {
+  String readString({int? size, bool utf8 = true}) {
     if (size == null) {
       final codes = <int>[];
       if (isEOS) {
@@ -188,15 +190,13 @@ class InputStream extends InputStreamBase {
         }
         codes.add(c);
       }
-      throw ArchiveException(
-          'EOF reached without finding string terminator');
+      throw ArchiveException('EOF reached without finding string terminator');
     }
 
     final s = readBytes(size);
     final bytes = s.toUint8List();
-    final str = utf8
-        ? Utf8Decoder().convert(bytes)
-        : String.fromCharCodes(bytes);
+    final str =
+        utf8 ? Utf8Decoder().convert(bytes) : String.fromCharCodes(bytes);
     return str;
   }
 
@@ -275,8 +275,7 @@ class InputStream extends InputStreamBase {
       if ((offset + len) > b.length) {
         len = b.length - offset;
       }
-      final bytes =
-          Uint8List.view(b.buffer, b.offsetInBytes + offset, len);
+      final bytes = Uint8List.view(b.buffer, b.offsetInBytes + offset, len);
       return bytes;
     }
     var end = offset + len;
@@ -286,5 +285,5 @@ class InputStream extends InputStreamBase {
     return Uint8List.fromList(buffer.sublist(offset, end));
   }
 
-  int _length;
+  late int _length;
 }

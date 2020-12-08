@@ -16,15 +16,15 @@ class ZipDirectory {
   int diskWithTheStartOfTheCentralDirectory = 0; // 2 bytes
   int totalCentralDirectoryEntriesOnThisDisk = 0; // 2 bytes
   int totalCentralDirectoryEntries = 0; // 2 bytes
-  int centralDirectorySize; // 4 bytes
-  int centralDirectoryOffset; // 2 bytes
+  late int centralDirectorySize; // 4 bytes
+  late int centralDirectoryOffset; // 2 bytes
   String zipFileComment = ''; // 2 bytes, n bytes
   // Central Directory
   List<ZipFileHeader> fileHeaders = [];
 
   ZipDirectory();
 
-  ZipDirectory.read(InputStream input, {String password}) {
+  ZipDirectory.read(InputStream input, {String? password}) {
     filePosition = _findSignature(input);
     input.offset = filePosition;
     final signature = input.readUint32(); // ignore: unused_local_variable
@@ -112,7 +112,8 @@ class ZipDirectory {
 
     final zip64EOCDSize = input.readUint64(); // ignore: unused_local_variable
     final zip64Version = input.readUint16(); // ignore: unused_local_variable
-    final zip64VersionNeeded = input.readUint16(); // ignore: unused_local_variable
+    // ignore: unused_local_variable
+    final zip64VersionNeeded = input.readUint16();
     final zip64DiskNumber = input.readUint32();
     final zip64StartDisk = input.readUint32();
     final zip64NumEntriesOnDisk = input.readUint64();

@@ -24,10 +24,8 @@ void main() {
       final inputPath = p.join(testDirPath, 'res/test2.tar.gz');
 
       {
-        final temp_dir =
-            Directory.systemTemp.createTempSync('dart_archive');
-        final tar_path =
-            '${temp_dir.path}${Platform.pathSeparator}temp.tar';
+        final temp_dir = Directory.systemTemp.createTempSync('dart_archive');
+        final tar_path = '${temp_dir.path}${Platform.pathSeparator}temp.tar';
         final input = InputFileStream(inputPath);
         final output = OutputFileStream(tar_path);
         GZipDecoder().decodeStream(input, output);
@@ -58,8 +56,7 @@ void main() {
 
   test('tar create', () {
     final dir = Directory.systemTemp.createTempSync('foo');
-    final file =
-        File('${dir.path}${Platform.pathSeparator}foo.txt');
+    final file = File('${dir.path}${Platform.pathSeparator}foo.txt');
     file.writeAsStringSync('foo bar');
 
     try {

@@ -6,32 +6,32 @@ import '../util/byte_order.dart';
 import '../util/input_stream.dart';
 
 class InputFileStream extends InputStreamBase {
-  String path;
-  RandomAccessFile _file;
+  final String path;
+  final RandomAccessFile _file;
   final int byteOrder;
   int _fileSize = 0;
+  final List<int> _buffer;
+
   int _filePosition = 0;
-  List<int> _buffer;
   int _bufferSize = 0;
   int _bufferPosition = 0;
-  int _maxBufferSize;
+
   static const int _kDefaultBufferSize = 4096;
 
-  InputFileStream(this.path,
-      {this.byteOrder = LITTLE_ENDIAN, int bufferSize = _kDefaultBufferSize}) {
-    _maxBufferSize = bufferSize;
-    _buffer = Uint8List(_maxBufferSize);
-    _file = File(path).openSync();
+  InputFileStream(String path,
+      {this.byteOrder = LITTLE_ENDIAN, int bufferSize = _kDefaultBufferSize})
+      : path = path,
+        _file = File(path).openSync(),
+        _buffer = Uint8List(bufferSize) {
     _fileSize = _file.lengthSync();
-
     _readBuffer();
   }
 
   InputFileStream.file(File file,
-      {this.byteOrder = LITTLE_ENDIAN, int bufferSize = _kDefaultBufferSize}) {
-    _maxBufferSize = bufferSize;
-    _buffer = Uint8List(_maxBufferSize);
-    _file = file.openSync();
+      {this.byteOrder = LITTLE_ENDIAN, int bufferSize = _kDefaultBufferSize})
+      : path = file.path,
+        _file = file.openSync(),
+        _buffer = Uint8List(bufferSize) {
     _fileSize = _file.lengthSync();
     _readBuffer();
   }
@@ -263,8 +263,7 @@ class InputFileStream extends InputStreamBase {
     }
 
     if (_remainingBufferSize >= length) {
-      final bytes =
-          _buffer.sublist(_bufferPosition, _bufferPosition + length);
+      final bytes = _buffer.sublist(_bufferPosition, _bufferPosition + length);
       _bufferPosition += length;
       return InputStream(bytes);
     }
@@ -308,7 +307,7 @@ class InputFileStream extends InputStreamBase {
   /// Read a null-terminated string, or if [len] is provided, that number of
   /// bytes returned as a string.
   @override
-  String readString({int size, bool utf8 = true}) {
+  String readString({int? size, bool utf8 = true}) {
     if (size == null) {
       final codes = <int>[];
       while (!isEOS) {
@@ -320,15 +319,13 @@ class InputFileStream extends InputStreamBase {
         }
         codes.add(c);
       }
-      throw ArchiveException(
-          'EOF reached without finding string terminator');
+      throw ArchiveException('EOF reached without finding string terminator');
     }
 
     final s = readBytes(size);
     final bytes = s.toUint8List();
-    final str = utf8
-        ? Utf8Decoder().convert(bytes)
-        : String.fromCharCodes(bytes);
+    final str =
+        utf8 ? Utf8Decoder().convert(bytes) : String.fromCharCodes(bytes);
     return str;
   }
 

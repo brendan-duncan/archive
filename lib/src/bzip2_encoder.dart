@@ -36,9 +36,9 @@ class BZip2Encoder {
 
     _selector = Uint8List(BZ_MAX_SELECTORS);
     _selectorMtf = Uint8List(BZ_MAX_SELECTORS);
-    _len = List<Uint8List>(BZ_N_GROUPS);
-    _code = List<Int32List>(BZ_N_GROUPS);
-    _rfreq = List<Int32List>(BZ_N_GROUPS);
+    _len = List<Uint8List>.filled(BZ_N_GROUPS, BZip2.emptyUint8List);
+    _code = List<Int32List>.filled(BZ_N_GROUPS, BZip2.emptyInt32List);
+    _rfreq = List<Int32List>.filled(BZ_N_GROUPS, BZip2.emptyInt32List);
 
     for (var i = 0; i < BZ_N_GROUPS; ++i) {
       _len[i] = Uint8List(BZ_MAX_ALPHA_SIZE);
@@ -46,7 +46,8 @@ class BZip2Encoder {
       _rfreq[i] = Int32List(BZ_MAX_ALPHA_SIZE);
     }
 
-    _lenPack = List<Uint32List>(BZ_MAX_ALPHA_SIZE);
+    _lenPack =
+        List<Uint32List>.filled(BZ_MAX_ALPHA_SIZE, BZip2.emptyUint32List);
     for (var i = 0; i < BZ_MAX_ALPHA_SIZE; ++i) {
       _lenPack[i] = Uint32List(4);
     }
@@ -706,7 +707,7 @@ class BZip2Encoder {
     var heap = Int32List(BZ_MAX_ALPHA_SIZE + 2);
     var weight = Int32List(BZ_MAX_ALPHA_SIZE * 2);
     var parent = Int32List(BZ_MAX_ALPHA_SIZE * 2);
-    int nHeap;
+    var nHeap = 0;
     int nNodes;
 
     for (var i = 0; i < alphaSize; i++) {
@@ -1994,35 +1995,35 @@ class BZip2Encoder {
     }
   }
 
-  InputStream input;
-  Bz2BitWriter bw;
-  int _nblockMax;
-  int _state_in_ch;
-  int _state_in_len;
-  int _nblock;
-  int _blockCRC;
-  int _blockNo; // ignore: unused_field
-  int _workFactor;
-  int _budget;
-  int _origPtr;
+  late InputStream input;
+  late Bz2BitWriter bw;
+  late int _nblockMax;
+  late int _state_in_ch;
+  late int _state_in_len;
+  late int _nblock;
+  late int _blockCRC;
+  late int _blockNo; // ignore: unused_field
+  late int _workFactor;
+  late int _budget;
+  late int _origPtr;
 
-  Uint32List _arr1;
-  Uint32List _arr2;
-  Uint32List _ftab;
-  Uint8List _block;
-  Uint8List _inUse;
-  Uint16List _mtfv;
-  int _nInUse;
+  late Uint32List _arr1;
+  late Uint32List _arr2;
+  late Uint32List _ftab;
+  late Uint8List _block;
+  late Uint8List _inUse;
+  late Uint16List _mtfv;
+  late int _nInUse;
 
-  int _nMTF;
-  Int32List _mtfFreq;
-  Uint8List _unseqToSeq;
-  List<Uint8List> _len;
-  List<Int32List> _code;
-  List<Int32List> _rfreq;
-  List<Uint32List> _lenPack;
-  Uint8List _selector;
-  Uint8List _selectorMtf;
+  late int _nMTF;
+  late Int32List _mtfFreq;
+  late Uint8List _unseqToSeq;
+  late List<Uint8List> _len;
+  late List<Int32List> _code;
+  late List<Int32List> _rfreq;
+  late List<Uint32List> _lenPack;
+  late Uint8List _selector;
+  late Uint8List _selectorMtf;
 
   static const int BZ_N_RADIX = 2;
   static const int BZ_N_QSORT = 12;

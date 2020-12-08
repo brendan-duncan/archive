@@ -10,7 +10,6 @@ final String testDirPath = p.dirname(p.fromUri(currentMirrorSystem()
     .findLibrary(const Symbol('archive.test.test_utils'))
     .uri));
 
-
 void compare_bytes(List<int> a, List<int> b) {
   expect(a.length, equals(b.length));
   final len = a.length;
@@ -33,9 +32,8 @@ zip archive
 format.
 ''';
 
-
 void ListDir(List files, io.Directory dir) {
-  var fileOrDirs = dir.listSync(recursive:true);
+  var fileOrDirs = dir.listSync(recursive: true);
   for (var f in fileOrDirs) {
     if (f is io.File) {
       // Ignore paxHeader files, which 7zip write out since it doesn't properly

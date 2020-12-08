@@ -1,16 +1,29 @@
 name: archive
-version: 2.0.13
+version: 3.0.0-nullsafety.0
 description: Provides encoders and decoders for various archive and compression formats such as zip, tar, bzip2, gzip, and zlib.
 homepage: https://github.com/brendan-duncan/archive
 environment:
-  sdk: '>=2.0.0-dev.49.0 <3.0.0'
+  sdk: '>=2.12.0-0 <3.0.0'
 documentation: https://github.com/brendan-duncan/archive/wiki
+
 dependencies:
-  crypto: '>=2.0.0 <3.0.0'
+  crypto: ^2.0.0-nullsafety.0
   args: '>=1.4.0 <2.0.0'
   path: '>=1.5.1 <2.0.0'
+
 dev_dependencies:
-  test: '>=0.12.13 <2.0.0'
+  test: 1.16.0-nullsafety.9
   build_web_compilers: '>=0.3.6 <2.0.0'
   build_runner: '>=0.8.10 <2.0.0'
   pedantic: ^1.0.0
+
+dependency_overrides:
+  # Circular dependency with `package:archive`.
+  build_web_compilers: ^2.15.2
+
+  # Not published yet.
+  crypto:
+    git:
+      url: git@github.com:dart-lang/crypto.git
+      ref: a5ec902dda5a635a35c6b363ec64458cf84c5872
+  convert: ^3.0.0-nullsafety

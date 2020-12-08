@@ -11,24 +11,24 @@ import 'archive.dart';
 import 'archive_file.dart';
 
 class _ZipFileData {
-  String name;
+  late String name;
   int time = 0;
   int date = 0;
   int crc32 = 0;
   int compressedSize = 0;
   int uncompressedSize = 0;
-  InputStreamBase compressedData;
+  InputStreamBase? compressedData;
   bool compress = true;
-  String comment = '';
+  String? comment = '';
   int position = 0;
   int mode = 0;
   bool isFile = true;
 }
 
 class _ZipEncoderData {
-  int level;
-  int time;
-  int date;
+  int? level;
+  late final int time;
+  late final int date;
   int localFileSize = 0;
   int centralDirectorySize = 0;
   int endOfCentralDirectorySize = 0;
@@ -48,11 +48,11 @@ class _ZipEncoderData {
 
 /// Encode an [Archive] object into a Zip formatted buffer.
 class ZipEncoder {
-  _ZipEncoderData _data;
-  OutputStreamBase _output;
+  late _ZipEncoderData _data;
+  OutputStreamBase? _output;
 
-  List<int> encode(Archive archive,
-      {int level = Deflate.BEST_SPEED, OutputStreamBase output}) {
+  List<int>? encode(Archive archive,
+      {int level = Deflate.BEST_SPEED, OutputStreamBase? output}) {
     output ??= OutputStream();
 
     startEncode(output, level: level);
@@ -67,7 +67,8 @@ class ZipEncoder {
     return null;
   }
 
-  void startEncode(OutputStreamBase output, {int level = Deflate.BEST_SPEED}) {
+  void startEncode(OutputStreamBase? output,
+      {int? level = Deflate.BEST_SPEED}) {
     _data = _ZipEncoderData(level);
     _output = output;
   }
@@ -91,10 +92,10 @@ class ZipEncoder {
     fileData.name = file.name;
     fileData.time = _data.time;
     fileData.date = _data.date;
-    fileData.mode = file.mode ?? 0;
+    fileData.mode = file.mode;
     fileData.isFile = file.isFile;
 
-    InputStreamBase compressedData;
+    InputStreamBase? compressedData;
     int crc32;
 
     // If the user want's to store the file without compressing it,
@@ -109,7 +110,7 @@ class ZipEncoder {
           : InputStream(file.content);
 
       if (file.crc32 != null) {
-        crc32 = file.crc32;
+        crc32 = file.crc32!;
       } else {
         crc32 = getFileCrc32(file);
       }
@@ -120,7 +121,7 @@ class ZipEncoder {
       compressedData = file.rawContent;
 
       if (file.crc32 != null) {
-        crc32 = file.crc32;
+        crc32 = file.crc32!;
       } else {
         crc32 = getFileCrc32(file);
       }
@@ -137,13 +138,13 @@ class ZipEncoder {
     }
 
     var filename = Utf8Encoder().convert(file.name);
-    var comment = file.comment != null ? Utf8Encoder().convert(file.comment) : null;
+    var comment =
+        file.comment != null ? Utf8Encoder().convert(file.comment!) : null;
 
-    _data.localFileSize += 30 + filename.length + compressedData.length;
+    _data.localFileSize += 30 + filename.length + compressedData!.length;
 
-    _data.centralDirectorySize += 46 +
-        filename.length +
-        (comment != null ? comment.length : 0);
+    _data.centralDirectorySize +=
+        46 + filename.length + (comment != null ? comment.length : 0);
 
     fileData.crc32 = crc32;
     fileData.compressedSize = compressedData.length;
@@ -151,16 +152,16 @@ class ZipEncoder {
     fileData.uncompressedSize = file.size;
     fileData.compress = file.compress;
     fileData.comment = file.comment;
-    fileData.position = _output.length;
+    fileData.position = _output!.length;
 
-    _writeFile(fileData, _output);
+    _writeFile(fileData, _output!);
 
     fileData.compressedData = null;
   }
 
-  void endEncode({String comment = ''}) {
+  void endEncode({String? comment = ''}) {
     // Write Central Directory and End Of Central Directory
-    _writeCentralDirectory(_data.files, comment, _output);
+    _writeCentralDirectory(_data.files, comment, _output!);
   }
 
   void _writeFile(_ZipFileData fileData, OutputStreamBase output) {
@@ -170,8 +171,8 @@ class ZipEncoder {
 
     final version = VERSION;
     final flags = 0;
-    final compressionMethod = fileData.compress
-        ? ZipFile.DEFLATE : ZipFile.STORE;
+    final compressionMethod =
+        fileData.compress ? ZipFile.DEFLATE : ZipFile.STORE;
     final lastModFileTime = fileData.time;
     final lastModFileDate = fileData.date;
     final crc32 = fileData.crc32;
@@ -179,7 +180,7 @@ class ZipEncoder {
     final uncompressedSize = fileData.uncompressedSize;
     final extra = <int>[];
 
-    final compressedData = fileData.compressedData;
+    final compressedData = fileData.compressedData!;
 
     var filenameUtf8 = Utf8Encoder().convert(filename);
 
@@ -200,7 +201,7 @@ class ZipEncoder {
   }
 
   void _writeCentralDirectory(
-      List<_ZipFileData> files, String comment, OutputStreamBase output) {
+      List<_ZipFileData> files, String? comment, OutputStreamBase output) {
     comment ??= '';
     var commentUtf8 = Utf8Encoder().convert(comment);
 

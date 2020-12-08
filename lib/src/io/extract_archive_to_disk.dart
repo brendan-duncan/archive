@@ -17,16 +17,15 @@ void extractArchiveToDisk(Archive archive, String outputPath) {
     if (!file.isFile) {
       continue;
     }
-    final f = File(
-        '${outputPath}${Platform.pathSeparator}${file.name}');
+    final f = File('${outputPath}${Platform.pathSeparator}${file.name}');
     f.parent.createSync(recursive: true);
     f.writeAsBytesSync(file.content as List<int>);
   }
 }
 
 void extractFileToDisk(String inputPath, String outputPath,
-    {String password}) {
-  Directory tempDir;
+    {String? password}) {
+  Directory? tempDir;
   var archivePath = inputPath;
 
   if (inputPath.endsWith('tar.gz') || inputPath.endsWith('tgz')) {
@@ -54,14 +53,16 @@ void extractFileToDisk(String inputPath, String outputPath,
   } else if (archivePath.endsWith('zip')) {
     final input = InputStream(File(archivePath).readAsBytesSync());
     archive = ZipDecoder().decodeBuffer(input, password: password);
+  } else {
+    throw ArgumentError.value(inputPath, 'inputPath',
+        'Must end tar.gz, tgz, tar.bz2, tbz, tar or zip.');
   }
 
   for (final file in archive.files) {
     if (!file.isFile) {
       continue;
     }
-    final f = File(
-        '${outputPath}${Platform.pathSeparator}${file.name}');
+    final f = File('${outputPath}${Platform.pathSeparator}${file.name}');
     f.parent.createSync(recursive: true);
     f.writeAsBytesSync(file.content as List<int>);
   }

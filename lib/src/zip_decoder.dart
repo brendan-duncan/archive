@@ -8,23 +8,22 @@ import 'archive_file.dart';
 
 /// Decode a zip formatted buffer into an [Archive] object.
 class ZipDecoder {
-  ZipDirectory directory;
+  late ZipDirectory directory;
 
-  Archive decodeBytes(List<int> data, {bool verify = false, String password}) {
-    return decodeBuffer(InputStream(data),
-        verify: verify, password: password);
+  Archive decodeBytes(List<int> data, {bool verify = false, String? password}) {
+    return decodeBuffer(InputStream(data), verify: verify, password: password);
   }
 
   Archive decodeBuffer(InputStream input,
-      {bool verify = false, String password}) {
+      {bool verify = false, String? password}) {
     directory = ZipDirectory.read(input, password: password);
     final archive = Archive();
 
     for (final zfh in directory.fileHeaders) {
-      final zf = zfh.file;
+      final zf = zfh.file!;
 
       // The attributes are stored in base 8
-      final mode = zfh.externalFileAttributes;
+      final mode = zfh.externalFileAttributes!;
       final compress = zf.compressionMethod != ZipFile.STORE;
 
       if (verify) {
@@ -35,8 +34,8 @@ class ZipDecoder {
       }
 
       dynamic content = zf.rawContent;
-      var file = ArchiveFile(zf.filename, zf.uncompressedSize, content,
-          zf.compressionMethod);
+      var file = ArchiveFile(
+          zf.filename, zf.uncompressedSize!, content, zf.compressionMethod);
 
       file.mode = mode >> 16;
 

@@ -123,16 +123,7 @@ void main() {
   });
 
   test('readUint64', () {
-    const data = [
-      0xaa,
-      0xbb,
-      0xcc,
-      0xdd,
-      0xee,
-      0xff,
-      0xee,
-      0xdd
-    ];
+    const data = [0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff, 0xee, 0xdd];
     // Little endian (by default)
     final input = InputStream(data);
     expect(input.readUint64(), equals(0xddeeffeeddccbbaa));

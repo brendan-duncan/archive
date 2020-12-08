@@ -12,18 +12,13 @@ class _ZLibDecoder extends ZLibDecoderBase {
   static const int DEFLATE = 8;
 
   @override
-  List<int> decodeBytes(List<int> data,
-      {bool verify = false, bool raw = false}) {
+  List<int> decodeBytes(List<int> data, {bool verify = false}) {
     return decodeBuffer(InputStream(data, byteOrder: BIG_ENDIAN),
-        verify: verify, raw: raw);
+        verify: verify);
   }
 
   @override
-  List<int> decodeBuffer(InputStream input,
-      {bool verify = false, bool raw = false}) {
-    if (raw) {
-      return Inflate.buffer(input).getBytes();
-    }
+  List<int> decodeBuffer(InputStream input, {bool verify = false}) {
     /*
      * The zlib format has the following structure:
      * CMF  1 byte

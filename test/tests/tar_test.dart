@@ -158,8 +158,7 @@ void main() {
   });
 
   test('tar file', () {
-    TarEncoder().encode(Archive()
-      ..addFile(ArchiveFile('file.txt', 1, [100])));
+    TarEncoder().encode(Archive()..addFile(ArchiveFile('file.txt', 1, [100])));
   });
 
   test('long file name', () {
@@ -253,7 +252,7 @@ void main() {
 
   for (Map<String, dynamic> t in tarTests) {
     test('untar ${t['file']}', () {
-      var file = File(p.join(testDirPath,  t['file'] as String));
+      var file = File(p.join(testDirPath, t['file'] as String));
       var bytes = file.readAsBytesSync();
 
       /*Archive archive =*/ tar.decodeBytes(bytes, verify: true);

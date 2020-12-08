@@ -15,8 +15,8 @@ class BZip2Decoder {
         verify: verify);
   }
 
-  List<int> decodeBuffer(InputStreamBase _input, {bool verify = false,
-                         OutputStreamBase output}) {
+  List<int> decodeBuffer(InputStreamBase _input,
+      {bool verify = false, OutputStreamBase? output}) {
     output ??= OutputStream();
     final br = Bz2BitReader(_input);
 
@@ -73,7 +73,7 @@ class BZip2Decoder {
           return [];
         }
 
-        return (output as OutputStream).getBytes();
+        return output.getBytes();
       }
     }
   }
@@ -176,7 +176,7 @@ class BZip2Decoder {
     }
 
     // Now the coding tables
-    _len = List<Uint8List>(BZ_N_GROUPS);
+    _len = List<Uint8List>.filled(BZ_N_GROUPS, BZip2.emptyUint8List);
 
     for (var t = 0; t < numGroups; ++t) {
       _len[t] = Uint8List(BZ_MAX_ALPHA_SIZE);
@@ -203,9 +203,9 @@ class BZip2Decoder {
     }
 
     // Create the Huffman decoding tables
-    _limit = List<Int32List>(BZ_N_GROUPS);
-    _base = List<Int32List>(BZ_N_GROUPS);
-    _perm = List<Int32List>(BZ_N_GROUPS);
+    _limit = List<Int32List>.filled(BZ_N_GROUPS, BZip2.emptyInt32List);
+    _base = List<Int32List>.filled(BZ_N_GROUPS, BZip2.emptyInt32List);
+    _perm = List<Int32List>.filled(BZ_N_GROUPS, BZip2.emptyInt32List);
     _minLens = Int32List(BZ_N_GROUPS);
 
     for (var t = 0; t < numGroups; t++) {
@@ -224,8 +224,8 @@ class BZip2Decoder {
         }
       }
 
-      _hbCreateDecodeTables(_limit[t], _base[t], _perm[t], _len[t],
-          minLen, maxLen, alphaSize);
+      _hbCreateDecodeTables(
+          _limit[t], _base[t], _perm[t], _len[t], minLen, maxLen, alphaSize);
 
       _minLens[t] = minLen;
     }
@@ -788,32 +788,32 @@ class BZip2Decoder {
     }
   }
 
-  int _blockSize100k;
-  Uint32List _tt;
-  Uint8List _inUse16;
-  Uint8List _inUse;
-  Uint8List _seqToUnseq;
-  Uint8List _mtfa;
-  Int32List _mtfbase;
-  Uint8List _selectorMtf;
-  Uint8List _selector;
-  List<Int32List> _limit;
-  List<Int32List> _base;
-  List<Int32List> _perm;
-  Int32List _minLens;
-  Int32List _unzftab;
+  late int _blockSize100k;
+  late Uint32List _tt;
+  late Uint8List _inUse16;
+  late Uint8List _inUse;
+  late Uint8List _seqToUnseq;
+  late Uint8List _mtfa;
+  late Int32List _mtfbase;
+  late Uint8List _selectorMtf;
+  late Uint8List _selector;
+  late List<Int32List> _limit;
+  late List<Int32List> _base;
+  late List<Int32List> _perm;
+  late Int32List _minLens;
+  late Int32List _unzftab;
 
-  int _numSelectors;
+  late int _numSelectors;
   int _groupPos = 0;
   int _groupNo = -1;
   int _gSel = 0;
   int _gMinlen = 0;
-  Int32List _gLimit;
-  Int32List _gPerm;
-  Int32List _gBase;
-  Int32List _cftab;
+  late Int32List _gLimit;
+  late Int32List _gPerm;
+  late Int32List _gBase;
+  late Int32List _cftab;
 
-  List<Uint8List> _len;
+  late List<Uint8List> _len;
   int _numInUse = 0;
 
   static const int BZ_N_GROUPS = 6;

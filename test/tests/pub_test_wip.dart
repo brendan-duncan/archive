@@ -37,7 +37,7 @@ void extract7z(List<String> urls) {
   }
 }
 
-void downloadUrls(HttpClient client, List<String> urls) async {
+Future<void> downloadUrls(HttpClient? client, List<String> urls) async {
   final script = File(Platform.script.toFilePath());
   final path = script.parent.path;
 
@@ -49,10 +49,10 @@ void downloadUrls(HttpClient client, List<String> urls) async {
 
     var download = HttpClient()
         .getUrl(Uri.parse(url))
-        .then((HttpClientRequest request) => request.close())
-        .then<dynamic>((HttpClientResponse response) => response
+        .then(((HttpClientRequest request) => request.close()))
+        .then<dynamic>(((HttpClientResponse response) => response
             .cast<List<int>>()
-            .pipe(File(path + '/out/' + filename).openWrite()));
+            .pipe(File(path + '/out/' + filename).openWrite())));
 
     downloads.add(download);
   }
@@ -94,8 +94,7 @@ void extractDart(List<String> urls) {
       }
       final filename = file.filename;
       try {
-        final f =
-            File('${outputPath}${Platform.pathSeparator}${filename}');
+        final f = File('${outputPath}${Platform.pathSeparator}${filename}');
         f.parent.createSync(recursive: true);
         f.writeAsBytesSync(file.content as List<int>);
       } catch (e) {
@@ -141,14 +140,14 @@ void compareDirs(List<String> urls) {
 
 void definePubTests() {
   group('pub archives', () {
-    HttpClient client;
+    HttpClient? client;
 
     setUpAll(() {
       client = HttpClient();
     });
 
     tearDownAll(() {
-      client.close(force: true);
+      client!.close(force: true);
     });
 
     test('PUB ARCHIVES', () async {

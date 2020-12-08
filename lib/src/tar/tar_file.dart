@@ -43,7 +43,7 @@ class TarFile {
   static const String TYPE_EX_HEADER2 = 'X';
 
   // Pre-POSIX Format
-  String filename; // 100 bytes
+  late String filename; // 100 bytes
   int mode = 644; // 8 bytes
   int ownerId = 0; // 8 bytes
   int groupId = 0; // 8 bytes
@@ -51,7 +51,7 @@ class TarFile {
   int lastModTime = 0; // 12 bytes
   int checksum = 0; // 8 bytes
   String typeFlag = '0'; // 1 byte
-  String nameOfLinkedFile; // 100 bytes
+  late String nameOfLinkedFile; // 100 bytes
   // UStar Format
   String ustarIndicator = ''; // 6 bytes (ustar)
   String ustarVersion = ''; // 2 bytes (00)
@@ -60,7 +60,7 @@ class TarFile {
   int deviceMajorNumber = 0; // 8 bytes
   int deviceMinorNumber = 0; // 8 bytes
   String filenamePrefix = ''; // 155 bytes
-  InputStream _rawContent;
+  InputStream? _rawContent;
   dynamic _content;
 
   TarFile();
@@ -111,10 +111,10 @@ class TarFile {
 
   bool get isSymLink => typeFlag == TYPE_SYMBOLIC_LINK;
 
-  InputStream get rawContent => _rawContent;
+  InputStream? get rawContent => _rawContent;
 
   dynamic get content {
-    _content ??= _rawContent.toUint8List();
+    _content ??= _rawContent!.toUint8List();
     return _content;
   }
 
@@ -124,7 +124,9 @@ class TarFile {
 
   int get size => _content != null
       ? _content.length as int
-      : _rawContent != null ? _rawContent.length : 0;
+      : _rawContent != null
+          ? _rawContent!.length
+          : 0;
 
   @override
   String toString() => '[${filename}, ${mode}, ${fileSize}]';

@@ -10,8 +10,7 @@ import 'test_utils.dart';
 void main() {
   test('InputFileStream', () {
     // Test fundamental assumption setPositionSync does what we expect.
-    final fp =
-        File(p.join(testDirPath, 'res/cat.jpg')).openSync();
+    final fp = File(p.join(testDirPath, 'res/cat.jpg')).openSync();
     fp.setPositionSync(9);
     var b1 = fp.readByteSync();
     var b2 = fp.readByteSync();
@@ -62,8 +61,8 @@ void main() {
     input.close();
 
     input = InputFileStream(p.join(testDirPath, 'res/cat.jpg'), bufferSize: 10);
-    final input2 = InputStream(
-        File(p.join(testDirPath, 'res/cat.jpg')).readAsBytesSync());
+    final input2 =
+        InputStream(File(p.join(testDirPath, 'res/cat.jpg')).readAsBytesSync());
 
     var same = true;
     while (!input.isEOS && same) {
@@ -107,7 +106,7 @@ void main() {
 
   test('InputFileStream/OutputFileStream', () {
     var input = InputFileStream(p.join(testDirPath, 'res/cat.jpg'));
-    var output =  OutputFileStream(p.join(testDirPath, 'out/cat2.jpg'));
+    var output = OutputFileStream(p.join(testDirPath, 'out/cat2.jpg'));
     while (!input.isEOS) {
       var bytes = input.readBytes(50);
       output.writeInputStream(bytes);
@@ -170,10 +169,8 @@ void main() {
   });
 
   test('stream gzip encode', () {
-    final input =
-        InputFileStream(p.join(testDirPath, 'res/cat.jpg'));
-    final output =
-        OutputFileStream(p.join(testDirPath, 'out/cat.jpg.gz'));
+    final input = InputFileStream(p.join(testDirPath, 'res/cat.jpg'));
+    final output = OutputFileStream(p.join(testDirPath, 'out/cat.jpg.gz'));
 
     final encoder = GZipEncoder();
     encoder.encode(input, output: output);
@@ -220,7 +217,7 @@ void main() {
     expect(archive.length, equals(2));
     var encoder = ZipEncoder();
 
-    var bytes = encoder.encode(archive);
+    var bytes = encoder.encode(archive)!;
 
     var zipDecoder = ZipDecoder();
     var archive2 = zipDecoder.decodeBytes(bytes, verify: true);

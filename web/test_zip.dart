@@ -7,7 +7,7 @@ void main() {
   // directory.  It's removed after we get the path since we'll be populating
   // the page with our own decoded images.
   final img = querySelectorAll('img')[0] as ImageElement;
-  final path = img.src.substring(0, img.src.lastIndexOf('/'));
+  final path = img.src!.substring(0, img.src!.lastIndexOf('/'));
   img.remove();
 
   // Use an http request to get the image file from disk.
@@ -21,6 +21,6 @@ void main() {
       final archive = ZipDecoder().decodeBytes(bytes, verify: true);
       print('NUMBER OF FILES ${archive.numberOfFiles()}');
     }
- });
- req.send('');
+  });
+  req.send('');
 }
