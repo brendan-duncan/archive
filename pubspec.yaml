@@ -24,6 +24,6 @@ dependency_overrides:
   # Not published yet.
   crypto:
     git:
-      url: git@github.com:dart-lang/crypto.git
+      url: git://github.com/dart-lang/crypto.git
       ref: a5ec902dda5a635a35c6b363ec64458cf84c5872
   convert: ^3.0.0-nullsafety
