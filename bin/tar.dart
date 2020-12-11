@@ -2,38 +2,35 @@
 // @dart=2.9
 library archive.tar;
 
-import 'package:args/args.dart';
 import 'package:archive/src/tar/tar_command.dart';
 
 // tar --list <file>
 // tar --extract <file> <dest>
 // tar --create <source>
+const usage = 'usage: tar [--list|--extract|--create] <file> [<dest>|<source>]';
 
 void main(List<String> arguments) {
-  final args = ArgParser();
-  args.addFlag('list', abbr: 't', help: '<file>', negatable: false);
-  args.addFlag('extract', abbr: 'x', help: '<file> <dest>', negatable: false);
-  args.addFlag('create', abbr: 'c', help: '<directory>', negatable: false);
+  if (arguments.isEmpty) {
+    fail(usage);
+  }
 
-  final results = args.parse(arguments);
-  final files = results.rest;
-
-  if (results['list'] != null) {
-    if (files.isEmpty) fail('expected the archive to act on');
-
-    listFiles(files.first);
-  } else if (results['create'] != null) {
-    if (files.isEmpty) fail('expected the directory to tar');
-
-    createTarFile(files.first);
-  } else if (results['extract'] != null) {
-    if (files.isEmpty) fail('expected the archive to extract');
-    if (files.length < 2) fail('expected the directory to extract to');
-
-    extractFiles(files.first, files[1]);
+  final command = arguments[0];
+  if (command == '--list') {
+    if (arguments.length < 2) {
+      fail(usage);
+    }
+    listFiles(arguments[1]);
+  } else if (command == '--extract') {
+    if (arguments.length < 3) {
+      fail(usage);
+    }
+    extractFiles(arguments[1], arguments[2]);
+  } else if (command == '--create') {
+    if (arguments.length < 2) {
+      fail(usage);
+    }
+    createTarFile(arguments[1]);
   } else {
-    print('usage: tar [--list|--extract|--create] <file> [<dest>|<source>]');
-    print('');
-    fail(args.usage);
+    fail(usage);
   }
 }
