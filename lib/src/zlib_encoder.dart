@@ -7,6 +7,8 @@ import 'zlib/deflate.dart';
 class ZLibEncoder {
   static const int DEFLATE = 8;
 
+  const ZLibEncoder();
+
   List<int> encode(List<int> data, {int? level}) {
     final output = OutputStream(byteOrder: BIG_ENDIAN);
 
