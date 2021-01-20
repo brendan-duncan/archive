@@ -5,11 +5,13 @@ import '../util/input_stream.dart';
 import 'inflate.dart';
 import 'zlib_decoder_base.dart';
 
-ZLibDecoderBase createZLibDecoder() => _ZLibDecoder();
+const platformZLibDecoder = _ZLibDecoder();
 
 /// Decompress data with the zlib format decoder.
 class _ZLibDecoder extends ZLibDecoderBase {
   static const int DEFLATE = 8;
+
+  const _ZLibDecoder();
 
   @override
   List<int> decodeBytes(List<int> data, {bool verify = false}) {
