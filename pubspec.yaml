@@ -1,23 +1,17 @@
 name: archive
 version: 3.0.0-nullsafety.0
-description: Provides encoders and decoders for various archive and compression formats such as zip, tar, bzip2, gzip, and zlib.
+description: >-
+  Provides encoders and decoders for various archive and compression formats
+  such as zip, tar, bzip2, gzip, and zlib.
 homepage: https://github.com/brendan-duncan/archive
 environment:
   sdk: '>=2.12.0-0 <3.0.0'
 documentation: https://github.com/brendan-duncan/archive/wiki
 
 dependencies:
-  crypto: ^2.0.0-nullsafety.0
+  crypto: ^3.0.0-nullsafety.0
   path: ^1.8.0-nullsafety.3
 
 dev_dependencies:
-  test: 1.16.0-nullsafety.9
-  pedantic: ^1.0.0
-
-dependency_overrides:
-  # Not published yet.
-  crypto:
-    git:
-      url: git://github.com/dart-lang/crypto.git
-      ref: a5ec902dda5a635a35c6b363ec64458cf84c5872
-  convert: ^3.0.0-nullsafety
+  test: ^1.16.0-nullsafety.15
+  pedantic: ^1.10.0-nullsafety.3
