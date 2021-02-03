@@ -1,8 +1,11 @@
+## 3.1.0-dev
+
+* Added `const` constructors to `ZLibDecoder`, `ZLibEncoder`, and 
+  `ZLibDecoderBase`.
+
 ## 3.0.0 - February 3, 2021
 
 * Stable release supporting null safety.
-* Added `const` constructors to `ZLibDecoder`, `ZLibEncoder`, and 
-  `ZLibDecoderBase`.
 
 ## 3.0.0-nullsafety.0 - January 20, 2021
 
