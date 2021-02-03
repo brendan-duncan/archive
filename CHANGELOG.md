@@ -1,3 +1,7 @@
+## 3.0.0 - February 3, 2021
+
+* Stable release supporting null safety.
+
 ## 3.0.0-nullsafety.0 - January 20, 2021
 
 * Migrate to null safety.
