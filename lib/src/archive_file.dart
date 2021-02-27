@@ -32,6 +32,7 @@ class ArchiveFile {
 
   ArchiveFile(this.name, this.size, dynamic content,
       [this._compressionType = STORE]) {
+    name = name.replaceAll('\\', '/');
     if (content is List<int>) {
       _content = content;
       _rawContent = InputStream(_content);
@@ -41,6 +42,7 @@ class ArchiveFile {
   }
 
   ArchiveFile.noCompress(this.name, this.size, dynamic content) {
+    name = name.replaceAll('\\', '/');
     compress = false;
     if (content is List<int>) {
       _content = content;
@@ -51,6 +53,8 @@ class ArchiveFile {
   }
 
   ArchiveFile.stream(this.name, this.size, dynamic content_stream) {
+    // Paths can only have / path separators
+    name = name.replaceAll('\\', '/');
     compress = true;
     _content = content_stream;
     //_rawContent = content_stream;
