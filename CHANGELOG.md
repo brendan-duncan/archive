@@ -1,3 +1,7 @@
+## 3.1.1
+
+* Fix zip encoder so that zip files created on Windows will open correctly on Linux.
+
 ## 3.1.0-dev
 
 * Added `const` constructors to `ZLibDecoder`, `ZLibEncoder`, and 
