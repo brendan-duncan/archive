@@ -34,7 +34,7 @@ class _ZipEncoderData {
   int endOfCentralDirectorySize = 0;
   List<_ZipFileData> files = [];
 
-  _ZipEncoderData(this.level, dateTime) {
+  _ZipEncoderData(this.level, [DateTime? dateTime]) {
     dateTime = dateTime ?? DateTime.now();
     final t1 = ((dateTime.minute & 0x7) << 5) | (dateTime.second ~/ 2);
     final t2 = (dateTime.hour << 3) | (dateTime.minute >> 3);
