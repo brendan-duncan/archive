@@ -310,6 +310,31 @@ void main() {
     }
   });
 
+  test('encode with timestamp', () {
+    final archive = Archive();
+    var bdata = 'some file data';
+    var bytes = Uint8List.fromList(bdata.codeUnits);
+    final name = 'somefile.txt';
+    final afile = ArchiveFile.noCompress(name, bytes.lengthInBytes, bytes);
+    archive.addFile(afile);
+
+    var zip_data = ZipEncoder()
+        .encode(archive, modified: DateTime.utc(2010, DateTime.january, 1))!;
+
+    File(p.join(testDirPath, 'out/uncompressed.zip'))
+      ..createSync(recursive: true)
+      ..writeAsBytesSync(zip_data);
+
+    var arc = ZipDecoder().decodeBytes(zip_data, verify: true);
+    expect(arc.numberOfFiles(), equals(1));
+    var arcData = arc.fileData(0);
+    expect(arcData.length, equals(bdata.length));
+    for (var i = 0; i < arcData.length; ++i) {
+      expect(arcData[i], equals(bdata.codeUnits[i]));
+    }
+    expect(arc[0].lastModTime, equals(1008795648));
+  });
+
   test('password', () {
     var file = File(p.join(testDirPath, 'res/zip/password_zipcrypto.zip'));
     var bytes = file.readAsBytesSync();

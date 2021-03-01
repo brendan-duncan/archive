@@ -34,8 +34,8 @@ class _ZipEncoderData {
   int endOfCentralDirectorySize = 0;
   List<_ZipFileData> files = [];
 
-  _ZipEncoderData(this.level) {
-    final dateTime = DateTime.now();
+  _ZipEncoderData(this.level, dateTime) {
+    dateTime = dateTime ?? DateTime.now();
     final t1 = ((dateTime.minute & 0x7) << 5) | (dateTime.second ~/ 2);
     final t2 = (dateTime.hour << 3) | (dateTime.minute >> 3);
     time = ((t2 & 0xff) << 8) | (t1 & 0xff);
@@ -52,10 +52,12 @@ class ZipEncoder {
   OutputStreamBase? _output;
 
   List<int>? encode(Archive archive,
-      {int level = Deflate.BEST_SPEED, OutputStreamBase? output}) {
+      {int level = Deflate.BEST_SPEED,
+      OutputStreamBase? output,
+      DateTime? modified}) {
     output ??= OutputStream();
 
-    startEncode(output, level: level);
+    startEncode(output, level: level, modified: modified);
     for (final file in archive.files) {
       addFile(file);
     }
@@ -68,8 +70,8 @@ class ZipEncoder {
   }
 
   void startEncode(OutputStreamBase? output,
-      {int? level = Deflate.BEST_SPEED}) {
-    _data = _ZipEncoderData(level);
+      {int? level = Deflate.BEST_SPEED, DateTime? modified}) {
+    _data = _ZipEncoderData(level, modified);
     _output = output;
   }
 
