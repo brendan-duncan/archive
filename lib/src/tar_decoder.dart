@@ -38,12 +38,10 @@ class TarDecoder {
       // In POSIX formatted tar files, a separate 'PAX' file contains extended
       // metadata for files. These are identified by having a type flag 'X'.
       // TODO: parse these metadata values.
-      if (tf.typeFlag == TarFile.TYPE_G_EX_HEADER ||
-          tf.typeFlag == TarFile.TYPE_G_EX_HEADER2) {
+      if (tf.typeFlag.toLowerCase() == TarFile.TYPE_G_EX_HEADER) {
         // TODO handle PAX global header.
       }
-      if (tf.typeFlag == TarFile.TYPE_EX_HEADER ||
-          tf.typeFlag == TarFile.TYPE_EX_HEADER2) {
+      if (tf.typeFlag.toLowerCase() == TarFile.TYPE_EX_HEADER) {
         //paxHeader = tf;
       } else {
         files.add(tf);

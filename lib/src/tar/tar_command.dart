@@ -4,7 +4,7 @@ import 'package:archive/archive_io.dart';
 /// Print the entries in the given tar file.
 void listFiles(String path) {
   final file = File(path);
-  if (!file.existsSync()) fail('${path} does not exist');
+  if (!file.existsSync()) fail('$path does not exist');
 
   List<int> data = file.readAsBytesSync();
   if (path.endsWith('tar.gz') || path.endsWith('tgz')) {
@@ -14,12 +14,11 @@ void listFiles(String path) {
   }
 
   final tarArchive = TarDecoder();
-  // Tell the decoder not to store the actual file data since we don't need
-  // it.
+  // Tell the decoder not to store the actual file data since we don't need it.
   tarArchive.decodeBytes(data, storeData: false);
 
   print('${tarArchive.files.length} file(s)');
-  tarArchive.files.forEach((f) => print('  ${f}'));
+  tarArchive.files.forEach((f) => print('  $f'));
 }
 
 /// Extract the entries in the given tar file to a directory.
@@ -27,7 +26,8 @@ Directory extractFiles(String inputPath, String outputPath) {
   Directory? temp_dir;
   var tar_path = inputPath;
 
-  if (inputPath.endsWith('tar.gz') || inputPath.endsWith('tgz')) {
+  if (inputPath.endsWith('tar.gz') || inputPath.endsWith('tgz')
+      || inputPath.endsWith('cbt')) {
     temp_dir = Directory.systemTemp.createTempSync('dart_archive');
     tar_path = '${temp_dir.path}${Platform.pathSeparator}temp.tar';
     final input = InputFileStream(inputPath);

@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'dart:typed_data';
 import '../util/archive_exception.dart';
 import '../util/input_stream.dart';
@@ -36,11 +37,9 @@ class TarFile {
   static const String TYPE_CONT_FILE = '7';
   // global extended header with meta data (POSIX.1-2001)
   static const String TYPE_G_EX_HEADER = 'g';
-  static const String TYPE_G_EX_HEADER2 = 'G';
   // extended header with meta data for the next file in the archive
   // (POSIX.1-2001)
   static const String TYPE_EX_HEADER = 'x';
-  static const String TYPE_EX_HEADER2 = 'X';
 
   // Pre-POSIX Format
   late String filename; // 100 bytes
@@ -98,10 +97,9 @@ class TarFile {
     }
 
     if (isFile && fileSize > 0) {
-      final remainder = fileSize % 512;
-      var skiplen = 0;
+      final remainder = fileSize & 0x1ff; // remainder = fileSize % 512
       if (remainder != 0) {
-        skiplen = 512 - remainder;
+        final skiplen = remainder ^ 0x200;  // skiplen = remainder - 512
         input.skip(skiplen);
       }
     }
@@ -118,7 +116,7 @@ class TarFile {
     return _content;
   }
 
-  List<int> get contentBytes => content as List<int>;
+  Uint8List get contentBytes => content as Uint8List;
 
   set content(dynamic data) => _content = data;
 
@@ -129,7 +127,7 @@ class TarFile {
           : 0;
 
   @override
-  String toString() => '[${filename}, ${mode}, ${fileSize}]';
+  String toString() => '[$filename, $mode, $fileSize]';
 
   void write(dynamic output) {
     fileSize = size;
@@ -153,10 +151,10 @@ class TarFile {
 
     final headerBytes = header.getBytes();
 
-    // The checksum is calculated by taking the sum of the unsigned byte values
-    // of the header record with the eight checksum bytes taken to be ascii
-    // spaces (decimal value 32). It is stored as a six digit octal number
-    // with leading zeroes followed by a NUL and then a space.
+    /// The [checksum] is calculated by taking the sum of the unsigned byte
+    /// values of the header record with the eight checksum bytes taken to be
+    /// ascii spaces (decimal value 32). It is stored as a six digit octal
+    /// number with leading zeroes followed by a NULL and then a space.
     var sum = 0;
     for (var b in headerBytes) {
       sum += b;
@@ -184,9 +182,9 @@ class TarFile {
 
     if (isFile && fileSize > 0) {
       // Pad to 512-byte boundary
-      final remainder = fileSize % 512;
+      final remainder = fileSize & 0x1ff; // remainder = fileSize % 512
       if (remainder != 0) {
-        final skiplen = 512 - remainder;
+        final skiplen =  remainder ^ 0x200; // remainder - 512
         nulls = Uint8List(skiplen); // typed arrays default to 0.
         output.writeBytes(nulls);
       }
@@ -223,8 +221,8 @@ class TarFile {
   }
 
   void _writeString(OutputStream output, String value, int numBytes) {
-    final codes = List<int>.filled(numBytes, 0);
-    final end = numBytes < value.length ? numBytes : value.length;
+    final codes = Uint8List(numBytes);
+    final end = min(numBytes, value.length);
     codes.setRange(0, end, value.codeUnits);
     output.writeBytes(codes);
   }

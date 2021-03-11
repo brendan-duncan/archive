@@ -15,7 +15,7 @@ class ZipFileEncoder {
 
   void zipDirectory(Directory dir, {String? filename, int? level}) {
     final dirPath = dir.path;
-    final zip_path = filename ?? '${dirPath}.zip';
+    final zip_path = filename ?? '$dirPath.zip';
     level ??= GZIP;
     create(zip_path, level: level);
     addDirectory(dir, includeDirName: false, level: level);

@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:archive/archive.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
@@ -150,7 +151,7 @@ void main() {
 
   test('tar invalid archive', () {
     try {
-      TarDecoder().decodeBytes([1, 2, 3]);
+      TarDecoder().decodeBytes(Uint8List.fromList([1, 2, 3]));
       assert(false);
     } catch (e) {
       // pass
@@ -167,17 +168,20 @@ void main() {
     final archive = tar.decodeBytes(bytes, verify: true);
 
     expect(archive.numberOfFiles(), equals(1));
-    var x = '';
+    var x = Uint8List(0);
     for (var i = 0; i < 150; ++i) {
-      x += 'x';
+      x.add(120); // 120 = 'x'
     }
-    x += '.txt';
+    x.add(46); // x += '.txt';
+    x.add(116);
+    x.add(120);
+    x.add(116);
     expect(archive.files[0].name, equals(x));
   });
 
   test('symlink', () {
     var file = File(p.join(testDirPath, 'res/tar/symlink_tar.tar'));
-    List<int> bytes = file.readAsBytesSync();
+    var bytes = file.readAsBytesSync();
     final archive = tar.decodeBytes(bytes, verify: true);
     expect(archive.numberOfFiles(), equals(4));
     expect(archive.files[1].isSymbolicLink, equals(true));
@@ -186,7 +190,7 @@ void main() {
 
   test('decode test2.tar', () {
     var file = File(p.join(testDirPath, 'res/test2.tar'));
-    List<int> bytes = file.readAsBytesSync();
+    var bytes = file.readAsBytesSync();
     final archive = tar.decodeBytes(bytes, verify: true);
 
     final expected_files = <File>[];
@@ -212,10 +216,10 @@ void main() {
     final a_bytes = a_txt.codeUnits;
 
     var b = File(p.join(testDirPath, 'res/cat.jpg'));
-    List<int> b_bytes = b.readAsBytesSync();
+    var b_bytes = b.readAsBytesSync();
 
     var file = File(p.join(testDirPath, 'res/test.tar'));
-    List<int> bytes = file.readAsBytesSync();
+    var bytes = file.readAsBytesSync();
 
     final archive = tar.decodeBytes(bytes, verify: true);
     expect(archive.numberOfFiles(), equals(2));
