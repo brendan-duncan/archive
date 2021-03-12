@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'tar/tar_file.dart';
 import 'util/input_stream.dart';
 import 'archive.dart';
@@ -7,7 +9,7 @@ import 'archive_file.dart';
 class TarDecoder {
   List<TarFile> files = [];
 
-  Archive decodeBytes(List<int> data,
+  Archive decodeBytes(Uint8List data,
       {bool verify = false, bool storeData = true}) {
     return decodeBuffer(InputStream(data),
         verify: verify, storeData: storeData);

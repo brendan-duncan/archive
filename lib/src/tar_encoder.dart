@@ -6,7 +6,7 @@ import 'archive_file.dart';
 
 /// Encode an [Archive] object into a tar formatted buffer.
 class TarEncoder {
-  List<int> encode(Archive archive) {
+  Uint8List encode(Archive archive) {
     final output_stream = OutputStream();
     start(output_stream);
 
@@ -16,7 +16,7 @@ class TarEncoder {
 
     finish();
 
-    return output_stream.getBytes();
+    return Uint8List.fromList(output_stream.getBytes());
   }
 
   void start([dynamic output_stream]) {

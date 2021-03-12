@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:archive/archive_io.dart';
 
 /// Print the entries in the given tar file.
@@ -6,11 +7,11 @@ void listFiles(String path) {
   final file = File(path);
   if (!file.existsSync()) fail('$path does not exist');
 
-  List<int> data = file.readAsBytesSync();
+  var data = file.readAsBytesSync();
   if (path.endsWith('tar.gz') || path.endsWith('tgz')) {
-    data = GZipDecoder().decodeBytes(data);
+    data = Uint8List.fromList(GZipDecoder().decodeBytes(data));
   } else if (path.endsWith('tar.bz2') || path.endsWith('tbz')) {
-    data = BZip2Decoder().decodeBytes(data);
+    data = Uint8List.fromList(BZip2Decoder().decodeBytes(data));
   }
 
   final tarArchive = TarDecoder();

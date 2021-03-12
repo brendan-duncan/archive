@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:archive/archive.dart';
 import 'package:test/test.dart';
@@ -79,7 +80,7 @@ void extractDart(List<String> urls) {
     final data = fp.readAsBytesSync();
 
     final tarArchive = TarDecoder();
-    tarArchive.decodeBytes(GZipDecoder().decodeBytes(data));
+    tarArchive.decodeBytes(Uint8List.fromList(GZipDecoder().decodeBytes(data)));
 
     print('EXTRACTING $filename');
 

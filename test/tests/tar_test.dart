@@ -201,9 +201,9 @@ void main() {
 
   test('decode test2.tar.gz', () {
     var file = File(p.join(testDirPath, 'res/test2.tar.gz'));
-    List<int> bytes = file.readAsBytesSync();
+    var bytes = file.readAsBytesSync();
 
-    bytes = GZipDecoder().decodeBytes(bytes, verify: true);
+    bytes = Uint8List.fromList(GZipDecoder().decodeBytes(bytes, verify: true));
     final archive = tar.decodeBytes(bytes, verify: true);
 
     final expected_files = <File>[];

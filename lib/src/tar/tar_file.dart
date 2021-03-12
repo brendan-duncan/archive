@@ -99,7 +99,7 @@ class TarFile {
     if (isFile && fileSize > 0) {
       final remainder = fileSize & 0x1ff; // remainder = fileSize % 512
       if (remainder != 0) {
-        final skiplen = remainder ^ 0x200;  // skiplen = remainder - 512
+        final skiplen = remainder ^ 0x200;  // skiplen = remainder % 512
         input.skip(skiplen);
       }
     }

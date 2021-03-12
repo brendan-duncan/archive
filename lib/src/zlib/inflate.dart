@@ -77,8 +77,8 @@ class Inflate {
   }
 
   /// Get the decompressed data.
-  Uint8List getBytes() {
-    return output.getBytes() as Uint8List;
+  List<int> getBytes() {
+    return output.getBytes() as List<int>;
   }
 
   void _inflate() {
