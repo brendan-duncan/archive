@@ -1,9 +1,11 @@
 import 'dart:io';
+
 import 'package:path/path.dart' as path;
-import 'input_file_stream.dart';
-import 'output_file_stream.dart';
+
 import '../archive_file.dart';
 import '../zip_encoder.dart';
+import 'input_file_stream.dart';
+import 'output_file_stream.dart';
 
 class ZipFileEncoder {
   late String zip_path;
@@ -13,12 +15,14 @@ class ZipFileEncoder {
   static const int STORE = 0;
   static const int GZIP = 1;
 
-  void zipDirectory(Directory dir, {String? filename, int? level}) {
+  void zipDirectory(Directory dir,
+      {String? filename, int? level, bool followLinks = true}) {
     final dirPath = dir.path;
     final zip_path = filename ?? '${dirPath}.zip';
     level ??= GZIP;
     create(zip_path, level: level);
-    addDirectory(dir, includeDirName: false, level: level);
+    addDirectory(dir,
+        includeDirName: false, level: level, followLinks: followLinks);
     close();
   }
 
@@ -32,8 +36,9 @@ class ZipFileEncoder {
     _encoder.startEncode(_output, level: level);
   }
 
-  void addDirectory(Directory dir, {bool includeDirName = true, int? level}) {
-    List files = dir.listSync(recursive: true);
+  void addDirectory(Directory dir,
+      {bool includeDirName = true, int? level, bool followLinks = true}) {
+    List files = dir.listSync(recursive: true, followLinks: followLinks);
     for (var file in files) {
       if (file is! File) {
         continue;
@@ -62,8 +67,8 @@ class ZipFileEncoder {
     _encoder.addFile(archiveFile);
     file_stream.close();
   }
-  
-  void addArchiveFile(ArchiveFile file){
+
+  void addArchiveFile(ArchiveFile file) {
     _encoder.addFile(file);
   }
 

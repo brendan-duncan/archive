@@ -1,10 +1,12 @@
 import 'dart:io';
+
 import 'package:path/path.dart' as path;
-import 'input_file_stream.dart';
-import 'output_file_stream.dart';
+
 import '../archive_file.dart';
 import '../gzip_encoder.dart';
 import '../tar_encoder.dart';
+import 'input_file_stream.dart';
+import 'output_file_stream.dart';
 
 class TarFileEncoder {
   late String tar_path;
@@ -15,7 +17,7 @@ class TarFileEncoder {
   static const int GZIP = 1;
 
   void tarDirectory(Directory dir,
-      {int compression = STORE, String? filename}) {
+      {int compression = STORE, String? filename, bool followLinks = true}) {
     final dirPath = dir.path;
     var tar_path = filename ?? '${dirPath}.tar';
     final tgz_path = filename ?? '${dirPath}.tar.gz';
@@ -28,7 +30,7 @@ class TarFileEncoder {
 
     // Encode a directory from disk to disk, no memory
     open(tar_path);
-    addDirectory(Directory(dirPath));
+    addDirectory(Directory(dirPath), followLinks: followLinks);
     close();
 
     if (compression == GZIP) {
@@ -49,8 +51,8 @@ class TarFileEncoder {
     _encoder.start(_output);
   }
 
-  void addDirectory(Directory dir) {
-    List files = dir.listSync(recursive: true);
+  void addDirectory(Directory dir, {bool followLinks = true}) {
+    List files = dir.listSync(recursive: true, followLinks: followLinks);
 
     for (var fe in files) {
       if (fe is! File) {
