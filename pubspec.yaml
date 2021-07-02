@@ -12,5 +12,5 @@ dependencies:
   path: ^1.8.0
 
 dev_dependencies:
-  test: ^1.16.0-nullsafety.15
-  pedantic: ^1.10.0-nullsafety.3
+  lints: ^1.0.0
+  test: ^1.17.0

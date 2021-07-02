@@ -4,7 +4,7 @@ import 'package:archive/archive_io.dart';
 /// Print the entries in the given tar file.
 void listFiles(String path) {
   final file = File(path);
-  if (!file.existsSync()) fail('${path} does not exist');
+  if (!file.existsSync()) fail('$path does not exist');
 
   List<int> data = file.readAsBytesSync();
   if (path.endsWith('tar.gz') || path.endsWith('tgz')) {
@@ -19,7 +19,7 @@ void listFiles(String path) {
   tarArchive.decodeBytes(data, storeData: false);
 
   print('${tarArchive.files.length} file(s)');
-  tarArchive.files.forEach((f) => print('  ${f}'));
+  tarArchive.files.forEach((f) => print('  $f'));
 }
 
 /// Extract the entries in the given tar file to a directory.
@@ -49,7 +49,7 @@ Directory extractFiles(String inputPath, String outputPath) {
     if (!file.isFile) {
       continue;
     }
-    final f = File('${outputPath}${Platform.pathSeparator}${file.filename}');
+    final f = File('$outputPath${Platform.pathSeparator}${file.filename}');
     f.parent.createSync(recursive: true);
     f.writeAsBytesSync(file.contentBytes);
     print('  extracted ${file.filename}');
@@ -97,7 +97,7 @@ Directory extractFiles(String inputPath, String outputPath) {
 
 void createTarFile(String dirPath) {
   final dir = Directory(dirPath);
-  if (!dir.existsSync()) fail('${dirPath} does not exist');
+  if (!dir.existsSync()) fail('$dirPath does not exist');
 
   // Encode a directory from disk to disk, no memory
   final encoder = TarFileEncoder();

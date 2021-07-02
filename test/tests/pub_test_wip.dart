@@ -22,7 +22,7 @@ void extract7z(List<String> urls) {
     }
 
     print('EXTRACTING $inputPath');
-    Process.runSync('7z', ['x', '-o${outputPath}', '$inputPath']);
+    Process.runSync('7z', ['x', '-o$outputPath', '$inputPath']);
 
     final tar_filename = filename.substring(0, filename.lastIndexOf('.'));
     var tar_path = '$outputPath\\$tar_filename';
@@ -31,7 +31,7 @@ void extract7z(List<String> urls) {
     }
     print('TAR $tar_path');
 
-    Process.runSync('7z', ['x', '-y', '-o${outputPath}', '$tar_path']);
+    Process.runSync('7z', ['x', '-y', '-o$outputPath', '$tar_path']);
 
     File(tar_path).deleteSync();
   }
@@ -94,7 +94,7 @@ void extractDart(List<String> urls) {
       }
       final filename = file.filename;
       try {
-        final f = File('${outputPath}${Platform.pathSeparator}${filename}');
+        final f = File('$outputPath${Platform.pathSeparator}$filename');
         f.parent.createSync(recursive: true);
         f.writeAsBytesSync(file.content as List<int>);
       } catch (e) {
@@ -110,8 +110,8 @@ void compareDirs(List<String> urls) {
 
   for (final url in urls) {
     final filename = url.split('/').last;
-    final outPath7z = '$path\\out\\${filename}.7z';
-    final outPathDart = '$path\\out\\${filename}.out';
+    final outPath7z = '$path\\out\\$filename.7z';
+    final outPathDart = '$path\\out\\$filename.out';
     print('$outPathDart : $outPath7z');
 
     final files7z = <File>[];

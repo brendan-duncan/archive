@@ -66,7 +66,7 @@ class BZip2Decoder {
 
         if (verify && storedCrc != combinedCrc) {
           throw ArchiveException(
-              'Invalid combined checksum: ${combinedCrc} : ${storedCrc}');
+              'Invalid combined checksum: $combinedCrc : $storedCrc');
         }
 
         if (output is! OutputStream) {

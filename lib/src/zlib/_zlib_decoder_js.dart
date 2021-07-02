@@ -45,7 +45,7 @@ class _ZLibDecoder extends ZLibDecoderBase {
     final cinfo = (cmf >> 3) & 8; // ignore: unused_local_variable
 
     if (method != DEFLATE) {
-      throw ArchiveException('Only DEFLATE compression supported: ${method}');
+      throw ArchiveException('Only DEFLATE compression supported: $method');
     }
 
     final fcheck = flg & 16; // ignore: unused_local_variable
