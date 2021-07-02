@@ -19,8 +19,8 @@ class TarFileEncoder {
   void tarDirectory(Directory dir,
       {int compression = STORE, String? filename, bool followLinks = true}) {
     final dirPath = dir.path;
-    var tar_path = filename ?? '${dirPath}.tar';
-    final tgz_path = filename ?? '${dirPath}.tar.gz';
+    var tar_path = filename ?? '$dirPath.tar';
+    final tgz_path = filename ?? '$dirPath.tar.gz';
 
     Directory temp_dir;
     if (compression == GZIP) {

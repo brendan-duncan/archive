@@ -18,8 +18,7 @@ void main() {
         ..createSync(recursive: true)
         ..writeAsBytesSync(data);
     } else {
-      Directory('out/' + filename)
-        ..create(recursive: true);
+      Directory('out/' + filename).create(recursive: true);
     }
   }
 

@@ -131,7 +131,7 @@ void main() {
     encoder.close();
 
     var zipDecoder = ZipDecoder();
-    var f = File('${testDirPath}/out/testEmpty.zip');
+    var f = File('$testDirPath/out/testEmpty.zip');
     final archive = zipDecoder.decodeBytes(f.readAsBytesSync(), verify: true);
     expect(archive.length, equals(1));
   });
@@ -148,7 +148,7 @@ void main() {
       }
       var filename = file.filename;
       try {
-        var f = File('${testDirPath}/out/${filename}');
+        var f = File('$testDirPath/out/$filename');
         f.parent.createSync(recursive: true);
         f.writeAsBytesSync(file.content as List<int>);
       } catch (e) {
@@ -205,7 +205,7 @@ void main() {
     encoder.close();
 
     var zipDecoder = ZipDecoder();
-    var f = File('${testDirPath}/out/example2.zip');
+    var f = File('$testDirPath/out/example2.zip');
     final archive = zipDecoder.decodeBytes(f.readAsBytesSync(), verify: true);
     expect(archive.length, equals(4));
   });

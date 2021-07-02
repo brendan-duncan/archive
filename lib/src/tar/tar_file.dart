@@ -129,7 +129,7 @@ class TarFile {
           : 0;
 
   @override
-  String toString() => '[${filename}, ${mode}, ${fileSize}]';
+  String toString() => '[$filename, $mode, $fileSize]';
 
   void write(dynamic output) {
     fileSize = size;

@@ -22,18 +22,14 @@ abstract class OutputStreamBase {
 }
 
 class OutputStream extends OutputStreamBase {
-  int _length;
+  @override
+  int length;
   final int byteOrder;
 
   /// Create a byte buffer for writing.
   OutputStream({int? size = _BLOCK_SIZE, this.byteOrder = LITTLE_ENDIAN})
       : _buffer = Uint8List(size ?? _BLOCK_SIZE),
-        _length = 0;
-
-  @override
-  int get length => _length;
-
-  set length(int l) => _length = l;
+        length = 0;
 
   /// Get the resulting bytes from the buffer.
   List<int> getBytes() {
