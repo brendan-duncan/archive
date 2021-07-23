@@ -15,6 +15,7 @@ The archive library currently supports the following decoders:
 - ZLib [Inflate decompression]
 - GZip [Inflate decompression]
 - BZip2 [decompression]
+- XZ [decompression]
 
 And the following encoders:
 

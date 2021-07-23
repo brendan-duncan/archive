@@ -13,6 +13,7 @@ import 'tests/output_stream_test.dart' as output_stream_test;
 import 'tests/tar_test.dart' as tar_test;
 import 'tests/zip_test.dart' as zip_test;
 import 'tests/zlib_test.dart' as zlib_test;
+import 'tests/xz_test.dart' as xz_test;
 
 void main() {
   adler32_test.main();
@@ -28,4 +29,5 @@ void main() {
   tar_test.main();
   zip_test.main();
   zlib_test.main();
+  xz_test.main();
 }
