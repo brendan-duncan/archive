@@ -1,10 +1,10 @@
+import 'archive.dart';
+import 'archive_file.dart';
 import 'util/archive_exception.dart';
 import 'util/crc32.dart';
 import 'util/input_stream.dart';
 import 'zip/zip_directory.dart';
 import 'zip/zip_file.dart';
-import 'archive.dart';
-import 'archive_file.dart';
 
 /// Decode a zip formatted buffer into an [Archive] object.
 class ZipDecoder {
@@ -14,8 +14,7 @@ class ZipDecoder {
     return decodeBuffer(InputStream(data), verify: verify, password: password);
   }
 
-  Archive decodeBuffer(InputStream input,
-      {bool verify = false, String? password}) {
+  Archive decodeBuffer(InputStream input, {bool verify = false, String? password}) {
     directory = ZipDirectory.read(input, password: password);
     final archive = Archive();
 
@@ -33,9 +32,8 @@ class ZipDecoder {
         }
       }
 
-      dynamic content = zf.rawContent;
-      var file = ArchiveFile(
-          zf.filename, zf.uncompressedSize!, content, zf.compressionMethod);
+      dynamic content = zf.content;
+      var file = ArchiveFile(zf.filename, zf.uncompressedSize!, content, zf.compressionMethod);
 
       file.mode = mode >> 16;
 
