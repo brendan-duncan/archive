@@ -248,7 +248,7 @@ class _XZStreamDecoder {
           decoder.reset(resetDictionary: true);
           return;
         } else if (control == 1) {
-          var length = input.readByte() << 8 | input.readByte() + 1;
+          var length = (input.readByte() << 8 | input.readByte()) + 1;
           data.add(input.readBytes(length).toUint8List());
         } else {
           throw ArchiveException('Unknown LZMA2 control code $control');
@@ -260,10 +260,11 @@ class _XZStreamDecoder {
         // 2 - reset state, properties
         // 3 - reset state, properties and dictionary
         var reset = (control >> 5) & 0x3;
-        var uncompressedLength = (control & 0x1f) << 16 |
-            input.readByte() << 8 |
-            input.readByte() + 1;
-        var compressedLength = input.readByte() << 8 | input.readByte() + 1;
+        var uncompressedLength = ((control & 0x1f) << 16 |
+                input.readByte() << 8 |
+                input.readByte()) +
+            1;
+        var compressedLength = (input.readByte() << 8 | input.readByte()) + 1;
         int? literalContextBits;
         int? literalPositionBits;
         int? positionBits;
