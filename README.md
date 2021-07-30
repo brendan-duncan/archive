@@ -22,6 +22,7 @@ And the following encoders:
 - ZLib [Deflate compression]
 - GZip [Deflate compression]
 - BZip2 [compression]
+- XZ [uncompressed data only]
 
 ---
 
