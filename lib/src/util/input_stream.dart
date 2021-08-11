@@ -7,6 +7,8 @@ abstract class InputStreamBase {
   ///  The current read position relative to the start of the buffer.
   int get position;
 
+  set position(int v);
+
   /// How many bytes are left in the stream.
   int get length;
 
@@ -31,6 +33,8 @@ abstract class InputStreamBase {
 
   /// Read [count] bytes from the stream.
   InputStream readBytes(int count);
+
+  InputStreamBase subset([int? position, int? length]);
 
   /// Read a null-terminated string, or if [len] is provided, that number of
   /// bytes returned as a string.
@@ -84,6 +88,9 @@ class InputStream extends InputStreamBase {
   @override
   int get position => offset - start;
 
+  @override
+  set position(int v) { offset = start + v; }
+
   /// How many bytes are left in the stream.
   @override
   int get length => _length - (offset - start);
@@ -115,7 +122,8 @@ class InputStream extends InputStreamBase {
   /// to the start of the buffer.  If [position] is not specified, the current
   /// read position is used. If [length] is not specified, the remainder of this
   /// stream is used.
-  InputStream subset([int? position, int? length]) {
+  @override
+  InputStreamBase subset([int? position, int? length]) {
     if (position == null) {
       position = offset;
     } else {
@@ -149,7 +157,7 @@ class InputStream extends InputStreamBase {
   /// moving the read position.
   @override
   InputStream peekBytes(int count, [int offset = 0]) {
-    return subset((this.offset - start) + offset, count);
+    return subset((this.offset - start) + offset, count) as InputStream;
   }
 
   /// Move the read position by [count] bytes.
@@ -169,7 +177,7 @@ class InputStream extends InputStreamBase {
   InputStream readBytes(int count) {
     final bytes = subset(offset - start, count);
     offset += bytes.length;
-    return bytes;
+    return bytes as InputStream;
   }
 
   /// Read a null-terminated string, or if [len] is provided, that number of

@@ -36,6 +36,22 @@ class InputFileStream extends InputStreamBase {
     _readBuffer();
   }
 
+  InputFileStream.clone(InputFileStream other, {int? position, int? length})
+    : path = other.path,
+      _file = other._file,
+      byteOrder = other.byteOrder,
+      _fileSize = other._fileSize,
+      _filePosition = other._filePosition,
+      _bufferSize = other._bufferSize,
+      _buffer = Uint8List(other._bufferSize) {
+    if (position != null) {
+      this.position = position;
+    }
+    if (length != null) {
+      _fileSize = this.position + length;
+    }
+  }
+
   void close() {
     _file.closeSync();
     _fileSize = 0;
@@ -46,6 +62,15 @@ class InputFileStream extends InputStreamBase {
 
   @override
   int get position => _filePosition;
+
+  @override
+  set position(int v) {
+    if (v < _filePosition) {
+      rewind(_filePosition - v);
+    } else if (v > _filePosition) {
+      skip(v - _filePosition);
+    }
+  }
 
   @override
   bool get isEOS =>
@@ -81,6 +106,11 @@ class InputFileStream extends InputStreamBase {
         remaining -= _bufferSize;
       }
     }
+  }
+
+  @override
+  InputStreamBase subset([int? position, int? length]) {
+    return InputFileStream.clone(this, position:position, length:length);
   }
 
   /// Read [count] bytes from an [offset] of the current read position, without

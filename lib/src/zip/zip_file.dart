@@ -24,7 +24,7 @@ class ZipFile {
   List<int> extraField = []; // 2 bytes length, n-bytes data
   ZipFileHeader? header;
 
-  ZipFile([InputStream? input, this.header, String? password]) {
+  ZipFile([InputStreamBase? input, this.header, String? password]) {
     if (input != null) {
       signature = input.readUint32();
       if (signature != SIGNATURE) {
