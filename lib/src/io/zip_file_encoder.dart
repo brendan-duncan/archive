@@ -16,11 +16,14 @@ class ZipFileEncoder {
   static const int GZIP = 1;
 
   void zipDirectory(Directory dir,
-      {String? filename, int? level, bool followLinks = true}) {
+      {String? filename,
+      int? level,
+      bool followLinks = true,
+      DateTime? modified}) {
     final dirPath = dir.path;
     final zip_path = filename ?? '$dirPath.zip';
     level ??= GZIP;
-    create(zip_path, level: level);
+    create(zip_path, level: level, modified: modified);
     addDirectory(dir,
         includeDirName: false, level: level, followLinks: followLinks);
     close();
@@ -28,12 +31,12 @@ class ZipFileEncoder {
 
   void open(String zip_path) => create(zip_path);
 
-  void create(String zip_path, {int? level}) {
+  void create(String zip_path, {int? level, DateTime? modified}) {
     this.zip_path = zip_path;
 
     _output = OutputFileStream(zip_path);
     _encoder = ZipEncoder();
-    _encoder.startEncode(_output, level: level);
+    _encoder.startEncode(_output, level: level, modified: modified);
   }
 
   void addDirectory(Directory dir,
