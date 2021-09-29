@@ -1,4 +1,8 @@
-## 3.1.3
+## 3.1.4 - September 29, 2021
+
+* Changed LICENSE to MIT.
+ 
+## 3.1.3 - September 29, 2021
 
 * Cleaned up LICENSE, moving other licenses to LICENSE-other.md.
 
