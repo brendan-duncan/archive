@@ -177,7 +177,7 @@ class _XZStreamDecoder {
         break;
       case 0x4: // CRC64
         var expectedCrc = input.readUint64();
-        if (verify) {
+        if (verify && isCrc64Supported()) {
           var actualCrc = getCrc64(data.toBytes().sublist(startDataLength));
           if (actualCrc != expectedCrc) {
             throw ArchiveException('CRC64 check failed');

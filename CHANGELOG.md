@@ -1,3 +1,7 @@
+## 3.1.5 - September 29, 2021
+
+* Disable XZ format CRC64 for html builds to fix errors.
+
 ## 3.1.4 - September 29, 2021
 
 * Changed LICENSE to MIT.
