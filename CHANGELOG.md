@@ -1,3 +1,7 @@
+## 3.1.3
+
+* Cleaned up LICENSE, moving other licenses to LICENSE-other.md.
+
 ## 3.1.2
 
 * Added the ability to override the timestamp encoded in a Zip file.
