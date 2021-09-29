@@ -24,9 +24,9 @@ class ZipDirectory {
 
   ZipDirectory();
 
-  ZipDirectory.read(InputStream input, {String? password}) {
+  ZipDirectory.read(InputStreamBase input, {String? password}) {
     filePosition = _findSignature(input);
-    input.offset = filePosition;
+    input.position = filePosition;
     final signature = input.readUint32(); // ignore: unused_local_variable
     numberOfThisDisk = input.readUint16();
     diskWithTheStartOfTheCentralDirectory = input.readUint16();
@@ -54,8 +54,8 @@ class ZipDirectory {
     }
   }
 
-  void _readZip64Data(InputStream input) {
-    final ip = input.offset;
+  void _readZip64Data(InputStreamBase input) {
+    final ip = input.position;
     // Check for zip64 data.
 
     // Zip64 end of central directory locator
@@ -76,7 +76,7 @@ class ZipDirectory {
     var sig = zip64.readUint32();
     // If this ins't the signature we're looking for, nothing more to do.
     if (sig != ZIP64_EOCD_LOCATOR_SIGNATURE) {
-      input.offset = ip;
+      input.position = ip;
       return;
     }
 
@@ -84,7 +84,7 @@ class ZipDirectory {
     final zip64DirOffset = zip64.readUint64();
     final numZip64Disks = zip64.readUint32(); // ignore: unused_local_variable
 
-    input.offset = zip64DirOffset;
+    input.position = zip64DirOffset;
 
     // Zip64 end of central directory record
     // signature                       4 bytes  (0x06064b50)
@@ -106,7 +106,7 @@ class ZipDirectory {
     // zip64 extensible data sector    (variable size)
     sig = input.readUint32();
     if (sig != ZIP64_EOCD_SIGNATURE) {
-      input.offset = ip;
+      input.position = ip;
       return;
     }
 
@@ -128,25 +128,24 @@ class ZipDirectory {
     centralDirectorySize = dirSize;
     centralDirectoryOffset = dirOffset;
 
-    input.offset = ip;
+    input.position = ip;
   }
 
-  int _findSignature(InputStream input) {
-    final pos = input.offset;
+  int _findSignature(InputStreamBase input) {
+    final pos = input.position;
     final length = input.length;
 
     // The directory and archive contents are written to the end of the zip
-    // file.  We need to search from the end to find these structures,
+    // file. We need to search from the end to find these structures,
     // starting with the 'End of central directory' record (EOCD).
     for (var ip = length - 4; ip >= 0; --ip) {
-      input.offset = ip;
+      input.position = ip;
       final sig = input.readUint32();
       if (sig == SIGNATURE) {
-        input.offset = pos;
+        input.position = pos;
         return ip;
       }
     }
-
     throw ArchiveException('Could not find End of Central Directory Record');
   }
 }

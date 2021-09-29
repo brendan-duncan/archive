@@ -14,7 +14,7 @@ class ZipDecoder {
     return decodeBuffer(InputStream(data), verify: verify, password: password);
   }
 
-  Archive decodeBuffer(InputStream input,
+  Archive decodeBuffer(InputStreamBase input,
       {bool verify = false, String? password}) {
     directory = ZipDirectory.read(input, password: password);
     final archive = Archive();
