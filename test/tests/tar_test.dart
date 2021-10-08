@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:archive/archive.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
+import 'package:http/http.dart' as http;
 
 import 'test_utils.dart';
 
@@ -173,6 +174,15 @@ void main() {
     }
     x += '.txt';
     expect(archive.files[0].name, equals(x));
+  });
+
+  test('long file name not null terminated', () async {
+    final bytes = await http.readBytes(Uri.parse('https://pub.dev/packages/firebase_messaging/versions/10.0.8.tar.gz'));
+    final tarBytes = GZipDecoder().decodeBytes(bytes, verify: true);
+    final archive = tar.decodeBytes(tarBytes, verify: true);
+
+    expect(archive.numberOfFiles(), equals(129));
+    expect(archive.files[13].name, equals('android/src/main/java/io/flutter/plugins/firebase/messaging/FlutterFirebaseMessagingBackgroundExecutor.java'));
   });
 
   test('symlink', () {
