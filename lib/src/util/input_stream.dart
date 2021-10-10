@@ -192,13 +192,13 @@ class InputStream extends InputStreamBase {
       while (!isEOS) {
         final c = readByte();
         if (c == 0) {
-          return utf8
-              ? Utf8Decoder().convert(codes)
-              : String.fromCharCodes(codes);
+          break;
         }
         codes.add(c);
       }
-      throw ArchiveException('EOF reached without finding string terminator');
+      return utf8
+          ? Utf8Decoder().convert(codes)
+          : String.fromCharCodes(codes);
     }
 
     final s = readBytes(size);
