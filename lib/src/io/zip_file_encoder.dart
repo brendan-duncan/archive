@@ -64,7 +64,7 @@ class ZipFileEncoder {
       archiveFile.compress = false;
     }
 
-    archiveFile.lastModTime = file.lastModifiedSync().millisecondsSinceEpoch;
+    archiveFile.lastModTime = file.lastModifiedSync().millisecondsSinceEpoch ~/ 1000;
     archiveFile.mode = file.statSync().mode;
 
     _encoder.addFile(archiveFile);

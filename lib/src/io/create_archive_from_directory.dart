@@ -22,7 +22,7 @@ Archive createArchiveFromDirectory(Directory dir,
     final file_stream = InputFileStream.file(f);
 
     final af = ArchiveFile.stream(filename, f.lengthSync(), file_stream);
-    af.lastModTime = f.lastModifiedSync().millisecondsSinceEpoch;
+    af.lastModTime = f.lastModifiedSync().millisecondsSinceEpoch ~/ 1000;
     af.mode = f.statSync().mode;
 
     archive.addFile(af);

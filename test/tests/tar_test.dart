@@ -158,7 +158,8 @@ void main() {
   });
 
   test('tar file', () {
-    TarEncoder().encode(Archive()..addFile(ArchiveFile('file.txt', 1, [100])));
+    final tar = TarEncoder().encode(Archive()..addFile(ArchiveFile('file.txt', 1, [100])));
+    File(p.join(testDirPath, 'out/tar_encoded.tar')).writeAsBytesSync(tar);
   });
 
   test('long file name', () {

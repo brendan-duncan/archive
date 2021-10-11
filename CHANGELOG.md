@@ -1,3 +1,8 @@
+## 3.1.6 - October 11, 2021
+
+* Fix problem with non-terminating long filenames.
+* File modification dates were incorrectly stored in milliseconds instead of seconds.
+
 ## 3.1.5 - September 29, 2021
 
 * Disable XZ format CRC64 for html builds to fix errors.

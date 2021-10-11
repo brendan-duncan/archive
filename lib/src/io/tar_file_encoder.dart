@@ -69,7 +69,7 @@ class TarFileEncoder {
     final file_stream = InputFileStream.file(file);
     final f = ArchiveFile.stream(
         filename ?? file.path, file.lengthSync(), file_stream);
-    f.lastModTime = file.lastModifiedSync().millisecondsSinceEpoch;
+    f.lastModTime = file.lastModifiedSync().millisecondsSinceEpoch ~/ 1000;
     f.mode = file.statSync().mode;
     _encoder.add(f);
     file_stream.close();

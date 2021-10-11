@@ -13,7 +13,7 @@ class ArchiveFile {
   int mode = 420; // octal 644 (-rw-r--r--)
   int ownerId = 0;
   int groupId = 0;
-  int lastModTime = 0;
+  int lastModTime = DateTime.now().millisecondsSinceEpoch ~/ 1000;
   bool isFile = true;
   bool isSymbolicLink = false;
   String nameOfLinkedFile = '';
