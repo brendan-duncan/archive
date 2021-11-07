@@ -11,6 +11,7 @@ class Archive extends IterableBase<ArchiveFile> {
 
   /// Add a file to the archive.
   void addFile(ArchiveFile file) {
+    files.removeWhere((element) => element.name == file.name);
     files.add(file);
   }
 
