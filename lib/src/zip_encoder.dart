@@ -51,6 +51,7 @@ class ZipEncoder {
   late _ZipEncoderData _data;
   OutputStreamBase? _output;
   final Encoding filenameEncoding;
+  final int EFS_UTF8 = 2048; // Bit 11
 
   ZipEncoder({this.filenameEncoding = const Utf8Codec()});
 
@@ -175,7 +176,7 @@ class ZipEncoder {
     output.writeUint32(ZipFile.SIGNATURE);
 
     final version = VERSION;
-    final flags = 0;
+    final flags = filenameEncoding.name == "utf-8" ? EFS_UTF8 : 0;
     final compressionMethod =
         fileData.compress ? ZipFile.DEFLATE : ZipFile.STORE;
     final lastModFileTime = fileData.time;
