@@ -51,6 +51,9 @@ class ZipEncoder {
   late _ZipEncoderData _data;
   OutputStreamBase? _output;
 
+  /// Bit 11 of the general purpose flag, Language encoding flag
+  final int LANGAUGE_ENCODING_BIT_UTF8 = 2048;
+
   List<int>? encode(Archive archive,
       {int level = Deflate.BEST_SPEED,
       OutputStreamBase? output,
@@ -172,7 +175,7 @@ class ZipEncoder {
     output.writeUint32(ZipFile.SIGNATURE);
 
     final version = VERSION;
-    final flags = 0;
+    final flags = LANGAUGE_ENCODING_BIT_UTF8;
     final compressionMethod =
         fileData.compress ? ZipFile.DEFLATE : ZipFile.STORE;
     final lastModFileTime = fileData.time;
