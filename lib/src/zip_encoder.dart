@@ -50,6 +50,9 @@ class _ZipEncoderData {
 class ZipEncoder {
   late _ZipEncoderData _data;
   OutputStreamBase? _output;
+  final Encoding filenameEncoding;
+
+  ZipEncoder({this.filenameEncoding = const Utf8Codec()});
 
   List<int>? encode(Archive archive,
       {int level = Deflate.BEST_SPEED,
@@ -139,14 +142,14 @@ class ZipEncoder {
       compressedData = InputStream(bytes);
     }
 
-    var filename = Utf8Encoder().convert(file.name);
+    var encodedFilename = filenameEncoding.encode(file.name);
     var comment =
         file.comment != null ? Utf8Encoder().convert(file.comment!) : null;
 
-    _data.localFileSize += 30 + filename.length + compressedData!.length;
+    _data.localFileSize += 30 + encodedFilename.length + compressedData!.length;
 
     _data.centralDirectorySize +=
-        46 + filename.length + (comment != null ? comment.length : 0);
+        46 + encodedFilename.length + (comment != null ? comment.length : 0);
 
     fileData.crc32 = crc32;
     fileData.compressedSize = compressedData.length;
@@ -184,7 +187,7 @@ class ZipEncoder {
 
     final compressedData = fileData.compressedData!;
 
-    var filenameUtf8 = Utf8Encoder().convert(filename);
+    var encodedFilename = filenameEncoding.encode(filename);
 
     output.writeUint16(version);
     output.writeUint16(flags);
@@ -194,9 +197,9 @@ class ZipEncoder {
     output.writeUint32(crc32);
     output.writeUint32(compressedSize);
     output.writeUint32(uncompressedSize);
-    output.writeUint16(filenameUtf8.length);
+    output.writeUint16(encodedFilename.length);
     output.writeUint16(extra.length);
-    output.writeBytes(filenameUtf8);
+    output.writeBytes(encodedFilename);
     output.writeBytes(extra);
 
     output.writeInputStream(compressedData);
@@ -232,7 +235,7 @@ class ZipEncoder {
       final extraField = <int>[];
       final fileComment = fileData.comment ?? '';
 
-      final filenameUtf8 = Utf8Encoder().convert(fileData.name);
+      final encodedFilename = filenameEncoding.encode(fileData.name);
       final fileCommentUtf8 = Utf8Encoder().convert(fileComment);
 
       output.writeUint32(ZipFileHeader.SIGNATURE);
@@ -245,14 +248,14 @@ class ZipEncoder {
       output.writeUint32(crc32);
       output.writeUint32(compressedSize);
       output.writeUint32(uncompressedSize);
-      output.writeUint16(filenameUtf8.length);
+      output.writeUint16(encodedFilename.length);
       output.writeUint16(extraField.length);
       output.writeUint16(fileCommentUtf8.length);
       output.writeUint16(diskNumberStart);
       output.writeUint16(internalFileAttributes);
       output.writeUint32(externalFileAttributes);
       output.writeUint32(localHeaderOffset);
-      output.writeBytes(filenameUtf8);
+      output.writeBytes(encodedFilename);
       output.writeBytes(extraField);
       output.writeBytes(fileCommentUtf8);
     }
