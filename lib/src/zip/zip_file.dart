@@ -84,10 +84,10 @@ class ZipFile {
   List<int> get content {
     if (_content == null) {
       if (_isEncrypted) {
-        if(_rawContent.length <= 0){
+        if (_rawContent.length <= 0) {
           _content = _rawContent.toUint8List();
           _isEncrypted = false;
-        }else{
+        } else {
           _rawContent = _decodeRawContent(_rawContent);
           _isEncrypted = false;
         }
