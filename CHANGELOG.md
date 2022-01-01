@@ -1,3 +1,7 @@
+## 3.1.7 - January 01, 2022
+
+* Fix for UTF8 filenames
+
 ## 3.1.6 - October 11, 2021
 
 * Fix problem with non-terminating long filenames.
