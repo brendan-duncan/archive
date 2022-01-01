@@ -1,3 +1,7 @@
+## 3.1.8 - January 01, 2022
+
+* Catch invalid UTF8 string decoding.
+
 ## 3.1.7 - January 01, 2022
 
 * Fix for UTF8 filenames
