@@ -84,9 +84,14 @@ class ZipFile {
   List<int> get content {
     if (_content == null) {
       if (_isEncrypted) {
-        _rawContent = _decodeRawContent(_rawContent);
-        _isEncrypted = false;
-      }
+        if (_rawContent.length <= 0) {
+          _content = _rawContent.toUint8List();
+          _isEncrypted = false;
+        } else {
+          _rawContent = _decodeRawContent(_rawContent);
+          _isEncrypted = false;
+        }
+     }
 
       if (compressionMethod == DEFLATE) {
         _content = Inflate.buffer(_rawContent, uncompressedSize).getBytes();
