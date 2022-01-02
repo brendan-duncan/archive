@@ -37,7 +37,7 @@ class ZipDirectory {
 
     final len = input.readUint16();
     if (len > 0) {
-      zipFileComment = input.readString(size: len);
+      zipFileComment = input.readString(size: len, utf8: false);
     }
 
     _readZip64Data(input);
