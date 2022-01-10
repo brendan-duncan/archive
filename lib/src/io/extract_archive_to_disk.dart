@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:path/path.dart' as p;
 import 'input_file_stream.dart';
 import 'output_file_stream.dart';
 import '../archive.dart';
@@ -8,16 +9,22 @@ import '../tar_decoder.dart';
 import '../zip_decoder.dart';
 import '../util/input_stream.dart';
 
+bool _isWithinOutputPath(String outputDir, String filePath) {
+  return p.isWithin(p.canonicalize(outputDir), p.canonicalize(filePath));
+}
+
 void extractArchiveToDisk(Archive archive, String outputPath) {
   final outDir = Directory(outputPath);
   if (!outDir.existsSync()) {
     outDir.createSync(recursive: true);
   }
   for (final file in archive.files) {
-    if (!file.isFile) {
+    final filePath = '$outputPath${Platform.pathSeparator}${file.name}';
+
+    if (!file.isFile || !_isWithinOutputPath(outputPath, filePath)) {
       continue;
     }
-    final f = File('$outputPath${Platform.pathSeparator}${file.name}');
+    final f = File(filePath);
     f.parent.createSync(recursive: true);
     f.writeAsBytesSync(file.content as List<int>);
   }
@@ -59,10 +66,12 @@ void extractFileToDisk(String inputPath, String outputPath,
   }
 
   for (final file in archive.files) {
-    if (!file.isFile) {
+    final filePath = '$outputPath${Platform.pathSeparator}${file.name}';
+
+    if (!file.isFile || !_isWithinOutputPath(outputPath, filePath)) {
       continue;
     }
-    final f = File('$outputPath${Platform.pathSeparator}${file.name}');
+    final f = File(filePath);
     f.parent.createSync(recursive: true);
     f.writeAsBytesSync(file.content as List<int>);
   }
