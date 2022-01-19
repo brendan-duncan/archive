@@ -1,4 +1,6 @@
 import 'dart:io';
+import 'dart:math';
+import 'dart:typed_data';
 
 import 'package:archive/archive_io.dart';
 import 'package:path/path.dart' as p;
@@ -103,6 +105,48 @@ void main() {
     input.close();
   });
 
+  test("InputFileStream/setPosition", () {
+    final input = InputFileStream(p.join(testDirPath, 'res/zip/hello.txt'));
+    input.position = 6;
+    final str = input.readString(size: 5);
+    expect(str, equals("world"));
+  });
+
+  test("InputFileStream/clone", () {
+    final input = InputFileStream(p.join(testDirPath, 'res/zip/hello.txt'));
+    final input2 = InputFileStream.clone(input, position: 6, length: 5);
+    final str = input2.readString(size: 5);
+    expect(str, equals("world"));
+  });
+
+  test('InputFileStream/read', () {
+    {
+      var testFile = File(p.join(testDirPath, 'out/test.bin'))
+        ..createSync(recursive: true);
+      var bytes = Uint8List(120);
+      for (var i = 0; i < 120; ++i) {
+        bytes[i] = i;
+      }
+      testFile.writeAsBytesSync(bytes);
+    }
+
+    var input = InputFileStream(p.join(testDirPath, 'out/test.bin'));
+    expect(input.length, equals(120));
+    var same = true;
+    var ai = 0;
+    while (!input.isEOS) {
+      var bytes = input.readBytes(50);
+      for (var i = 0; i < bytes.length; ++i) {
+        same = bytes[i] == ai + i;
+        if (!same) {
+          expect(same, equals(true));
+          return;
+        }
+      }
+      ai += bytes.length;
+    }
+  });
+
   test('InputFileStream/OutputFileStream', () {
     var input = InputFileStream(p.join(testDirPath, 'res/cat.jpg'));
     var output = OutputFileStream(p.join(testDirPath, 'out/cat2.jpg'));
@@ -157,6 +201,17 @@ void main() {
     }
 
     expect(tarArchive.files.length, equals(4));
+  });
+
+  test('stream zip decode', () {
+    // Decode a tar from disk to memory
+    var stream = InputFileStream(p.join(testDirPath, 'res/test.zip'));
+    var zip = ZipDecoder().decodeBuffer(stream);
+
+    expect(zip.files.length, equals(2));
+    expect(zip.files[0].name, equals("a.txt"));
+    expect(zip.files[1].name, equals("cat.jpg"));
+    expect(zip.files[1].content.length, equals(51662));
   });
 
   test('stream tar encode', () {

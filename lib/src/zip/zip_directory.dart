@@ -138,7 +138,7 @@ class ZipDirectory {
     // The directory and archive contents are written to the end of the zip
     // file. We need to search from the end to find these structures,
     // starting with the 'End of central directory' record (EOCD).
-    for (var ip = length - 4; ip >= 0; --ip) {
+    for (var ip = length - 5; ip >= 0; --ip) {
       input.position = ip;
       final sig = input.readUint32();
       if (sig == SIGNATURE) {

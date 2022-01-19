@@ -69,6 +69,11 @@ class ArchiveFile {
     return _content;
   }
 
+  void clear() {
+    _content = null;
+    _compressionType = _origCompressionType ?? _compressionType;
+  }
+
   /// If the file data is compressed, decompress it.
   void decompress() {
     if (_content == null && _rawContent != null) {
@@ -77,6 +82,7 @@ class ArchiveFile {
       } else {
         _content = _rawContent!.toUint8List();
       }
+      _origCompressionType = _compressionType;
       _compressionType = STORE;
     }
   }
@@ -94,6 +100,7 @@ class ArchiveFile {
   String toString() => name;
 
   int? _compressionType;
+  int? _origCompressionType;
   InputStream? _rawContent;
   dynamic _content;
 }
