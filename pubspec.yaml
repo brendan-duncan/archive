@@ -1,5 +1,5 @@
 name: archive
-version: 3.1.8
+version: 3.1.9
 description: >-
   Provides encoders and decoders for various archive and compression formats
   such as zip, tar, bzip2, gzip, and zlib.

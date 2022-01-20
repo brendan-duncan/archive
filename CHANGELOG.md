@@ -1,3 +1,7 @@
+## 3.1.9 - January 19, 2022
+
+* Fix FileInputStream to work with ZipDecoder.
+
 ## 3.1.8 - January 01, 2022
 
 * Catch invalid UTF8 string decoding.
