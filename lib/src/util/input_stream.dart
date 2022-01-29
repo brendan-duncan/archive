@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'dart:typed_data';
 import 'byte_order.dart';
-import 'archive_exception.dart';
 
 abstract class InputStreamBase {
   ///  The current read position relative to the start of the buffer.
