@@ -1,3 +1,7 @@
+## 3.1.11 - January 29, 2022
+
+* Fix indexing bug in Archive.addFile. 
+
 ## 3.1.10 - January 29, 2022
 
 * Fix performance regression with Archive.
