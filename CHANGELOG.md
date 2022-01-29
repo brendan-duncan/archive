@@ -1,3 +1,7 @@
+## 3.1.10 - January 29, 2022
+
+* Fix performance regression with Archive.
+
 ## 3.1.9 - January 19, 2022
 
 * Fix FileInputStream to work with ZipDecoder.
