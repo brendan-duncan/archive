@@ -12,12 +12,15 @@ class Archive extends IterableBase<ArchiveFile> {
 
   /// Add a file to the archive.
   void addFile(ArchiveFile file) {
-    if (_fileMap.containsKey(file.name)) {
-      var fi = _fileMap[file.name]!;
-      _fileMap.remove(file.name);
-      files.removeAt(fi);
+    // Adding a file with the same path as one that's already in the archive
+    // will replace the previous file.
+    var index = _fileMap[file.name];
+    if (index != null) {
+      files[index] = file;
+      return;
     }
-    //files.removeWhere((element) => element.name == file.name);
+    // No existing file was in the archive with the same path, add it to the
+    // archive.
     files.add(file);
     _fileMap[file.name] = files.length - 1;
   }
@@ -33,10 +36,7 @@ class Archive extends IterableBase<ArchiveFile> {
   /// null will be returned.
   ArchiveFile? findFile(String name) {
     var index = _fileMap[name];
-    if (index != null) {
-      return files[index];
-    }
-    return null;
+    return index != null ? files[index] : null;
   }
 
   /// The number of files in the archive.
