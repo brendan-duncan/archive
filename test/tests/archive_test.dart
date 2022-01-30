@@ -22,5 +22,14 @@ void main() {
       expect(archive[1].content[0], 3);
       expect(archive[2].content[0], 2);
     });
+
+    test('clear', () {
+      final archive = Archive();
+      archive.addFile(ArchiveFile("a", 1, Uint8List.fromList([0])));
+      archive.addFile(ArchiveFile("b", 1, Uint8List.fromList([1])));
+      archive.addFile(ArchiveFile("c", 1, Uint8List.fromList([2])));
+      archive.clear();
+      expect(archive.length, 0);
+    });
   });
 }
