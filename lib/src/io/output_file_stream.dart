@@ -34,24 +34,16 @@ class OutputFileStream extends OutputStreamBase {
 
   /// Write a set of bytes to the end of the buffer.
   @override
-  void writeBytes(dynamic bytes, [int? len]) {
-    len ??= bytes.length as int;
-    if (bytes is InputFileStream) {
-      while (!bytes.isEOS) {
-        final len = bytes.bufferRemaining;
-        final data = bytes.readBytes(len);
-        writeInputStream(data);
-      }
-    } else {
-      _fp.writeFromSync(bytes as List<int>, 0, len);
-    }
+  void writeBytes(List<int> bytes, [int? len]) {
+    len ??= bytes.length;
+    _fp.writeFromSync(bytes, 0, len);
     _length += len;
   }
 
   @override
   void writeInputStream(InputStreamBase stream) {
     if (stream is InputStream) {
-      _fp.writeFromSync(stream.buffer, stream.offset, stream.length);
+      _fp.writeFromSync(stream.buffer, stream.offset, stream.offset + stream.length);
       _length += stream.length;
     } else {
       var bytes = stream.toUint8List();

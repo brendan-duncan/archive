@@ -8,7 +8,9 @@ import '../bzip2_decoder.dart';
 import '../tar_decoder.dart';
 import '../zip_decoder.dart';
 
-bool _isWithinOutputPath(String outputDir, String filePath) {
+/// Ensure filePath is contained in the outputDir folder, to make sure archives
+/// aren't trying to write to some system path.
+bool isWithinOutputPath(String outputDir, String filePath) {
   return p.isWithin(p.canonicalize(outputDir), p.canonicalize(filePath));
 }
 
@@ -20,12 +22,17 @@ void extractArchiveToDisk(Archive archive, String outputPath) {
   for (final file in archive.files) {
     final filePath = '$outputPath${Platform.pathSeparator}${file.name}';
 
-    if (!file.isFile || !_isWithinOutputPath(outputPath, filePath)) {
+    if (!file.isFile || !isWithinOutputPath(outputPath, filePath)) {
       continue;
     }
 
     final output = OutputFileStream(filePath);
-    file.writeContent(output);
+    try {
+      file.writeContent(output);
+    } catch (err) {
+      //
+    }
+    output.close();
   }
 }
 
@@ -67,12 +74,16 @@ void extractFileToDisk(String inputPath, String outputPath,
   for (final file in archive.files) {
     final filePath = '$outputPath${Platform.pathSeparator}${file.name}';
 
-    if (!file.isFile || !_isWithinOutputPath(outputPath, filePath)) {
+    if (!file.isFile || !isWithinOutputPath(outputPath, filePath)) {
       continue;
     }
 
     final output = OutputFileStream(filePath);
-    file.writeContent(output);
+    try {
+      file.writeContent(output);
+    } catch (err) {
+      //
+    }
     output.close();
   }
 

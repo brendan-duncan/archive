@@ -176,8 +176,10 @@ class TarFile {
 
     output.writeBytes(header.getBytes());
 
-    if (_content != null) {
+    if (_content is List<int>) {
       output.writeBytes(_content);
+    } else if (_content is InputStreamBase) {
+      output.writeInputStream(_content);
     } else if (_rawContent != null) {
       output.writeInputStream(_rawContent);
     }
