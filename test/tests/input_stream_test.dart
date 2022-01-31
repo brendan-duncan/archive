@@ -24,7 +24,7 @@ void main() {
     final input = InputStream(data);
     expect(input.readByte(), equals(0xaa));
 
-    final bytes = input.peekBytes(2);
+    final bytes = input.peekBytes(2).toUint8List();
     expect(bytes[0], equals(0xbb));
     expect(bytes[1], equals(0xcc));
     expect(input.readByte(), equals(0xbb));
@@ -79,7 +79,7 @@ void main() {
   test('readBytes', () {
     const data = [84, 101, 115, 116, 0];
     final input = InputStream(data);
-    final b = input.readBytes(3);
+    final b = input.readBytes(3).toUint8List();
     expect(b.length, equals(3));
     expect(b[0], equals(84));
     expect(b[1], equals(101));

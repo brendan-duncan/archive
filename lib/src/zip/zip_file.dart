@@ -45,6 +45,7 @@ class ZipFile {
       extraField = input.readBytes(ex_len).toUint8List();
 
       // Read compressedSize bytes for the compressed data.
+      //_rawContent = input.subset(null, header!.compressedSize!);
       _rawContent = input.readBytes(header!.compressedSize!);
 
       if (password != null) {
@@ -79,7 +80,7 @@ class ZipFile {
     return _computedCrc32 == crc32;
   }
 
-  /// Get the decompressed content from the file.  The file isn't decompressed
+  /// Get the decompressed content from the file. The file isn't decompressed
   /// until it is requested.
   List<int> get content {
     if (_content == null) {
@@ -91,7 +92,7 @@ class ZipFile {
           _rawContent = _decodeRawContent(_rawContent);
           _isEncrypted = false;
         }
-     }
+      }
 
       if (compressionMethod == DEFLATE) {
         _content = Inflate.buffer(_rawContent, uncompressedSize).getBytes();
@@ -107,9 +108,8 @@ class ZipFile {
   dynamic get rawContent {
     if (_content != null) {
       return _content;
-    } else {
-      return _rawContent;
     }
+    return _rawContent;
   }
 
   @override
@@ -141,7 +141,7 @@ class ZipFile {
     _updateKeys(c);
   }
 
-  InputStream _decodeRawContent(InputStream input) {
+  InputStream _decodeRawContent(InputStreamBase input) {
     for (var i = 0; i < 12; ++i) {
       _decodeByte(_rawContent.readByte());
     }
@@ -154,9 +154,9 @@ class ZipFile {
     return InputStream(bytes);
   }
 
-  /// Content of the file. If compressionMethod is not STORE, then it is
-  /// still compressed.
-  late InputStream _rawContent;
+  // Content of the file. If compressionMethod is not STORE, then it is
+  // still compressed.
+  late InputStreamBase _rawContent;
   List<int>? _content;
   int? _computedCrc32;
   bool _isEncrypted = false;

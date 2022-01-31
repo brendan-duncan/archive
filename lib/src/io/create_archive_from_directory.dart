@@ -19,7 +19,7 @@ Archive createArchiveFromDirectory(Directory dir,
     var filename = path.relative(f.path, from: dir.path);
     filename = includeDirName ? (dir_name + '/' + filename) : filename;
 
-    final file_stream = InputFileStream.file(f);
+    final file_stream = InputFileStream(f.path);
 
     final af = ArchiveFile.stream(filename, f.lengthSync(), file_stream);
     af.lastModTime = f.lastModifiedSync().millisecondsSinceEpoch ~/ 1000;

@@ -14,6 +14,8 @@ abstract class InputStreamBase {
   /// Is the current position at the end of the stream?
   bool get isEOS;
 
+  void close();
+
   /// Reset to the beginning of the stream.
   void reset();
 
@@ -25,13 +27,13 @@ abstract class InputStreamBase {
 
   /// Read [count] bytes from an [offset] of the current read position, without
   /// moving the read position.
-  InputStream peekBytes(int count, [int offset = 0]);
+  InputStreamBase peekBytes(int count, [int offset = 0]);
 
   /// Read a single byte.
   int readByte();
 
   /// Read [count] bytes from the stream.
-  InputStream readBytes(int count);
+  InputStreamBase readBytes(int count);
 
   InputStreamBase subset([int? position, int? length]);
 
@@ -104,6 +106,12 @@ class InputStream extends InputStreamBase {
     offset = start;
   }
 
+  @override
+  void close() {
+    buffer.length = 0;
+    _length = 0;
+  }
+
   /// Rewind the read head of the stream by the given number of bytes.
   @override
   void rewind([int length = 1]) {
@@ -155,8 +163,8 @@ class InputStream extends InputStreamBase {
   /// Read [count] bytes from an [offset] of the current read position, without
   /// moving the read position.
   @override
-  InputStream peekBytes(int count, [int offset = 0]) {
-    return subset((this.offset - start) + offset, count) as InputStream;
+  InputStreamBase peekBytes(int count, [int offset = 0]) {
+    return subset((this.offset - start) + offset, count);
   }
 
   /// Move the read position by [count] bytes.
@@ -173,7 +181,7 @@ class InputStream extends InputStreamBase {
 
   /// Read [count] bytes from the stream.
   @override
-  InputStream readBytes(int count) {
+  InputStreamBase readBytes(int count) {
     final bytes = subset(offset - start, count);
     offset += bytes.length;
     return bytes as InputStream;

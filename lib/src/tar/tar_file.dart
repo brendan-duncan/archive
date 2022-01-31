@@ -60,7 +60,7 @@ class TarFile {
   int deviceMajorNumber = 0; // 8 bytes
   int deviceMinorNumber = 0; // 8 bytes
   String filenamePrefix = ''; // 155 bytes
-  InputStream? _rawContent;
+  InputStreamBase? _rawContent;
   dynamic _content;
 
   TarFile();
@@ -111,7 +111,7 @@ class TarFile {
 
   bool get isSymLink => typeFlag == TYPE_SYMBOLIC_LINK;
 
-  InputStream? get rawContent => _rawContent;
+  InputStreamBase? get rawContent => _rawContent;
 
   dynamic get content {
     _content ??= _rawContent!.toUint8List();
@@ -193,7 +193,7 @@ class TarFile {
     }
   }
 
-  int _parseInt(InputStream input, int numBytes) {
+  int _parseInt(InputStreamBase input, int numBytes) {
     var s = _parseString(input, numBytes);
     if (s.isEmpty) {
       return 0;
@@ -209,13 +209,12 @@ class TarFile {
     return x;
   }
 
-  String _parseString(InputStream input, int numBytes) {
+  String _parseString(InputStreamBase input, int numBytes) {
     try {
-      final codes = input.readBytes(numBytes);
+      final codes = input.readBytes(numBytes).toUint8List();
       final r = codes.indexOf(0);
-      final s = codes.subset(0, r < 0 ? null : r);
-      final b = s.toUint8List();
-      final str = String.fromCharCodes(b).trim();
+      final s = codes.sublist(0, r < 0 ? null : r);
+      final str = String.fromCharCodes(s).trim();
       return str;
     } catch (e) {
       throw ArchiveException('Invalid Archive');

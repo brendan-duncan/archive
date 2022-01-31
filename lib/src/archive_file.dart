@@ -1,4 +1,7 @@
+import 'dart:typed_data';
+
 import 'util/input_stream.dart';
+import 'util/output_stream.dart';
 import 'zlib/inflate.dart';
 
 /// A file contained in an Archive.
@@ -26,25 +29,25 @@ class ArchiveFile {
   /// format such as zip.
   bool compress = true;
 
-  int get unixPermissions {
-    return mode & 0x1FF;
-  }
+  int get unixPermissions => mode & 0x1FF;
 
   ArchiveFile(this.name, this.size, dynamic content,
       [this._compressionType = STORE]) {
     name = name.replaceAll('\\', '/');
-    if (content is List<int>) {
+    if (content is Uint8List) {
       _content = content;
       _rawContent = InputStream(_content);
     } else if (content is InputStream) {
       _rawContent = InputStream.from(content);
+    } else if (content is InputStreamBase) {
+      _rawContent = content;
     }
   }
 
   ArchiveFile.noCompress(this.name, this.size, dynamic content) {
     name = name.replaceAll('\\', '/');
     compress = false;
-    if (content is List<int>) {
+    if (content is Uint8List) {
       _content = content;
       _rawContent = InputStream(_content);
     } else if (content is InputStream) {
@@ -52,13 +55,23 @@ class ArchiveFile {
     }
   }
 
-  ArchiveFile.stream(this.name, this.size, dynamic content_stream) {
+  ArchiveFile.stream(this.name, this.size, InputStreamBase contentStream) {
     // Paths can only have / path separators
     name = name.replaceAll('\\', '/');
     compress = true;
-    _content = content_stream;
+    _content = contentStream;
     //_rawContent = content_stream;
     _compressionType = STORE;
+  }
+
+  void writeContent(OutputStreamBase output) {
+    if (_content is List<int>) {
+      output.writeBytes(_content as List<int>);
+    } else if (_content is InputStreamBase) {
+      output.writeInputStream(_content as InputStreamBase);
+    } else if (_rawContent != null) {
+      output.writeInputStream(_rawContent!.readBytes(_rawContent!.length));
+    }
   }
 
   /// Get the content of the file, decompressing on demand as necessary.
@@ -69,7 +82,11 @@ class ArchiveFile {
     return _content;
   }
 
-  void clear() {
+  void close() {
+    if (_content is InputStreamBase)
+      _content.close();
+    if (_rawContent is InputStreamBase)
+      _rawContent!.close();
     _content = null;
     _rawContent = null;
   }
@@ -93,12 +110,12 @@ class ArchiveFile {
   int? get compressionType => _compressionType;
 
   /// Get the content without decompressing it first.
-  InputStream? get rawContent => _rawContent;
+  InputStreamBase? get rawContent => _rawContent;
 
   @override
   String toString() => name;
 
   int? _compressionType;
-  InputStream? _rawContent;
+  InputStreamBase? _rawContent;
   dynamic _content;
 }

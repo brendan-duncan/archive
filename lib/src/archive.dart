@@ -25,8 +25,11 @@ class Archive extends IterableBase<ArchiveFile> {
   }
 
   void clear() {
-    files = [];
-    _fileMap = {};
+    for (var fp in files) {
+      fp.close();
+    }
+    files.clear();
+    _fileMap.clear();
     comment = null;
   }
 

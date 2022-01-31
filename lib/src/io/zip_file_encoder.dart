@@ -56,7 +56,7 @@ class ZipFileEncoder {
   }
 
   void addFile(File file, [String? filename, int? level = GZIP]) {
-    var file_stream = InputFileStream.file(file);
+    var file_stream = InputFileStream(file.path);
     var archiveFile = ArchiveFile.stream(
         filename ?? path.basename(file.path), file.lengthSync(), file_stream);
 

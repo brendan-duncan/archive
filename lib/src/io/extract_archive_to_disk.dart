@@ -7,7 +7,6 @@ import '../gzip_decoder.dart';
 import '../bzip2_decoder.dart';
 import '../tar_decoder.dart';
 import '../zip_decoder.dart';
-import '../util/input_stream.dart';
 
 bool _isWithinOutputPath(String outputDir, String filePath) {
   return p.isWithin(p.canonicalize(outputDir), p.canonicalize(filePath));
@@ -24,9 +23,9 @@ void extractArchiveToDisk(Archive archive, String outputPath) {
     if (!file.isFile || !_isWithinOutputPath(outputPath, filePath)) {
       continue;
     }
-    final f = File(filePath);
-    f.parent.createSync(recursive: true);
-    f.writeAsBytesSync(file.content as List<int>);
+
+    final output = OutputFileStream(filePath);
+    file.writeContent(output);
   }
 }
 
@@ -58,7 +57,7 @@ void extractFileToDisk(String inputPath, String outputPath,
     final input = InputFileStream(archivePath);
     archive = TarDecoder().decodeBuffer(input);
   } else if (archivePath.endsWith('zip')) {
-    final input = InputStream(File(archivePath).readAsBytesSync());
+    final input = InputFileStream(archivePath);
     archive = ZipDecoder().decodeBuffer(input, password: password);
   } else {
     throw ArgumentError.value(inputPath, 'inputPath',
@@ -71,10 +70,13 @@ void extractFileToDisk(String inputPath, String outputPath,
     if (!file.isFile || !_isWithinOutputPath(outputPath, filePath)) {
       continue;
     }
-    final f = File(filePath);
-    f.parent.createSync(recursive: true);
-    f.writeAsBytesSync(file.content as List<int>);
+
+    final output = OutputFileStream(filePath);
+    file.writeContent(output);
+    output.close();
   }
+
+  archive.clear();
 
   if (tempDir != null) {
     tempDir.delete(recursive: true);
