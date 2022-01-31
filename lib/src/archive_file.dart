@@ -65,16 +65,20 @@ class ArchiveFile {
     _compressionType = STORE;
   }
 
-  void writeContent(OutputStreamBase output) {
+  void writeContent(OutputStreamBase output, {bool freeMemory = true}) {
     if (_content is List<int>) {
       output.writeBytes(_content as List<int>);
     } else if (_content is InputStreamBase) {
       output.writeInputStream(_content as InputStreamBase);
     } else if (_rawContent != null) {
-      // TODO: decompress(output) is quite slow for OutputFileStream.
-      //decompress(output);
       decompress();
       output.writeBytes(_content as List<int>);
+      // Release memory
+      if (freeMemory) {
+        _content = null;
+        _rawContent!.close();
+        _rawContent = null;
+      }
     }
   }
 
