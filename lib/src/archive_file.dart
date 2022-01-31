@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'util/input_stream.dart';
 import 'util/output_stream.dart';
 import 'zlib/inflate.dart';
+import 'zlib/inflate_buffer.dart';
 
 /// A file contained in an Archive.
 class ArchiveFile {
@@ -101,7 +102,7 @@ class ArchiveFile {
         if (output != null) {
           Inflate.stream(_rawContent!, output);
         } else {
-          _content = Inflate.buffer(_rawContent!, size).getBytes();
+          _content = inflateBuffer(_rawContent!.toUint8List());
         }
       } else {
         if (output != null) {
