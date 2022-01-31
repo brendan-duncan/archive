@@ -284,7 +284,20 @@ void main() {
     expect(files.length, 4);
   });
 
-  test('extractFileToDisk tar.bz2', () {
+  test('extractFileToDisk tar.tbz', () {
+    final inPath = '$testDirPath/res/test2.tar.bz2';
+    final outPath = '$testDirPath/out/extractFileToDisk_tbz';
+    final dir = Directory(outPath);
+    if (dir.existsSync()) {
+      dir.deleteSync(recursive: true);
+    }
+    extractFileToDisk(inPath, outPath);
+
+    final files = dir.listSync(recursive: true);
+    expect(files.length, 4);
+  });
+
+  test('extractFileToDisk zip', () {
     final inPath = '$testDirPath/res/test.zip';
     final outPath = '$testDirPath/out/extractFileToDisk_zip';
     final dir = Directory(outPath);

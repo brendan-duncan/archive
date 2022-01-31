@@ -70,7 +70,10 @@ class ArchiveFile {
     } else if (_content is InputStreamBase) {
       output.writeInputStream(_content as InputStreamBase);
     } else if (_rawContent != null) {
-      output.writeInputStream(_rawContent!.readBytes(_rawContent!.length));
+      // TODO: decompress(output) is quite slow for OutputFileStream.
+      //decompress(output);
+      decompress();
+      output.writeBytes(_content as List<int>);
     }
   }
 
@@ -92,12 +95,20 @@ class ArchiveFile {
   }
 
   /// If the file data is compressed, decompress it.
-  void decompress() {
+  void decompress([OutputStreamBase? output]) {
     if (_content == null && _rawContent != null) {
       if (_compressionType == DEFLATE) {
-        _content = Inflate.buffer(_rawContent!, size).getBytes();
+        if (output != null) {
+          Inflate.stream(_rawContent!, output);
+        } else {
+          _content = Inflate.buffer(_rawContent!, size).getBytes();
+        }
       } else {
-        _content = _rawContent!.toUint8List();
+        if (output != null) {
+          output.writeInputStream(_rawContent!);
+        } else {
+          _content = _rawContent!.toUint8List();
+        }
       }
       _compressionType = STORE;
     }
