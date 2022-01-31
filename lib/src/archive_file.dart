@@ -76,8 +76,6 @@ class ArchiveFile {
       // Release memory
       if (freeMemory) {
         _content = null;
-        _rawContent!.close();
-        _rawContent = null;
       }
     }
   }
