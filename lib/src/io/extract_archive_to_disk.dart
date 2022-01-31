@@ -14,7 +14,8 @@ bool isWithinOutputPath(String outputDir, String filePath) {
   return p.isWithin(p.canonicalize(outputDir), p.canonicalize(filePath));
 }
 
-void extractArchiveToDisk(Archive archive, String outputPath) {
+void extractArchiveToDisk(Archive archive, String outputPath,
+    {bool asyncWrite = false}) {
   final outDir = Directory(outputPath);
   if (!outDir.existsSync()) {
     outDir.createSync(recursive: true);
@@ -26,18 +27,31 @@ void extractArchiveToDisk(Archive archive, String outputPath) {
       continue;
     }
 
-    final output = OutputFileStream(filePath);
-    try {
-      file.writeContent(output);
-    } catch (err) {
-      //
+    if (asyncWrite) {
+      final output = File(filePath);
+      output.create(recursive: true).then((f) {
+        f.open(mode: FileMode.write).then((fp) {
+          final bytes = file.content as List<int>;
+          fp.writeFrom(bytes).then((fp) {
+            file.clear();
+            fp.close();
+          });
+        });
+      });
+    } else {
+      final output = OutputFileStream(filePath);
+      try {
+        file.writeContent(output);
+      } catch (err) {
+        //
+      }
+      output.close();
     }
-    output.close();
   }
 }
 
 void extractFileToDisk(String inputPath, String outputPath,
-    {String? password}) {
+    {String? password, bool asyncWrite = false}) {
   Directory? tempDir;
   var archivePath = inputPath;
 
@@ -78,13 +92,26 @@ void extractFileToDisk(String inputPath, String outputPath,
       continue;
     }
 
-    final output = OutputFileStream(filePath);
-    try {
-      file.writeContent(output);
-    } catch (err) {
-      //
+    if (asyncWrite) {
+      final output = File(filePath);
+      output.create(recursive: true).then((f) {
+        f.open(mode: FileMode.write).then((fp) {
+          final bytes = file.content as List<int>;
+          fp.writeFrom(bytes).then((fp) {
+            file.clear();
+            fp.close();
+          });
+        });
+      });
+    } else {
+      final output = OutputFileStream(filePath);
+      try {
+        file.writeContent(output);
+      } catch (err) {
+        //
+      }
+      output.close();
     }
-    output.close();
   }
 
   archive.clear();

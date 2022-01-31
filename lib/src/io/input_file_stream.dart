@@ -38,7 +38,7 @@ class FileHandle {
     if (_file == null) {
       return;
     }
-    _file!.closeSync();
+    _file!.close();
     _file = null;
     _position = 0;
   }

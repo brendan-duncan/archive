@@ -4,7 +4,6 @@ import 'dart:typed_data';
 import '../util/byte_order.dart';
 import '../util/input_stream.dart';
 import '../util/output_stream.dart';
-import 'input_file_stream.dart';
 
 class OutputFileStream extends OutputStreamBase {
   String path;
@@ -13,7 +12,7 @@ class OutputFileStream extends OutputStreamBase {
   late RandomAccessFile _fp;
 
   OutputFileStream(this.path, {this.byteOrder = LITTLE_ENDIAN}) : _length = 0 {
-    var file = File(path);
+    final file = File(path);
     file.createSync(recursive: true);
     _fp = file.openSync(mode: FileMode.write);
   }
@@ -22,7 +21,7 @@ class OutputFileStream extends OutputStreamBase {
   int get length => _length;
 
   void close() {
-    _fp.closeSync();
+    _fp.close();
   }
 
   /// Write a byte to the end of the buffer.

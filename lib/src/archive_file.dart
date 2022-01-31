@@ -88,6 +88,10 @@ class ArchiveFile {
     return _content;
   }
 
+  void clear() {
+    _content = null;
+  }
+
   void close() {
     if (_content is InputStreamBase)
       _content.close();
