@@ -1,3 +1,10 @@
+## 3.2.0 - February 12, 2022
+
+* For non-web applications, use native 'inflate' decompression when decompressing zip files.
+* Add asyncWrite option to extractArchiveToDisk and extractFileToDisk, moving file write operations to be async.
+* ArchiveFile.writeContent will release its memory after the data has been written, reducing overall memory usage.
+* Add clear method to ArchiveFile, clearing any decompressed data memory it's storing.
+
 ## 3.1.11 - January 29, 2022
 
 * Fix indexing bug in Archive.addFile. 
