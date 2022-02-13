@@ -108,7 +108,7 @@ class InputStream extends InputStreamBase {
 
   @override
   void close() {
-    buffer.length = 0;
+    buffer = <int>[];
     _length = 0;
   }
 
