@@ -9,8 +9,8 @@ class ZLibEncoder {
 
   const ZLibEncoder();
 
-  List<int> encode(List<int> data, {int? level}) {
-    final output = OutputStream(byteOrder: BIG_ENDIAN);
+  List<int> encode(List<int> data, {int? level, OutputStreamBase? output}) {
+    output = output ?? OutputStream(byteOrder: BIG_ENDIAN);
 
     // Compression Method and Flags
     final cm = DEFLATE;
@@ -44,6 +44,10 @@ class ZLibEncoder {
 
     output.writeUint32(adler32);
 
-    return output.getBytes();
+    output.flush();
+
+    if (output is OutputStream)
+      return output.getBytes();
+    return [];
   }
 }

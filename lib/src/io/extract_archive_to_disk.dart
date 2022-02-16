@@ -15,7 +15,7 @@ bool isWithinOutputPath(String outputDir, String filePath) {
 }
 
 void extractArchiveToDisk(Archive archive, String outputPath,
-    {bool asyncWrite = false}) {
+    {bool asyncWrite = false, int? bufferSize}) {
   final outDir = Directory(outputPath);
   if (!outDir.existsSync()) {
     outDir.createSync(recursive: true);
@@ -39,7 +39,7 @@ void extractArchiveToDisk(Archive archive, String outputPath,
         });
       });
     } else {
-      final output = OutputFileStream(filePath);
+      final output = OutputFileStream(filePath, bufferSize: bufferSize);
       try {
         file.writeContent(output);
       } catch (err) {
@@ -51,7 +51,7 @@ void extractArchiveToDisk(Archive archive, String outputPath,
 }
 
 void extractFileToDisk(String inputPath, String outputPath,
-    {String? password, bool asyncWrite = false}) {
+    {String? password, bool asyncWrite = false, int? bufferSize}) {
   Directory? tempDir;
   var archivePath = inputPath;
 
@@ -59,7 +59,7 @@ void extractFileToDisk(String inputPath, String outputPath,
     tempDir = Directory.systemTemp.createTempSync('dart_archive');
     archivePath = '${tempDir.path}${Platform.pathSeparator}temp.tar';
     final input = InputFileStream(inputPath);
-    final output = OutputFileStream(archivePath);
+    final output = OutputFileStream(archivePath, bufferSize: bufferSize);
     GZipDecoder().decodeStream(input, output);
     input.close();
     output.close();
@@ -67,7 +67,7 @@ void extractFileToDisk(String inputPath, String outputPath,
     tempDir = Directory.systemTemp.createTempSync('dart_archive');
     archivePath = '${tempDir.path}${Platform.pathSeparator}temp.tar';
     final input = InputFileStream(inputPath);
-    final output = OutputFileStream(archivePath);
+    final output = OutputFileStream(archivePath, bufferSize: bufferSize);
     BZip2Decoder().decodeBuffer(input, output: output);
     input.close();
     output.close();
@@ -104,7 +104,7 @@ void extractFileToDisk(String inputPath, String outputPath,
         });
       });
     } else {
-      final output = OutputFileStream(filePath);
+      final output = OutputFileStream(filePath, bufferSize: bufferSize);
       try {
         file.writeContent(output);
       } catch (err) {

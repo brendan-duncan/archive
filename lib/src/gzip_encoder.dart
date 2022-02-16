@@ -101,6 +101,9 @@ class GZipEncoder {
 
     output_stream.writeUint32(data.length);
 
+    if (output_stream is OutputStreamBase)
+      output_stream.flush();
+
     if (output_stream is OutputStream) {
       return output_stream.getBytes();
     } else {

@@ -5,6 +5,9 @@ import 'input_stream.dart';
 abstract class OutputStreamBase {
   int get length;
 
+  // Write any pending data writes to the output.
+  void flush();
+
   /// Write a byte to the output stream.
   void writeByte(int value);
 
@@ -30,6 +33,9 @@ class OutputStream extends OutputStreamBase {
   OutputStream({int? size = _BLOCK_SIZE, this.byteOrder = LITTLE_ENDIAN})
       : _buffer = Uint8List(size ?? _BLOCK_SIZE),
         length = 0;
+
+  @override
+  void flush() {}
 
   /// Get the resulting bytes from the buffer.
   List<int> getBytes() {

@@ -6,8 +6,8 @@ import 'archive_file.dart';
 
 /// Encode an [Archive] object into a tar formatted buffer.
 class TarEncoder {
-  List<int> encode(Archive archive) {
-    final output_stream = OutputStream();
+  List<int> encode(Archive archive, {OutputStreamBase? output}) {
+    final output_stream = output ?? OutputStream();
     start(output_stream);
 
     for (final file in archive.files) {
@@ -16,7 +16,9 @@ class TarEncoder {
 
     finish();
 
-    return output_stream.getBytes();
+    if (output_stream is OutputStream)
+      return output_stream.getBytes();
+    return [];
   }
 
   void start([dynamic output_stream]) {
@@ -57,6 +59,7 @@ class TarEncoder {
     // with binary zeros as an end-of-file marker.
     final eof = Uint8List(1024);
     _output_stream.writeBytes(eof);
+    _output_stream.flush();
     _output_stream = null;
   }
 

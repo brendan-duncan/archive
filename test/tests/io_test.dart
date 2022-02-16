@@ -189,6 +189,7 @@ void main() {
 
     final encoder = GZipEncoder();
     encoder.encode(input, output: output);
+    output.close();
   });
 
   test('stream gzip decode', () {
@@ -196,6 +197,7 @@ void main() {
     var output = OutputFileStream(p.join(testDirPath, 'out/cat.jpg'));
 
     GZipDecoder().decodeStream(input, output);
+    output.close();
   });
 
   test('stream tgz encode', () {
@@ -209,6 +211,7 @@ void main() {
     var output = OutputFileStream(p.join(testDirPath, 'out/example2.tgz'));
     GZipEncoder().encode(input, output: output);
     input.close();
+    output.close();
   });
 
   test('stream zip encode', () {

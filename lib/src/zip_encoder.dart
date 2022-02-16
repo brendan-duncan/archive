@@ -65,6 +65,7 @@ class ZipEncoder {
       addFile(file);
     }
     endEncode(comment: archive.comment);
+
     if (output is OutputStream) {
       return output.getBytes();
     }
@@ -167,6 +168,8 @@ class ZipEncoder {
   void endEncode({String? comment = ''}) {
     // Write Central Directory and End Of Central Directory
     _writeCentralDirectory(_data.files, comment, _output!);
+    if (_output is OutputStreamBase)
+      _output!.flush();
   }
 
   void _writeFile(_ZipFileData fileData, OutputStreamBase output) {

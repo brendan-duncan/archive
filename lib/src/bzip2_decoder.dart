@@ -15,7 +15,8 @@ class BZip2Decoder {
         verify: verify);
   }
 
-  void decodeStream(InputStreamBase input, OutputStreamBase output, {bool verify = false}) {
+  void decodeStream(InputStreamBase input, OutputStreamBase output,
+      {bool verify = false}) {
     final br = Bz2BitReader(input);
 
     _groupPos = 0;
@@ -67,6 +68,7 @@ class BZip2Decoder {
               'Invalid combined checksum: $combinedCrc : $storedCrc');
         }
 
+        output.flush();
         return;
       }
     }
@@ -125,6 +127,8 @@ class BZip2Decoder {
           throw ArchiveException(
               'Invalid combined checksum: $combinedCrc : $storedCrc');
         }
+
+        output.flush();
 
         if (output is! OutputStream) {
           return [];

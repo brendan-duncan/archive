@@ -2,6 +2,7 @@ import 'util/archive_exception.dart';
 import 'util/crc32.dart';
 import 'util/input_stream.dart';
 import 'zlib/inflate.dart';
+import 'util/output_stream.dart';
 
 /// Decompress data with the gzip format decoder.
 class GZipDecoder {
@@ -20,6 +21,8 @@ class GZipDecoder {
   void decodeStream(InputStreamBase input, dynamic output) {
     _readHeader(input);
     Inflate.stream(input, output);
+    if (output is OutputStreamBase)
+      output.flush();
   }
 
   List<int> decodeBuffer(InputStreamBase input, {bool verify = false}) {
