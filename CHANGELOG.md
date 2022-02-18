@@ -1,3 +1,7 @@
+## 3.2.1 - February 17, 2022
+
+* Added buffer to OutputFileStream to improve performance by reducing the number of file writes.
+
 ## 3.2.0 - February 12, 2022
 
 * For non-web applications, use native 'inflate' decompression when decompressing zip files.
