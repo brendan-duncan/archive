@@ -5,7 +5,7 @@ import 'dart:collection';
 class Archive extends IterableBase<ArchiveFile> {
   /// The list of files in the archive.
   List<ArchiveFile> files = [];
-  Map<String, int> _fileMap = {};
+  final Map<String, int> _fileMap = {};
   /// A global comment for the archive.
   String? comment;
 

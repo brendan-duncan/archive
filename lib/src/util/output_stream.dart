@@ -15,7 +15,7 @@ abstract class OutputStreamBase {
   void writeBytes(List<int> bytes, [int? len]);
 
   /// Write an InputStream to the output stream.
-  void writeInputStream(InputStreamBase bytes);
+  void writeInputStream(InputStreamBase stream);
 
   /// Write a 16-bit word to the output stream.
   void writeUint16(int value);
@@ -30,8 +30,8 @@ class OutputStream extends OutputStreamBase {
   final int byteOrder;
 
   /// Create a byte buffer for writing.
-  OutputStream({int? size = _BLOCK_SIZE, this.byteOrder = LITTLE_ENDIAN})
-      : _buffer = Uint8List(size ?? _BLOCK_SIZE),
+  OutputStream({int? size = _blockSize, this.byteOrder = LITTLE_ENDIAN})
+      : _buffer = Uint8List(size ?? _blockSize),
         length = 0;
 
   @override
@@ -44,7 +44,7 @@ class OutputStream extends OutputStreamBase {
 
   /// Clear the buffer.
   void clear() {
-    _buffer = Uint8List(_BLOCK_SIZE);
+    _buffer = Uint8List(_blockSize);
     length = 0;
   }
 
@@ -139,7 +139,7 @@ class OutputStream extends OutputStreamBase {
 
   /// Grow the buffer to accommodate additional data.
   void _expandBuffer([int? required]) {
-    var blockSize = _BLOCK_SIZE;
+    var blockSize = _blockSize;
     if (required != null) {
       if (required > blockSize) {
         blockSize = required;
@@ -151,6 +151,6 @@ class OutputStream extends OutputStreamBase {
     _buffer = newBuffer;
   }
 
-  static const _BLOCK_SIZE = 0x8000; // 32k block-size
+  static const _blockSize = 0x8000; // 32k block-size
   Uint8List _buffer;
 }

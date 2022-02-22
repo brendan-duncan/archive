@@ -22,12 +22,12 @@ void main() {
   }
 
   // Encode the archive as a BZip2 compressed Tar file.
-  final tar_data = TarEncoder().encode(archive);
-  final tar_bz2 = BZip2Encoder().encode(tar_data);
+  final tarData = TarEncoder().encode(archive);
+  final tarBz2 = BZip2Encoder().encode(tarData);
 
   // Write the compressed tar file to disk.
   final fp = File('test.tbz');
-  fp.writeAsBytesSync(tar_bz2);
+  fp.writeAsBytesSync(tarBz2);
 
   // Zip a directory to out.zip using the zipDirectory convenience method
   var encoder = ZipFileEncoder();

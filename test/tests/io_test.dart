@@ -214,6 +214,13 @@ void main() {
     output.close();
   });
 
+  test('tarDirectory', () {
+    // Encode a directory from disk to disk, no memory
+    final encoder = TarFileEncoder();
+    encoder.tarDirectory(Directory('$testDirPath/res/test2'), filename: '$testDirPath/out/example2.tgz', compression:1);
+    encoder.close();
+  });
+
   test('stream zip encode', () {
     var encoder = ZipFileEncoder();
     encoder.create('$testDirPath/out/example2.zip');

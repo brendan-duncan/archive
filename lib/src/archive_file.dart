@@ -93,10 +93,12 @@ class ArchiveFile {
   }
 
   void close() {
-    if (_content is InputStreamBase)
+    if (_content is InputStreamBase) {
       _content.close();
-    if (_rawContent is InputStreamBase)
+    }
+    if (_rawContent is InputStreamBase) {
       _rawContent!.close();
+    }
     _content = null;
     _rawContent = null;
   }

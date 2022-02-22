@@ -22,18 +22,18 @@ void extract7z(List<String> urls) {
     }
 
     print('EXTRACTING $inputPath');
-    Process.runSync('7z', ['x', '-o$outputPath', '$inputPath']);
+    Process.runSync('7z', ['x', '-o$outputPath', inputPath]);
 
-    final tar_filename = filename.substring(0, filename.lastIndexOf('.'));
-    var tar_path = '$outputPath\\$tar_filename';
-    if (!File(tar_path).existsSync()) {
-      tar_path = '$outputPath\\intermediate.tar';
+    final tarFilename = filename.substring(0, filename.lastIndexOf('.'));
+    var tarPath = '$outputPath\\$tarFilename';
+    if (!File(tarPath).existsSync()) {
+      tarPath = '$outputPath\\intermediate.tar';
     }
-    print('TAR $tar_path');
+    print('TAR $tarPath');
 
-    Process.runSync('7z', ['x', '-y', '-o$outputPath', '$tar_path']);
+    Process.runSync('7z', ['x', '-y', '-o$outputPath', tarPath]);
 
-    File(tar_path).deleteSync();
+    File(tarPath).deleteSync();
   }
 }
 
@@ -126,13 +126,13 @@ void compareDirs(List<String> urls) {
       final fd = filesDart[i];
       final f7z = files7z[i];
 
-      List bytes_dart = fd.readAsBytesSync();
-      List bytes_7z = f7z.readAsBytesSync();
+      List bytesDart = fd.readAsBytesSync();
+      List bytes7z = f7z.readAsBytesSync();
 
-      expect(bytes_dart.length, bytes_7z.length);
+      expect(bytesDart.length, bytes7z.length);
 
-      for (var j = 0; j < bytes_dart.length; ++j) {
-        expect(bytes_dart[j], bytes_7z[j]);
+      for (var j = 0; j < bytesDart.length; ++j) {
+        expect(bytesDart[j], bytes7z[j]);
       }
     }
   }

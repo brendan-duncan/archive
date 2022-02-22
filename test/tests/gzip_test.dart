@@ -45,7 +45,7 @@ void main() {
     });
 
     test('decode res/a.txt.gz', () {
-      final a_bytes = a_txt.codeUnits;
+      final a_bytes = aTxt.codeUnits;
 
       var file = File(p.join(testDirPath, 'res/a.txt.gz'));
       var bytes = file.readAsBytesSync();

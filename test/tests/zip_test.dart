@@ -365,7 +365,7 @@ void main() {
 
     var b = File(p.join(testDirPath, 'res/cat.jpg'));
     final b_bytes = b.readAsBytesSync();
-    final a_bytes = a_txt.codeUnits;
+    final a_bytes = aTxt.codeUnits;
 
     for (var i = 0; i < archive.numberOfFiles(); ++i) {
       final z_bytes = archive.fileData(i);

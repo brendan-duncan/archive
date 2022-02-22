@@ -46,8 +46,9 @@ class ZLibEncoder {
 
     output.flush();
 
-    if (output is OutputStream)
+    if (output is OutputStream) {
       return output.getBytes();
+    }
     return [];
   }
 }

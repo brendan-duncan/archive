@@ -220,7 +220,7 @@ void main() {
   });
 
   test('decode/encode', () {
-    final a_bytes = a_txt.codeUnits;
+    final a_bytes = aTxt.codeUnits;
 
     var b = File(p.join(testDirPath, 'res/cat.jpg'));
     List<int> b_bytes = b.readAsBytesSync();

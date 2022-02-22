@@ -10,15 +10,17 @@ class OutputFileStream extends OutputStreamBase {
   final int byteOrder;
   int _length;
   late RandomAccessFile _fp;
-  Uint8List _buffer;
+  final Uint8List _buffer;
   int _bufferPosition;
+  bool _isOpen;
 
   OutputFileStream(this.path, {this.byteOrder = LITTLE_ENDIAN,
     int? bufferSize})
       : _length = 0
       , _buffer = Uint8List(bufferSize == null ? 8192 : bufferSize < 1 ? 1 :
                             bufferSize)
-      , _bufferPosition = 0 {
+      , _bufferPosition = 0
+      , _isOpen = true {
     final file = File(path);
     file.createSync(recursive: true);
     _fp = file.openSync(mode: FileMode.write);
@@ -30,22 +32,29 @@ class OutputFileStream extends OutputStreamBase {
   @override
   void flush() {
     if (_bufferPosition > 0) {
-      _fp.writeFromSync(_buffer, 0, _bufferPosition);
+      if (_isOpen) {
+        _fp.writeFromSync(_buffer, 0, _bufferPosition);
+      }
       _bufferPosition = 0;
     }
   }
 
   void close() {
+    if (!_isOpen) {
+      return;
+    }
     flush();
     _fp.close();
+    _isOpen = false;
   }
 
   /// Write a byte to the end of the buffer.
   @override
   void writeByte(int value) {
     _buffer[_bufferPosition++] = value;
-    if (_bufferPosition == _buffer.length)
+    if (_bufferPosition == _buffer.length) {
       flush();
+    }
     _length++;
   }
 
@@ -57,8 +66,9 @@ class OutputFileStream extends OutputStreamBase {
       flush();
 
       if (_bufferPosition + len < _buffer.length) {
-        for (int i = 0, j = _bufferPosition; i < len; ++i, ++j)
+        for (int i = 0, j = _bufferPosition; i < len; ++i, ++j) {
           _buffer[j] = bytes[i];
+        }
         _bufferPosition += len;
         _length += len;
         return;
@@ -89,8 +99,9 @@ class OutputFileStream extends OutputStreamBase {
         }
       }
 
-      if (_bufferPosition > 0)
+      if (_bufferPosition > 0) {
         flush();
+      }
       _fp.writeFromSync(stream.buffer, stream.offset, stream.offset + stream.length);
       _length += stream.length;
     } else {
@@ -128,8 +139,9 @@ class OutputFileStream extends OutputStreamBase {
   }
 
   List<int> subset(int start, [int? end]) {
-    if (_bufferPosition > 0)
+    if (_bufferPosition > 0) {
       flush();
+    }
 
     final pos = _fp.positionSync();
     if (start < 0) {

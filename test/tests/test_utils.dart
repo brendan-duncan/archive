@@ -18,7 +18,7 @@ void compare_bytes(List<int> a, List<int> b) {
   }
 }
 
-const a_txt = '''this is a test
+const aTxt = '''this is a test
 of the
 zip archive
 format.
