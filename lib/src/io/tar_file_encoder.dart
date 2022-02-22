@@ -16,8 +16,13 @@ class TarFileEncoder {
   static const int STORE = 0;
   static const int GZIP = 1;
 
-  void tarDirectory(Directory dir,
-      {int compression = STORE, String? filename, bool followLinks = true}) {
+  void tarDirectory(
+    Directory dir, {
+    int compression = STORE,
+    String? filename,
+    bool followLinks = true,
+    int? level,
+  }) {
     final dirPath = dir.path;
     var tarPath = filename ?? '$dirPath.tar';
     final tgzPath = filename ?? '$dirPath.tar.gz';
@@ -36,7 +41,7 @@ class TarFileEncoder {
     if (compression == GZIP) {
       final input = InputFileStream(tarPath);
       final output = OutputFileStream(tgzPath);
-      GZipEncoder().encode(input, output: output);
+      GZipEncoder().encode(input, output: output, level: level);
       input.close();
       File(input.path).deleteSync();
     }
