@@ -38,11 +38,46 @@ class ArchiveFile {
     if (content is Uint8List) {
       _content = content;
       _rawContent = InputStream(_content);
+      if (size <= 0) {
+        size = content.length;
+      }
     } else if (content is InputStream) {
       _rawContent = InputStream.from(content);
+      if (size <= 0) {
+        size = content.length;
+      }
     } else if (content is InputStreamBase) {
       _rawContent = content;
+      if (size <= 0) {
+        size = content.length;
+      }
+    } else if (content is TypedData) {
+      _content = Uint8List.view(content.buffer);
+      _rawContent = InputStream(_content);
+      if (size <= 0) {
+        size = (_content as Uint8List).length;
+      }
+    } else if (content is String) {
+      _content = content.codeUnits;
+      _rawContent = InputStream(_content);
+      if (size <= 0) {
+        size = content.codeUnits.length + 1;
+      }
+    } else if (content is List<int>) { // Legacy
+      // This expects the list to be a list of bytes, with values [0, 255].
+      _content = content;
+      _rawContent = InputStream(_content);
+      if (size <= 0) {
+        size = content.length;
+      }
     }
+  }
+
+  ArchiveFile.string(this.name, String content,
+      [this._compressionType = STORE]) {
+    size = content.length + 1;
+    _content = Uint8List.fromList(content.codeUnits);
+    _rawContent = InputStream(_content);
   }
 
   ArchiveFile.noCompress(this.name, this.size, dynamic content) {

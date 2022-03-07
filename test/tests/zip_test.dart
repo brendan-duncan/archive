@@ -249,6 +249,18 @@ void main() {
     expect(decodedFile.name, origialFileName);
   });
 
+  test('zip data types', () {
+    final archive = Archive();
+    archive.addFile(ArchiveFile('uint8list', 2, Uint8List(2)));
+    archive.addFile(ArchiveFile('list_int', 2, [1,2]));
+    archive.addFile(ArchiveFile('float32list', 8, Float32List.fromList([3.0,4.0])));
+    archive.addFile(ArchiveFile.string('string', 'hello'));
+    var zipData = ZipEncoder().encode(archive);
+
+    var archive2 = ZipDecoder().decodeBytes(zipData!);
+    expect(archive2.length, equals(archive.length));
+  });
+
   test('zip executable', () async {
     // Only tested on linux so far
     if (Platform.isLinux || Platform.isMacOS) {
@@ -295,13 +307,13 @@ void main() {
     final afile = ArchiveFile.noCompress(name, bytes.lengthInBytes, bytes);
     archive.addFile(afile);
 
-    var zip_data = ZipEncoder().encode(archive)!;
+    var zipData = ZipEncoder().encode(archive)!;
 
     File(p.join(testDirPath, 'out/uncompressed.zip'))
       ..createSync(recursive: true)
-      ..writeAsBytesSync(zip_data);
+      ..writeAsBytesSync(zipData);
 
-    var arc = ZipDecoder().decodeBytes(zip_data, verify: true);
+    var arc = ZipDecoder().decodeBytes(zipData, verify: true);
     expect(arc.numberOfFiles(), equals(1));
     var arcData = arc.fileData(0);
     expect(arcData.length, equals(bdata.length));
@@ -318,14 +330,14 @@ void main() {
     final afile = ArchiveFile.noCompress(name, bytes.lengthInBytes, bytes);
     archive.addFile(afile);
 
-    var zip_data = ZipEncoder()
+    var zipData = ZipEncoder()
         .encode(archive, modified: DateTime.utc(2010, DateTime.january, 1))!;
 
     File(p.join(testDirPath, 'out/uncompressed.zip'))
       ..createSync(recursive: true)
-      ..writeAsBytesSync(zip_data);
+      ..writeAsBytesSync(zipData);
 
-    var arc = ZipDecoder().decodeBytes(zip_data, verify: true);
+    var arc = ZipDecoder().decodeBytes(zipData, verify: true);
     expect(arc.numberOfFiles(), equals(1));
     var arcData = arc.fileData(0);
     expect(arcData.length, equals(bdata.length));
@@ -340,16 +352,16 @@ void main() {
     var bytes = file.readAsBytesSync();
 
     var b = File(p.join(testDirPath, 'res/zip/hello.txt'));
-    final b_bytes = b.readAsBytesSync();
+    final bBytes = b.readAsBytesSync();
 
     final archive =
         ZipDecoder().decodeBytes(bytes, verify: true, password: 'test1234');
     expect(archive.numberOfFiles(), equals(1));
 
     for (var i = 0; i < archive.numberOfFiles(); ++i) {
-      final z_bytes = archive.fileData(i);
+      final zBytes = archive.fileData(i);
       if (archive.fileName(i) == 'hello.txt') {
-        compare_bytes(z_bytes, b_bytes);
+        compare_bytes(zBytes, bBytes);
       } else {
         throw TestFailure('Invalid file found');
       }
@@ -364,15 +376,15 @@ void main() {
     expect(archive.numberOfFiles(), equals(2));
 
     var b = File(p.join(testDirPath, 'res/cat.jpg'));
-    final b_bytes = b.readAsBytesSync();
-    final a_bytes = aTxt.codeUnits;
+    final bBytes = b.readAsBytesSync();
+    final aBytes = aTxt.codeUnits;
 
     for (var i = 0; i < archive.numberOfFiles(); ++i) {
-      final z_bytes = archive.fileData(i);
+      final zBytes = archive.fileData(i);
       if (archive.fileName(i) == 'a.txt') {
-        compare_bytes(z_bytes, a_bytes);
+        compare_bytes(zBytes, aBytes);
       } else if (archive.fileName(i) == 'cat.jpg') {
-        compare_bytes(z_bytes, b_bytes);
+        compare_bytes(zBytes, bBytes);
       } else {
         throw TestFailure('Invalid file found');
       }
