@@ -200,8 +200,8 @@ void main() {
     List<int> bytes = file.readAsBytesSync();
     final archive = tar.decodeBytes(bytes, verify: true);
 
-    final expected_files = <File>[];
-    ListDir(expected_files, Directory(p.join(testDirPath, 'res/test2')));
+    final expectedFiles = <File>[];
+    listDir(expectedFiles, Directory(p.join(testDirPath, 'res/test2')));
 
     expect(archive.length, equals(4));
   });
@@ -213,17 +213,17 @@ void main() {
     bytes = GZipDecoder().decodeBytes(bytes, verify: true);
     final archive = tar.decodeBytes(bytes, verify: true);
 
-    final expected_files = <File>[];
-    ListDir(expected_files, Directory(p.join(testDirPath, 'res/test2')));
+    final expectedFiles = <File>[];
+    listDir(expectedFiles, Directory(p.join(testDirPath, 'res/test2')));
 
     expect(archive.length, equals(4));
   });
 
   test('decode/encode', () {
-    final a_bytes = aTxt.codeUnits;
+    final aBytes = aTxt.codeUnits;
 
     var b = File(p.join(testDirPath, 'res/cat.jpg'));
-    List<int> b_bytes = b.readAsBytesSync();
+    List<int> bBytes = b.readAsBytesSync();
 
     var file = File(p.join(testDirPath, 'res/test.tar'));
     List<int> bytes = file.readAsBytesSync();
@@ -231,15 +231,15 @@ void main() {
     final archive = tar.decodeBytes(bytes, verify: true);
     expect(archive.numberOfFiles(), equals(2));
 
-    var t_file = archive.fileName(0);
-    expect(t_file, equals('a.txt'));
-    var t_bytes = archive.fileData(0);
-    compare_bytes(t_bytes, a_bytes);
+    var tFile = archive.fileName(0);
+    expect(tFile, equals('a.txt'));
+    var tBytes = archive.fileData(0);
+    compareBytes(tBytes, aBytes);
 
-    t_file = archive.fileName(1);
-    expect(t_file, equals('cat.jpg'));
-    t_bytes = archive.fileData(1);
-    compare_bytes(t_bytes, b_bytes);
+    tFile = archive.fileName(1);
+    expect(tFile, equals('cat.jpg'));
+    tBytes = archive.fileData(1);
+    compareBytes(tBytes, bBytes);
 
     final encoded = tarEncoder.encode(archive);
     final out = File(p.join(testDirPath, 'out/test.tar'));
@@ -250,15 +250,15 @@ void main() {
     final archive2 = tar.decodeBytes(encoded, verify: true);
     expect(archive2.numberOfFiles(), equals(2));
 
-    t_file = archive2.fileName(0);
-    expect(t_file, equals('a.txt'));
-    t_bytes = archive2.fileData(0);
-    compare_bytes(t_bytes, a_bytes);
+    tFile = archive2.fileName(0);
+    expect(tFile, equals('a.txt'));
+    tBytes = archive2.fileData(0);
+    compareBytes(tBytes, aBytes);
 
-    t_file = archive2.fileName(1);
-    expect(t_file, equals('cat.jpg'));
-    t_bytes = archive2.fileData(1);
-    compare_bytes(t_bytes, b_bytes);
+    tFile = archive2.fileName(1);
+    expect(tFile, equals('cat.jpg'));
+    tBytes = archive2.fileData(1);
+    compareBytes(tBytes, bBytes);
   });
 
   for (Map<String, dynamic> t in tarTests) {

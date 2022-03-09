@@ -115,9 +115,9 @@ void compareDirs(List<String> urls) {
     print('$outPathDart : $outPath7z');
 
     final files7z = <File>[];
-    ListDir(files7z, Directory(outPath7z));
+    listDir(files7z, Directory(outPath7z));
     final filesDart = <File>[];
-    ListDir(filesDart, Directory(outPathDart));
+    listDir(filesDart, Directory(outPathDart));
 
     expect(filesDart.length, files7z.length);
     //print("#${filesDart.length} : ${files7z.length}");

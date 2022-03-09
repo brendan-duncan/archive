@@ -33,20 +33,20 @@ class ZipFileHeader {
       crc32 = input.readUint32();
       compressedSize = input.readUint32();
       uncompressedSize = input.readUint32();
-      final fname_len = input.readUint16();
-      final extra_len = input.readUint16();
-      final comment_len = input.readUint16();
+      final fnameLen = input.readUint16();
+      final extraLen = input.readUint16();
+      final commentLen = input.readUint16();
       diskNumberStart = input.readUint16();
       internalFileAttributes = input.readUint16();
       externalFileAttributes = input.readUint32();
       localHeaderOffset = input.readUint32();
 
-      if (fname_len > 0) {
-        filename = input.readString(size: fname_len);
+      if (fnameLen > 0) {
+        filename = input.readString(size: fnameLen);
       }
 
-      if (extra_len > 0) {
-        final extra = input.readBytes(extra_len);
+      if (extraLen > 0) {
+        final extra = input.readBytes(extraLen);
         extraField = extra.toUint8List();
 
         final id = extra.readUint16();
@@ -77,8 +77,8 @@ class ZipFileHeader {
         }
       }
 
-      if (comment_len > 0) {
-        fileComment = input.readString(size: comment_len);
+      if (commentLen > 0) {
+        fileComment = input.readString(size: commentLen);
       }
 
       if (bytes != null) {

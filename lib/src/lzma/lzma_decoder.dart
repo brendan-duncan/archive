@@ -51,7 +51,7 @@ class LzmaDecoder {
   var _distance3 = 0;
 
   // Decoder state, used in range decoding.
-  var state = _LzmaState.Lit_Lit;
+  var state = _LzmaState.litLit;
 
   // Decoded data, which is able to be copied.
   var _dictionary = Uint8List(0);
@@ -88,7 +88,7 @@ class LzmaDecoder {
     _literalPositionBits = literalPositionBits ?? _literalPositionBits;
     _literalContextBits = literalContextBits ?? _literalContextBits;
 
-    state = _LzmaState.Lit_Lit;
+    state = _LzmaState.litLit;
     _distance0 = 0;
     _distance1 = 0;
     _distance2 = 0;
@@ -170,19 +170,19 @@ class LzmaDecoder {
   // Returns true if the previous packet seen was a literal.
   bool _prevPacketIsLiteral() {
     switch (state) {
-      case _LzmaState.Lit_Lit:
-      case _LzmaState.Match_Lit_Lit:
-      case _LzmaState.Rep_Lit_Lit:
-      case _LzmaState.ShortRep_Lit_Lit:
-      case _LzmaState.Match_Lit:
-      case _LzmaState.Rep_Lit:
-      case _LzmaState.ShortRep_Lit:
+      case _LzmaState.litLit:
+      case _LzmaState.matchLitLit:
+      case _LzmaState.repLitLit:
+      case _LzmaState.shortRepLitLit:
+      case _LzmaState.matchLit:
+      case _LzmaState.repLit:
+      case _LzmaState.shortRepLit:
         return true;
-      case _LzmaState.Lit_Match:
-      case _LzmaState.Lit_LongRep:
-      case _LzmaState.Lit_ShortRep:
-      case _LzmaState.NonLit_Match:
-      case _LzmaState.NonLit_Rep:
+      case _LzmaState.litMatch:
+      case _LzmaState.litLongRep:
+      case _LzmaState.litShortRep:
+      case _LzmaState.nonLitMatch:
+      case _LzmaState.nonLitRep:
         return false;
     }
   }
@@ -231,31 +231,31 @@ class LzmaDecoder {
 
     // Update state.
     switch (state) {
-      case _LzmaState.Lit_Lit:
-      case _LzmaState.Match_Lit_Lit:
-      case _LzmaState.Rep_Lit_Lit:
-      case _LzmaState.ShortRep_Lit_Lit:
-        state = _LzmaState.Lit_Lit;
+      case _LzmaState.litLit:
+      case _LzmaState.matchLitLit:
+      case _LzmaState.repLitLit:
+      case _LzmaState.shortRepLitLit:
+        state = _LzmaState.litLit;
         break;
-      case _LzmaState.Match_Lit:
-        state = _LzmaState.Match_Lit_Lit;
+      case _LzmaState.matchLit:
+        state = _LzmaState.matchLitLit;
         break;
-      case _LzmaState.Rep_Lit:
-        state = _LzmaState.Rep_Lit_Lit;
+      case _LzmaState.repLit:
+        state = _LzmaState.repLitLit;
         break;
-      case _LzmaState.ShortRep_Lit:
-        state = _LzmaState.ShortRep_Lit_Lit;
+      case _LzmaState.shortRepLit:
+        state = _LzmaState.shortRepLitLit;
         break;
-      case _LzmaState.Lit_Match:
-      case _LzmaState.NonLit_Match:
-        state = _LzmaState.Match_Lit;
+      case _LzmaState.litMatch:
+      case _LzmaState.nonLitMatch:
+        state = _LzmaState.matchLit;
         break;
-      case _LzmaState.Lit_LongRep:
-      case _LzmaState.NonLit_Rep:
-        state = _LzmaState.Rep_Lit;
+      case _LzmaState.litLongRep:
+      case _LzmaState.nonLitRep:
+        state = _LzmaState.repLit;
         break;
-      case _LzmaState.Lit_ShortRep:
-        state = _LzmaState.ShortRep_Lit;
+      case _LzmaState.litShortRep:
+        state = _LzmaState.shortRepLit;
         break;
     }
   }
@@ -273,7 +273,7 @@ class LzmaDecoder {
     _distance0 = distance;
 
     state =
-        _prevPacketIsLiteral() ? _LzmaState.Lit_Match : _LzmaState.NonLit_Match;
+        _prevPacketIsLiteral() ? _LzmaState.litMatch : _LzmaState.nonLitMatch;
   }
 
   // Decode a packet that repeats a match already done.
@@ -283,8 +283,8 @@ class LzmaDecoder {
       if (_input.readBit(_longRepeat0Tables[state.index], posState) == 0) {
         _repeatData(_distance0, 1);
         state = _prevPacketIsLiteral()
-            ? _LzmaState.Lit_ShortRep
-            : _LzmaState.NonLit_Rep;
+            ? _LzmaState.litShortRep
+            : _LzmaState.nonLitRep;
         return;
       } else {
         distance = _distance0;
@@ -311,7 +311,7 @@ class LzmaDecoder {
 
     // Update state.
     state =
-        _prevPacketIsLiteral() ? _LzmaState.Lit_LongRep : _LzmaState.NonLit_Rep;
+        _prevPacketIsLiteral() ? _LzmaState.litLongRep : _LzmaState.nonLitRep;
   }
 
   // Repeat decompressed data, starting [distance] bytes back from the end of the buffer and copying [length] bytes.
@@ -326,18 +326,18 @@ class LzmaDecoder {
 
 // The decoder state which tracks the sequence of LZMA packets received.
 enum _LzmaState {
-  Lit_Lit,
-  Match_Lit_Lit,
-  Rep_Lit_Lit,
-  ShortRep_Lit_Lit,
-  Match_Lit,
-  Rep_Lit,
-  ShortRep_Lit,
-  Lit_Match,
-  Lit_LongRep,
-  Lit_ShortRep,
-  NonLit_Match,
-  NonLit_Rep
+  litLit,
+  matchLitLit,
+  repLitLit,
+  shortRepLitLit,
+  matchLit,
+  repLit,
+  shortRepLit,
+  litMatch,
+  litLongRep,
+  litShortRep,
+  nonLitMatch,
+  nonLitRep
 }
 
 // Decodes match/repeat length fields from LZMA data.

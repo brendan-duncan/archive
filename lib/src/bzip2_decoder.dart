@@ -24,13 +24,13 @@ class BZip2Decoder {
     _gSel = 0;
     _gMinlen = 0;
 
-    if (br.readByte() != BZip2.BZH_SIGNATURE[0] ||
-        br.readByte() != BZip2.BZH_SIGNATURE[1] ||
-        br.readByte() != BZip2.BZH_SIGNATURE[2]) {
+    if (br.readByte() != BZip2.bzhSignature[0] ||
+        br.readByte() != BZip2.bzhSignature[1] ||
+        br.readByte() != BZip2.bzhSignature[2]) {
       throw ArchiveException('Invalid Signature');
     }
 
-    _blockSize100k = br.readByte() - BZip2.HDR_0;
+    _blockSize100k = br.readByte() - BZip2.hdr0;
     if (_blockSize100k < 0 || _blockSize100k > 9) {
       throw ArchiveException('Invalid BlockSize');
     }
@@ -41,7 +41,7 @@ class BZip2Decoder {
 
     while (true) {
       final type = _readBlockType(br);
-      if (type == BLOCK_COMPRESSED) {
+      if (type == blockCompressed) {
         var storedBlockCrc = 0;
         storedBlockCrc = (storedBlockCrc << 8) | br.readByte();
         storedBlockCrc = (storedBlockCrc << 8) | br.readByte();
@@ -56,7 +56,7 @@ class BZip2Decoder {
         }
         combinedCrc = ((combinedCrc << 1) | (combinedCrc >> 31)) & 0xffffffff;
         combinedCrc ^= blockCrc;
-      } else if (type == BLOCK_EOS) {
+      } else if (type == blockEos) {
         var storedCrc = 0;
         storedCrc = (storedCrc << 8) | br.readByte();
         storedCrc = (storedCrc << 8) | br.readByte();
@@ -84,13 +84,13 @@ class BZip2Decoder {
     _gSel = 0;
     _gMinlen = 0;
 
-    if (br.readByte() != BZip2.BZH_SIGNATURE[0] ||
-        br.readByte() != BZip2.BZH_SIGNATURE[1] ||
-        br.readByte() != BZip2.BZH_SIGNATURE[2]) {
+    if (br.readByte() != BZip2.bzhSignature[0] ||
+        br.readByte() != BZip2.bzhSignature[1] ||
+        br.readByte() != BZip2.bzhSignature[2]) {
       throw ArchiveException('Invalid Signature');
     }
 
-    _blockSize100k = br.readByte() - BZip2.HDR_0;
+    _blockSize100k = br.readByte() - BZip2.hdr0;
     if (_blockSize100k < 0 || _blockSize100k > 9) {
       throw ArchiveException('Invalid BlockSize');
     }
@@ -101,7 +101,7 @@ class BZip2Decoder {
 
     while (true) {
       final type = _readBlockType(br);
-      if (type == BLOCK_COMPRESSED) {
+      if (type == blockCompressed) {
         var storedBlockCrc = 0;
         storedBlockCrc = (storedBlockCrc << 8) | br.readByte();
         storedBlockCrc = (storedBlockCrc << 8) | br.readByte();
@@ -116,7 +116,7 @@ class BZip2Decoder {
         }
         combinedCrc = ((combinedCrc << 1) | (combinedCrc >> 31)) & 0xffffffff;
         combinedCrc ^= blockCrc;
-      } else if (type == BLOCK_EOS) {
+      } else if (type == blockEos) {
         var storedCrc = 0;
         storedCrc = (storedCrc << 8) | br.readByte();
         storedCrc = (storedCrc << 8) | br.readByte();
@@ -147,10 +147,10 @@ class BZip2Decoder {
     // .compressed_magic:48 0x314159265359 (BCD (pi))
     for (var i = 0; i < 6; ++i) {
       var b = br.readByte();
-      if (b != BZip2.COMPRESSED_MAGIC[i]) {
+      if (b != BZip2.compressedMagic[i]) {
         compressed = false;
       }
-      if (b != BZip2.EOS_MAGIC[i]) {
+      if (b != BZip2.eosMagic[i]) {
         eos = false;
       }
       if (!eos && !compressed) {
@@ -158,7 +158,7 @@ class BZip2Decoder {
       }
     }
 
-    return (compressed) ? BLOCK_COMPRESSED : BLOCK_EOS;
+    return (compressed) ? blockCompressed : blockEos;
   }
 
   int _readCompressed(Bz2BitReader br, OutputStreamBase output) {
@@ -200,8 +200,8 @@ class BZip2Decoder {
       throw ArchiveException('Data error');
     }
 
-    _selectorMtf = Uint8List(BZ_MAX_SELECTORS);
-    _selector = Uint8List(BZ_MAX_SELECTORS);
+    _selectorMtf = Uint8List(bzMaxSelectors);
+    _selector = Uint8List(bzMaxSelectors);
 
     for (var i = 0; i < _numSelectors; ++i) {
       var j = 0;
@@ -220,7 +220,7 @@ class BZip2Decoder {
     }
 
     // Undo the MTF values for the selectors.
-    final pos = Uint8List(BZ_N_GROUPS);
+    final pos = Uint8List(bzNGroups);
     for (var i = 0; i < numGroups; ++i) {
       pos[i] = i;
     }
@@ -237,10 +237,10 @@ class BZip2Decoder {
     }
 
     // Now the coding tables
-    _len = List<Uint8List>.filled(BZ_N_GROUPS, BZip2.emptyUint8List);
+    _len = List<Uint8List>.filled(bzNGroups, BZip2.emptyUint8List);
 
     for (var t = 0; t < numGroups; ++t) {
-      _len[t] = Uint8List(BZ_MAX_ALPHA_SIZE);
+      _len[t] = Uint8List(bzMaxAlphaSize);
 
       var c = br.readBits(5);
       for (var i = 0; i < alphaSize; ++i) {
@@ -264,15 +264,15 @@ class BZip2Decoder {
     }
 
     // Create the Huffman decoding tables
-    _limit = List<Int32List>.filled(BZ_N_GROUPS, BZip2.emptyInt32List);
-    _base = List<Int32List>.filled(BZ_N_GROUPS, BZip2.emptyInt32List);
-    _perm = List<Int32List>.filled(BZ_N_GROUPS, BZip2.emptyInt32List);
-    _minLens = Int32List(BZ_N_GROUPS);
+    _limit = List<Int32List>.filled(bzNGroups, BZip2.emptyInt32List);
+    _base = List<Int32List>.filled(bzNGroups, BZip2.emptyInt32List);
+    _perm = List<Int32List>.filled(bzNGroups, BZip2.emptyInt32List);
+    _minLens = Int32List(bzNGroups);
 
     for (var t = 0; t < numGroups; t++) {
-      _limit[t] = Int32List(BZ_MAX_ALPHA_SIZE);
-      _base[t] = Int32List(BZ_MAX_ALPHA_SIZE);
-      _perm[t] = Int32List(BZ_MAX_ALPHA_SIZE);
+      _limit[t] = Int32List(bzMaxAlphaSize);
+      _base[t] = Int32List(bzMaxAlphaSize);
+      _perm[t] = Int32List(bzMaxAlphaSize);
 
       var minLen = 32;
       var maxLen = 0;
@@ -292,19 +292,19 @@ class BZip2Decoder {
     }
 
     // Now the MTF values
-    var EOB = _numInUse + 1;
+    var eob = _numInUse + 1;
     var nblockMAX = 100000 * _blockSize100k;
 
     _unzftab = Int32List(256);
 
     // MTF init
-    _mtfa = Uint8List(MTFA_SIZE);
-    _mtfbase = Int32List(256 ~/ MTFL_SIZE);
+    _mtfa = Uint8List(mtfaSize);
+    _mtfbase = Int32List(256 ~/ mtflSize);
 
-    var kk = MTFA_SIZE - 1;
-    for (var ii = 256 ~/ MTFL_SIZE - 1; ii >= 0; ii--) {
-      for (var jj = MTFL_SIZE - 1; jj >= 0; jj--) {
-        _mtfa[kk] = ii * MTFL_SIZE + jj;
+    var kk = mtfaSize - 1;
+    for (var ii = 256 ~/ mtflSize - 1; ii >= 0; ii--) {
+      for (var jj = mtflSize - 1; jj >= 0; jj--) {
+        _mtfa[kk] = ii * mtflSize + jj;
         kk--;
       }
       _mtfbase[ii] = kk + 1;
@@ -317,11 +317,11 @@ class BZip2Decoder {
     var uc = 0;
 
     while (true) {
-      if (nextSym == EOB) {
+      if (nextSym == eob) {
         break;
       }
 
-      if (nextSym == BZ_RUNA || nextSym == BZ_RUNB) {
+      if (nextSym == bzRunA || nextSym == bzRunB) {
         var es = -1;
         var N = 1;
         do {
@@ -335,16 +335,16 @@ class BZip2Decoder {
             throw ArchiveException('Data error');
           }
 
-          if (nextSym == BZ_RUNA) {
+          if (nextSym == bzRunA) {
             es = es + (0 + 1) * N;
-          } else if (nextSym == BZ_RUNB) {
+          } else if (nextSym == bzRunB) {
             es = es + (1 + 1) * N;
           }
 
           N = N * 2;
 
           nextSym = _getMtfVal(br);
-        } while (nextSym == BZ_RUNA || nextSym == BZ_RUNB);
+        } while (nextSym == bzRunA || nextSym == bzRunB);
 
         es++;
 
@@ -361,8 +361,6 @@ class BZip2Decoder {
           nblock++;
           es--;
         }
-        ;
-
         continue;
       } else {
         if (nblock >= nblockMAX) {
@@ -372,7 +370,7 @@ class BZip2Decoder {
         // uc = MTF ( nextSym-1 )
         var nn = nextSym - 1;
 
-        if (nn < MTFL_SIZE) {
+        if (nn < mtflSize) {
           // avoid general-case expense
           var pp = _mtfbase[0];
           uc = _mtfa[pp + nn];
@@ -391,8 +389,8 @@ class BZip2Decoder {
           _mtfa[pp] = uc;
         } else {
           // general case
-          var lno = nn ~/ MTFL_SIZE;
-          var off = nn % MTFL_SIZE;
+          var lno = nn ~/ mtflSize;
+          var off = nn % mtflSize;
           var pp = _mtfbase[lno] + off;
           uc = _mtfa[pp];
           while (pp > _mtfbase[lno]) {
@@ -402,15 +400,15 @@ class BZip2Decoder {
           _mtfbase[lno]++;
           while (lno > 0) {
             _mtfbase[lno]--;
-            _mtfa[_mtfbase[lno]] = _mtfa[_mtfbase[lno - 1] + MTFL_SIZE - 1];
+            _mtfa[_mtfbase[lno]] = _mtfa[_mtfbase[lno - 1] + mtflSize - 1];
             lno--;
           }
           _mtfbase[0]--;
           _mtfa[_mtfbase[0]] = uc;
           if (_mtfbase[0] == 0) {
-            kk = MTFA_SIZE - 1;
-            for (var ii = 256 ~/ MTFL_SIZE - 1; ii >= 0; ii--) {
-              for (var jj = MTFL_SIZE - 1; jj >= 0; jj--) {
+            kk = mtfaSize - 1;
+            for (var ii = 256 ~/ mtflSize - 1; ii >= 0; ii--) {
+              for (var jj = mtflSize - 1; jj >= 0; jj--) {
                 _mtfa[kk] = _mtfa[_mtfbase[ii] + jj];
                 kk--;
               }
@@ -476,7 +474,7 @@ class BZip2Decoder {
       _cftab[uc]++;
     }
 
-    var blockCrc = BZip2.INITIAL_CRC;
+    var blockCrc = BZip2.initialCrc;
 
     var tPos = _tt[origPtr] >> 8;
     var numBlockUsed = 0;
@@ -498,7 +496,7 @@ class BZip2Decoder {
       numBlockUsed++;
 
       if (rNToGo == 0) {
-        rNToGo = BZ2_rNums[rTPos];
+        rNToGo = bz2RNums[rTPos];
         rTPos++;
         if (rTPos == 512) {
           rTPos = 0;
@@ -519,44 +517,44 @@ class BZip2Decoder {
     }
 
     // UnRLE to output
-    var c_state_out_len = 0;
-    var c_state_out_ch = 0;
-    var s_save_nblockPP = nblock + 1;
-    var c_nblock_used = numBlockUsed;
-    var c_k0 = k0;
+    var cStateOutLen = 0;
+    var cStateOutCh = 0;
+    var sSaveNBlockPP = nblock + 1;
+    var cNBlockUsed = numBlockUsed;
+    var cK0 = k0;
     int k1;
 
     if (blockRandomized != 0) {
       while (true) {
         // try to finish existing run
         while (true) {
-          if (c_state_out_len == 0) {
+          if (cStateOutLen == 0) {
             break;
           }
 
-          output.writeByte(c_state_out_ch);
-          blockCrc = BZip2.updateCrc(c_state_out_ch, blockCrc);
+          output.writeByte(cStateOutCh);
+          blockCrc = BZip2.updateCrc(cStateOutCh, blockCrc);
 
-          c_state_out_len--;
+          cStateOutLen--;
         }
 
         // can a run be started?
-        if (c_nblock_used == s_save_nblockPP) {
+        if (cNBlockUsed == sSaveNBlockPP) {
           return blockCrc;
         }
 
         // Only caused by corrupt data stream?
-        if (c_nblock_used > s_save_nblockPP) {
+        if (cNBlockUsed > sSaveNBlockPP) {
           throw ArchiveException('Data error.');
         }
 
-        c_state_out_len = 1;
-        c_state_out_ch = k0;
+        cStateOutLen = 1;
+        cStateOutCh = k0;
         tPos = _tt[tPos];
         k1 = tPos & 0xff;
         tPos >>= 8;
         if (rNToGo == 0) {
-          rNToGo = BZ2_rNums[rTPos];
+          rNToGo = bz2RNums[rTPos];
           rTPos++;
           if (rTPos == 512) {
             rTPos = 0;
@@ -564,8 +562,8 @@ class BZip2Decoder {
         }
         rNToGo--;
         k1 ^= ((rNToGo == 1) ? 1 : 0);
-        c_nblock_used++;
-        if (c_nblock_used == s_save_nblockPP) {
+        cNBlockUsed++;
+        if (cNBlockUsed == sSaveNBlockPP) {
           continue;
         }
         if (k1 != k0) {
@@ -573,20 +571,20 @@ class BZip2Decoder {
           continue;
         }
 
-        c_state_out_len = 2;
+        cStateOutLen = 2;
         tPos = _tt[tPos];
         k1 = tPos & 0xff;
         tPos >>= 8;
         if (rNToGo == 0) {
-          rNToGo = BZ2_rNums[rTPos];
+          rNToGo = bz2RNums[rTPos];
           rTPos++;
           if (rTPos == 512) {
             rTPos = 0;
           }
         }
         k1 ^= ((rNToGo == 1) ? 1 : 0);
-        c_nblock_used++;
-        if (c_nblock_used == s_save_nblockPP) {
+        cNBlockUsed++;
+        if (cNBlockUsed == sSaveNBlockPP) {
           continue;
         }
         if (k1 != k0) {
@@ -594,20 +592,20 @@ class BZip2Decoder {
           continue;
         }
 
-        c_state_out_len = 3;
+        cStateOutLen = 3;
         tPos = _tt[tPos];
         k1 = tPos & 0xff;
         tPos >>= 8;
         if (rNToGo == 0) {
-          rNToGo = BZ2_rNums[rTPos];
+          rNToGo = bz2RNums[rTPos];
           rTPos++;
           if (rTPos == 512) {
             rTPos = 0;
           }
         }
         k1 ^= ((rNToGo == 1) ? 1 : 0);
-        c_nblock_used++;
-        if (c_nblock_used == s_save_nblockPP) {
+        cNBlockUsed++;
+        if (cNBlockUsed == sSaveNBlockPP) {
           continue;
         }
         if (k1 != k0) {
@@ -619,60 +617,60 @@ class BZip2Decoder {
         k1 = tPos & 0xff;
         tPos >>= 8;
         if (rNToGo == 0) {
-          rNToGo = BZ2_rNums[rTPos];
+          rNToGo = bz2RNums[rTPos];
           rTPos++;
           if (rTPos == 512) {
             rTPos = 0;
           }
         }
         k1 ^= ((rNToGo == 1) ? 1 : 0);
-        c_nblock_used++;
-        c_state_out_len = k1 + 4;
+        cNBlockUsed++;
+        cStateOutLen = k1 + 4;
 
         tPos = _tt[tPos];
         k0 = tPos & 0xff;
         tPos >>= 8;
         if (rNToGo == 0) {
-          rNToGo = BZ2_rNums[rTPos];
+          rNToGo = bz2RNums[rTPos];
           rTPos++;
           if (rTPos == 512) {
             rTPos = 0;
           }
         }
         k0 ^= ((rNToGo == 1) ? 1 : 0);
-        c_nblock_used++;
+        cNBlockUsed++;
       }
     } else {
       while (true) {
         // try to finish existing run
-        if (c_state_out_len > 0) {
+        if (cStateOutLen > 0) {
           while (true) {
-            if (c_state_out_len == 1) {
+            if (cStateOutLen == 1) {
               break;
             }
 
-            output.writeByte(c_state_out_ch);
-            blockCrc = BZip2.updateCrc(c_state_out_ch, blockCrc);
+            output.writeByte(cStateOutCh);
+            blockCrc = BZip2.updateCrc(cStateOutCh, blockCrc);
 
-            c_state_out_len--;
+            cStateOutLen--;
           }
 
-          output.writeByte(c_state_out_ch);
-          blockCrc = BZip2.updateCrc(c_state_out_ch, blockCrc);
+          output.writeByte(cStateOutCh);
+          blockCrc = BZip2.updateCrc(cStateOutCh, blockCrc);
         }
 
         // Only caused by corrupt data stream?
-        if (c_nblock_used > s_save_nblockPP) {
+        if (cNBlockUsed > sSaveNBlockPP) {
           throw ArchiveException('Data error');
         }
 
         // can a run be started?
-        if (c_nblock_used == s_save_nblockPP) {
-          c_state_out_len = 0;
+        if (cNBlockUsed == sSaveNBlockPP) {
+          cStateOutLen = 0;
           return blockCrc;
         }
 
-        c_state_out_ch = c_k0;
+        cStateOutCh = cK0;
 
         int k1;
 
@@ -683,55 +681,55 @@ class BZip2Decoder {
         k1 = tPos & 0xff;
         tPos >>= 8;
 
-        c_nblock_used++;
-        if (k1 != c_k0) {
-          c_k0 = k1;
-          output.writeByte(c_state_out_ch);
-          blockCrc = BZip2.updateCrc(c_state_out_ch, blockCrc);
-          c_state_out_len = 0;
+        cNBlockUsed++;
+        if (k1 != cK0) {
+          cK0 = k1;
+          output.writeByte(cStateOutCh);
+          blockCrc = BZip2.updateCrc(cStateOutCh, blockCrc);
+          cStateOutLen = 0;
           continue;
         }
 
-        if (c_nblock_used == s_save_nblockPP) {
-          output.writeByte(c_state_out_ch);
-          blockCrc = BZip2.updateCrc(c_state_out_ch, blockCrc);
-          c_state_out_len = 0;
+        if (cNBlockUsed == sSaveNBlockPP) {
+          output.writeByte(cStateOutCh);
+          blockCrc = BZip2.updateCrc(cStateOutCh, blockCrc);
+          cStateOutLen = 0;
           continue;
         }
 
-        c_state_out_len = 2;
+        cStateOutLen = 2;
         if (tPos >= 100000 * _blockSize100k) {
           throw ArchiveException('Data Error');
         }
         tPos = _tt[tPos];
         k1 = tPos & 0xff;
         tPos >>= 8;
-        c_nblock_used++;
+        cNBlockUsed++;
 
-        if (c_nblock_used == s_save_nblockPP) {
+        if (cNBlockUsed == sSaveNBlockPP) {
           continue;
         }
 
-        if (k1 != c_k0) {
-          c_k0 = k1;
+        if (k1 != cK0) {
+          cK0 = k1;
           continue;
         }
 
-        c_state_out_len = 3;
+        cStateOutLen = 3;
         if (tPos >= 100000 * _blockSize100k) {
           throw ArchiveException('Data Error');
         }
         tPos = _tt[tPos];
         k1 = tPos & 0xff;
         tPos >>= 8;
-        c_nblock_used++;
+        cNBlockUsed++;
 
-        if (c_nblock_used == s_save_nblockPP) {
+        if (cNBlockUsed == sSaveNBlockPP) {
           continue;
         }
 
-        if (k1 != c_k0) {
-          c_k0 = k1;
+        if (k1 != cK0) {
+          cK0 = k1;
           continue;
         }
 
@@ -741,18 +739,18 @@ class BZip2Decoder {
         tPos = _tt[tPos];
         k1 = tPos & 0xff;
         tPos >>= 8;
-        c_nblock_used++;
+        cNBlockUsed++;
 
-        c_state_out_len = k1 + 4;
+        cStateOutLen = k1 + 4;
 
         if (tPos >= 100000 * _blockSize100k) {
           throw ArchiveException('Data Error');
         }
         tPos = _tt[tPos];
-        c_k0 = tPos & 0xff;
+        cK0 = tPos & 0xff;
         tPos >>= 8;
 
-        c_nblock_used++;
+        cNBlockUsed++;
       }
     }
 
@@ -766,7 +764,7 @@ class BZip2Decoder {
         throw ArchiveException('Data error');
       }
 
-      _groupPos = BZ_G_SIZE;
+      _groupPos = bzGSize;
       _gSel = _selector[_groupNo];
       _gMinlen = _minLens[_gSel];
       _gLimit = _limit[_gSel];
@@ -791,7 +789,7 @@ class BZip2Decoder {
       zvec = (zvec << 1) | zj;
     }
 
-    if (zvec - _gBase[zn] < 0 || zvec - _gBase[zn] >= BZ_MAX_ALPHA_SIZE) {
+    if (zvec - _gBase[zn] < 0 || zvec - _gBase[zn] >= bzMaxAlphaSize) {
       throw ArchiveException('Data error');
     }
 
@@ -810,7 +808,7 @@ class BZip2Decoder {
       }
     }
 
-    for (var i = 0; i < BZ_MAX_CODE_LEN; i++) {
+    for (var i = 0; i < bzMaxCodeLen; i++) {
       base[i] = 0;
     }
 
@@ -818,11 +816,11 @@ class BZip2Decoder {
       base[length[i] + 1]++;
     }
 
-    for (var i = 1; i < BZ_MAX_CODE_LEN; i++) {
+    for (var i = 1; i < bzMaxCodeLen; i++) {
       base[i] += base[i - 1];
     }
 
-    for (var i = 0; i < BZ_MAX_CODE_LEN; i++) {
+    for (var i = 0; i < bzMaxCodeLen; i++) {
       limit[i] = 0;
     }
 
@@ -877,21 +875,21 @@ class BZip2Decoder {
   late List<Uint8List> _len;
   int _numInUse = 0;
 
-  static const int BZ_N_GROUPS = 6;
-  static const int BZ_G_SIZE = 50;
-  static const int BZ_N_ITERS = 4;
-  static const int BZ_MAX_ALPHA_SIZE = 258;
-  static const int BZ_MAX_CODE_LEN = 23;
-  static const int BZ_MAX_SELECTORS = (2 + (900000 ~/ BZ_G_SIZE));
-  static const int MTFA_SIZE = 4096;
-  static const int MTFL_SIZE = 16;
-  static const int BZ_RUNA = 0;
-  static const int BZ_RUNB = 1;
+  static const int bzNGroups = 6;
+  static const int bzGSize = 50;
+  static const int bzNIters = 4;
+  static const int bzMaxAlphaSize = 258;
+  static const int bzMaxCodeLen = 23;
+  static const int bzMaxSelectors = (2 + (900000 ~/ bzGSize));
+  static const int mtfaSize = 4096;
+  static const int mtflSize = 16;
+  static const int bzRunA = 0;
+  static const int bzRunB = 1;
 
-  static const int BLOCK_COMPRESSED = 0;
-  static const int BLOCK_EOS = 2;
+  static const int blockCompressed = 0;
+  static const int blockEos = 2;
 
-  static const List<int> BZ2_rNums = [
+  static const List<int> bz2RNums = [
     619,
     720,
     127,

@@ -118,13 +118,13 @@ void main() {
     input.close();
     output.close();
 
-    var a_bytes = File(p.join(testDirPath, 'res/cat.jpg')).readAsBytesSync();
-    var b_bytes = File(p.join(testDirPath, 'out/cat2.jpg')).readAsBytesSync();
+    var aBytes = File(p.join(testDirPath, 'res/cat.jpg')).readAsBytesSync();
+    var bBytes = File(p.join(testDirPath, 'out/cat2.jpg')).readAsBytesSync();
 
-    expect(a_bytes.length, equals(b_bytes.length));
+    expect(aBytes.length, equals(bBytes.length));
     var same = true;
-    for (var i = 0; same && i < a_bytes.length; ++i) {
-      same = a_bytes[i] == b_bytes[i];
+    for (var i = 0; same && i < aBytes.length; ++i) {
+      same = aBytes[i] == bBytes[i];
     }
     expect(same, equals(true));
   });

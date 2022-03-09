@@ -23,8 +23,8 @@ class TarDecoder {
     // TarFile paxHeader = null;
     while (!input.isEOS) {
       // End of archive when two consecutive 0's are found.
-      final end_check = input.peekBytes(2).toUint8List();
-      if (end_check.length < 2 || (end_check[0] == 0 && end_check[1] == 0)) {
+      final endCheck = input.peekBytes(2).toUint8List();
+      if (endCheck.length < 2 || (endCheck[0] == 0 && endCheck[1] == 0)) {
         break;
       }
 

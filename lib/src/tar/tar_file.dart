@@ -162,14 +162,14 @@ class TarFile {
       sum += b;
     }
 
-    var sum_str = sum.toRadixString(8); // octal basis
-    while (sum_str.length < 6) {
-      sum_str = '0' + sum_str;
+    var sumStr = sum.toRadixString(8); // octal basis
+    while (sumStr.length < 6) {
+      sumStr = '0' + sumStr;
     }
 
-    var checksum_index = 148; // checksum is at 148th byte
+    var checksumIndex = 148; // checksum is at 148th byte
     for (var i = 0; i < 6; ++i) {
-      headerBytes[checksum_index++] = sum_str.codeUnits[i];
+      headerBytes[checksumIndex++] = sumStr.codeUnits[i];
     }
     headerBytes[154] = 0;
     headerBytes[155] = 32;

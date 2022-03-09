@@ -34,14 +34,14 @@ void main() {
         final output = OutputFileStream(tarPath);
         GZipDecoder().decodeStream(input, output);
 
-        final a_bytes = File(tarPath).readAsBytesSync();
-        final b_bytes =
+        final aBytes = File(tarPath).readAsBytesSync();
+        final bBytes =
             File(p.join(testDirPath, 'res/test2.tar')).readAsBytesSync();
 
-        expect(a_bytes.length, equals(b_bytes.length));
+        expect(aBytes.length, equals(bBytes.length));
         var same = true;
-        for (var i = 0; same && i < a_bytes.length; ++i) {
-          same = a_bytes[i] == b_bytes[i];
+        for (var i = 0; same && i < aBytes.length; ++i) {
+          same = aBytes[i] == bBytes[i];
         }
         expect(same, equals(true));
 

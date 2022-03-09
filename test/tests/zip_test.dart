@@ -361,7 +361,7 @@ void main() {
     for (var i = 0; i < archive.numberOfFiles(); ++i) {
       final zBytes = archive.fileData(i);
       if (archive.fileName(i) == 'hello.txt') {
-        compare_bytes(zBytes, bBytes);
+        compareBytes(zBytes, bBytes);
       } else {
         throw TestFailure('Invalid file found');
       }
@@ -382,9 +382,9 @@ void main() {
     for (var i = 0; i < archive.numberOfFiles(); ++i) {
       final zBytes = archive.fileData(i);
       if (archive.fileName(i) == 'a.txt') {
-        compare_bytes(zBytes, aBytes);
+        compareBytes(zBytes, aBytes);
       } else if (archive.fileName(i) == 'cat.jpg') {
-        compare_bytes(zBytes, bBytes);
+        compareBytes(zBytes, bBytes);
       } else {
         throw TestFailure('Invalid file found');
       }

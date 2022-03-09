@@ -21,8 +21,9 @@ class GZipDecoder {
   void decodeStream(InputStreamBase input, dynamic output) {
     _readHeader(input);
     Inflate.stream(input, output);
-    if (output is OutputStreamBase)
+    if (output is OutputStreamBase) {
       output.flush();
+    }
   }
 
   List<int> decodeBuffer(InputStreamBase input, {bool verify = false}) {

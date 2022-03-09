@@ -29,7 +29,7 @@ class GZipEncoder {
   static const int OS_UNKNOWN = 255;
 
   List<int>? encode(dynamic data, {int? level, dynamic output}) {
-    dynamic output_stream = output ?? OutputStream();
+    dynamic outputStream = output ?? OutputStream();
 
     // The GZip format has the following structure:
     // Offset   Length   Contents
@@ -72,42 +72,42 @@ class GZipEncoder {
     //        4 bytes  crc32
     //        4 bytes  uncompressed input size modulo 2^32
 
-    output_stream.writeUint16(SIGNATURE);
-    output_stream.writeByte(DEFLATE);
+    outputStream.writeUint16(SIGNATURE);
+    outputStream.writeByte(DEFLATE);
 
     var flags = 0;
     var fileModTime = DateTime.now().millisecondsSinceEpoch ~/ 1000;
     var extraFlags = 0;
     var osType = OS_UNKNOWN;
 
-    output_stream.writeByte(flags);
-    output_stream.writeUint32(fileModTime);
-    output_stream.writeByte(extraFlags);
-    output_stream.writeByte(osType);
+    outputStream.writeByte(flags);
+    outputStream.writeUint32(fileModTime);
+    outputStream.writeByte(extraFlags);
+    outputStream.writeByte(osType);
 
     Deflate deflate;
     if (data is List<int>) {
-      deflate = Deflate(data, level: level, output: output_stream);
+      deflate = Deflate(data, level: level, output: outputStream);
     } else {
       deflate = Deflate.buffer(data as InputStreamBase,
-          level: level, output: output_stream);
+          level: level, output: outputStream);
     }
 
-    if (!(output_stream is OutputStream)) {
+    if (outputStream is! OutputStream) {
       deflate.finish();
     }
 
-    output_stream.writeUint32(deflate.crc32);
+    outputStream.writeUint32(deflate.crc32);
 
-    output_stream.writeUint32(data.length);
+    outputStream.writeUint32(data.length);
 
-    if (output_stream is OutputStreamBase)
-      output_stream.flush();
-
-    if (output_stream is OutputStream) {
-      return output_stream.getBytes();
-    } else {
-      return null;
+    if (outputStream is OutputStreamBase) {
+      outputStream.flush();
     }
+
+    if (outputStream is OutputStream) {
+      return outputStream.getBytes();
+    }
+    return null;
   }
 }

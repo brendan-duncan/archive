@@ -65,15 +65,14 @@ class InputStream extends InputStreamBase {
 
   /// Create a InputStream for reading from a List<int>
   InputStream(dynamic data,
-      {this.byteOrder = LITTLE_ENDIAN, int start = 0, int? length})
+      {this.byteOrder = LITTLE_ENDIAN, this.start = 0, int? length})
       : buffer = data is TypedData
             ? Uint8List.view(
                 data.buffer, data.offsetInBytes, data.lengthInBytes)
             : data is List<int>
                 ? data
                 : List<int>.from(data as Iterable<dynamic>),
-        offset = start,
-        start = start {
+        offset = start {
     _length = length ?? buffer.length;
   }
 

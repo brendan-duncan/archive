@@ -5,11 +5,11 @@ import 'zip_file_header.dart';
 
 class ZipDirectory {
   // End of Central Directory Record
-  static const int SIGNATURE = 0x06054b50;
-  static const int ZIP64_EOCD_LOCATOR_SIGNATURE = 0x07064b50;
-  static const int ZIP64_EOCD_LOCATOR_SIZE = 20;
-  static const int ZIP64_EOCD_SIGNATURE = 0x06064b50;
-  static const int ZIP64_EOCD_SIZE = 56;
+  static const int signature = 0x06054b50;
+  static const int zip64EocdLocatorSignature = 0x07064b50;
+  static const int zip64EocdLocatorSize = 20;
+  static const int zip64EocdSignature = 0x06064b50;
+  static const int zip64EocdSize = 56;
 
   int filePosition = -1;
   int numberOfThisDisk = 0; // 2 bytes
@@ -67,15 +67,15 @@ class ZipDirectory {
     // end of central directory record 8 bytes
     // total number of disks           4 bytes
 
-    final locPos = filePosition - ZIP64_EOCD_LOCATOR_SIZE;
+    final locPos = filePosition - zip64EocdLocatorSize;
     if (locPos < 0) {
       return;
     }
-    final zip64 = input.subset(locPos, ZIP64_EOCD_LOCATOR_SIZE);
+    final zip64 = input.subset(locPos, zip64EocdLocatorSize);
 
     var sig = zip64.readUint32();
     // If this ins't the signature we're looking for, nothing more to do.
-    if (sig != ZIP64_EOCD_LOCATOR_SIGNATURE) {
+    if (sig != zip64EocdLocatorSignature) {
       input.position = ip;
       return;
     }
@@ -105,7 +105,7 @@ class ZipDirectory {
     // the starting disk number        8 bytes
     // zip64 extensible data sector    (variable size)
     sig = input.readUint32();
-    if (sig != ZIP64_EOCD_SIGNATURE) {
+    if (sig != zip64EocdSignature) {
       input.position = ip;
       return;
     }
@@ -141,7 +141,7 @@ class ZipDirectory {
     for (var ip = length - 5; ip >= 0; --ip) {
       input.position = ip;
       final sig = input.readUint32();
-      if (sig == SIGNATURE) {
+      if (sig == signature) {
         input.position = pos;
         return ip;
       }

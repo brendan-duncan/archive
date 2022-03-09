@@ -26,7 +26,9 @@ void listFiles(String path) {
   tarArchive.decodeBuffer(tarInput, storeData: false);
 
   print('${tarArchive.files.length} file(s)');
-  tarArchive.files.forEach((f) => print('  $f'));
+  for (var f in tarArchive.files) {
+    print('  $f');
+  }
 }
 
 /// Extract the entries in the given tar file to a directory.

@@ -76,10 +76,10 @@ void main() {
       final compressed = file.readAsBytesSync();
 
       var b = File(p.join(testDirPath, 'res/cat.jpg'));
-      final b_bytes = b.readAsBytesSync();
+      final bBytes = b.readAsBytesSync();
 
       var data = XZDecoder().decodeBytes(compressed);
-      compare_bytes(data, b_bytes);
+      compareBytes(data, bBytes);
     });
   });
 }

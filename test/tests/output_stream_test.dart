@@ -23,16 +23,16 @@ void main() {
   test('writeUint16', () {
     final out = OutputStream();
 
-    const LEN = 0xffff;
-    for (var i = 0; i < LEN; ++i) {
+    const len = 0xffff;
+    for (var i = 0; i < len; ++i) {
       out.writeUint16(i);
     }
 
     final bytes = out.getBytes();
-    expect(bytes.length, equals(LEN * 2));
+    expect(bytes.length, equals(len * 2));
 
     final input = InputStream(bytes);
-    for (var i = 0; i < LEN; ++i) {
+    for (var i = 0; i < len; ++i) {
       final x = input.readUint16();
       expect(x, equals(i));
     }
@@ -41,16 +41,16 @@ void main() {
   test('writeUint32', () {
     final out = OutputStream();
 
-    const LEN = 0xffff;
-    for (var i = 0; i < LEN; ++i) {
+    const len = 0xffff;
+    for (var i = 0; i < len; ++i) {
       out.writeUint32(0xffff + i);
     }
 
     var bytes = out.getBytes();
-    expect(bytes.length, equals(LEN * 4));
+    expect(bytes.length, equals(len * 4));
 
     final input = InputStream(bytes);
-    for (var i = 0; i < LEN; ++i) {
+    for (var i = 0; i < len; ++i) {
       final x = input.readUint32();
       expect(x, equals(0xffff + i));
     }

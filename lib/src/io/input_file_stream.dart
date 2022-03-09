@@ -75,10 +75,9 @@ class InputFileStream extends InputStreamBase {
 
   static const int kDefaultBufferSize = 4096;
 
-  InputFileStream(String path,
+  InputFileStream(this.path,
       {this.byteOrder = LITTLE_ENDIAN, int bufferSize = kDefaultBufferSize})
-      : path = path
-      , _file = FileHandle(path) {
+      : _file = FileHandle(path) {
     _fileSize = _file.length;
     // Don't have a buffer bigger than the file itself.
     // Also, make sure it's at least 8 bytes, so reading a 64-bit value doesn't
@@ -98,6 +97,7 @@ class InputFileStream extends InputStreamBase {
     _readBuffer();
   }
 
+  @override
   void close() {
     _file.close();
     _fileSize = 0;
@@ -137,12 +137,12 @@ class InputFileStream extends InputStreamBase {
   }
 
   @override
-  void skip(int count) {
-    if ((_bufferPosition + count) < _bufferSize) {
-      _bufferPosition += count;
-      _position += count;
+  void skip(int length) {
+    if ((_bufferPosition + length) < _bufferSize) {
+      _bufferPosition += length;
+      _position += length;
     } else {
-      _position += count;
+      _position += length;
       _readBuffer();
     }
   }
@@ -160,14 +160,14 @@ class InputFileStream extends InputStreamBase {
   }
 
   @override
-  void rewind([int count = 1]) {
-    if ((_bufferPosition - count) < 0) {
-      _position = max(_position - count, 0);
+  void rewind([int length = 1]) {
+    if ((_bufferPosition - length) < 0) {
+      _position = max(_position - length, 0);
       _readBuffer();
       return;
     }
-    _bufferPosition -= count;
-    _position -= count;
+    _bufferPosition -= length;
+    _position -= length;
   }
 
   @override
@@ -306,11 +306,11 @@ class InputFileStream extends InputStreamBase {
   }
 
   @override
-  InputStreamBase readBytes(int length) {
-    length = min(length, fileRemaining);
+  InputStreamBase readBytes(int count) {
+    count = min(count, fileRemaining);
     final bytes = InputFileStream.clone(this, position: _position,
-        length: length);
-    skip(length);
+        length: count);
+    skip(count);
     return bytes;
   }
 
@@ -324,8 +324,9 @@ class InputFileStream extends InputStreamBase {
     _file.position = _fileOffset + _position;
     final readBytes = _file.readInto(bytes);
     skip(length);
-    if (readBytes != bytes.length)
+    if (readBytes != bytes.length) {
       bytes.length = readBytes;
+    }
     return bytes;
   }
 

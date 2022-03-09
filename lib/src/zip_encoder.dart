@@ -52,7 +52,7 @@ class ZipEncoder {
   OutputStreamBase? _output;
 
   /// Bit 11 of the general purpose flag, Language encoding flag
-  final int LANGAUGE_ENCODING_BIT_UTF8 = 2048;
+  final int languageEncodingBitUtf8 = 2048;
 
   List<int>? encode(Archive archive,
       {int level = Deflate.BEST_SPEED,
@@ -168,8 +168,9 @@ class ZipEncoder {
   void endEncode({String? comment = ''}) {
     // Write Central Directory and End Of Central Directory
     _writeCentralDirectory(_data.files, comment, _output!);
-    if (_output is OutputStreamBase)
+    if (_output is OutputStreamBase) {
       _output!.flush();
+    }
   }
 
   void _writeFile(_ZipFileData fileData, OutputStreamBase output) {
@@ -178,7 +179,7 @@ class ZipEncoder {
     output.writeUint32(ZipFile.SIGNATURE);
 
     final version = VERSION;
-    final flags = LANGAUGE_ENCODING_BIT_UTF8;
+    final flags = languageEncodingBitUtf8;
     final compressionMethod =
         fileData.compress ? ZipFile.DEFLATE : ZipFile.STORE;
     final lastModFileTime = fileData.time;
@@ -270,7 +271,7 @@ class ZipEncoder {
     final centralDirectorySize = output.length - centralDirPosition;
     final centralDirectoryOffset = centralDirPosition;
 
-    output.writeUint32(ZipDirectory.SIGNATURE);
+    output.writeUint32(ZipDirectory.signature);
     output.writeUint16(numberOfThisDisk);
     output.writeUint16(diskWithTheStartOfTheCentralDirectory);
     output.writeUint16(totalCentralDirectoryEntriesOnThisDisk);
