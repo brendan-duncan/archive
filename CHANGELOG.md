@@ -1,3 +1,8 @@
+## 3.2.2 - March 09, 2022
+
+* Re-add List<int> content data for ArchiveFile.
+* Add String and TypedData (Int32List, Float32List, etc) content data for ArchiveFile. 
+
 ## 3.2.1 - February 17, 2022
 
 * Added buffer to OutputFileStream to improve performance by reducing the number of file writes.
