@@ -1,5 +1,6 @@
 # archive
-[![Build Status](https://travis-ci.org/brendan-duncan/archive.svg?branch=master)](https://travis-ci.org/brendan-duncan/archive)
+[![Dart CI](https://github.com/brendan-duncan/archive/actions/workflows/build.yaml/badge.svg)](https://github.com/brendan-duncan/archive/actions/workflows/build.yaml)
+[![pub package](https://img.shields.io/pub/v/archive.svg)](https://pub.dev/packages/archive)
 
 ## Overview
 
