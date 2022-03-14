@@ -1,3 +1,5 @@
+// ignore_for_file: avoid_print
+
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -217,7 +219,8 @@ void main() {
   test('tarDirectory', () {
     // Encode a directory from disk to disk, no memory
     final encoder = TarFileEncoder();
-    encoder.tarDirectory(Directory('$testDirPath/res/test2'), filename: '$testDirPath/out/example2.tgz', compression:1);
+    encoder.tarDirectory(Directory('$testDirPath/res/test2'),
+        filename: '$testDirPath/out/example2.tgz', compression: 1);
     encoder.close();
   });
 
