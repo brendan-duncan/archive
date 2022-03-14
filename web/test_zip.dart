@@ -1,5 +1,8 @@
+// ignore_for_file: avoid_print
+
 import 'dart:html';
 import 'dart:typed_data';
+
 import 'package:archive/archive.dart';
 
 void main() {

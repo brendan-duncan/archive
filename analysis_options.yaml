@@ -16,4 +16,5 @@ analyzer:
 
 linter:
   rules:
+    - avoid_print
     - camel_case_types

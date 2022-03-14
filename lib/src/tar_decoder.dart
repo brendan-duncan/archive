@@ -1,7 +1,9 @@
-import 'tar/tar_file.dart';
-import 'util/input_stream.dart';
+import 'dart:convert';
+
 import 'archive.dart';
 import 'archive_file.dart';
+import 'tar/tar_file.dart';
+import 'util/input_stream.dart';
 
 final paxRecordRegexp = RegExp(r"(\d+) (\w+)=(.*)");
 
@@ -48,12 +50,11 @@ class TarDecoder {
       }
       if (tf.typeFlag == TarFile.TYPE_EX_HEADER ||
           tf.typeFlag == TarFile.TYPE_EX_HEADER2) {
-        tf.rawContent!
-            .readString()
+        utf8
+            .decode(tf.rawContent!.toUint8List())
             .split('\n')
             .where((s) => paxRecordRegexp.hasMatch(s))
             .forEach((record) {
-          print('Record: $record');
           var match = paxRecordRegexp.firstMatch(record)!;
           var keyword = match.group(2);
           var value = match.group(3)!;
