@@ -5,7 +5,7 @@ import 'package:crypto/crypto.dart' as crypto;
 /// already computed adler checksum by specifying the previous [adler] value.
 int getAdler32(List<int> array, [int adler = 1]) {
   // largest prime smaller than 65536
-  const BASE = 65521;
+  const base = 65521;
 
   var s1 = adler & 0xffff;
   var s2 = adler >> 16;
@@ -21,8 +21,8 @@ int getAdler32(List<int> array, [int adler = 1]) {
       s1 = s1 + (array[i++] & 0xff);
       s2 = s2 + s1;
     }
-    s1 %= BASE;
-    s2 %= BASE;
+    s1 %= base;
+    s2 %= base;
   }
 
   return (s2 << 16) | s1;

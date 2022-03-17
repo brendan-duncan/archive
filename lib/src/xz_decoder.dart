@@ -62,7 +62,7 @@ class _XZStreamDecoder {
 
   // Reads an XZ steam header from [input].
   void _readStreamHeader(InputStreamBase input) {
-    var magic = input.readBytes(6);
+    var magic = input.readBytes(6).toUint8List();
     var magicIsValid = magic[0] == 253 &&
         magic[1] == 55 /* '7' */ &&
         magic[2] == 122 /* 'z' */ &&
@@ -111,7 +111,7 @@ class _XZStreamDecoder {
     for (var i = 0; i < nFilters; i++) {
       var id = _readMultibyteInteger(header);
       var propertiesLength = _readMultibyteInteger(header);
-      var properties = header.readBytes(propertiesLength);
+      var properties = header.readBytes(propertiesLength).toUint8List();
       if (id == 0x21) {
         var v = properties[0];
         if (v > 40) {
@@ -346,7 +346,7 @@ class _XZStreamDecoder {
       throw ArchiveException('Invalid stream footer CRC checksum');
     }
 
-    var magic = input.readBytes(2);
+    var magic = input.readBytes(2).toUint8List();
     if (magic[0] != 89 /* 'Y' */ && magic[1] != 90 /* 'Z' */) {
       throw ArchiveException('Invalid XZ stream footer signature');
     }

@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:crypto/crypto.dart' as crypto;
 
 /// Get the CRC-32 checksum of the given int.
-int CRC32(int crc, int b) => _CRC32_TABLE[(crc ^ b) & 0xff] ^ (crc >> 8);
+int CRC32(int crc, int b) => _crc32Table[(crc ^ b) & 0xff] ^ (crc >> 8);
 
 /// Get the CRC-32 checksum of the given array. You can append bytes to an
 /// already computed crc by specifying the previous [crc] value.
@@ -11,19 +11,19 @@ int getCrc32(List<int> array, [int crc = 0]) {
   crc = crc ^ 0xffffffff;
   var ip = 0;
   while (len >= 8) {
-    crc = _CRC32_TABLE[(crc ^ array[ip++]) & 0xff] ^ (crc >> 8);
-    crc = _CRC32_TABLE[(crc ^ array[ip++]) & 0xff] ^ (crc >> 8);
-    crc = _CRC32_TABLE[(crc ^ array[ip++]) & 0xff] ^ (crc >> 8);
-    crc = _CRC32_TABLE[(crc ^ array[ip++]) & 0xff] ^ (crc >> 8);
-    crc = _CRC32_TABLE[(crc ^ array[ip++]) & 0xff] ^ (crc >> 8);
-    crc = _CRC32_TABLE[(crc ^ array[ip++]) & 0xff] ^ (crc >> 8);
-    crc = _CRC32_TABLE[(crc ^ array[ip++]) & 0xff] ^ (crc >> 8);
-    crc = _CRC32_TABLE[(crc ^ array[ip++]) & 0xff] ^ (crc >> 8);
+    crc = _crc32Table[(crc ^ array[ip++]) & 0xff] ^ (crc >> 8);
+    crc = _crc32Table[(crc ^ array[ip++]) & 0xff] ^ (crc >> 8);
+    crc = _crc32Table[(crc ^ array[ip++]) & 0xff] ^ (crc >> 8);
+    crc = _crc32Table[(crc ^ array[ip++]) & 0xff] ^ (crc >> 8);
+    crc = _crc32Table[(crc ^ array[ip++]) & 0xff] ^ (crc >> 8);
+    crc = _crc32Table[(crc ^ array[ip++]) & 0xff] ^ (crc >> 8);
+    crc = _crc32Table[(crc ^ array[ip++]) & 0xff] ^ (crc >> 8);
+    crc = _crc32Table[(crc ^ array[ip++]) & 0xff] ^ (crc >> 8);
     len -= 8;
   }
   if (len > 0) {
     do {
-      crc = _CRC32_TABLE[(crc ^ array[ip++]) & 0xff] ^ (crc >> 8);
+      crc = _crc32Table[(crc ^ array[ip++]) & 0xff] ^ (crc >> 8);
     } while (--len > 0);
   }
   return crc ^ 0xffffffff;
@@ -93,7 +93,7 @@ class _Crc32Sink extends ByteConversionSinkBase {
 }
 
 // Precomputed CRC table for faster calculations.
-const List<int> _CRC32_TABLE = [
+const List<int> _crc32Table = [
   0,
   1996959894,
   3993919788,

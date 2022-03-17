@@ -1,17 +1,20 @@
-include: package:pedantic/analysis_options.yaml
-
-linter:
-  rules:
-    - camel_case_types
+include: package:lints/recommended.yaml
 
 analyzer:
+  strong-mode:
+    implicit-casts: false
+    implicit-dynamic: false
   errors:
+    constant_identifier_names: ignore
+    non_constant_identifier_names: ignore
     unused_element: error
     unused_field: error
     unused_local_variable: error
   exclude:
-    - test/res/**
-    - test/out/**
-  strong-mode:
-    implicit-casts: false
-    implicit-dynamic: false
+    - test/tests/res/**
+    - test/tests/out/**
+
+linter:
+  rules:
+    - avoid_print
+    - camel_case_types

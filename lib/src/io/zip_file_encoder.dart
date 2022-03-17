@@ -8,7 +8,7 @@ import 'input_file_stream.dart';
 import 'output_file_stream.dart';
 
 class ZipFileEncoder {
-  late String zip_path;
+  late String zipPath;
   late OutputFileStream _output;
   late ZipEncoder _encoder;
 
@@ -21,20 +21,20 @@ class ZipFileEncoder {
       bool followLinks = true,
       DateTime? modified}) {
     final dirPath = dir.path;
-    final zip_path = filename ?? '$dirPath.zip';
+    final zipPath = filename ?? '$dirPath.zip';
     level ??= GZIP;
-    create(zip_path, level: level, modified: modified);
+    create(zipPath, level: level, modified: modified);
     addDirectory(dir,
         includeDirName: false, level: level, followLinks: followLinks);
     close();
   }
 
-  void open(String zip_path) => create(zip_path);
+  void open(String zipPath) => create(zipPath);
 
-  void create(String zip_path, {int? level, DateTime? modified}) {
-    this.zip_path = zip_path;
+  void create(String zipPath, {int? level, DateTime? modified}) {
+    this.zipPath = zipPath;
 
-    _output = OutputFileStream(zip_path);
+    _output = OutputFileStream(zipPath);
     _encoder = ZipEncoder();
     _encoder.startEncode(_output, level: level, modified: modified);
   }
@@ -48,17 +48,17 @@ class ZipFileEncoder {
       }
 
       final f = file;
-      final dir_name = path.basename(dir.path);
-      final rel_path = path.relative(f.path, from: dir.path);
+      final dirName = path.basename(dir.path);
+      final relPath = path.relative(f.path, from: dir.path);
       addFile(
-          f, includeDirName ? (dir_name + '/' + rel_path) : rel_path, level);
+          f, includeDirName ? (dirName + '/' + relPath) : relPath, level);
     }
   }
 
   void addFile(File file, [String? filename, int? level = GZIP]) {
-    var file_stream = InputFileStream.file(file);
+    var fileStream = InputFileStream(file.path);
     var archiveFile = ArchiveFile.stream(
-        filename ?? path.basename(file.path), file.lengthSync(), file_stream);
+        filename ?? path.basename(file.path), file.lengthSync(), fileStream);
 
     if (level == STORE) {
       archiveFile.compress = false;
@@ -68,7 +68,7 @@ class ZipFileEncoder {
     archiveFile.mode = file.statSync().mode;
 
     _encoder.addFile(archiveFile);
-    file_stream.close();
+    fileStream.close();
   }
 
   void addArchiveFile(ArchiveFile file) {

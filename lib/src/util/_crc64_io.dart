@@ -16,13 +16,13 @@ bool isCrc64Supported_() {
 int getCrc64_(List<int> array, [int crc = 0]) {
   crc ^= 0xffffffffffffffff;
   for (var e in array) {
-    crc = _CRC64_TABLE[(crc & 0xff) ^ e] ^ shiftDown64(crc);
+    crc = _crc64_table[(crc & 0xff) ^ e] ^ shiftDown64(crc);
   }
   return crc ^ 0xffffffffffffffff;
 }
 
 // Precomputed CRC table for faster calculations.
-const List<int> _CRC64_TABLE = [
+const List<int> _crc64_table = [
   0x0000000000000000,
   0xb32e4cbe03a75f6f,
   0xf4843657a840a05b,

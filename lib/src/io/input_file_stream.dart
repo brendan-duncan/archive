@@ -1,80 +1,126 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 import 'dart:typed_data';
 import '../util/archive_exception.dart';
 import '../util/byte_order.dart';
 import '../util/input_stream.dart';
 
+class FileHandle {
+  final String _path;
+  RandomAccessFile? _file;
+  int _position;
+  late int _length;
+
+  FileHandle(this._path)
+  : _file = File(_path).openSync()
+  , _position = 0 {
+    _length = _file!.lengthSync();
+  }
+
+  String get path => _path;
+
+  int get position => _position;
+
+  set position(int p) {
+    if (_file == null || p == _position) {
+      return;
+    }
+    _position = p;
+    _file!.setPositionSync(p);
+  }
+
+  int get length => _length;
+
+  bool get isOpen => _file != null;
+
+  void close() {
+    if (_file == null) {
+      return;
+    }
+    _file!.close();
+    _file = null;
+    _position = 0;
+  }
+
+  void open() {
+    if (_file != null) {
+      return;
+    }
+
+    _file = File(_path).openSync();
+    _position = 0;
+  }
+
+  int readInto(Uint8List buffer, [int? end]) {
+    if (_file == null) {
+      open();
+    }
+    final size = _file!.readIntoSync(buffer, 0, end);
+    _position += size;
+    return size;
+  }
+}
+
 class InputFileStream extends InputStreamBase {
   final String path;
-  final RandomAccessFile _file;
+  final FileHandle _file;
   final int byteOrder;
+  int _fileOffset = 0;
   int _fileSize = 0;
-  final List<int> _buffer;
-
-  int _filePosition = 0;
+  late Uint8List _buffer;
+  int _position = 0;
   int _bufferSize = 0;
   int _bufferPosition = 0;
 
-  static const int _kDefaultBufferSize = 4096;
+  static const int kDefaultBufferSize = 4096;
 
-  InputFileStream(String path,
-      {this.byteOrder = LITTLE_ENDIAN, int bufferSize = _kDefaultBufferSize})
-      : path = path,
-        _file = File(path).openSync(),
-        _buffer = Uint8List(bufferSize) {
-    _fileSize = _file.lengthSync();
-    _readBuffer();
-  }
-
-  InputFileStream.file(File file,
-      {this.byteOrder = LITTLE_ENDIAN, int bufferSize = _kDefaultBufferSize})
-      : path = file.path,
-        _file = file.openSync(),
-        _buffer = Uint8List(bufferSize) {
-    _fileSize = _file.lengthSync();
+  InputFileStream(this.path,
+      {this.byteOrder = LITTLE_ENDIAN, int bufferSize = kDefaultBufferSize})
+      : _file = FileHandle(path) {
+    _fileSize = _file.length;
+    // Don't have a buffer bigger than the file itself.
+    // Also, make sure it's at least 8 bytes, so reading a 64-bit value doesn't
+    // have to deal with buffer overflow.
+    bufferSize = max(min(bufferSize, _fileSize), 8);
+    _buffer = Uint8List(min(bufferSize, 8));
     _readBuffer();
   }
 
   InputFileStream.clone(InputFileStream other, {int? position, int? length})
-    : path = other.path,
-      _file = other._file,
-      byteOrder = other.byteOrder,
-      _fileSize = other._fileSize,
-      _filePosition = other._filePosition,
-      _bufferSize = other._bufferSize,
-      _buffer = Uint8List(other._bufferSize) {
-    if (position != null) {
-      this.position = position;
-    }
-    if (length != null) {
-      _fileSize = this.position + length;
-    }
+    : path = other.path
+    , _file = other._file
+    , byteOrder = other.byteOrder
+    , _fileOffset = other._fileOffset + (position ?? 0)
+    , _fileSize = length ?? other._fileSize
+    , _buffer = Uint8List(kDefaultBufferSize) {
+    _readBuffer();
   }
 
+  @override
   void close() {
-    _file.closeSync();
+    _file.close();
     _fileSize = 0;
+    _position = 0;
   }
 
   @override
   int get length => _fileSize;
 
   @override
-  int get position => _filePosition;
+  int get position => _position;
 
   @override
   set position(int v) {
-    if (v < _filePosition) {
-      rewind(_filePosition - v);
-    } else if (v > _filePosition) {
-      skip(v - _filePosition);
+    if (v < _position) {
+      rewind(_position - v);
+    } else if (v > _position) {
+      skip(v - _position);
     }
   }
 
   @override
-  bool get isEOS =>
-      (_filePosition >= _fileSize) && (_bufferPosition >= _bufferSize);
+  bool get isEOS => _position >= _fileSize;
 
   int get bufferSize => _bufferSize;
 
@@ -82,12 +128,11 @@ class InputFileStream extends InputStreamBase {
 
   int get bufferRemaining => _bufferSize - _bufferPosition;
 
-  int get fileRemaining => _fileSize - _filePosition;
+  int get fileRemaining => _fileSize - _position;
 
   @override
   void reset() {
-    _filePosition = 0;
-    _file.setPositionSync(0);
+    _position = 0;
     _readBuffer();
   }
 
@@ -95,16 +140,10 @@ class InputFileStream extends InputStreamBase {
   void skip(int length) {
     if ((_bufferPosition + length) < _bufferSize) {
       _bufferPosition += length;
+      _position += length;
     } else {
-      var remaining = length - (_bufferSize - _bufferPosition);
-      while (!isEOS) {
-        _readBuffer();
-        if (remaining < _bufferSize) {
-          _bufferPosition += remaining;
-          break;
-        }
-        remaining -= _bufferSize;
-      }
+      _position += length;
+      _readBuffer();
     }
   }
 
@@ -116,40 +155,19 @@ class InputFileStream extends InputStreamBase {
   /// Read [count] bytes from an [offset] of the current read position, without
   /// moving the read position.
   @override
-  InputStream peekBytes(int count, [int offset = 0]) {
-    var end = _bufferPosition + offset + count;
-    if (end > 0 && end < _bufferSize) {
-      final bytes = _buffer.sublist(_bufferPosition + offset, end);
-      return InputStream(bytes);
-    }
-
-    final bytes = Uint8List(count);
-
-    var remaining = _bufferSize - (_bufferPosition + offset);
-    if (remaining > 0) {
-      final bytes1 = _buffer.sublist(_bufferPosition + offset, _bufferSize);
-      bytes.setRange(0, remaining, bytes1);
-    }
-
-    _file.readIntoSync(bytes, remaining, count);
-    _file.setPositionSync(_filePosition);
-
-    return InputStream(bytes);
+  InputStreamBase peekBytes(int count, [int offset = 0]) {
+    return subset(_position + offset, count);
   }
 
   @override
-  void rewind([int count = 1]) {
-    if (_bufferPosition - count < 0) {
-      var remaining = (_bufferPosition - count).abs();
-      _filePosition = _filePosition - _bufferSize - remaining;
-      if (_filePosition < 0) {
-        _filePosition = 0;
-      }
-      _file.setPositionSync(_filePosition);
+  void rewind([int length = 1]) {
+    if ((_bufferPosition - length) < 0) {
+      _position = max(_position - length, 0);
       _readBuffer();
       return;
     }
-    _bufferPosition -= count;
+    _bufferPosition -= length;
+    _position -= length;
   }
 
   @override
@@ -163,6 +181,7 @@ class InputFileStream extends InputStreamBase {
     if (_bufferPosition >= _bufferSize) {
       return 0;
     }
+    _position++;
     return _buffer[_bufferPosition++] & 0xff;
   }
 
@@ -174,6 +193,7 @@ class InputFileStream extends InputStreamBase {
     if ((_bufferPosition + 2) < _bufferSize) {
       b1 = _buffer[_bufferPosition++] & 0xff;
       b2 = _buffer[_bufferPosition++] & 0xff;
+      _position += 2;
     } else {
       b1 = readByte();
       b2 = readByte();
@@ -194,6 +214,7 @@ class InputFileStream extends InputStreamBase {
       b1 = _buffer[_bufferPosition++] & 0xff;
       b2 = _buffer[_bufferPosition++] & 0xff;
       b3 = _buffer[_bufferPosition++] & 0xff;
+      _position += 3;
     } else {
       b1 = readByte();
       b2 = readByte();
@@ -218,6 +239,7 @@ class InputFileStream extends InputStreamBase {
       b2 = _buffer[_bufferPosition++] & 0xff;
       b3 = _buffer[_bufferPosition++] & 0xff;
       b4 = _buffer[_bufferPosition++] & 0xff;
+      _position += 4;
     } else {
       b1 = readByte();
       b2 = readByte();
@@ -251,6 +273,7 @@ class InputFileStream extends InputStreamBase {
       b6 = _buffer[_bufferPosition++] & 0xff;
       b7 = _buffer[_bufferPosition++] & 0xff;
       b8 = _buffer[_bufferPosition++] & 0xff;
+      _position += 8;
     } else {
       b1 = readByte();
       b2 = readByte();
@@ -283,55 +306,28 @@ class InputFileStream extends InputStreamBase {
   }
 
   @override
-  InputStream readBytes(int length) {
-    if (isEOS) {
-      return InputStream(<int>[]);
-    }
-
-    if (_bufferPosition == _bufferSize) {
-      _readBuffer();
-    }
-
-    if (_remainingBufferSize >= length) {
-      final bytes = _buffer.sublist(_bufferPosition, _bufferPosition + length);
-      _bufferPosition += length;
-      return InputStream(bytes);
-    }
-
-    var total_remaining = fileRemaining + _remainingBufferSize;
-    if (length > total_remaining) {
-      length = total_remaining;
-    }
-
-    final bytes = Uint8List(length);
-
-    var offset = 0;
-    while (length > 0) {
-      var remaining = _bufferSize - _bufferPosition;
-      var end = (length > remaining) ? _bufferSize : (_bufferPosition + length);
-      final l = _buffer.sublist(_bufferPosition, end);
-      // TODO probably better to use bytes.setRange here.
-      for (var i = 0; i < l.length; ++i) {
-        bytes[offset + i] = l[i];
-      }
-      offset += l.length;
-      length -= l.length;
-      _bufferPosition = end;
-      if (length > 0 && _bufferPosition == _bufferSize) {
-        _readBuffer();
-        if (_bufferSize == 0) {
-          break;
-        }
-      }
-    }
-
-    return InputStream(bytes);
+  InputStreamBase readBytes(int count) {
+    count = min(count, fileRemaining);
+    final bytes = InputFileStream.clone(this, position: _position,
+        length: count);
+    skip(count);
+    return bytes;
   }
 
   @override
   Uint8List toUint8List() {
-    var bytes = readBytes(_fileSize);
-    return bytes.toUint8List();
+    if (isEOS) {
+      return Uint8List(0);
+    }
+    var length = fileRemaining;
+    final bytes = Uint8List(length);
+    _file.position = _fileOffset + _position;
+    final readBytes = _file.readInto(bytes);
+    skip(length);
+    if (readBytes != bytes.length) {
+      bytes.length = readBytes;
+    }
+    return bytes;
   }
 
   /// Read a null-terminated string, or if [len] is provided, that number of
@@ -354,19 +350,15 @@ class InputFileStream extends InputStreamBase {
 
     final s = readBytes(size);
     final bytes = s.toUint8List();
-    final str =
-        utf8 ? Utf8Decoder().convert(bytes) : String.fromCharCodes(bytes);
+    final str = utf8
+        ? Utf8Decoder().convert(bytes)
+        : String.fromCharCodes(bytes);
     return str;
   }
 
-  int get _remainingBufferSize => _bufferSize - _bufferPosition;
-
   void _readBuffer() {
     _bufferPosition = 0;
-    _bufferSize = _file.readIntoSync(_buffer);
-    if (_bufferSize == 0) {
-      return;
-    }
-    _filePosition += _bufferSize;
+    _file.position = _fileOffset + _position;
+    _bufferSize = _file.readInto(_buffer, _buffer.length);
   }
 }

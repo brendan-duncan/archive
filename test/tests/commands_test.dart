@@ -9,9 +9,14 @@ import 'package:archive/src/tar/tar_command.dart' as tar_command;
 import 'test_utils.dart';
 
 void main() {
-  test('bin/tar.dart list', () {
+  test('bin/tar.dart list test2.tar.gz', () {
     // Test that 'tar --list' does not throw.
     tar_command.listFiles(p.join(testDirPath, 'res/test2.tar.gz'));
+  });
+
+  test('bin/tar.dart list test2.tar.gz2', () {
+    // Test that 'tar --list' does not throw.
+    tar_command.listFiles(p.join(testDirPath, 'res/test2.tar.bz2'));
   });
 
   test('tar extract', () {
@@ -23,37 +28,38 @@ void main() {
       final inputPath = p.join(testDirPath, 'res/test2.tar.gz');
 
       {
-        final temp_dir = Directory.systemTemp.createTempSync('dart_archive');
-        final tar_path = '${temp_dir.path}${Platform.pathSeparator}temp.tar';
+        final tempDir = Directory.systemTemp.createTempSync('dart_archive');
+        final tarPath = '${tempDir.path}${Platform.pathSeparator}temp.tar';
         final input = InputFileStream(inputPath);
-        final output = OutputFileStream(tar_path);
+        final output = OutputFileStream(tarPath);
         GZipDecoder().decodeStream(input, output);
-        input.close();
-        output.close();
 
-        final a_bytes = File(tar_path).readAsBytesSync();
-        final b_bytes =
+        final aBytes = File(tarPath).readAsBytesSync();
+        final bBytes =
             File(p.join(testDirPath, 'res/test2.tar')).readAsBytesSync();
 
-        expect(a_bytes.length, equals(b_bytes.length));
+        expect(aBytes.length, equals(bBytes.length));
         var same = true;
-        for (var i = 0; same && i < a_bytes.length; ++i) {
-          same = a_bytes[i] == b_bytes[i];
+        for (var i = 0; same && i < aBytes.length; ++i) {
+          same = aBytes[i] == bBytes[i];
         }
         expect(same, equals(true));
 
-        temp_dir.deleteSync(recursive: true);
+        input.close();
+        output.close();
+
+        tempDir.deleteSync(recursive: true);
       }
 
       tar_command.extractFiles(
           p.join(testDirPath, 'res/test2.tar.gz'), dir.path);
       expect(dir.listSync(recursive: true).length, 4);
     } finally {
-      //dir.deleteSync(recursive: true);
+      dir.deleteSync(recursive: true);
     }
   });
 
-  test('tar create', () {
+  /*test('tar create', () {
     final dir = Directory.systemTemp.createTempSync('foo');
     final file = File('${dir.path}${Platform.pathSeparator}foo.txt');
     file.writeAsStringSync('foo bar');
@@ -64,5 +70,5 @@ void main() {
     } finally {
       dir.delete(recursive: true);
     }
-  });
+  });*/
 }

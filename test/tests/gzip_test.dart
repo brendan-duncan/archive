@@ -24,41 +24,41 @@ void main() {
 
     test('decode res/cat.jpg.gz', () {
       var b = File(p.join(testDirPath, 'res/cat.jpg'));
-      final b_bytes = b.readAsBytesSync();
+      final bBytes = b.readAsBytesSync();
 
       var file = File(p.join(testDirPath, 'res/cat.jpg.gz'));
       var bytes = file.readAsBytesSync();
 
-      var z_bytes = GZipDecoder().decodeBytes(bytes, verify: true);
-      compare_bytes(z_bytes, b_bytes);
+      var zBytes = GZipDecoder().decodeBytes(bytes, verify: true);
+      compareBytes(zBytes, bBytes);
     });
 
     test('decode res/test2.tar.gz', () {
       var b = File(p.join(testDirPath, 'res/test2.tar'));
-      final b_bytes = b.readAsBytesSync();
+      final bBytes = b.readAsBytesSync();
 
       var file = File(p.join(testDirPath, 'res/test2.tar.gz'));
       var bytes = file.readAsBytesSync();
 
-      var z_bytes = GZipDecoder().decodeBytes(bytes, verify: true);
-      compare_bytes(z_bytes, b_bytes);
+      var zBytes = GZipDecoder().decodeBytes(bytes, verify: true);
+      compareBytes(zBytes, bBytes);
     });
 
     test('decode res/a.txt.gz', () {
-      final a_bytes = a_txt.codeUnits;
+      final aBytes = aTxt.codeUnits;
 
       var file = File(p.join(testDirPath, 'res/a.txt.gz'));
       var bytes = file.readAsBytesSync();
 
-      var z_bytes = GZipDecoder().decodeBytes(bytes, verify: true);
-      compare_bytes(z_bytes, a_bytes);
+      var zBytes = GZipDecoder().decodeBytes(bytes, verify: true);
+      compareBytes(zBytes, aBytes);
     });
 
     test('encode res/cat.jpg', () {
       var b = File(p.join(testDirPath, 'res/cat.jpg'));
-      List<int> b_bytes = b.readAsBytesSync();
+      List<int> bBytes = b.readAsBytesSync();
 
-      final compressed = GZipEncoder().encode(b_bytes);
+      final compressed = GZipEncoder().encode(bBytes);
       final f = File(p.join(testDirPath, 'out/cat.jpg.gz'));
       f.createSync(recursive: true);
       f.writeAsBytesSync(compressed!);

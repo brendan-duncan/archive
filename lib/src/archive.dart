@@ -5,14 +5,32 @@ import 'dart:collection';
 class Archive extends IterableBase<ArchiveFile> {
   /// The list of files in the archive.
   List<ArchiveFile> files = [];
-
+  final Map<String, int> _fileMap = {};
   /// A global comment for the archive.
   String? comment;
 
   /// Add a file to the archive.
   void addFile(ArchiveFile file) {
-    files.removeWhere((element) => element.name == file.name);
+    // Adding a file with the same path as one that's already in the archive
+    // will replace the previous file.
+    var index = _fileMap[file.name];
+    if (index != null) {
+      files[index] = file;
+      return;
+    }
+    // No existing file was in the archive with the same path, add it to the
+    // archive.
     files.add(file);
+    _fileMap[file.name] = files.length - 1;
+  }
+
+  void clear() {
+    for (var fp in files) {
+      fp.close();
+    }
+    files.clear();
+    _fileMap.clear();
+    comment = null;
   }
 
   /// The number of files in the archive.
@@ -25,12 +43,8 @@ class Archive extends IterableBase<ArchiveFile> {
   /// Find a file with the given [name] in the archive. If the file isn't found,
   /// null will be returned.
   ArchiveFile? findFile(String name) {
-    for (final f in files) {
-      if (f.name == name) {
-        return f;
-      }
-    }
-    return null;
+    var index = _fileMap[name];
+    return index != null ? files[index] : null;
   }
 
   /// The number of files in the archive.

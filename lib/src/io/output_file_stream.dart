@@ -4,16 +4,24 @@ import 'dart:typed_data';
 import '../util/byte_order.dart';
 import '../util/input_stream.dart';
 import '../util/output_stream.dart';
-import 'input_file_stream.dart';
 
 class OutputFileStream extends OutputStreamBase {
   String path;
   final int byteOrder;
   int _length;
   late RandomAccessFile _fp;
+  final Uint8List _buffer;
+  int _bufferPosition;
+  bool _isOpen;
 
-  OutputFileStream(this.path, {this.byteOrder = LITTLE_ENDIAN}) : _length = 0 {
-    var file = File(path);
+  OutputFileStream(this.path, {this.byteOrder = LITTLE_ENDIAN,
+    int? bufferSize})
+      : _length = 0
+      , _buffer = Uint8List(bufferSize == null ? 8192 : bufferSize < 1 ? 1 :
+                            bufferSize)
+      , _bufferPosition = 0
+      , _isOpen = true {
+    final file = File(path);
     file.createSync(recursive: true);
     _fp = file.openSync(mode: FileMode.write);
   }
@@ -21,42 +29,84 @@ class OutputFileStream extends OutputStreamBase {
   @override
   int get length => _length;
 
+  @override
+  void flush() {
+    if (_bufferPosition > 0) {
+      if (_isOpen) {
+        _fp.writeFromSync(_buffer, 0, _bufferPosition);
+      }
+      _bufferPosition = 0;
+    }
+  }
+
   void close() {
-    _fp.closeSync();
+    if (!_isOpen) {
+      return;
+    }
+    flush();
+    _fp.close();
+    _isOpen = false;
   }
 
   /// Write a byte to the end of the buffer.
   @override
   void writeByte(int value) {
-    _fp.writeByteSync(value);
+    _buffer[_bufferPosition++] = value;
+    if (_bufferPosition == _buffer.length) {
+      flush();
+    }
     _length++;
   }
 
   /// Write a set of bytes to the end of the buffer.
   @override
-  void writeBytes(dynamic bytes, [int? len]) {
-    len ??= bytes.length as int;
-    if (bytes is InputFileStream) {
-      while (!bytes.isEOS) {
-        final len = bytes.bufferRemaining;
-        final data = bytes.readBytes(len);
-        writeInputStream(data);
+  void writeBytes(List<int> bytes, [int? len]) {
+    len ??= bytes.length;
+    if (_bufferPosition + len >= _buffer.length) {
+      flush();
+
+      if (_bufferPosition + len < _buffer.length) {
+        for (int i = 0, j = _bufferPosition; i < len; ++i, ++j) {
+          _buffer[j] = bytes[i];
+        }
+        _bufferPosition += len;
+        _length += len;
+        return;
       }
-    } else {
-      _fp.writeFromSync(bytes as List<int>, 0, len);
     }
+
+    flush();
+    _fp.writeFromSync(bytes, 0, len);
     _length += len;
   }
 
   @override
   void writeInputStream(InputStreamBase stream) {
     if (stream is InputStream) {
-      _fp.writeFromSync(stream.buffer, stream.offset, stream.length);
+      final len = stream.length;
+
+      if (_bufferPosition + len >= _buffer.length) {
+        flush();
+
+        if (_bufferPosition + len < _buffer.length) {
+          for (int i = 0, j = _bufferPosition, k = stream.offset; i < len;
+               ++i, ++j, ++k) {
+            _buffer[j] = stream.buffer[k];
+          }
+          _bufferPosition += len;
+          _length += len;
+          return;
+        }
+      }
+
+      if (_bufferPosition > 0) {
+        flush();
+      }
+      _fp.writeFromSync(stream.buffer, stream.offset, stream.offset + stream.length);
       _length += stream.length;
     } else {
       var bytes = stream.toUint8List();
-      _fp.writeFromSync(bytes);
-      _length += bytes.length;
+      writeBytes(bytes);
     }
   }
 
@@ -89,6 +139,10 @@ class OutputFileStream extends OutputStreamBase {
   }
 
   List<int> subset(int start, [int? end]) {
+    if (_bufferPosition > 0) {
+      flush();
+    }
+
     final pos = _fp.positionSync();
     if (start < 0) {
       start = pos + start;

@@ -1,4 +1,7 @@
+// ignore_for_file: avoid_print
+
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:archive/archive_io.dart';
 import 'package:path/path.dart' as p;
@@ -7,100 +10,104 @@ import 'package:test/test.dart';
 import 'test_utils.dart';
 
 void main() {
-  test('InputFileStream', () {
-    // Test fundamental assumption setPositionSync does what we expect.
-    final fp = File(p.join(testDirPath, 'res/cat.jpg')).openSync();
-    fp.setPositionSync(9);
-    var b1 = fp.readByteSync();
-    var b2 = fp.readByteSync();
-    fp.setPositionSync(9);
-    var c1 = fp.readByteSync();
-    var c2 = fp.readByteSync();
-    expect(b1, equals(c1));
-    expect(b2, equals(c2));
+  final testPath = p.join(testDirPath, 'out/test_123.bin');
+  final testData = Uint8List(120);
+  for (var i = 0; i < testData.length; ++i) {
+    testData[i] = i;
+  }
 
-    // Test rewind across buffer boundary.
-    var input =
-        InputFileStream(p.join(testDirPath, 'res/cat.jpg'), bufferSize: 10);
+  final testFile = File(testPath);
+  testFile.createSync(recursive: true);
+  testFile.openSync(mode: FileMode.write);
+  testFile.writeAsBytesSync(testData);
 
-    for (var i = 0; i < 9; ++i) {
-      input.readByte();
-    }
-    b1 = input.readByte();
-    b2 = input.readByte();
-    input.rewind(2);
-    c1 = input.readByte();
-    c2 = input.readByte();
-    expect(b1, equals(c1));
-    expect(b2, equals(c2));
+  group('InputFileStream', () {
+    test('length', () {
+      final fs = InputFileStream(testPath, bufferSize: 2);
+      expect(fs.length, testData.length);
+    });
 
-    // Test if peekBytes works across a buffer boundary.
-    input = InputFileStream(p.join(testDirPath, 'res/cat.jpg'), bufferSize: 10);
-    for (var i = 0; i < 9; ++i) {
-      input.readByte();
-    }
-    b1 = input.readByte();
-    b2 = input.readByte();
+    test('readByte', () {
+      final fs = InputFileStream(testPath, bufferSize: 2);
+      for (var i = 0; i < testData.length; ++i) {
+        expect(fs.readByte(), testData[i]);
+      }
+    });
 
-    input.close();
-    input = InputFileStream(p.join(testDirPath, 'res/cat.jpg'), bufferSize: 10);
-    for (var i = 0; i < 9; ++i) {
-      input.readByte();
-    }
+    test('readBytes', () {
+      var input = InputFileStream(testPath);
+      expect(input.length, equals(120));
+      var same = true;
+      var ai = 0;
+      while (!input.isEOS) {
+        var bs = input.readBytes(50);
+        var bytes = bs.toUint8List();
+        for (var i = 0; i < bytes.length; ++i) {
+          same = bytes[i] == ai + i;
+          if (!same) {
+            expect(same, equals(true));
+            return;
+          }
+        }
+        ai += bytes.length;
+      }
+    });
 
-    final b = input.peekBytes(2);
-    expect(b.length, equals(2));
-    expect(b[0], equals(b1));
-    expect(b[1], equals(b2));
+    test('position', () {
+      final fs = InputFileStream(testPath, bufferSize: 2);
+      fs.position = 50;
+      final bs = fs.readBytes(50);
+      final b = bs.toUint8List();
+      expect(b.length, 50);
+      for (var i = 0; i < b.length; ++i) {
+        expect(b[i], testData[50 + i]);
+      }
+    });
 
-    final c = input.readBytes(2);
-    expect(b[0], equals(c[0]));
-    expect(b[1], equals(c[1]));
+    test('skip', () {
+      final fs = InputFileStream(testPath, bufferSize: 2);
+      fs.skip(50);
+      final bs = fs.readBytes(50);
+      final b = bs.toUint8List();
+      expect(b.length, 50);
+      for (var i = 0; i < b.length; ++i) {
+        expect(b[i], testData[50 + i]);
+      }
+    });
 
-    input.close();
+    test('rewind', () {
+      final fs = InputFileStream(testPath, bufferSize: 2);
+      fs.skip(50);
+      fs.rewind(10);
+      var bs = fs.readBytes(50);
+      var b = bs.toUint8List();
+      expect(b.length, 50);
+      for (var i = 0; i < b.length; ++i) {
+        expect(b[i], testData[40 + i]);
+      }
+    });
 
-    input = InputFileStream(p.join(testDirPath, 'res/cat.jpg'), bufferSize: 10);
-    final input2 =
-        InputStream(File(p.join(testDirPath, 'res/cat.jpg')).readAsBytesSync());
+    test('peakBytes', () {
+      final fs = InputFileStream(testPath, bufferSize: 2);
+      final bs = fs.peekBytes(10);
+      final b = bs.toUint8List();
+      expect(fs.position, 0);
+      expect(b.length, 10);
+      for (var i = 0; i < b.length; ++i) {
+        expect(b[i], testData[i]);
+      }
+    });
 
-    var same = true;
-    while (!input.isEOS && same) {
-      same = input.readByte() == input2.readByte();
-    }
-    expect(same, equals(true));
-    expect(input.isEOS, equals(input2.isEOS));
-
-    // Test skip across buffer boundary
-    input = InputFileStream(p.join(testDirPath, 'res/cat.jpg'), bufferSize: 10);
-    for (var i = 0; i < 11; ++i) {
-      input.readByte();
-    }
-    b1 = input.readByte();
-    input.close();
-    input = InputFileStream(p.join(testDirPath, 'res/cat.jpg'), bufferSize: 10);
-    for (var i = 0; i < 9; ++i) {
-      input.readByte();
-    }
-    input.skip(2);
-    c1 = input.readByte();
-    expect(b1, equals(c1));
-    input.close();
-
-    // Test skip to end of buffer
-    input = InputFileStream(p.join(testDirPath, 'res/cat.jpg'), bufferSize: 10);
-    for (var i = 0; i < 10; ++i) {
-      input.readByte();
-    }
-    b1 = input.readByte();
-    input.close();
-    input = InputFileStream(p.join(testDirPath, 'res/cat.jpg'), bufferSize: 10);
-    for (var i = 0; i < 9; ++i) {
-      input.readByte();
-    }
-    input.skip(1);
-    c1 = input.readByte();
-    expect(b1, equals(c1));
-    input.close();
+    test("clone", () {
+      final input = InputFileStream(testPath);
+      final input2 = InputFileStream.clone(input, position: 6, length: 5);
+      final bs = input2.readBytes(5);
+      final b = bs.toUint8List();
+      expect(b.length, 5);
+      for (var i = 0; i < b.length; ++i) {
+        expect(b[i], testData[6 + i]);
+      }
+    });
   });
 
   test('InputFileStream/OutputFileStream', () {
@@ -113,13 +120,13 @@ void main() {
     input.close();
     output.close();
 
-    var a_bytes = File(p.join(testDirPath, 'res/cat.jpg')).readAsBytesSync();
-    var b_bytes = File(p.join(testDirPath, 'out/cat2.jpg')).readAsBytesSync();
+    var aBytes = File(p.join(testDirPath, 'res/cat.jpg')).readAsBytesSync();
+    var bBytes = File(p.join(testDirPath, 'out/cat2.jpg')).readAsBytesSync();
 
-    expect(a_bytes.length, equals(b_bytes.length));
+    expect(aBytes.length, equals(bBytes.length));
     var same = true;
-    for (var i = 0; same && i < a_bytes.length; ++i) {
-      same = a_bytes[i] == b_bytes[i];
+    for (var i = 0; same && i < aBytes.length; ++i) {
+      same = aBytes[i] == bBytes[i];
     }
     expect(same, equals(true));
   });
@@ -159,6 +166,17 @@ void main() {
     expect(tarArchive.files.length, equals(4));
   });
 
+  test('stream zip decode', () {
+    // Decode a tar from disk to memory
+    var stream = InputFileStream(p.join(testDirPath, 'res/test.zip'));
+    var zip = ZipDecoder().decodeBuffer(stream);
+
+    expect(zip.files.length, equals(2));
+    expect(zip.files[0].name, equals("a.txt"));
+    expect(zip.files[1].name, equals("cat.jpg"));
+    expect(zip.files[1].content.length, equals(51662));
+  });
+
   test('stream tar encode', () {
     // Encode a directory from disk to disk, no memory
     final encoder = TarFileEncoder();
@@ -173,6 +191,7 @@ void main() {
 
     final encoder = GZipEncoder();
     encoder.encode(input, output: output);
+    output.close();
   });
 
   test('stream gzip decode', () {
@@ -180,6 +199,7 @@ void main() {
     var output = OutputFileStream(p.join(testDirPath, 'out/cat.jpg'));
 
     GZipDecoder().decodeStream(input, output);
+    output.close();
   });
 
   test('stream tgz encode', () {
@@ -193,7 +213,15 @@ void main() {
     var output = OutputFileStream(p.join(testDirPath, 'out/example2.tgz'));
     GZipEncoder().encode(input, output: output);
     input.close();
-    File(input.path).deleteSync();
+    output.close();
+  });
+
+  test('tarDirectory', () {
+    // Encode a directory from disk to disk, no memory
+    final encoder = TarFileEncoder();
+    encoder.tarDirectory(Directory('$testDirPath/res/test2'),
+        filename: '$testDirPath/out/example2.tgz', compression: 1);
+    encoder.close();
   });
 
   test('stream zip encode', () {
@@ -221,5 +249,77 @@ void main() {
     var zipDecoder = ZipDecoder();
     var archive2 = zipDecoder.decodeBytes(bytes, verify: true);
     expect(archive2.length, equals(2));
+  });
+
+  test('file close', () {
+    final testPath = p.join(testDirPath, 'out/test2.bin');
+    final testData = Uint8List(120);
+    for (var i = 0; i < testData.length; ++i) {
+      testData[i] = i;
+    }
+    final testFile = File(testPath);
+    testFile.createSync(recursive: true);
+    final fp = testFile.openSync(mode: FileMode.write);
+    fp.writeFromSync(testData);
+    fp.closeSync();
+
+    final input = InputFileStream(testPath);
+    final bs = input.readBytes(50);
+    expect(bs.length, 50);
+    input.close();
+
+    testFile.deleteSync();
+  });
+
+  test('extractFileToDisk tar', () {
+    final inPath = '$testDirPath/res/test2.tar';
+    final outPath = '$testDirPath/out/extractFileToDisk_tar';
+    final dir = Directory(outPath);
+    if (dir.existsSync()) {
+      dir.deleteSync(recursive: true);
+    }
+    extractFileToDisk(inPath, outPath);
+
+    final files = dir.listSync(recursive: true);
+    expect(files.length, 4);
+  });
+
+  test('extractFileToDisk tar.gz', () {
+    final inPath = '$testDirPath/res/test2.tar.gz';
+    final outPath = '$testDirPath/out/extractFileToDisk_tgz';
+    final dir = Directory(outPath);
+    if (dir.existsSync()) {
+      dir.deleteSync(recursive: true);
+    }
+    extractFileToDisk(inPath, outPath);
+
+    final files = dir.listSync(recursive: true);
+    expect(files.length, 4);
+  });
+
+  test('extractFileToDisk tar.tbz', () {
+    final inPath = '$testDirPath/res/test2.tar.bz2';
+    final outPath = '$testDirPath/out/extractFileToDisk_tbz';
+    final dir = Directory(outPath);
+    if (dir.existsSync()) {
+      dir.deleteSync(recursive: true);
+    }
+    extractFileToDisk(inPath, outPath);
+
+    final files = dir.listSync(recursive: true);
+    expect(files.length, 4);
+  });
+
+  test('extractFileToDisk zip', () {
+    final inPath = '$testDirPath/res/test.zip';
+    final outPath = '$testDirPath/out/extractFileToDisk_zip';
+    final dir = Directory(outPath);
+    if (dir.existsSync()) {
+      dir.deleteSync(recursive: true);
+    }
+    extractFileToDisk(inPath, outPath);
+
+    final files = dir.listSync(recursive: true);
+    expect(files.length, 2);
   });
 }

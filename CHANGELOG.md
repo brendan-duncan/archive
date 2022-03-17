@@ -1,3 +1,39 @@
+## 3.2.2 - March 09, 2022
+
+* Re-add List<int> content data for ArchiveFile.
+* Add String and TypedData (Int32List, Float32List, etc) content data for ArchiveFile. 
+
+## 3.2.1 - February 17, 2022
+
+* Added buffer to OutputFileStream to improve performance by reducing the number of file writes.
+
+## 3.2.0 - February 12, 2022
+
+* For non-web applications, use native 'inflate' decompression when decompressing zip files.
+* Add asyncWrite option to extractArchiveToDisk and extractFileToDisk, moving file write operations to be async.
+* ArchiveFile.writeContent will release its memory after the data has been written, reducing overall memory usage.
+* Add clear method to ArchiveFile, clearing any decompressed data memory it's storing.
+
+## 3.1.11 - January 29, 2022
+
+* Fix indexing bug in Archive.addFile. 
+
+## 3.1.10 - January 29, 2022
+
+* Fix performance regression with Archive.
+
+## 3.1.9 - January 19, 2022
+
+* Fix FileInputStream to work with ZipDecoder.
+
+## 3.1.8 - January 01, 2022
+
+* Catch invalid UTF8 string decoding.
+
+## 3.1.7 - January 01, 2022
+
+* Fix for UTF8 filenames
+
 ## 3.1.6 - October 11, 2021
 
 * Fix problem with non-terminating long filenames.

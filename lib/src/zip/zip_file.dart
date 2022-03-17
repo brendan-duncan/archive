@@ -39,12 +39,13 @@ class ZipFile {
       crc32 = input.readUint32();
       compressedSize = input.readUint32();
       uncompressedSize = input.readUint32();
-      final fn_len = input.readUint16();
-      final ex_len = input.readUint16();
-      filename = input.readString(size: fn_len);
-      extraField = input.readBytes(ex_len).toUint8List();
+      final fnLen = input.readUint16();
+      final exLen = input.readUint16();
+      filename = input.readString(size: fnLen);
+      extraField = input.readBytes(exLen).toUint8List();
 
       // Read compressedSize bytes for the compressed data.
+      //_rawContent = input.subset(null, header!.compressedSize!);
       _rawContent = input.readBytes(header!.compressedSize!);
 
       if (password != null) {
@@ -79,13 +80,18 @@ class ZipFile {
     return _computedCrc32 == crc32;
   }
 
-  /// Get the decompressed content from the file.  The file isn't decompressed
+  /// Get the decompressed content from the file. The file isn't decompressed
   /// until it is requested.
   List<int> get content {
     if (_content == null) {
       if (_isEncrypted) {
-        _rawContent = _decodeRawContent(_rawContent);
-        _isEncrypted = false;
+        if (_rawContent.length <= 0) {
+          _content = _rawContent.toUint8List();
+          _isEncrypted = false;
+        } else {
+          _rawContent = _decodeRawContent(_rawContent);
+          _isEncrypted = false;
+        }
       }
 
       if (compressionMethod == DEFLATE) {
@@ -102,9 +108,8 @@ class ZipFile {
   dynamic get rawContent {
     if (_content != null) {
       return _content;
-    } else {
-      return _rawContent;
     }
+    return _rawContent;
   }
 
   @override
@@ -136,7 +141,7 @@ class ZipFile {
     _updateKeys(c);
   }
 
-  InputStream _decodeRawContent(InputStream input) {
+  InputStream _decodeRawContent(InputStreamBase input) {
     for (var i = 0; i < 12; ++i) {
       _decodeByte(_rawContent.readByte());
     }
@@ -149,9 +154,9 @@ class ZipFile {
     return InputStream(bytes);
   }
 
-  /// Content of the file. If compressionMethod is not STORE, then it is
-  /// still compressed.
-  late InputStream _rawContent;
+  // Content of the file. If compressionMethod is not STORE, then it is
+  // still compressed.
+  late InputStreamBase _rawContent;
   List<int>? _content;
   int? _computedCrc32;
   bool _isEncrypted = false;

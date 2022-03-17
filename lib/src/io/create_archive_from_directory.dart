@@ -8,7 +8,7 @@ Archive createArchiveFromDirectory(Directory dir,
     {bool includeDirName = true}) {
   final archive = Archive();
 
-  final dir_name = path.basename(dir.path);
+  final dirName = path.basename(dir.path);
   List files = dir.listSync(recursive: true);
   for (var file in files) {
     if (file is! File) {
@@ -17,11 +17,11 @@ Archive createArchiveFromDirectory(Directory dir,
 
     final f = file;
     var filename = path.relative(f.path, from: dir.path);
-    filename = includeDirName ? (dir_name + '/' + filename) : filename;
+    filename = includeDirName ? (dirName + '/' + filename) : filename;
 
-    final file_stream = InputFileStream.file(f);
+    final fileStream = InputFileStream(f.path);
 
-    final af = ArchiveFile.stream(filename, f.lengthSync(), file_stream);
+    final af = ArchiveFile.stream(filename, f.lengthSync(), fileStream);
     af.lastModTime = f.lastModifiedSync().millisecondsSinceEpoch ~/ 1000;
     af.mode = f.statSync().mode;
 

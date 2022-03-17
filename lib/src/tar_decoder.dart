@@ -1,7 +1,11 @@
-import 'tar/tar_file.dart';
-import 'util/input_stream.dart';
+import 'dart:convert';
+
 import 'archive.dart';
 import 'archive_file.dart';
+import 'tar/tar_file.dart';
+import 'util/input_stream.dart';
+
+final paxRecordRegexp = RegExp(r"(\d+) (\w+)=(.*)");
 
 /// Decode a tar formatted buffer into an [Archive] object.
 class TarDecoder {
@@ -19,12 +23,13 @@ class TarDecoder {
     files.clear();
 
     String? nextName;
+    String? nextLinkName;
 
     // TarFile paxHeader = null;
     while (!input.isEOS) {
       // End of archive when two consecutive 0's are found.
-      final end_check = input.peekBytes(2);
-      if (end_check.length < 2 || (end_check[0] == 0 && end_check[1] == 0)) {
+      final endCheck = input.peekBytes(2).toUint8List();
+      if (endCheck.length < 2 || (endCheck[0] == 0 && endCheck[1] == 0)) {
         break;
       }
 
@@ -41,28 +46,54 @@ class TarDecoder {
       if (tf.typeFlag == TarFile.TYPE_G_EX_HEADER ||
           tf.typeFlag == TarFile.TYPE_G_EX_HEADER2) {
         // TODO handle PAX global header.
+        continue;
       }
       if (tf.typeFlag == TarFile.TYPE_EX_HEADER ||
           tf.typeFlag == TarFile.TYPE_EX_HEADER2) {
-        //paxHeader = tf;
-      } else {
-        files.add(tf);
+        utf8
+            .decode(tf.rawContent!.toUint8List())
+            .split('\n')
+            .where((s) => paxRecordRegexp.hasMatch(s))
+            .forEach((record) {
+          var match = paxRecordRegexp.firstMatch(record)!;
+          var keyword = match.group(2);
+          var value = match.group(3)!;
+          switch (keyword) {
+            case 'path':
+              nextName = value;
+              break;
+            case 'linkpath':
+              nextLinkName = value;
+              break;
+            default:
+            // TODO: support other pax headers.
+          }
+        });
+        continue;
+      }
 
-        final file =
-            ArchiveFile(nextName ?? tf.filename, tf.fileSize, tf.rawContent);
-
-        file.mode = tf.mode;
-        file.ownerId = tf.ownerId;
-        file.groupId = tf.groupId;
-        file.lastModTime = tf.lastModTime;
-        file.isFile = tf.isFile;
-        file.isSymbolicLink = tf.typeFlag == TarFile.TYPE_SYMBOLIC_LINK;
-        file.nameOfLinkedFile = tf.nameOfLinkedFile;
-
-        archive.addFile(file);
-
+      // Fix file attributes.
+      if (nextName != null) {
+        tf.filename = nextName!;
         nextName = null;
       }
+      if (nextLinkName != null) {
+        tf.nameOfLinkedFile = nextLinkName!;
+        nextLinkName = null;
+      }
+      files.add(tf);
+
+      final file = ArchiveFile(tf.filename, tf.fileSize, tf.rawContent);
+
+      file.mode = tf.mode;
+      file.ownerId = tf.ownerId;
+      file.groupId = tf.groupId;
+      file.lastModTime = tf.lastModTime;
+      file.isFile = tf.isFile;
+      file.isSymbolicLink = tf.typeFlag == TarFile.TYPE_SYMBOLIC_LINK;
+      file.nameOfLinkedFile = tf.nameOfLinkedFile;
+
+      archive.addFile(file);
     }
 
     return archive;

@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'dart:typed_data';
 import 'byte_order.dart';
-import 'archive_exception.dart';
 
 abstract class InputStreamBase {
   ///  The current read position relative to the start of the buffer.
@@ -15,6 +14,8 @@ abstract class InputStreamBase {
   /// Is the current position at the end of the stream?
   bool get isEOS;
 
+  void close();
+
   /// Reset to the beginning of the stream.
   void reset();
 
@@ -26,13 +27,13 @@ abstract class InputStreamBase {
 
   /// Read [count] bytes from an [offset] of the current read position, without
   /// moving the read position.
-  InputStream peekBytes(int count, [int offset = 0]);
+  InputStreamBase peekBytes(int count, [int offset = 0]);
 
   /// Read a single byte.
   int readByte();
 
   /// Read [count] bytes from the stream.
-  InputStream readBytes(int count);
+  InputStreamBase readBytes(int count);
 
   InputStreamBase subset([int? position, int? length]);
 
@@ -64,15 +65,14 @@ class InputStream extends InputStreamBase {
 
   /// Create a InputStream for reading from a List<int>
   InputStream(dynamic data,
-      {this.byteOrder = LITTLE_ENDIAN, int start = 0, int? length})
+      {this.byteOrder = LITTLE_ENDIAN, this.start = 0, int? length})
       : buffer = data is TypedData
             ? Uint8List.view(
                 data.buffer, data.offsetInBytes, data.lengthInBytes)
             : data is List<int>
                 ? data
                 : List<int>.from(data as Iterable<dynamic>),
-        offset = start,
-        start = start {
+        offset = start {
     _length = length ?? buffer.length;
   }
 
@@ -103,6 +103,12 @@ class InputStream extends InputStreamBase {
   @override
   void reset() {
     offset = start;
+  }
+
+  @override
+  void close() {
+    buffer = <int>[];
+    _length = 0;
   }
 
   /// Rewind the read head of the stream by the given number of bytes.
@@ -156,8 +162,8 @@ class InputStream extends InputStreamBase {
   /// Read [count] bytes from an [offset] of the current read position, without
   /// moving the read position.
   @override
-  InputStream peekBytes(int count, [int offset = 0]) {
-    return subset((this.offset - start) + offset, count) as InputStream;
+  InputStreamBase peekBytes(int count, [int offset = 0]) {
+    return subset((this.offset - start) + offset, count);
   }
 
   /// Move the read position by [count] bytes.
@@ -174,7 +180,7 @@ class InputStream extends InputStreamBase {
 
   /// Read [count] bytes from the stream.
   @override
-  InputStream readBytes(int count) {
+  InputStreamBase readBytes(int count) {
     final bytes = subset(offset - start, count);
     offset += bytes.length;
     return bytes as InputStream;
@@ -203,9 +209,15 @@ class InputStream extends InputStreamBase {
 
     final s = readBytes(size);
     final bytes = s.toUint8List();
-    final str =
+    try {
+      final str =
         utf8 ? Utf8Decoder().convert(bytes) : String.fromCharCodes(bytes);
-    return str;
+      return str;
+    } catch (err) {
+      // If the string is not a valid UTF8 string, decode it as character codes.
+      return String.fromCharCodes(bytes);
+    }
+
   }
 
   /// Read a 16-bit word from the stream.
