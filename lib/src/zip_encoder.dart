@@ -50,6 +50,9 @@ class _ZipEncoderData {
 class ZipEncoder {
   late _ZipEncoderData _data;
   OutputStreamBase? _output;
+  final Encoding filenameEncoding;
+
+  ZipEncoder({this.filenameEncoding = const Utf8Codec()});
 
   /// Bit 11 of the general purpose flag, Language encoding flag
   final int languageEncodingBitUtf8 = 2048;
@@ -143,14 +146,14 @@ class ZipEncoder {
       compressedData = InputStream(bytes);
     }
 
-    var filename = Utf8Encoder().convert(file.name);
+    var encodedFilename = filenameEncoding.encode(file.name);
     var comment =
-        file.comment != null ? Utf8Encoder().convert(file.comment!) : null;
+        file.comment != null ? filenameEncoding.encode(file.comment!) : null;
 
-    _data.localFileSize += 30 + filename.length + compressedData!.length;
+    _data.localFileSize += 30 + encodedFilename.length + compressedData!.length;
 
     _data.centralDirectorySize +=
-        46 + filename.length + (comment != null ? comment.length : 0);
+        46 + encodedFilename.length + (comment != null ? comment.length : 0);
 
     fileData.crc32 = crc32;
     fileData.compressedSize = compressedData.length;
@@ -179,7 +182,8 @@ class ZipEncoder {
     output.writeUint32(ZipFile.SIGNATURE);
 
     final version = VERSION;
-    final flags = languageEncodingBitUtf8;
+    final flags =
+        filenameEncoding.name == "utf-8" ? languageEncodingBitUtf8 : 0;
     final compressionMethod =
         fileData.compress ? ZipFile.DEFLATE : ZipFile.STORE;
     final lastModFileTime = fileData.time;
@@ -191,7 +195,7 @@ class ZipEncoder {
 
     final compressedData = fileData.compressedData!;
 
-    var filenameUtf8 = Utf8Encoder().convert(filename);
+    var encodedFilename = filenameEncoding.encode(filename);
 
     output.writeUint16(version);
     output.writeUint16(flags);
@@ -201,9 +205,9 @@ class ZipEncoder {
     output.writeUint32(crc32);
     output.writeUint32(compressedSize);
     output.writeUint32(uncompressedSize);
-    output.writeUint16(filenameUtf8.length);
+    output.writeUint16(encodedFilename.length);
     output.writeUint16(extra.length);
-    output.writeBytes(filenameUtf8);
+    output.writeBytes(encodedFilename);
     output.writeBytes(extra);
 
     output.writeInputStream(compressedData);
@@ -212,7 +216,7 @@ class ZipEncoder {
   void _writeCentralDirectory(
       List<_ZipFileData> files, String? comment, OutputStreamBase output) {
     comment ??= '';
-    var commentUtf8 = Utf8Encoder().convert(comment);
+    var encodedComment = filenameEncoding.encode(comment);
 
     final centralDirPosition = output.length;
     final version = VERSION;
@@ -239,8 +243,8 @@ class ZipEncoder {
       final extraField = <int>[];
       final fileComment = fileData.comment ?? '';
 
-      final filenameUtf8 = Utf8Encoder().convert(fileData.name);
-      final fileCommentUtf8 = Utf8Encoder().convert(fileComment);
+      final encodedFilename = filenameEncoding.encode(fileData.name);
+      final encodedFileComment = filenameEncoding.encode(fileComment);
 
       output.writeUint32(ZipFileHeader.SIGNATURE);
       output.writeUint16(versionMadeBy);
@@ -252,16 +256,16 @@ class ZipEncoder {
       output.writeUint32(crc32);
       output.writeUint32(compressedSize);
       output.writeUint32(uncompressedSize);
-      output.writeUint16(filenameUtf8.length);
+      output.writeUint16(encodedFilename.length);
       output.writeUint16(extraField.length);
-      output.writeUint16(fileCommentUtf8.length);
+      output.writeUint16(encodedFileComment.length);
       output.writeUint16(diskNumberStart);
       output.writeUint16(internalFileAttributes);
       output.writeUint32(externalFileAttributes);
       output.writeUint32(localHeaderOffset);
-      output.writeBytes(filenameUtf8);
+      output.writeBytes(encodedFilename);
       output.writeBytes(extraField);
-      output.writeBytes(fileCommentUtf8);
+      output.writeBytes(encodedFileComment);
     }
 
     final numberOfThisDisk = 0;
@@ -278,8 +282,8 @@ class ZipEncoder {
     output.writeUint16(totalCentralDirectoryEntries);
     output.writeUint32(centralDirectorySize);
     output.writeUint32(centralDirectoryOffset);
-    output.writeUint16(commentUtf8.length);
-    output.writeBytes(commentUtf8);
+    output.writeUint16(encodedComment.length);
+    output.writeBytes(encodedComment);
   }
 
   static const int VERSION = 20;
