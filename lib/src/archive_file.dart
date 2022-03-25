@@ -75,7 +75,7 @@ class ArchiveFile {
 
   ArchiveFile.string(this.name, String content,
       [this._compressionType = STORE]) {
-    size = content.length + 1;
+    size = content.length;
     _content = Uint8List.fromList(content.codeUnits);
     _rawContent = InputStream(_content);
   }
