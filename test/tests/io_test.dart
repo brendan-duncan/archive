@@ -16,6 +16,9 @@ void main() {
     testData[i] = i;
   }
 
+  // Add an empty directory to test2
+  Directory('$testDirPath/res/test2/empty').createSync(recursive: true);
+
   final testFile = File(testPath);
   testFile.createSync(recursive: true);
   testFile.openSync(mode: FileMode.write);

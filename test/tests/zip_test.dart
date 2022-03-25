@@ -293,7 +293,7 @@ void main() {
       // Decode the Zip file
       final archive = ZipDecoder().decodeBytes(bytes);
 
-      final archiveFile = archive.first;
+      final archiveFile = archive[1];
       expect(archiveFile.mode, file.statSync().mode);
       expect(archiveFile.isFile, true);
     }
