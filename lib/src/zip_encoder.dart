@@ -25,24 +25,36 @@ class _ZipFileData {
   bool isFile = true;
 }
 
+int? _getTime(DateTime? dateTime) {
+  if (dateTime == null) {
+    return null;
+  }
+  final t1 = ((dateTime.minute & 0x7) << 5) | (dateTime.second ~/ 2);
+  final t2 = (dateTime.hour << 3) | (dateTime.minute >> 3);
+  return ((t2 & 0xff) << 8) | (t1 & 0xff);
+}
+
+int? _getDate(DateTime? dateTime) {
+  if (dateTime == null) {
+    return null;
+  }
+  final d1 = ((dateTime.month & 0x7) << 5) | dateTime.day;
+  final d2 = (((dateTime.year - 1980) & 0x7f) << 1) | (dateTime.month >> 3);
+  return ((d2 & 0xff) << 8) | (d1 & 0xff);
+}
+
 class _ZipEncoderData {
   int? level;
-  late final int time;
-  late final int date;
+  late final int? time;
+  late final int? date;
   int localFileSize = 0;
   int centralDirectorySize = 0;
   int endOfCentralDirectorySize = 0;
   List<_ZipFileData> files = [];
 
   _ZipEncoderData(this.level, [DateTime? dateTime]) {
-    dateTime = dateTime ?? DateTime.now();
-    final t1 = ((dateTime.minute & 0x7) << 5) | (dateTime.second ~/ 2);
-    final t2 = (dateTime.hour << 3) | (dateTime.minute >> 3);
-    time = ((t2 & 0xff) << 8) | (t1 & 0xff);
-
-    final d1 = ((dateTime.month & 0x7) << 5) | dateTime.day;
-    final d2 = (((dateTime.year - 1980) & 0x7f) << 1) | (dateTime.month >> 3);
-    date = ((d2 & 0xff) << 8) | (d1 & 0xff);
+    time = _getTime(dateTime);
+    date = _getDate(dateTime);
   }
 }
 
@@ -98,9 +110,14 @@ class ZipEncoder {
     final fileData = _ZipFileData();
     _data.files.add(fileData);
 
+    final lastModMS = file.lastModTime * 1000;
+    final lastModTime = DateTime.fromMillisecondsSinceEpoch(lastModMS);
+
     fileData.name = file.name;
-    fileData.time = _data.time;
-    fileData.date = _data.date;
+    // If the archive modification time was overwritten, use that, otherwise
+    // use the lastModTime from the file.
+    fileData.time = _data.time ?? _getTime(lastModTime)!;
+    fileData.date = _data.date ?? _getDate(lastModTime)!;
     fileData.mode = file.mode;
     fileData.isFile = file.isFile;
 
