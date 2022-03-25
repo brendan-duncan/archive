@@ -17,9 +17,13 @@ class ArchiveFile {
   int mode = 420; // octal 644 (-rw-r--r--)
   int ownerId = 0;
   int groupId = 0;
+  /// Seconds since epoch
   int lastModTime = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+  /// If false, this is a directory.
   bool isFile = true;
+  /// If true, this is a symbolic link to the file specified in nameOfLinkedFile
   bool isSymbolicLink = false;
+  /// If this is a symbolic link, this is the path to the file its linked to.
   String nameOfLinkedFile = '';
 
   /// The crc32 checksum of the uncompressed content.
