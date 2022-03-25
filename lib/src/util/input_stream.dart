@@ -14,7 +14,8 @@ abstract class InputStreamBase {
   /// Is the current position at the end of the stream?
   bool get isEOS;
 
-  void close();
+  /// Asynchronously closes the input stream.
+  Future<void> close() async {}
 
   /// Reset to the beginning of the stream.
   void reset();
@@ -106,7 +107,7 @@ class InputStream extends InputStreamBase {
   }
 
   @override
-  void close() {
+  Future<void> close() async {
     buffer = <int>[];
     _length = 0;
   }

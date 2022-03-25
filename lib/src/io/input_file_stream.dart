@@ -34,13 +34,14 @@ class FileHandle {
 
   bool get isOpen => _file != null;
 
-  void close() {
+  Future<void> close() async {
     if (_file == null) {
       return;
     }
-    _file!.close();
+    var fp = _file;
     _file = null;
     _position = 0;
+    await fp!.close();
   }
 
   void open() {
@@ -98,8 +99,8 @@ class InputFileStream extends InputStreamBase {
   }
 
   @override
-  void close() {
-    _file.close();
+  Future<void> close() async {
+    await _file.close();
     _fileSize = 0;
     _position = 0;
   }

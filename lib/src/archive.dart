@@ -24,13 +24,15 @@ class Archive extends IterableBase<ArchiveFile> {
     _fileMap[file.name] = files.length - 1;
   }
 
-  void clear() {
+  Future<void> clear() async {
+    var futures = <Future<void>>[];
     for (var fp in files) {
-      fp.close();
+      futures.add(fp.close());
     }
     files.clear();
     _fileMap.clear();
     comment = null;
+    await Future.wait(futures);
   }
 
   /// The number of files in the archive.

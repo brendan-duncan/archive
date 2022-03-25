@@ -95,6 +95,9 @@ class ZipEncoder {
   }
 
   int getFileCrc32(ArchiveFile file) {
+    if (file.content == null) {
+      return 0;
+    }
     if (file.content is InputStreamBase) {
       var s = file.content as InputStreamBase;
       s.reset();
@@ -122,7 +125,7 @@ class ZipEncoder {
     fileData.isFile = file.isFile;
 
     InputStreamBase? compressedData;
-    int crc32;
+    int crc32 = 0;
 
     // If the user want's to store the file without compressing it,
     // make sure it's decompressed.
@@ -151,7 +154,7 @@ class ZipEncoder {
       } else {
         crc32 = getFileCrc32(file);
       }
-    } else {
+    } else if (file.isFile) {
       // Otherwise we need to compress it now.
       crc32 = getFileCrc32(file);
 
@@ -167,13 +170,14 @@ class ZipEncoder {
     var comment =
         file.comment != null ? filenameEncoding.encode(file.comment!) : null;
 
-    _data.localFileSize += 30 + encodedFilename.length + compressedData!.length;
+    var dataLen = compressedData?.length ?? 0;
+    _data.localFileSize += 30 + encodedFilename.length + dataLen;
 
     _data.centralDirectorySize +=
         46 + encodedFilename.length + (comment != null ? comment.length : 0);
 
     fileData.crc32 = crc32;
-    fileData.compressedSize = compressedData.length;
+    fileData.compressedSize = dataLen;
     fileData.compressedData = compressedData;
     fileData.uncompressedSize = file.size;
     fileData.compress = file.compress;
@@ -210,7 +214,7 @@ class ZipEncoder {
     final uncompressedSize = fileData.uncompressedSize;
     final extra = <int>[];
 
-    final compressedData = fileData.compressedData!;
+    final compressedData = fileData.compressedData;
 
     var encodedFilename = filenameEncoding.encode(filename);
 
@@ -227,7 +231,9 @@ class ZipEncoder {
     output.writeBytes(encodedFilename);
     output.writeBytes(extra);
 
-    output.writeInputStream(compressedData);
+    if (compressedData != null) {
+      output.writeInputStream(compressedData);
+    }
   }
 
   void _writeCentralDirectory(

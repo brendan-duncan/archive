@@ -39,13 +39,13 @@ class OutputFileStream extends OutputStreamBase {
     }
   }
 
-  void close() {
+  Future<void> close() async {
     if (!_isOpen) {
       return;
     }
     flush();
-    _fp.close();
     _isOpen = false;
+    await _fp.close();
   }
 
   /// Write a byte to the end of the buffer.

@@ -177,12 +177,17 @@ void main() {
     expect(zip.files[1].content.length, equals(51662));
   });
 
-  test('stream tar encode', () {
+  test('stream tar encode', () async {
     // Encode a directory from disk to disk, no memory
     final encoder = TarFileEncoder();
     encoder.open('$testDirPath/out/test3.tar');
     encoder.addDirectory(Directory('$testDirPath/res/test2'));
-    encoder.close();
+    await encoder.close();
+
+    var tarDecoder = TarDecoder();
+    var f = File('$testDirPath/out/test3.tar');
+    final archive = tarDecoder.decodeBytes(f.readAsBytesSync(), verify: true);
+    expect(archive.length, equals(4));
   });
 
   test('stream gzip encode', () {
@@ -202,12 +207,12 @@ void main() {
     output.close();
   });
 
-  test('stream tgz encode', () {
+  test('TarFileEncoder -> GZipEncoder', () async {
     // Encode a directory from disk to disk, no memory
     var encoder = TarFileEncoder();
     encoder.create('$testDirPath/out/example2.tar');
     encoder.addDirectory(Directory('$testDirPath/res/test2'));
-    encoder.close();
+    await encoder.close();
 
     var input = InputFileStream(p.join(testDirPath, 'out/example2.tar'));
     var output = OutputFileStream(p.join(testDirPath, 'out/example2.tgz'));
@@ -216,7 +221,7 @@ void main() {
     output.close();
   });
 
-  test('tarDirectory', () {
+  test('TarFileEncoder tgz', () async {
     // Encode a directory from disk to disk, no memory
     final encoder = TarFileEncoder();
     encoder.tarDirectory(Directory('$testDirPath/res/test2'),
@@ -235,20 +240,29 @@ void main() {
     var zipDecoder = ZipDecoder();
     var f = File('$testDirPath/out/example2.zip');
     final archive = zipDecoder.decodeBytes(f.readAsBytesSync(), verify: true);
-    expect(archive.length, equals(4));
+    expect(archive.length, equals(6));
+  });
+
+  test('decode_empty_directory', () {
+    var zip = ZipDecoder();
+    var archive = zip.decodeBytes(File('$testDirPath/res/test2.zip').readAsBytesSync());
+    expect(archive.length, 4);
   });
 
   test('create_archive_from_directory', () {
     var dir = Directory('$testDirPath/res/test2');
     var archive = createArchiveFromDirectory(dir);
-    expect(archive.length, equals(2));
+    expect(archive.length, equals(4));
     var encoder = ZipEncoder();
 
     var bytes = encoder.encode(archive)!;
+    File('$testDirPath/out/test2_.zip')
+      ..openSync(mode: FileMode.write)
+      ..writeAsBytesSync(bytes);
 
     var zipDecoder = ZipDecoder();
     var archive2 = zipDecoder.decodeBytes(bytes, verify: true);
-    expect(archive2.length, equals(2));
+    expect(archive2.length, equals(4));
   });
 
   test('file close', () {
@@ -271,53 +285,53 @@ void main() {
     testFile.delete();
   });
 
-  test('extractFileToDisk tar', () {
+  test('extractFileToDisk tar', () async {
     final inPath = '$testDirPath/res/test2.tar';
     final outPath = '$testDirPath/out/extractFileToDisk_tar';
     final dir = Directory(outPath);
     if (dir.existsSync()) {
       dir.deleteSync(recursive: true);
     }
-    extractFileToDisk(inPath, outPath);
+    await extractFileToDisk(inPath, outPath);
 
     final files = dir.listSync(recursive: true);
     expect(files.length, 4);
   });
 
-  test('extractFileToDisk tar.gz', () {
+  test('extractFileToDisk tar.gz', () async {
     final inPath = '$testDirPath/res/test2.tar.gz';
     final outPath = '$testDirPath/out/extractFileToDisk_tgz';
     final dir = Directory(outPath);
     if (dir.existsSync()) {
       dir.deleteSync(recursive: true);
     }
-    extractFileToDisk(inPath, outPath);
+    await extractFileToDisk(inPath, outPath);
 
     final files = dir.listSync(recursive: true);
     expect(files.length, 4);
   });
 
-  test('extractFileToDisk tar.tbz', () {
+  test('extractFileToDisk tar.tbz', () async {
     final inPath = '$testDirPath/res/test2.tar.bz2';
     final outPath = '$testDirPath/out/extractFileToDisk_tbz';
     final dir = Directory(outPath);
     if (dir.existsSync()) {
       dir.deleteSync(recursive: true);
     }
-    extractFileToDisk(inPath, outPath);
+    await extractFileToDisk(inPath, outPath);
 
     final files = dir.listSync(recursive: true);
     expect(files.length, 4);
   });
 
-  test('extractFileToDisk zip', () {
+  test('extractFileToDisk zip', () async {
     final inPath = '$testDirPath/res/test.zip';
     final outPath = '$testDirPath/out/extractFileToDisk_zip';
     final dir = Directory(outPath);
     if (dir.existsSync()) {
       dir.deleteSync(recursive: true);
     }
-    extractFileToDisk(inPath, outPath);
+    await extractFileToDisk(inPath, outPath);
 
     final files = dir.listSync(recursive: true);
     expect(files.length, 2);

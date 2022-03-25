@@ -16,13 +16,13 @@ class TarFileEncoder {
   static const int STORE = 0;
   static const int GZIP = 1;
 
-  void tarDirectory(
+  Future<void> tarDirectory(
     Directory dir, {
     int compression = STORE,
     String? filename,
     bool followLinks = true,
     int? level,
-  }) {
+  }) async {
     final dirPath = dir.path;
     var tarPath = filename ?? '$dirPath.tar';
     final tgzPath = filename ?? '$dirPath.tar.gz';
@@ -35,15 +35,15 @@ class TarFileEncoder {
 
     // Encode a directory from disk to disk, no memory
     open(tarPath);
-    addDirectory(Directory(dirPath), followLinks: followLinks);
-    close();
+    await addDirectory(Directory(dirPath), followLinks: followLinks);
+    await close();
 
     if (compression == GZIP) {
       final input = InputFileStream(tarPath);
       final output = OutputFileStream(tgzPath);
       GZipEncoder().encode(input, output: output, level: level);
-      input.close();
-      File(input.path).deleteSync();
+      await input.close();
+      File(input.path).delete();
     }
   }
 
@@ -56,32 +56,44 @@ class TarFileEncoder {
     _encoder.start(_output);
   }
 
-  void addDirectory(Directory dir, {bool followLinks = true}) {
-    List files = dir.listSync(recursive: true, followLinks: followLinks);
+  Future<void> addDirectory(Directory dir,
+      {bool followLinks = true,
+        bool includeDirName = true}) async {
+    final files = dir.listSync(recursive: true, followLinks: followLinks);
 
-    for (var fe in files) {
-      if (fe is! File) {
-        continue;
+    final dirName = path.basename(dir.path);
+    var futures = <Future<void>>[];
+    for (var file in files) {
+      if (file is Directory) {
+        var filename = path.relative(file.path, from: dir.path);
+        filename = includeDirName ? (dirName + '/' + filename) : filename;
+        final af = ArchiveFile(filename + '/', 0, null);
+        af.mode = file.statSync().mode;
+        af.isFile = false;
+        _encoder.add(af);
+      } else if (file is File) {
+        final dirName = path.basename(dir.path);
+        final relPath = path.relative(file.path, from: dir.path);
+        futures.add(addFile(
+            file, includeDirName ? (dirName + '/' + relPath) : relPath));
       }
-
-      final f = fe;
-      final relPath = path.relative(f.path, from: dir.path);
-      addFile(f, relPath);
     }
+
+    await Future.wait(futures);
   }
 
-  void addFile(File file, [String? filename]) {
+  Future<void> addFile(File file, [String? filename]) async {
     final fileStream = InputFileStream(file.path);
     final f = ArchiveFile.stream(
         filename ?? file.path, file.lengthSync(), fileStream);
     f.lastModTime = file.lastModifiedSync().millisecondsSinceEpoch ~/ 1000;
     f.mode = file.statSync().mode;
     _encoder.add(f);
-    fileStream.close();
+    await fileStream.close();
   }
 
-  void close() {
+  Future<void> close() async {
     _encoder.finish();
-    _output.close();
+    await _output.close();
   }
 }

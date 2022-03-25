@@ -131,15 +131,17 @@ class ArchiveFile {
     _content = null;
   }
 
-  void close() {
+  Future<void> close() async {
+    var futures = <Future<void>>[];
     if (_content is InputStreamBase) {
-      _content.close();
+      futures.add((_content as InputStreamBase).close());
     }
     if (_rawContent is InputStreamBase) {
-      _rawContent!.close();
+      futures.add((_rawContent as InputStreamBase).close());
     }
     _content = null;
     _rawContent = null;
+    await Future.wait(futures);
   }
 
   /// If the file data is compressed, decompress it.
