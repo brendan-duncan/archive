@@ -268,7 +268,7 @@ void main() {
     expect(bs.length, 50);
     input.close();
 
-    testFile.deleteSync();
+    testFile.delete();
   });
 
   test('extractFileToDisk tar', () {
