@@ -1,3 +1,11 @@
+## 3.3.0 - March 25, 2022
+
+* IO encoders (ZipFileEncoder, TarFileEncoder), will now include directories and empty directories.
+* Fix for ZipEncoder file lastModTime.
+* Fix for ArchiveFile.string.
+* Add PAX format to tar decoder.
+* Make more file operations async. 
+
 ## 3.2.2 - March 09, 2022
 
 * Re-add List<int> content data for ArchiveFile.
