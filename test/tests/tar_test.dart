@@ -160,7 +160,9 @@ void main() {
 
   test('tar file', () {
     final tar = TarEncoder().encode(Archive()..addFile(ArchiveFile('file.txt', 1, [100])));
-    File(p.join(testDirPath, 'out/tar_encoded.tar')).writeAsBytesSync(tar);
+    File(p.join(testDirPath, 'out/tar_encoded.tar'))
+      ..createSync(recursive: true)
+      ..writeAsBytesSync(tar);
   });
 
   test('long file name', () {
