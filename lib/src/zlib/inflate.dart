@@ -1,5 +1,4 @@
 import 'dart:typed_data';
-import '../util/archive_exception.dart';
 import '../util/input_stream.dart';
 import '../util/output_stream.dart';
 import 'huffman_table.dart';
@@ -89,8 +88,7 @@ class Inflate {
     }
 
     while (!input.isEOS) {
-      final more = _parseBlock();
-      if (!more) {
+      if (!_parseBlock()) {
         break;
       }
     }
@@ -104,30 +102,35 @@ class Inflate {
     }
 
     // Each block has a 3-bit header
-    final hdr = _readBits(3);
+    final blockHeader = _readBits(3);
 
     // BFINAL (is this the final block)?
-    final bfinal = (hdr & 0x1) != 0;
+    final finalBlock = (blockHeader & 0x1) != 0;
 
     // BTYPE (the type of block)
-    final btype = hdr >> 1;
-    switch (btype) {
-      case _blockUncompressed:
-        _parseUncompressedBlock();
+    final blockType = blockHeader >> 1;
+    switch (blockType) {
+      case 0: // Uncompressed block
+        if (_parseUncompressedBlock() == -1) {
+          return false;
+        }
         break;
-      case _blockFixedHuffman:
-        _parseFixedHuffmanBlock();
+      case 1: // Fixed huffman block
+        if (_parseFixedHuffmanBlock() == -1) {
+          return false;
+        }
         break;
-      case _blockDynamicHuffman:
-        _parseDynamicHuffmanBlock();
+      case 2: // Dynamic huffman block
+        if (_parseDynamicHuffmanBlock() == -1) {
+          return false;
+        }
         break;
       default:
-        // reserved or other
-        throw ArchiveException('unknown BTYPE: $btype');
+        return false;
     }
 
     // Continue while not the final block
-    return !bfinal;
+    return !finalBlock;
   }
 
   /// Read a number of bits from the input stream.
@@ -139,7 +142,7 @@ class Inflate {
     // not enough buffer
     while (_bitBufferLen < length) {
       if (input.isEOS) {
-        throw ArchiveException('input buffer is broken');
+        return -1;
       }
 
       // input byte
@@ -166,7 +169,7 @@ class Inflate {
     // Not enough buffer
     while (_bitBufferLen < maxCodeLength) {
       if (input.isEOS) {
-        break;
+        return -1;
       }
 
       final octet = input.readByte();
@@ -185,7 +188,7 @@ class Inflate {
     return codeWithLength & 0xffff;
   }
 
-  void _parseUncompressedBlock() {
+  int _parseUncompressedBlock() {
     // skip buffered header bits
     _bitBuffer = 0;
     _bitBufferLen = 0;
@@ -195,56 +198,83 @@ class Inflate {
 
     // Make sure the block size checksum is valid.
     if (len != 0 && len != nlen) {
-      throw ArchiveException('Invalid uncompressed block header');
+      return -1;
     }
 
     // check size
     if (len > input.length) {
-      throw ArchiveException('Input buffer is broken');
+      return -1;
     }
 
     output.writeInputStream(input.readBytes(len));
+    return 0;
   }
 
-  void _parseFixedHuffmanBlock() {
-    _decodeHuffman(_fixedLiteralLengthTable, _fixedDistanceTable);
+  int _parseFixedHuffmanBlock() {
+    return _decodeHuffman(_fixedLiteralLengthTable, _fixedDistanceTable);
   }
 
-  void _parseDynamicHuffmanBlock() {
+  int _parseDynamicHuffmanBlock() {
     // number of literal and length codes.
-    final numLitLengthCodes = _readBits(5) + 257;
+    var numLitLengthCodes = _readBits(5);
+    if (numLitLengthCodes == -1) {
+      return -1;
+    }
+    numLitLengthCodes += 257;
+    if (numLitLengthCodes > 288) {
+      return - 1;
+    }
     // number of distance codes.
-    final numDistanceCodes = _readBits(5) + 1;
+    var numDistanceCodes = _readBits(5);
+    if (numDistanceCodes == -1) {
+      return -1;
+    }
+    numDistanceCodes += 1;
+    if (numDistanceCodes > 32) {
+      return -1;
+    }
     // number of code lengths.
-    final numCodeLengths = _readBits(4) + 4;
+    var numCodeLengths = _readBits(4);
+    if (numCodeLengths == -1) {
+      return -1;
+    }
+    numCodeLengths += 4;
+    if (numCodeLengths > 19) {
+      return -1;
+    }
 
     // decode code lengths
     final codeLengths = Uint8List(_order.length);
     for (var i = 0; i < numCodeLengths; ++i) {
-      codeLengths[_order[i]] = _readBits(3);
+      final len = _readBits(3);
+      if (len == -1) {
+        return -1;
+      }
+      codeLengths[_order[i]] = len;
     }
 
     final codeLengthsTable = HuffmanTable(codeLengths);
 
+    final litLenDistLengths = Uint8List(numLitLengthCodes + numDistanceCodes);
+
     // literal and length code
-    final litlenLengths = Uint8List(numLitLengthCodes);
+    final litlenLengths = Uint8List.view(litLenDistLengths.buffer, 0, numLitLengthCodes);
 
     // distance code
-    final distLengths = Uint8List(numDistanceCodes);
+    final distLengths = Uint8List.view(litLenDistLengths.buffer, numLitLengthCodes, numDistanceCodes);
 
-    final litlen = _decode(numLitLengthCodes, codeLengthsTable, litlenLengths);
+    if (_decode(litLenDistLengths.length, codeLengthsTable, litLenDistLengths) == -1) {
+      return -1;
+    }
 
-    final dist = _decode(numDistanceCodes, codeLengthsTable, distLengths);
-
-    _decodeHuffman(HuffmanTable(litlen), HuffmanTable(dist));
+    return _decodeHuffman(HuffmanTable(litlenLengths), HuffmanTable(distLengths));
   }
 
-  void _decodeHuffman(HuffmanTable litlen, HuffmanTable dist) {
+  int _decodeHuffman(HuffmanTable litlen, HuffmanTable dist) {
     while (true) {
       final code = _readCodeByTable(litlen);
-
       if (code < 0 || code > 285) {
-        throw ArchiveException('Invalid Huffman Code $code');
+        return -1;
       }
 
       // 256 - End of Huffman block
@@ -267,23 +297,22 @@ class Inflate {
 
       // distance code
       final distCode = _readCodeByTable(dist);
-      if (distCode >= 0 && distCode <= 29) {
-        final distance =
-            _distCodeTable[distCode] + _readBits(_distExtraTable[distCode]);
+      if (distCode < 0 || distCode > 29) {
+        return -1;
+      }
+      final distance =
+          _distCodeTable[distCode] + _readBits(_distExtraTable[distCode]);
 
-        // lz77 decode
-        while (codeLength > distance) {
-          output.writeBytes(output.subset(-distance));
-          codeLength -= distance;
-        }
+      // lz77 decode
+      while (codeLength > distance) {
+        output.writeBytes(output.subset(-distance));
+        codeLength -= distance;
+      }
 
-        if (codeLength == distance) {
-          output.writeBytes(output.subset(-distance));
-        } else {
-          output.writeBytes(output.subset(-distance, codeLength - distance));
-        }
+      if (codeLength == distance) {
+        output.writeBytes(output.subset(-distance));
       } else {
-        throw ArchiveException('Illegal unused distance symbol');
+        output.writeBytes(output.subset(-distance, codeLength - distance));
       }
     }
 
@@ -291,59 +320,71 @@ class Inflate {
       _bitBufferLen -= 8;
       input.rewind(1);
     }
+
+    return 0;
   }
 
-  List<int> _decode(int num, HuffmanTable table, List<int> lengths) {
+  int _decode(int num, HuffmanTable table, List<int> codeLengths) {
     var prev = 0;
     var i = 0;
     while (i < num) {
       final code = _readCodeByTable(table);
+      if (code == -1) {
+        return -1;
+      }
       switch (code) {
         case 16:
           // Repeat last code
-          var repeat = 3 + _readBits(2);
+          var repeat = _readBits(2);
+          if (repeat == -1) {
+            return -1;
+          }
+          repeat += 3;
           while (repeat-- > 0) {
-            lengths[i++] = prev;
+            codeLengths[i++] = prev;
           }
           break;
         case 17:
           // Repeat 0
-          var repeat = 3 + _readBits(3);
+          var repeat = _readBits(3);
+          if (repeat == -1) {
+            return -1;
+          }
+          repeat += 3;
           while (repeat-- > 0) {
-            lengths[i++] = 0;
+            codeLengths[i++] = 0;
           }
           prev = 0;
           break;
         case 18:
           // Repeat lots of 0s.
-          var repeat = 11 + _readBits(7);
+          var repeat = _readBits(7);
+          if (repeat == -1) {
+            return - 1;
+          }
+          repeat += 11;
           while (repeat-- > 0) {
-            lengths[i++] = 0;
+            codeLengths[i++] = 0;
           }
           prev = 0;
           break;
         default: // [0, 15]
           // Literal bitlength for this code.
           if (code < 0 || code > 15) {
-            throw ArchiveException('Invalid Huffman Code: $code');
+            return -1;
           }
-          lengths[i++] = code;
+          codeLengths[i++] = code;
           prev = code;
           break;
       }
     }
 
-    return lengths;
+    return 0;
   }
 
   int _bitBuffer = 0;
   int _bitBufferLen = 0;
   int _blockPos = 0;
-
-  // enum BlockType
-  static const int _blockUncompressed = 0;
-  static const int _blockFixedHuffman = 1;
-  static const int _blockDynamicHuffman = 2;
 
   /// Fixed huffman length code table
   static const List<int> _fixedLiteralLengths = [
@@ -674,13 +715,7 @@ class Inflate {
   ];
   final HuffmanTable _fixedDistanceTable = HuffmanTable(_fixedDistanceTableData);
 
-  /// Max backward length for LZ77.
-  static const int _maxBackwardLength = 32768; // ignore: unused_field
-
-  /// Max copy length for LZ77.
-  static const int _maxCopyLength = 258; // ignore: unused_field
-
-  /// Huffman order
+    /// Huffman order
   static const List<int> _order = [
     16,
     17,

@@ -1,3 +1,7 @@
+## 3.3.1 - July 19, 2022
+
+* Fix for Inflate crashing on some compressed files.
+
 ## 3.3.0 - March 25, 2022
 
 * IO encoders (ZipFileEncoder, TarFileEncoder), will now include directories and empty directories.

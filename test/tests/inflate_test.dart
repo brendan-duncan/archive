@@ -1,13 +1,24 @@
 import 'dart:typed_data';
-
+import 'dart:io';
+import 'dart:convert';
 import 'package:archive/archive.dart';
+import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
+import 'test_utils.dart';
 
 void main() {
   final buffer = List<int>.filled(0xfffff, 0);
   for (var i = 0; i < buffer.length; ++i) {
     buffer[i] = i % 256;
   }
+
+  test('error', () {
+    var file = File(p.join(testDirPath, 'res/inflate/data.bin'));
+    var data = file.readAsBytesSync();
+    final inflatedDataBytes = Inflate(data).getBytes();
+    final inflatedDataString = utf8.decode(inflatedDataBytes);
+    expect(inflatedDataString.length, equals(5259));
+  });
 
   test('stream/NO_COMPRESSION', () {
     // compress the buffer (assumption: deflate works correctly).
