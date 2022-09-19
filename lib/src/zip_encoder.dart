@@ -248,7 +248,7 @@ class ZipEncoder {
     for (var fileData in files) {
       final versionMadeBy = (os << 8) | version;
       final versionNeededToExtract = version;
-      final generalPurposeBitFlag = 0;
+      final generalPurposeBitFlag = languageEncodingBitUtf8;
       final compressionMethod =
           fileData.compress ? ZipFile.DEFLATE : ZipFile.STORE;
       final lastModifiedFileTime = fileData.time;
