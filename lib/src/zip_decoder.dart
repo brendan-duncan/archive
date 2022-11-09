@@ -1,10 +1,12 @@
+import 'dart:convert';
+
+import 'archive.dart';
+import 'archive_file.dart';
 import 'util/archive_exception.dart';
 import 'util/crc32.dart';
 import 'util/input_stream.dart';
 import 'zip/zip_directory.dart';
 import 'zip/zip_file.dart';
-import 'archive.dart';
-import 'archive_file.dart';
 
 /// Decode a zip formatted buffer into an [Archive] object.
 class ZipDecoder {
@@ -42,9 +44,19 @@ class ZipDecoder {
       // see https://github.com/brendan-duncan/archive/issues/21
       // UNIX systems has a creator version of 3 decimal at 1 byte offset
       if (zfh.versionMadeBy >> 8 == 3) {
-        //final bool isDirectory = file.mode & 0x7000 == 0x4000;
-        final isFile = file.mode & 0x3F000 == 0x8000;
-        file.isFile = isFile;
+        file.isFile = false;
+
+        final fileType = file.mode & 0xF000;
+        switch (fileType) {
+          case 0x8000:
+            file.isFile = true;
+            break;
+          case 0xA000:
+            file.isSymbolicLink = true;
+            file.nameOfLinkedFile = utf8.decode(file.content as List<int>);
+            break;
+          default:
+        }
       } else {
         file.isFile = !file.name.endsWith('/');
       }

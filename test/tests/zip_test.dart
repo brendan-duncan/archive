@@ -1,6 +1,7 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
-import 'dart:convert';
+
 import 'package:archive/archive_io.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
@@ -62,7 +63,8 @@ final zipTests = <dynamic>[
       {
         'Name': 'symlink',
         'Content': '../target'.codeUnits,
-        //'Mode':    0777 | os.ModeSymlink,
+        'Mode': 0777 | 0120000,
+        'isSymbolicLink': true,
       },
     ],
   },
@@ -231,9 +233,9 @@ void main() {
   });
 
   test('file encoding zip file', () {
-    final origialFileName = 'fileöäüÖÄÜß.txt';
+    final originalFileName = 'fileöäüÖÄÜß.txt';
     final bytes = Utf8Codec().encode('test');
-    final archiveFile = ArchiveFile(origialFileName, bytes.length, bytes);
+    final archiveFile = ArchiveFile(originalFileName, bytes.length, bytes);
     final archive = Archive();
     archive.addFile(archiveFile);
 
@@ -246,14 +248,15 @@ void main() {
 
     final decodedFile = archiveDecoded.files.first;
 
-    expect(decodedFile.name, origialFileName);
+    expect(decodedFile.name, originalFileName);
   });
 
   test('zip data types', () {
     final archive = Archive();
     archive.addFile(ArchiveFile('uint8list', 2, Uint8List(2)));
-    archive.addFile(ArchiveFile('list_int', 2, [1,2]));
-    archive.addFile(ArchiveFile('float32list', 8, Float32List.fromList([3.0,4.0])));
+    archive.addFile(ArchiveFile('list_int', 2, [1, 2]));
+    archive.addFile(
+        ArchiveFile('float32list', 8, Float32List.fromList([3.0, 4.0])));
     archive.addFile(ArchiveFile.string('string', 'hello'));
     var zipData = ZipEncoder().encode(archive);
 
@@ -443,6 +446,12 @@ void main() {
         }
         if (hdr.containsKey('isFile')) {
           expect(archive.findFile(zipFile!.filename)!.isFile, hdr['isFile']);
+        }
+        if (hdr.containsKey('isSymbolicLink')) {
+          expect(archive.findFile(zipFile!.filename)!.isSymbolicLink,
+              hdr['isSymbolicLink']);
+          expect(archive.findFile(zipFile.filename)!.nameOfLinkedFile,
+              utf8.decode(hdr['Content'] as List<int>));
         }
       }
     });
