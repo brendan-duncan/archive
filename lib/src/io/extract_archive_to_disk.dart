@@ -1,12 +1,14 @@
 import 'dart:io';
+
 import 'package:path/path.dart' as p;
-import 'input_file_stream.dart';
-import 'output_file_stream.dart';
+
 import '../archive.dart';
-import '../gzip_decoder.dart';
 import '../bzip2_decoder.dart';
+import '../gzip_decoder.dart';
 import '../tar_decoder.dart';
 import '../zip_decoder.dart';
+import 'input_file_stream.dart';
+import 'output_file_stream.dart';
 
 /// Ensure filePath is contained in the outputDir folder, to make sure archives
 /// aren't trying to write to some system path.
@@ -23,29 +25,40 @@ void extractArchiveToDisk(Archive archive, String outputPath,
   for (final file in archive.files) {
     final filePath = '$outputPath${Platform.pathSeparator}${file.name}';
 
-    if (!file.isFile || !isWithinOutputPath(outputPath, filePath)) {
+    if ((!file.isFile && !file.isSymbolicLink) ||
+        !isWithinOutputPath(outputPath, filePath)) {
       continue;
     }
 
     if (asyncWrite) {
-      final output = File(filePath);
-      output.create(recursive: true).then((f) {
-        f.open(mode: FileMode.write).then((fp) {
-          final bytes = file.content as List<int>;
-          fp.writeFrom(bytes).then((fp) {
-            file.clear();
-            fp.close();
+      if (file.isSymbolicLink) {
+        final link = Link(filePath);
+        link.create(file.nameOfLinkedFile, recursive: true);
+      } else {
+        final output = File(filePath);
+        output.create(recursive: true).then((f) {
+          f.open(mode: FileMode.write).then((fp) {
+            final bytes = file.content as List<int>;
+            fp.writeFrom(bytes).then((fp) {
+              file.clear();
+              fp.close();
+            });
           });
         });
-      });
-    } else {
-      final output = OutputFileStream(filePath, bufferSize: bufferSize);
-      try {
-        file.writeContent(output);
-      } catch (err) {
-        //
       }
-      output.close();
+    } else {
+      if (file.isSymbolicLink) {
+        final link = Link(filePath);
+        link.createSync(file.nameOfLinkedFile, recursive: true);
+      } else {
+        final output = OutputFileStream(filePath, bufferSize: bufferSize);
+        try {
+          file.writeContent(output);
+        } catch (err) {
+          //
+        }
+        output.close();
+      }
     }
   }
 }
@@ -98,27 +111,37 @@ Future<void> extractFileToDisk(String inputPath, String outputPath,
       continue;
     }
 
-    if (!file.isFile) {
+    if (!file.isFile && !file.isSymbolicLink) {
       Directory(filePath).createSync(recursive: true);
       continue;
     }
 
     if (asyncWrite) {
-      final output = File(filePath);
-      final f = await output.create(recursive: true);
-      final fp = await f.open(mode: FileMode.write);
-      final bytes = file.content as List<int>;
-      await fp.writeFrom(bytes);
-      file.clear();
-      futures.add(fp.close());
-    } else {
-      final output = OutputFileStream(filePath, bufferSize: bufferSize);
-      try {
-        file.writeContent(output);
-      } catch (err) {
-        //
+      if (file.isSymbolicLink) {
+        final link = Link(filePath);
+        await link.create(file.nameOfLinkedFile, recursive: true);
+      } else {
+        final output = File(filePath);
+        final f = await output.create(recursive: true);
+        final fp = await f.open(mode: FileMode.write);
+        final bytes = file.content as List<int>;
+        await fp.writeFrom(bytes);
+        file.clear();
+        futures.add(fp.close());
       }
-      futures.add(output.close());
+    } else {
+      if (file.isSymbolicLink) {
+        final link = Link(filePath);
+        link.createSync(file.nameOfLinkedFile, recursive: true);
+      } else {
+        final output = OutputFileStream(filePath, bufferSize: bufferSize);
+        try {
+          file.writeContent(output);
+        } catch (err) {
+          //
+        }
+        futures.add(output.close());
+      }
     }
   }
 
