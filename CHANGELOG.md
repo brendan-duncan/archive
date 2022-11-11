@@ -1,3 +1,8 @@
+## 3.3.3 - November 11, 2022
+
+* Support symlinks in ZIP archives
+* Fix ZIP decryption for ZipCrypto format 
+
 ## 3.3.2 - October 16, 2022
 
 * Fix for UTF-8 file name caused problem on Windows.
