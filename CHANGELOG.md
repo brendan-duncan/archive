@@ -1,3 +1,7 @@
+## 3.3.4 - November 11, 2022
+
+* Fix analysis errors.
+
 ## 3.3.3 - November 11, 2022
 
 * Support symlinks in ZIP archives
