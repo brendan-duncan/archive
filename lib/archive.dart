@@ -5,6 +5,7 @@ export 'src/bzip2/bz2_bit_writer.dart';
 export 'src/bzip2/bzip2.dart';
 export 'src/tar/tar_file.dart';
 export 'src/util/adler32.dart';
+export 'src/util/aes_decrypt.dart';
 export 'src/util/archive_exception.dart';
 export 'src/util/byte_order.dart';
 export 'src/util/crc32.dart';

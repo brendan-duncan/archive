@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
-
 import 'package:archive/archive_io.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
@@ -266,7 +265,7 @@ void main() {
 
   test('zip executable', () async {
     // Only tested on linux so far
-    /*if (Platform.isLinux || Platform.isMacOS) {
+    if (Platform.isLinux || Platform.isMacOS) {
       var path = Directory.systemTemp.createTempSync('zip_executable').path;
       var srcPath = p.join(path, 'src');
 
@@ -299,7 +298,7 @@ void main() {
       final archiveFile = archive[1];
       expect(archiveFile.mode, file.statSync().mode);
       expect(archiveFile.isFile, true);
-    }*/
+    }
   });
 
   test('encode', () {
@@ -349,6 +348,53 @@ void main() {
     }
     expect(arc[0].lastModTime, equals(1008795648));
   });
+
+  test('zipCrypto', () {
+    var file = File(p.join(testDirPath, 'res/zip/zipCrypto.zip'));
+    var bytes = file.readAsBytesSync();
+    final archive =
+      ZipDecoder().decodeBytes(bytes, verify:false, password: '12345');
+
+    expect(archive.numberOfFiles(), equals(2));
+
+    for (var i = 0; i < archive.numberOfFiles(); ++i) {
+      var file = File(p.join(testDirPath, 'res/zip/${archive.files[i].name}'));
+      var bytes = file.readAsBytesSync();
+      var content = archive.files[i].content as Uint8List;
+      expect(bytes.length, equals(content.length));
+      bool diff = false;
+      for (int i = 0; i < bytes.length; ++i) {
+        if (bytes[i] != content[i]) {
+          diff = true;
+          break;
+        }
+      }
+      expect(diff, equals(false));
+    }
+  });
+
+  /*test('aes256', () {
+    var file = File(p.join(testDirPath, 'res/zip/aes256.zip'));
+    var bytes = file.readAsBytesSync();
+    final archive =
+    ZipDecoder().decodeBytes(bytes, password: '12345');
+
+    expect(archive.numberOfFiles(), equals(2));
+    for (var i = 0; i < archive.numberOfFiles(); ++i) {
+      var file = File(p.join(testDirPath, 'res/zip/${archive.files[i].name}'));
+      var bytes = file.readAsBytesSync();
+      var content = archive.files[i].content as Uint8List;
+      expect(equals(content.length), bytes.length);
+      bool diff = false;
+      for (int i = 0; i < bytes.length; ++i) {
+        if (bytes[i] != content[i]) {
+          diff = true;
+          break;
+        }
+      }
+      expect(diff, equals(false));
+    }
+  });*/
 
   test('password', () {
     var file = File(p.join(testDirPath, 'res/zip/password_zipcrypto.zip'));

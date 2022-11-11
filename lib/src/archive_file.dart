@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import 'util/_file_content.dart';
 import 'util/input_stream.dart';
 import 'util/output_stream.dart';
 import 'zlib/inflate.dart';
@@ -74,6 +75,8 @@ class ArchiveFile {
       if (size <= 0) {
         size = content.length;
       }
+    } else if (content is FileContent) {
+      _content = content;
     }
   }
 
@@ -121,6 +124,9 @@ class ArchiveFile {
 
   /// Get the content of the file, decompressing on demand as necessary.
   dynamic get content {
+    if (_content is FileContent) {
+      _content = _content.content;
+    }
     if (_content == null) {
       decompress();
     }

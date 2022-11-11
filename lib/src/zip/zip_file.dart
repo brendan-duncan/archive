@@ -1,10 +1,26 @@
+import '../util/aes_decrypt.dart';
 import '../util/archive_exception.dart';
 import '../util/crc32.dart';
 import '../util/input_stream.dart';
+import '../util/_file_content.dart';
 import '../zlib/inflate.dart';
 import 'zip_file_header.dart';
+import 'dart:typed_data';
+import "package:pointycastle/export.dart";
 
-class ZipFile {
+class AesHeader {
+  static const signature = 39169;
+
+  int vendorVersion;
+  String vendorId;
+  int encryptionStrength; // 1: 128-bit, 2: 192-bit, 3: 256-bit
+  int compressionMethod;
+
+  AesHeader(this.vendorVersion, this.vendorId, this.encryptionStrength,
+      this.compressionMethod);
+}
+
+class ZipFile extends FileContent {
   static const int STORE = 0;
   static const int DEFLATE = 8;
   static const int BZIP2 = 12;
@@ -44,13 +60,33 @@ class ZipFile {
       filename = input.readString(size: fnLen);
       extraField = input.readBytes(exLen).toUint8List();
 
+      _encryptionType = (flags & 0x1) != 0 ? encryptionZipCrypto : encryptionNone;
+      _password = password;
+
       // Read compressedSize bytes for the compressed data.
-      //_rawContent = input.subset(null, header!.compressedSize!);
       _rawContent = input.readBytes(header!.compressedSize!);
 
-      if (password != null) {
+      if (_encryptionType != 0 && exLen > 2) {
+        final extra = InputStream(extraField);
+        final id = extra.readUint16();
+        if (id == AesHeader.signature) {
+          extra.readUint16(); // dataSize = 7
+          final vendorVersion = extra.readUint16();
+          final vendorId = extra.readString(size: 2);
+          final encryptionStrength = extra.readByte();
+          final compressionMethod = extra.readUint16();
+
+          _encryptionType = encryptionAes;
+          _aesHeader = AesHeader(vendorVersion, vendorId, encryptionStrength,
+              compressionMethod);
+
+          // compressionMethod in the file header will be 99 for aes encrypted
+          // files. The compressionMethod value in the AES extraField stores the
+          // actual compressionMethod.
+          this.compressionMethod = _aesHeader!.compressionMethod;
+        }
+      } else if (_encryptionType == 1 && password != null) {
         _initKeys(password);
-        _isEncrypted = true;
       }
 
       // If bit 3 (0x08) of the flags field is set, then the CRC-32 and file
@@ -84,13 +120,17 @@ class ZipFile {
   /// until it is requested.
   List<int> get content {
     if (_content == null) {
-      if (_isEncrypted) {
+      if (_encryptionType != encryptionNone) {
         if (_rawContent.length <= 0) {
           _content = _rawContent.toUint8List();
-          _isEncrypted = false;
+          _encryptionType = encryptionNone;
         } else {
-          _rawContent = _decodeRawContent(_rawContent);
-          _isEncrypted = false;
+          if (_encryptionType == encryptionZipCrypto) {
+            _rawContent = _decodeZipCrypto(_rawContent);
+          } else if (_encryptionType == encryptionAes) {
+            _rawContent = _decodeAes(_rawContent);
+          }
+          _encryptionType = encryptionNone;
         }
       }
 
@@ -141,7 +181,7 @@ class ZipFile {
     _updateKeys(c);
   }
 
-  InputStream _decodeRawContent(InputStreamBase input) {
+  InputStream _decodeZipCrypto(InputStreamBase input) {
     for (var i = 0; i < 12; ++i) {
       _decodeByte(_rawContent.readByte());
     }
@@ -154,11 +194,56 @@ class ZipFile {
     return InputStream(bytes);
   }
 
+  InputStream _decodeAes(InputStreamBase input) {
+    Uint8List salt;
+    if (_aesHeader!.encryptionStrength == 1) { // 128-bit
+      salt = input.readBytes(8).toUint8List();
+    } else if (_aesHeader!.encryptionStrength == 1) { // 192-bit
+      salt = input.readBytes(12).toUint8List();
+    } else { // 256-bit
+      salt = input.readBytes(16).toUint8List();
+    }
+
+    //int verification = input.readUint16();
+    final dataBytes = input.readBytes(input.length - 10);
+    final bytes = dataBytes.toUint8List();
+
+    final key = _deriveKey(_password!, salt);
+
+    final decrypt = AesDecrypt(key, mode: AesDecrypt.aes256);
+    decrypt.decryptCrt(bytes);
+
+    return InputStream(bytes);
+  }
+
+  static Uint8List _deriveKey(String password, Uint8List salt,
+      { int derivedKeyLength = 32 }) {
+    if (password.isEmpty) {
+      return Uint8List(0);
+    }
+
+    final passwordBytes = Uint8List.fromList(password.codeUnits);
+
+    const iterationCount = 1000;
+    final params = Pbkdf2Parameters(salt, iterationCount, derivedKeyLength);
+    final keyDerivator = PBKDF2KeyDerivator(HMac(SHA256Digest(), 64));
+    keyDerivator.init(params);
+
+    return keyDerivator.process(passwordBytes);
+  }
+
+  static const encryptionNone = 0;
+  static const encryptionZipCrypto = 1;
+  static const encryptionAes = 2;
+
   // Content of the file. If compressionMethod is not STORE, then it is
   // still compressed.
   late InputStreamBase _rawContent;
   List<int>? _content;
   int? _computedCrc32;
-  bool _isEncrypted = false;
+  int _encryptionType = encryptionNone;
+  AesHeader? _aesHeader;
+  String? _password;
+
   final _keys = <int>[0, 0, 0];
 }

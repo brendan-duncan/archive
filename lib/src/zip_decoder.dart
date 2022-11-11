@@ -35,9 +35,9 @@ class ZipDecoder {
         }
       }
 
-      dynamic content = zf.rawContent;
+      //dynamic content = zf.rawContent;
       var file = ArchiveFile(
-          zf.filename, zf.uncompressedSize!, content, zf.compressionMethod);
+          zf.filename, zf.uncompressedSize!, zf, zf.compressionMethod);
 
       file.mode = mode >> 16;
 
