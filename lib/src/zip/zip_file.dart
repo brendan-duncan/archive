@@ -118,7 +118,7 @@ class ZipFile extends FileContent {
 
   /// Get the decompressed content from the file. The file isn't decompressed
   /// until it is requested.
-  List<int> get content {
+  @override List<int> get content {
     if (_content == null) {
       if (_encryptionType != encryptionNone) {
         if (_rawContent.length <= 0) {

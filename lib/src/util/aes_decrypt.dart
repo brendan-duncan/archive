@@ -1,4 +1,3 @@
-import 'dart:ffi';
 import 'dart:typed_data';
 
 // From https://github.com/kokke/tiny-AES-c
