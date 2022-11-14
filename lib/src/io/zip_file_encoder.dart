@@ -51,6 +51,7 @@ class ZipFileEncoder {
         filename = includeDirName ? (dirName + '/' + filename) : filename;
         final af = ArchiveFile(filename + '/', 0, null);
         af.mode = file.statSync().mode;
+        af.lastModTime = file.statSync().modified.millisecondsSinceEpoch ~/ 1000;
         af.isFile = false;
         _encoder.addFile(af);
       } else if (file is File) {
