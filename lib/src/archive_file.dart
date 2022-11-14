@@ -108,6 +108,9 @@ class ArchiveFile {
   }
 
   void writeContent(OutputStreamBase output, {bool freeMemory = true}) {
+    if (_content is FileContent) {
+      _content = _content.content;
+    }
     if (_content is List<int>) {
       output.writeBytes(_content as List<int>);
     } else if (_content is InputStreamBase) {
