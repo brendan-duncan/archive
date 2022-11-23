@@ -1,3 +1,7 @@
+## 3.3.5 - November 22, 2022
+
+* Fix file content when decoding zips
+
 ## 3.3.4 - November 11, 2022
 
 * Fix analysis errors.
