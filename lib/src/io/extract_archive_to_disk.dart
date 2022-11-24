@@ -6,6 +6,7 @@ import '../archive.dart';
 import '../bzip2_decoder.dart';
 import '../gzip_decoder.dart';
 import '../tar_decoder.dart';
+import '../xz_decoder.dart';
 import '../zip_decoder.dart';
 import 'input_file_stream.dart';
 import 'output_file_stream.dart';
@@ -85,6 +86,14 @@ Future<void> extractFileToDisk(String inputPath, String outputPath,
     BZip2Decoder().decodeBuffer(input, output: output);
     futures.add(input.close());
     futures.add(output.close());
+  } else if (inputPath.endsWith('tar.xz') || inputPath.endsWith('txz')) {
+    tempDir = Directory.systemTemp.createTempSync('dart_archive');
+    archivePath = '${tempDir.path}${Platform.pathSeparator}temp.tar';
+    final input = InputFileStream(inputPath);
+    final output = OutputFileStream(archivePath, bufferSize: bufferSize);
+    output.writeBytes(XZDecoder().decodeBuffer(input));
+    futures.add(input.close());
+    futures.add(output.close());
   }
 
   if (futures.isNotEmpty) {
@@ -101,7 +110,7 @@ Future<void> extractFileToDisk(String inputPath, String outputPath,
     archive = ZipDecoder().decodeBuffer(input, password: password);
   } else {
     throw ArgumentError.value(inputPath, 'inputPath',
-        'Must end tar.gz, tgz, tar.bz2, tbz, tar or zip.');
+        'Must end tar.gz, tgz, tar.bz2, tbz, tar.xz, txz, tar or zip.');
   }
 
   for (final file in archive.files) {
