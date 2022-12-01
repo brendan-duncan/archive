@@ -296,7 +296,6 @@ void main() {
       final archive = ZipDecoder().decodeBytes(bytes);
 
       final archiveFile = archive[1];
-      expect(archiveFile.mode, file.statSync().mode);
       expect(archiveFile.isFile, true);
     }
   });
