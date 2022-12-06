@@ -16,8 +16,11 @@ class ZipDecoder {
     return decodeBuffer(InputStream(data), verify: verify, password: password);
   }
 
-  Archive decodeBuffer(InputStreamBase input,
-      {bool verify = false, String? password}) {
+  Archive decodeBuffer(
+    InputStreamBase input, {
+    bool verify = false,
+    String? password,
+  }) {
     directory = ZipDirectory.read(input, password: password);
     final archive = Archive();
 
@@ -49,6 +52,7 @@ class ZipDecoder {
         final fileType = file.mode & 0xF000;
         switch (fileType) {
           case 0x8000:
+          case 0x0000: // No determination can be made so we assume it's a file.
             file.isFile = true;
             break;
           case 0xA000:
