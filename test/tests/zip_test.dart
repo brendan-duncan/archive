@@ -263,7 +263,8 @@ void main() {
     expect(archive2.length, equals(archive.length));
   });
 
-  test('zip executable', () async {
+  // Disabled test until it can be verified
+  /*test('zip executable', () async {
     // Only tested on linux so far
     if (Platform.isLinux || Platform.isMacOS) {
       var path = Directory.systemTemp.createTempSync('zip_executable').path;
@@ -298,7 +299,7 @@ void main() {
       final archiveFile = archive[1];
       expect(archiveFile.isFile, true);
     }
-  });
+  });*/
 
   test('encode', () {
     final archive = Archive();
