@@ -128,8 +128,8 @@ void compareDirs(List<String> urls) {
       final fd = filesDart[i];
       final f7z = files7z[i];
 
-      List bytesDart = fd.readAsBytesSync();
-      List bytes7z = f7z.readAsBytesSync();
+      final bytesDart = fd.readAsBytesSync();
+      final bytes7z = f7z.readAsBytesSync();
 
       expect(bytesDart.length, bytes7z.length);
 

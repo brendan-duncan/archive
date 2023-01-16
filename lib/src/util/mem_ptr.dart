@@ -37,7 +37,7 @@ class MemPtr {
   int operator [](int index) => buffer[offset + index];
 
   /// Set a byte in the buffer relative to the current read position.
-  operator []=(int index, int value) => buffer[offset + index] = value;
+  void operator []=(int index, int value) => buffer[offset + index] = value;
 
   /// The number of bytes remaining in the buffer.
   int get length => _length - offset;
