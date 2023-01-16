@@ -1,5 +1,3 @@
-// Can't migrate until `package:args` is migrated.
-// @dart=2.9
 library archive.tar;
 
 import 'package:archive/src/tar/tar_command.dart';

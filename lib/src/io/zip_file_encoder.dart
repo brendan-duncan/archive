@@ -43,7 +43,7 @@ class ZipFileEncoder {
       {bool includeDirName = true, int? level, bool followLinks = true}) async {
 
     final dirName = path.basename(dir.path);
-    List files = dir.listSync(recursive: true, followLinks: followLinks);
+    final files = dir.listSync(recursive: true, followLinks: followLinks);
     var futures = <Future<void>>[];
     for (var file in files) {
       if (file is Directory) {

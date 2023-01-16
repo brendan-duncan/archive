@@ -32,7 +32,7 @@ zip archive
 format.
 ''';
 
-void listDir(List files, io.Directory dir) {
+void listDir(List<io.File> files, io.Directory dir) {
   var fileOrDirs = dir.listSync(recursive: true);
   for (var f in fileOrDirs) {
     if (f is io.File) {
