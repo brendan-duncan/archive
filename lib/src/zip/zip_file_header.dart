@@ -21,8 +21,8 @@ class ZipFileHeader {
   String fileComment = '';
   ZipFile? file;
 
-  ZipFileHeader([InputStreamBase? input, InputStreamBase? bytes,
-                 String? password]) {
+  ZipFileHeader(
+      [InputStreamBase? input, InputStreamBase? bytes, String? password]) {
     if (input != null) {
       versionMadeBy = input.readUint16();
       versionNeededToExtract = input.readUint16();

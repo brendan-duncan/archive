@@ -11,8 +11,7 @@ class BZip2 {
   static int initialCrc = 0xffffffff;
 
   static int updateCrc(int value, int crc) {
-    return ((crc << 8) ^
-            _bz2Crc32Table[(crc >> 24) & 0xff ^ (value & 0xff)]) &
+    return ((crc << 8) ^ _bz2Crc32Table[(crc >> 24) & 0xff ^ (value & 0xff)]) &
         0xffffffff;
   }
 
@@ -24,14 +23,7 @@ class BZip2 {
 
   static const int hdr0 = 0x30;
 
-  static const List<int> compressedMagic = [
-    0x31,
-    0x41,
-    0x59,
-    0x26,
-    0x53,
-    0x59
-  ];
+  static const List<int> compressedMagic = [0x31, 0x41, 0x59, 0x26, 0x53, 0x59];
 
   static const List<int> eosMagic = [0x17, 0x72, 0x45, 0x38, 0x50, 0x90];
 

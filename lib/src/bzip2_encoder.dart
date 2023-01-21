@@ -46,8 +46,7 @@ class BZip2Encoder {
       _rfreq[i] = Int32List(_bzMaxAlphaSize);
     }
 
-    _lenPack =
-        List<Uint32List>.filled(_bzMaxAlphaSize, BZip2.emptyUint32List);
+    _lenPack = List<Uint32List>.filled(_bzMaxAlphaSize, BZip2.emptyUint32List);
     for (var i = 0; i < _bzMaxAlphaSize; ++i) {
       _lenPack[i] = Uint32List(4);
     }

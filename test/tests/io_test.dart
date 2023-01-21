@@ -248,7 +248,8 @@ void main() {
 
   test('decode_empty_directory', () {
     var zip = ZipDecoder();
-    var archive = zip.decodeBytes(File('$testDirPath/res/test2.zip').readAsBytesSync());
+    var archive =
+        zip.decodeBytes(File('$testDirPath/res/test2.zip').readAsBytesSync());
     expect(archive.length, 4);
   });
 

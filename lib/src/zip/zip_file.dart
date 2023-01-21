@@ -60,7 +60,8 @@ class ZipFile extends FileContent {
       filename = input.readString(size: fnLen);
       extraField = input.readBytes(exLen).toUint8List();
 
-      _encryptionType = (flags & 0x1) != 0 ? encryptionZipCrypto : encryptionNone;
+      _encryptionType =
+          (flags & 0x1) != 0 ? encryptionZipCrypto : encryptionNone;
       _password = password;
 
       // Read compressedSize bytes for the compressed data.
@@ -77,8 +78,8 @@ class ZipFile extends FileContent {
           final compressionMethod = extra.readUint16();
 
           _encryptionType = encryptionAes;
-          _aesHeader = AesHeader(vendorVersion, vendorId, encryptionStrength,
-              compressionMethod);
+          _aesHeader = AesHeader(
+              vendorVersion, vendorId, encryptionStrength, compressionMethod);
 
           // compressionMethod in the file header will be 99 for aes encrypted
           // files. The compressionMethod value in the AES extraField stores the
@@ -118,7 +119,8 @@ class ZipFile extends FileContent {
 
   /// Get the decompressed content from the file. The file isn't decompressed
   /// until it is requested.
-  @override List<int> get content {
+  @override
+  List<int> get content {
     if (_content == null) {
       if (_encryptionType != encryptionNone) {
         if (_rawContent.length <= 0) {
@@ -196,11 +198,14 @@ class ZipFile extends FileContent {
 
   InputStream _decodeAes(InputStreamBase input) {
     Uint8List salt;
-    if (_aesHeader!.encryptionStrength == 1) { // 128-bit
+    if (_aesHeader!.encryptionStrength == 1) {
+      // 128-bit
       salt = input.readBytes(8).toUint8List();
-    } else if (_aesHeader!.encryptionStrength == 1) { // 192-bit
+    } else if (_aesHeader!.encryptionStrength == 1) {
+      // 192-bit
       salt = input.readBytes(12).toUint8List();
-    } else { // 256-bit
+    } else {
+      // 256-bit
       salt = input.readBytes(16).toUint8List();
     }
 
@@ -217,7 +222,7 @@ class ZipFile extends FileContent {
   }
 
   static Uint8List _deriveKey(String password, Uint8List salt,
-      { int derivedKeyLength = 32 }) {
+      {int derivedKeyLength = 32}) {
     if (password.isEmpty) {
       return Uint8List(0);
     }

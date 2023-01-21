@@ -96,31 +96,33 @@ var tarTests = [
     'file': 'res/tar/pax.tar',
     'headers': [
       {
-        'Name':       'a/123456789101112131415161718192021222324252627282930313233343536373839404142434445464748495051525354555657585960616263646566676869707172737475767778798081828384858687888990919293949596979899100',
-        'Mode':       int.parse('0664',radix: 8),
-        'Uid':        1000,
-        'Gid':        1000,
-        'Uname':      'shane',
-        'Gname':      'shane',
-        'Size':       7,
-        'ModTime':    1350244992,
+        'Name':
+            'a/123456789101112131415161718192021222324252627282930313233343536373839404142434445464748495051525354555657585960616263646566676869707172737475767778798081828384858687888990919293949596979899100',
+        'Mode': int.parse('0664', radix: 8),
+        'Uid': 1000,
+        'Gid': 1000,
+        'Uname': 'shane',
+        'Gname': 'shane',
+        'Size': 7,
+        'ModTime': 1350244992,
         'ChangeTime': 1350244992,
         'AccessTime': 1350244992,
-        'Typeflag':   TarFile.TYPE_NORMAL_FILE,
+        'Typeflag': TarFile.TYPE_NORMAL_FILE,
       },
       {
-        'Name':       'a/b',
-        'Mode':       int.parse('0777',radix: 8),
-        'Uid':        1000,
-        'Gid':        1000,
-        'Uname':      'shane',
-        'Gname':      'shane',
-        'Size':       0,
-        'ModTime':    1350266320,
+        'Name': 'a/b',
+        'Mode': int.parse('0777', radix: 8),
+        'Uid': 1000,
+        'Gid': 1000,
+        'Uname': 'shane',
+        'Gname': 'shane',
+        'Size': 0,
+        'ModTime': 1350266320,
         'ChangeTime': 1350266320,
         'AccessTime': 1350266320,
-        'Typeflag':   TarFile.TYPE_SYMBOLIC_LINK,
-        'Linkname':   '123456789101112131415161718192021222324252627282930313233343536373839404142434445464748495051525354555657585960616263646566676869707172737475767778798081828384858687888990919293949596979899100',
+        'Typeflag': TarFile.TYPE_SYMBOLIC_LINK,
+        'Linkname':
+            '123456789101112131415161718192021222324252627282930313233343536373839404142434445464748495051525354555657585960616263646566676869707172737475767778798081828384858687888990919293949596979899100',
       },
     ],
   },
@@ -159,7 +161,8 @@ void main() {
   });
 
   test('tar file', () {
-    final tar = TarEncoder().encode(Archive()..addFile(ArchiveFile('file.txt', 1, [100])));
+    final tar = TarEncoder()
+        .encode(Archive()..addFile(ArchiveFile('file.txt', 1, [100])));
     File(p.join(testDirPath, 'out/tar_encoded.tar'))
       ..createSync(recursive: true)
       ..writeAsBytesSync(tar);
@@ -180,12 +183,16 @@ void main() {
   });
 
   test('long file name not null terminated', () async {
-    final bytes = await http.readBytes(Uri.parse('https://pub.dev/packages/firebase_messaging/versions/10.0.8.tar.gz'));
+    final bytes = await http.readBytes(Uri.parse(
+        'https://pub.dev/packages/firebase_messaging/versions/10.0.8.tar.gz'));
     final tarBytes = GZipDecoder().decodeBytes(bytes, verify: true);
     final archive = tar.decodeBytes(tarBytes, verify: true);
 
     expect(archive.numberOfFiles(), equals(129));
-    expect(archive.files[13].name, equals('android/src/main/java/io/flutter/plugins/firebase/messaging/FlutterFirebaseMessagingBackgroundExecutor.java'));
+    expect(
+        archive.files[13].name,
+        equals(
+            'android/src/main/java/io/flutter/plugins/firebase/messaging/FlutterFirebaseMessagingBackgroundExecutor.java'));
   });
 
   test('symlink', () {

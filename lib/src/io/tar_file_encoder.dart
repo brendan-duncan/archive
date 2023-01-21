@@ -57,8 +57,7 @@ class TarFileEncoder {
   }
 
   Future<void> addDirectory(Directory dir,
-      {bool followLinks = true,
-        bool includeDirName = true}) async {
+      {bool followLinks = true, bool includeDirName = true}) async {
     final files = dir.listSync(recursive: true, followLinks: followLinks);
 
     final dirName = path.basename(dir.path);

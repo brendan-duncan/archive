@@ -41,7 +41,6 @@ class ZipFileEncoder {
 
   Future<void> addDirectory(Directory dir,
       {bool includeDirName = true, int? level, bool followLinks = true}) async {
-
     final dirName = path.basename(dir.path);
     final files = dir.listSync(recursive: true, followLinks: followLinks);
     var futures = <Future<void>>[];
@@ -51,7 +50,8 @@ class ZipFileEncoder {
         filename = includeDirName ? (dirName + '/' + filename) : filename;
         final af = ArchiveFile(filename + '/', 0, null);
         af.mode = file.statSync().mode;
-        af.lastModTime = file.statSync().modified.millisecondsSinceEpoch ~/ 1000;
+        af.lastModTime =
+            file.statSync().modified.millisecondsSinceEpoch ~/ 1000;
         af.isFile = false;
         _encoder.addFile(af);
       } else if (file is File) {
@@ -73,8 +73,8 @@ class ZipFileEncoder {
       archiveFile.compress = false;
     }
 
-    archiveFile.lastModTime = file.lastModifiedSync()
-        .millisecondsSinceEpoch ~/ 1000;
+    archiveFile.lastModTime =
+        file.lastModifiedSync().millisecondsSinceEpoch ~/ 1000;
     archiveFile.mode = file.statSync().mode;
 
     _encoder.addFile(archiveFile);

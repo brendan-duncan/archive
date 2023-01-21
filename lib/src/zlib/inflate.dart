@@ -222,7 +222,7 @@ class Inflate {
     }
     numLitLengthCodes += 257;
     if (numLitLengthCodes > 288) {
-      return - 1;
+      return -1;
     }
     // number of distance codes.
     var numDistanceCodes = _readBits(5);
@@ -258,16 +258,21 @@ class Inflate {
     final litLenDistLengths = Uint8List(numLitLengthCodes + numDistanceCodes);
 
     // literal and length code
-    final litlenLengths = Uint8List.view(litLenDistLengths.buffer, 0, numLitLengthCodes);
+    final litlenLengths =
+        Uint8List.view(litLenDistLengths.buffer, 0, numLitLengthCodes);
 
     // distance code
-    final distLengths = Uint8List.view(litLenDistLengths.buffer, numLitLengthCodes, numDistanceCodes);
+    final distLengths = Uint8List.view(
+        litLenDistLengths.buffer, numLitLengthCodes, numDistanceCodes);
 
-    if (_decode(litLenDistLengths.length, codeLengthsTable, litLenDistLengths) == -1) {
+    if (_decode(
+            litLenDistLengths.length, codeLengthsTable, litLenDistLengths) ==
+        -1) {
       return -1;
     }
 
-    return _decodeHuffman(HuffmanTable(litlenLengths), HuffmanTable(distLengths));
+    return _decodeHuffman(
+        HuffmanTable(litlenLengths), HuffmanTable(distLengths));
   }
 
   int _decodeHuffman(HuffmanTable litlen, HuffmanTable dist) {
@@ -292,8 +297,7 @@ class Inflate {
       // length code
       final ti = code - 257;
 
-      var codeLength =
-          _lengthCodeTable[ti] + _readBits(_lengthExtraTable[ti]);
+      var codeLength = _lengthCodeTable[ti] + _readBits(_lengthExtraTable[ti]);
 
       // distance code
       final distCode = _readCodeByTable(dist);
@@ -360,7 +364,7 @@ class Inflate {
           // Repeat lots of 0s.
           var repeat = _readBits(7);
           if (repeat == -1) {
-            return - 1;
+            return -1;
           }
           repeat += 11;
           while (repeat-- > 0) {
@@ -713,9 +717,10 @@ class Inflate {
     5,
     5
   ];
-  final HuffmanTable _fixedDistanceTable = HuffmanTable(_fixedDistanceTableData);
+  final HuffmanTable _fixedDistanceTable =
+      HuffmanTable(_fixedDistanceTableData);
 
-    /// Huffman order
+  /// Huffman order
   static const List<int> _order = [
     16,
     17,

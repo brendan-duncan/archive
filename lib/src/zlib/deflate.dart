@@ -538,8 +538,7 @@ class Deflate {
       int dcode;
       for (dcode = 0; dcode < dCodes; dcode++) {
         outLength = (outLength +
-            _dynamicDistTree[dcode * 2] *
-                (5 + _HuffmanTree.extraDBits[dcode]));
+            _dynamicDistTree[dcode * 2] * (5 + _HuffmanTree.extraDBits[dcode]));
       }
       outLength = _rshift(outLength, 3);
       if ((_matches < (_lastLit / 2)) && outLength < inLength / 2) {
@@ -1033,8 +1032,7 @@ class Deflate {
 
         if (_matchLength <= 5 &&
             (_strategy == zFiltered ||
-                (_matchLength == minMatch &&
-                    _strStart - _matchStart > 4096))) {
+                (_matchLength == minMatch && _strStart - _matchStart > 4096))) {
           // If prev_match is also MIN_MATCH, match_start is garbage
           // but we will ignore the current match anyway.
           _matchLength = minMatch - 1;
@@ -3443,8 +3441,8 @@ class _StaticTree {
   static final staticLDesc = _StaticTree(
       staticLTree, _HuffmanTree.extraLBits, literals + 1, lCodes, maxBits);
 
-  static final staticDDesc = _StaticTree(
-      staticDTree, _HuffmanTree.extraDBits, 0, dCodes, maxBits);
+  static final staticDDesc =
+      _StaticTree(staticDTree, _HuffmanTree.extraDBits, 0, dCodes, maxBits);
 
   static final staticBlDesc =
       _StaticTree(null, _HuffmanTree.extraBLBits, 0, blCodes, maxBLBits);

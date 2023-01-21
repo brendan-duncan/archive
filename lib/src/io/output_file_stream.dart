@@ -14,13 +14,15 @@ class OutputFileStream extends OutputStreamBase {
   int _bufferPosition;
   bool _isOpen;
 
-  OutputFileStream(this.path, {this.byteOrder = LITTLE_ENDIAN,
-    int? bufferSize})
-      : _length = 0
-      , _buffer = Uint8List(bufferSize == null ? 8192 : bufferSize < 1 ? 1 :
-                            bufferSize)
-      , _bufferPosition = 0
-      , _isOpen = true {
+  OutputFileStream(this.path, {this.byteOrder = LITTLE_ENDIAN, int? bufferSize})
+      : _length = 0,
+        _buffer = Uint8List(bufferSize == null
+            ? 8192
+            : bufferSize < 1
+                ? 1
+                : bufferSize),
+        _bufferPosition = 0,
+        _isOpen = true {
     final file = File(path);
     file.createSync(recursive: true);
     _fp = file.openSync(mode: FileMode.write);
@@ -89,8 +91,9 @@ class OutputFileStream extends OutputStreamBase {
         flush();
 
         if (_bufferPosition + len < _buffer.length) {
-          for (int i = 0, j = _bufferPosition, k = stream.offset; i < len;
-               ++i, ++j, ++k) {
+          for (int i = 0, j = _bufferPosition, k = stream.offset;
+              i < len;
+              ++i, ++j, ++k) {
             _buffer[j] = stream.buffer[k];
           }
           _bufferPosition += len;
@@ -102,7 +105,8 @@ class OutputFileStream extends OutputStreamBase {
       if (_bufferPosition > 0) {
         flush();
       }
-      _fp.writeFromSync(stream.buffer, stream.offset, stream.offset + stream.length);
+      _fp.writeFromSync(
+          stream.buffer, stream.offset, stream.offset + stream.length);
       _length += stream.length;
     } else {
       var bytes = stream.toUint8List();

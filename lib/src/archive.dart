@@ -6,6 +6,7 @@ class Archive extends IterableBase<ArchiveFile> {
   /// The list of files in the archive.
   List<ArchiveFile> files = [];
   final Map<String, int> _fileMap = {};
+
   /// A global comment for the archive.
   String? comment;
 

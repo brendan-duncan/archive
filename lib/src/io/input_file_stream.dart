@@ -13,8 +13,8 @@ class FileHandle {
   late int _length;
 
   FileHandle(this._path)
-  : _file = File(_path).openSync()
-  , _position = 0 {
+      : _file = File(_path).openSync(),
+        _position = 0 {
     _length = _file!.lengthSync();
   }
 
@@ -89,12 +89,12 @@ class InputFileStream extends InputStreamBase {
   }
 
   InputFileStream.clone(InputFileStream other, {int? position, int? length})
-    : path = other.path
-    , _file = other._file
-    , byteOrder = other.byteOrder
-    , _fileOffset = other._fileOffset + (position ?? 0)
-    , _fileSize = length ?? other._fileSize
-    , _buffer = Uint8List(kDefaultBufferSize) {
+      : path = other.path,
+        _file = other._file,
+        byteOrder = other.byteOrder,
+        _fileOffset = other._fileOffset + (position ?? 0),
+        _fileSize = length ?? other._fileSize,
+        _buffer = Uint8List(kDefaultBufferSize) {
     _readBuffer();
   }
 
@@ -150,7 +150,7 @@ class InputFileStream extends InputStreamBase {
 
   @override
   InputStreamBase subset([int? position, int? length]) {
-    return InputFileStream.clone(this, position:position, length:length);
+    return InputFileStream.clone(this, position: position, length: length);
   }
 
   /// Read [count] bytes from an [offset] of the current read position, without
@@ -309,8 +309,8 @@ class InputFileStream extends InputStreamBase {
   @override
   InputStreamBase readBytes(int count) {
     count = min(count, fileRemaining);
-    final bytes = InputFileStream.clone(this, position: _position,
-        length: count);
+    final bytes =
+        InputFileStream.clone(this, position: _position, length: count);
     skip(count);
     return bytes;
   }
@@ -351,9 +351,8 @@ class InputFileStream extends InputStreamBase {
 
     final s = readBytes(size);
     final bytes = s.toUint8List();
-    final str = utf8
-        ? Utf8Decoder().convert(bytes)
-        : String.fromCharCodes(bytes);
+    final str =
+        utf8 ? Utf8Decoder().convert(bytes) : String.fromCharCodes(bytes);
     return str;
   }
 

@@ -353,7 +353,7 @@ void main() {
     var file = File(p.join(testDirPath, 'res/zip/zipCrypto.zip'));
     var bytes = file.readAsBytesSync();
     final archive =
-      ZipDecoder().decodeBytes(bytes, verify:false, password: '12345');
+        ZipDecoder().decodeBytes(bytes, verify: false, password: '12345');
 
     expect(archive.numberOfFiles(), equals(2));
 
