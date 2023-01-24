@@ -6,7 +6,7 @@ import '../../util/input_stream.dart';
 abstract class ZLibDecoderBase {
   const ZLibDecoderBase();
 
-  Future<Uint8List> decodeBytes(Uint8List data, {bool verify = false});
+  Uint8List decodeBytes(Uint8List data, {bool verify = false});
 
-  Future<Uint8List> decodeStream(InputStream input, {bool verify = false});
+  Uint8List decodeStream(InputStream input, {bool verify = false});
 }

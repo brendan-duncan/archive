@@ -1,4 +1,4 @@
-import 'dart:async';
+//import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -20,25 +20,25 @@ abstract class InputStream {
 
   InputStream({required this.byteOrder});
 
-  Future<bool> open();
+  bool open();
 
   /// Asynchronously closes the input stream.
-  Future<void> close();
+  void close();
 
   /// Reset to the beginning of the stream.
-  Future<void> reset();
+  void reset();
 
-  Future<void> setPosition(int v);
+  void setPosition(int v);
 
   /// Rewind the read head of the stream by the given number of bytes.
-  Future<void> rewind([int length = 1]);
+  void rewind([int length = 1]);
 
   /// Move the read position by [length] bytes.
-  Future<void> skip(int length);
+  void skip(int length);
 
   /// Read [count] bytes from an [offset] of the current read position, without
   /// moving the read position.
-  Future<InputStream> peekBytes(int count, {int offset = 0}) =>
+  InputStream peekBytes(int count, {int offset = 0}) =>
       subset(position: position + offset, length: count);
 
   /// Return a InputStream to read a subset of this stream. It does not
@@ -46,18 +46,18 @@ abstract class InputStream {
   /// to the start of the buffer. If [position] is not specified, the current
   /// read position is used. If [length] is not specified, the remainder of this
   /// stream is used.
-  Future<InputStream> subset({int? position, int? length});
+  InputStream subset({int? position, int? length});
 
   /// Read a single byte.
-  Future<int> readByte();
+  int readByte();
 
   /// Read a single byte.
-  Future<int> readUint8() => readByte();
+  int readUint8() => readByte();
 
   /// Read a 16-bit word from the stream.
-  Future<int> readUint16() async {
-    final b1 = await readByte();
-    final b2 = await readByte();
+  int readUint16() {
+    final b1 = readByte();
+    final b2 = readByte();
     if (byteOrder == ByteOrder.bigEndian) {
       return (b1 << 8) | b2;
     }
@@ -65,10 +65,10 @@ abstract class InputStream {
   }
 
   /// Read a 24-bit word from the stream.
-  Future<int> readUint24() async {
-    final b1 = await readByte();
-    final b2 = await readByte();
-    final b3 = await readByte();
+  int readUint24() {
+    final b1 = readByte();
+    final b2 = readByte();
+    final b3 = readByte();
     if (byteOrder == ByteOrder.bigEndian) {
       return b3 | (b2 << 8) | (b1 << 16);
     }
@@ -76,11 +76,11 @@ abstract class InputStream {
   }
 
   /// Read a 32-bit word from the stream.
-  Future<int> readUint32() async {
-    final b1 = await readByte();
-    final b2 = await readByte();
-    final b3 = await readByte();
-    final b4 = await readByte();
+  int readUint32() {
+    final b1 = readByte();
+    final b2 = readByte();
+    final b3 = readByte();
+    final b4 = readByte();
     if (byteOrder == ByteOrder.bigEndian) {
       return (b1 << 24) | (b2 << 16) | (b3 << 8) | b4;
     }
@@ -88,15 +88,15 @@ abstract class InputStream {
   }
 
   /// Read a 64-bit word form the stream.
-  Future<int> readUint64() async {
-    final b1 = await readByte();
-    final b2 = await readByte();
-    final b3 = await readByte();
-    final b4 = await readByte();
-    final b5 = await readByte();
-    final b6 = await readByte();
-    final b7 = await readByte();
-    final b8 = await readByte();
+  int readUint64() {
+    final b1 = readByte();
+    final b2 = readByte();
+    final b3 = readByte();
+    final b4 = readByte();
+    final b5 = readByte();
+    final b6 = readByte();
+    final b7 = readByte();
+    final b8 = readByte();
     if (byteOrder == ByteOrder.bigEndian) {
       return (b1 << 56) |
           (b2 << 48) |
@@ -118,15 +118,15 @@ abstract class InputStream {
   }
 
   /// Read [count] bytes from the stream.
-  Future<InputStream> readBytes(int count) async {
-    final bytes = await subset(position: position, length: count);
-    await setPosition(position + bytes.length);
+  InputStream readBytes(int count) {
+    final bytes = subset(position: position, length: count);
+    setPosition(position + bytes.length);
     return bytes;
   }
 
   /// Read a null-terminated string, or if [size] is provided, that number of
   /// bytes returned as a string.
-  Future<String> readString({int? size, bool utf8 = true}) async {
+  String readString({int? size, bool utf8 = true}) {
     String codesToString(List<int> codes) {
       try {
         final str = utf8
@@ -146,7 +146,7 @@ abstract class InputStream {
         return '';
       }
       while (!isEOS) {
-        final c = await readByte();
+        final c = readByte();
         if (c == 0) {
           return codesToString(codes);
         }
@@ -155,11 +155,11 @@ abstract class InputStream {
       throw ArchiveException('EOF reached without finding string terminator');
     }
 
-    final s = await readBytes(size);
-    final codes = await s.toUint8List();
+    final s = readBytes(size);
+    final codes = s.toUint8List();
     return codesToString(codes);
   }
 
   /// Convert the remaining bytes to a Uint8List.
-  Future<Uint8List> toUint8List();
+  Uint8List toUint8List();
 }

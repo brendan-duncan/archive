@@ -1,4 +1,4 @@
-import 'dart:async';
+//import 'dart:async';
 import 'dart:typed_data';
 
 import 'byte_order.dart';
@@ -57,34 +57,34 @@ class InputStreamMemory extends InputStream {
   bool get isEOS => _position >= _length;
 
   @override
-  Future<void> setPosition(int v) async {
+  void setPosition(int v) {
     _position = v;
   }
 
   /// Reset to the beginning of the stream.
   @override
-  Future<void> reset() async {
+  void reset() {
     _position = 0;
   }
 
   @override
-  Future<bool> open() async => true;
+  bool open() => true;
 
   @override
-  Future<void> close() async {
+  void close() {
     _position = 0;
   }
 
   /// Rewind the read head of the stream by the given number of bytes.
   @override
-  Future<void> rewind([int length = 1]) async {
+  void rewind([int length = 1]) {
     _position -= length;
     _position = _position.clamp(0, _length);
   }
 
   /// Move the read position by [count] bytes.
   @override
-  Future<void> skip(int count) async {
+  void skip(int count) {
     _position += count;
     _position = _position.clamp(0, _length);
   }
@@ -98,7 +98,7 @@ class InputStreamMemory extends InputStream {
   /// read position is used. If [length] is not specified, the remainder of this
   /// stream is used.
   @override
-  Future<InputStream> subset({int? position, int? length}) async {
+  InputStream subset({int? position, int? length}) {
     position ??= _position;
     length ??= _length - position;
     return InputStreamMemory(buffer,
@@ -107,20 +107,20 @@ class InputStreamMemory extends InputStream {
 
   /// Read a single byte.
   @override
-  Future<int> readByte() async {
+  int readByte() {
     final b = buffer[_position++];
     return b;
   }
 
   @override
-  Future<Uint8List> toUint8List() async {
+  Uint8List toUint8List() {
     var len = length;
     if ((_position + len) > buffer.length) {
       len = buffer.length - _position;
     }
 
     final bytes =
-    Uint8List.view(buffer.buffer, buffer.offsetInBytes + _position, len);
+        Uint8List.view(buffer.buffer, buffer.offsetInBytes + _position, len);
 
     return bytes;
   }

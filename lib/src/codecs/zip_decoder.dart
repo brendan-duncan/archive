@@ -15,17 +15,17 @@ import 'zip/zip_directory.dart';
 class ZipDecoder {
   late ZipDirectory directory;
 
-  Future<Archive> decodeBytes(Uint8List data,
+  Archive decodeBytes(Uint8List data,
           {bool verify = false, String? password}) =>
       decodeStream(InputStreamMemory(data), verify: verify, password: password);
 
-  Future<Archive> decodeStream(
+  Archive decodeStream(
     InputStream input, {
     bool verify = false,
     String? password,
-  }) async {
+  }) {
     directory = ZipDirectory();
-    await directory.read(input, password: password);
+    directory.read(input, password: password);
 
     final archive = Archive();
     for (final zfh in directory.fileHeaders) {
@@ -36,8 +36,8 @@ class ZipDecoder {
       //final compress = zf.compressionMethod != ZipFile.store;
 
       if (verify) {
-        final stream = await zf.getStream();
-        final computedCrc = getCrc32List(await stream.toUint8List());
+        final stream = zf.getStream();
+        final computedCrc = getCrc32List(stream.toUint8List());
         if (computedCrc != zf.crc32) {
           throw ArchiveException('Invalid CRC for file in archive.');
         }
@@ -89,7 +89,7 @@ class ZipDecoder {
         final fileType = entry.mode & 0xf000;
         if (fileType == 0xa000) {
           if (entry is ArchiveFile) {
-            final bytes = await entry.readBytes();
+            final bytes = entry.readBytes();
             if (bytes != null) {
               entry.symbolicLink = utf8.decode(bytes);
             }

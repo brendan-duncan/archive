@@ -13,8 +13,8 @@ void main() async {
 
   group('ZLib', () {
     test('encode/decode', () async {
-      final compressed = await const ZLibEncoder().encodeBytes(buffer);
-      final decompressed = await const ZLibDecoder().decodeBytes(compressed,
+      final compressed = const ZLibEncoder().encodeBytes(buffer);
+      final decompressed = const ZLibDecoder().decodeBytes(compressed,
           verify: true);
       expect(decompressed.length, equals(buffer.length));
       for (var i = 0; i < buffer.length; ++i) {
@@ -24,16 +24,16 @@ void main() async {
 
     test('encodeStream', () async {
       {
-        final outStream = OutputStreamFile('$testOutputPath/zlib_stream.zlib');
-        await outStream.open();
+        final outStream = OutputStreamFile('$testOutputPath/zlib_stream.zlib')
+        ..open();
         final inStream = InputStreamMemory(buffer);
-        await const ZLibEncoder().encodeStream(inStream, outStream);
+        const ZLibEncoder().encodeStream(inStream, outStream);
       }
 
       {
-        final inStream = InputStreamFile('$testOutputPath/zlib_stream.zlib');
-        await inStream.open();
-        final decoded = await const ZLibDecoder().decodeStream(inStream);
+        final inStream = InputStreamFile('$testOutputPath/zlib_stream.zlib')
+        ..open();
+        final decoded = const ZLibDecoder().decodeStream(inStream);
 
         expect(decoded.length, equals(buffer.length));
         for (var i = 0; i < buffer.length; ++i) {

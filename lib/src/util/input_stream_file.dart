@@ -36,15 +36,15 @@ class InputStreamFile extends InputStream {
         super(byteOrder: other.byteOrder);
 
   @override
-  Future<bool> open() async {
-    await _file.open();
+  bool open() {
+    _file.open();
     _fileSize = _file.length;
     return _file.isOpen;
   }
 
   @override
-  Future<void> close() async {
-    await _file.close();
+  void close() {
+    _file.close();
     _fileSize = 0;
     _position = 0;
     _buffer = null;
@@ -68,25 +68,25 @@ class InputStreamFile extends InputStream {
   int get fileRemaining => _fileSize - _position;
 
   @override
-  Future<void> setPosition(int v) async {
+  void setPosition(int v) {
     if (v == _position) {
       return;
     }
     if (v < _position) {
-      await rewind(_position - v);
+      rewind(_position - v);
     } else if (v > _position) {
-      await skip(v - _position);
+      skip(v - _position);
     }
   }
 
   @override
-  Future<void> reset() async {
+  void reset() {
     _position = 0;
     return _readBuffer();
   }
 
   @override
-  Future<void> skip(int length) async {
+  void skip(int length) {
     if (_buffer == null) {
       _position += length;
       _position = _position.clamp(0, _fileSize);
@@ -98,16 +98,16 @@ class InputStreamFile extends InputStream {
       _position += length;
     } else {
       _position += length;
-      await _readBuffer();
+      _readBuffer();
     }
   }
 
   @override
-  Future<InputStream> subset({int? position, int? length}) async =>
+  InputStream subset({int? position, int? length}) =>
       InputStreamFile.from(this, position: position, length: length);
 
   @override
-  Future<void> rewind([int length = 1]) async {
+  void rewind([int length = 1]) {
     if (_buffer == null) {
       _position -= length;
       _position = _position.clamp(0, _fileSize);
@@ -116,7 +116,7 @@ class InputStreamFile extends InputStream {
 
     if ((_bufferPosition - length) < 0) {
       _position = max(_position - length, 0);
-      await _readBuffer();
+      _readBuffer();
       return;
     }
     _bufferPosition -= length;
@@ -124,13 +124,13 @@ class InputStreamFile extends InputStream {
   }
 
   @override
-  Future<int> readByte() async {
+  int readByte() {
     if (isEOS) {
       return 0;
     }
 
     if (_buffer == null || _bufferPosition >= _bufferSize) {
-      await _readBuffer();
+      _readBuffer();
     }
 
     if (_bufferPosition >= _bufferSize) {
@@ -142,16 +142,16 @@ class InputStreamFile extends InputStream {
   }
 
   @override
-  Future<InputStream> readBytes(int count) async {
+  InputStream readBytes(int count) {
     count = min(count, fileRemaining);
     final bytes =
         InputStreamFile.from(this, position: _position, length: count);
-    await skip(count);
+    skip(count);
     return bytes;
   }
 
   @override
-  Future<Uint8List> toUint8List() async {
+  Uint8List toUint8List() {
     if (isEOS) {
       return Uint8List(0);
     }
@@ -159,10 +159,10 @@ class InputStreamFile extends InputStream {
     final length = fileRemaining;
     final bytes = Uint8List(length);
 
-    await _file.setPosition(_fileOffset + _position);
-    final readBytes = await _file.readInto(bytes);
+    _file.setPosition(_fileOffset + _position);
+    final readBytes = _file.readInto(bytes);
 
-    await skip(length);
+    skip(length);
     if (readBytes != bytes.length) {
       bytes.length = readBytes;
     }
@@ -170,11 +170,11 @@ class InputStreamFile extends InputStream {
     return bytes;
   }
 
-  Future<void> _readBuffer() async {
+  void _readBuffer() {
     _bufferPosition = 0;
     _buffer ??= Uint8List(min(_bufferSize, _fileSize));
 
-    await _file.setPosition(_fileOffset + _position);
-    _bufferSize = await _file.readInto(_buffer!, _buffer!.length);
+    _file.setPosition(_fileOffset + _position);
+    _bufferSize = _file.readInto(_buffer!, _buffer!.length);
   }
 }

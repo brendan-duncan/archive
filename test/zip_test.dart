@@ -14,13 +14,12 @@ Future<void> extractArchiveToDisk(ArchiveDirectory archive, String root) async {
       await extractArchiveToDisk(e, root);
     } else {
       final f = e as ArchiveFile;
-      //final output = OutputStreamFile(path);
-      //await output.open();
-      //await f.writeContent(output);
-      final bytes = await f.readBytes();
+      final output = OutputStreamFile(path)
+      ..open();
+      f.writeContent(output);
+      final bytes = f.readBytes();
       expect(bytes, isNotNull);
       expect(bytes!.length, greaterThan(0));
-      //print('${f.fullPathName}: ${bytes?.length} ${f.isCompressed}');
     }
   }
 }
@@ -28,10 +27,13 @@ Future<void> extractArchiveToDisk(ArchiveDirectory archive, String root) async {
 void main() async {
   group('Zip', () {
     test('decode', () async {
-      final archive = await ZipDecoder().decodeStream(
+      final archive = ZipDecoder().decodeStream(
           InputStreamMemory(File('test/_data/zip/android-javadoc.zip').readAsBytesSync()));
 
+      final t1 = Stopwatch()..start();
       await extractArchiveToDisk(archive, '$testOutputPath/android-javadoc');
+      t1.stop();
+      //print(t1.elapsedMilliseconds);
     });
   });
 }

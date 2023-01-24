@@ -17,13 +17,12 @@ class _ZLibDecoder extends ZLibDecoderBase {
   const _ZLibDecoder();
 
   @override
-  Future<Uint8List> decodeBytes(Uint8List data, {bool verify = false}) async =>
+  Uint8List decodeBytes(Uint8List data, {bool verify = false}) =>
       decodeStream(InputStreamMemory(data, byteOrder: ByteOrder.bigEndian),
           verify: verify);
 
   @override
-  Future<Uint8List> decodeStream(InputStream input,
-      {bool verify = false}) async {
+  Uint8List decodeStream(InputStream input, {bool verify = false}) {
     /*
      * The zlib format has the following structure:
      * CMF  1 byte
@@ -41,8 +40,8 @@ class _ZLibDecoder extends ZLibDecoderBase {
      *    bits [5]    FDICT (preset dictionary)
      *    bits [6, 7] FLEVEL (compression level)
      */
-    final cmf = await input.readByte();
-    final flg = await input.readByte();
+    final cmf = input.readByte();
+    final flg = input.readByte();
 
     final method = cmf & 8;
     final cinfo = (cmf >> 3) & 8; // ignore: unused_local_variable
@@ -61,15 +60,15 @@ class _ZLibDecoder extends ZLibDecoderBase {
     }
 
     if (fdict != 0) {
-      /*dictid =*/ await input.readUint32();
+      /*dictid =*/ input.readUint32();
       throw ArchiveException('FDICT Encoding not currently supported');
     }
 
     // Inflate
-    final buffer = await Inflate.stream(input).getBytes();
+    final buffer = Inflate.stream(input).getBytes();
 
     // verify adler-32
-    final adler32 = await input.readUint32();
+    final adler32 = input.readUint32();
     if (verify) {
       final a = getAdler32(buffer);
       if (adler32 != a) {

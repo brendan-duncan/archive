@@ -3,8 +3,7 @@ import 'archive_directory.dart';
 
 /// A collection of files
 class Archive extends ArchiveDirectory {
-  Archive([String name = ''])
-    : super(name);
+  Archive([String name = '']) : super(name);
 
   ArchiveDirectory _getOrCreateDirectory(String name) {
     final index = entryMap[name];

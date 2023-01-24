@@ -21,37 +21,36 @@ class ZipFileHeader {
   String fileComment = '';
   ZipFile? file;
 
-  Future<void> read(InputStream input,
-      {InputStream? fileBytes, String? password}) async {
-    versionMadeBy = await input.readUint16();
-    versionNeededToExtract = await input.readUint16();
-    generalPurposeBitFlag = await input.readUint16();
-    compressionMethod = await input.readUint16();
-    lastModifiedFileTime = await input.readUint16();
-    lastModifiedFileDate = await input.readUint16();
-    crc32 = await input.readUint32();
-    compressedSize = await input.readUint32();
-    uncompressedSize = await input.readUint32();
-    final fnameLen = await input.readUint16();
-    final extraLen = await input.readUint16();
-    final commentLen = await input.readUint16();
-    diskNumberStart = await input.readUint16();
-    internalFileAttributes = await input.readUint16();
-    externalFileAttributes = await input.readUint32();
-    localHeaderOffset = await input.readUint32();
+  void read(InputStream input, {InputStream? fileBytes, String? password}) {
+    versionMadeBy = input.readUint16();
+    versionNeededToExtract = input.readUint16();
+    generalPurposeBitFlag = input.readUint16();
+    compressionMethod = input.readUint16();
+    lastModifiedFileTime = input.readUint16();
+    lastModifiedFileDate = input.readUint16();
+    crc32 = input.readUint32();
+    compressedSize = input.readUint32();
+    uncompressedSize = input.readUint32();
+    final fnameLen = input.readUint16();
+    final extraLen = input.readUint16();
+    final commentLen = input.readUint16();
+    diskNumberStart = input.readUint16();
+    internalFileAttributes = input.readUint16();
+    externalFileAttributes = input.readUint32();
+    localHeaderOffset = input.readUint32();
 
     if (fnameLen > 0) {
-      filename = await input.readString(size: fnameLen);
+      filename = input.readString(size: fnameLen);
     }
 
     if (extraLen > 0) {
-      final extra = await input.readBytes(extraLen);
-      extraField = await extra.toUint8List();
+      final extra = input.readBytes(extraLen);
+      extraField = extra.toUint8List();
       // Rewind to start of the extra fields to read field by field.
-      await extra.rewind(extraLen);
+      extra.rewind(extraLen);
 
-      final id = await extra.readUint16();
-      var size = await extra.readUint16();
+      final id = extra.readUint16();
+      var size = extra.readUint16();
       if (id == 1) {
         // Zip64 extended information
         // The following is the layout of the zip64 extended
@@ -73,32 +72,32 @@ class ZipFileHeader {
         // Number     4 bytes    Number of the disk on which
         // this file starts
         if (size >= 8 && uncompressedSize == 0xffffffff) {
-          uncompressedSize = await extra.readUint64();
+          uncompressedSize = extra.readUint64();
           size -= 8;
         }
         if (size >= 8 && compressedSize == 0xffffffff) {
-          compressedSize = await extra.readUint64();
+          compressedSize = extra.readUint64();
           size -= 8;
         }
         if (size >= 8 && localHeaderOffset == 0xffffffff) {
-          localHeaderOffset = await extra.readUint64();
+          localHeaderOffset = extra.readUint64();
           size -= 8;
         }
         if (size >= 4 && diskNumberStart == 0xffff) {
-          diskNumberStart = await extra.readUint32();
+          diskNumberStart = extra.readUint32();
           size -= 4;
         }
       }
     }
 
     if (commentLen > 0) {
-      fileComment = await input.readString(size: commentLen);
+      fileComment = input.readString(size: commentLen);
     }
 
     if (fileBytes != null) {
-      await fileBytes.setPosition(localHeaderOffset);
+      fileBytes.setPosition(localHeaderOffset);
       file = ZipFile(this);
-      await file!.read(fileBytes, password: password);
+      file!.read(fileBytes, password: password);
     }
   }
 

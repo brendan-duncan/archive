@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:typed_data';
 
 import '../../util/input_stream.dart';
@@ -23,16 +22,15 @@ class Inflate {
     inputSet = true;
   }
 
-  Future<void> streamInput(Uint8List bytes) async {
+  void streamInput(Uint8List bytes) {
     if (inputSet && input is InputStreamMemory) {
-      final i = input as InputStreamMemory
-      ..setPosition(_blockPos);
+      final i = input as InputStreamMemory..setPosition(_blockPos);
       final inputLen = input.length;
       final newLen = inputLen + bytes.length;
 
       final newBytes = Uint8List(newLen)
-      ..setRange(0, inputLen, i.buffer, i.position)
-      ..setRange(inputLen, newLen, bytes, 0);
+        ..setRange(0, inputLen, i.buffer, i.position)
+        ..setRange(inputLen, newLen, bytes, 0);
 
       input = InputStreamMemory(newBytes);
     } else {
@@ -41,7 +39,7 @@ class Inflate {
     inputSet = true;
   }
 
-  Future<Uint8List?> inflateNext() async {
+  Uint8List? inflateNext() {
     _bitBuffer = 0;
     _bitBufferLen = 0;
     if (output is OutputStreamMemory) {
@@ -70,9 +68,9 @@ class Inflate {
   }
 
   /// Get the decompressed data.
-  FutureOr<Uint8List> getBytes() => output.getBytes();
+  Uint8List getBytes() => output.getBytes();
 
-  Future<void> inflate() async {
+  void inflate() {
     _bitBuffer = 0;
     _bitBufferLen = 0;
     if (!inputSet) {
@@ -80,7 +78,7 @@ class Inflate {
     }
 
     while (!input.isEOS) {
-      if (!await _parseBlock()) {
+      if (!_parseBlock()) {
         break;
       }
     }
@@ -88,13 +86,13 @@ class Inflate {
 
   /// Parse deflated block.  Returns true if there is more to read, false
   /// if we're done.
-  Future<bool> _parseBlock() async {
+  bool _parseBlock() {
     if (input.isEOS) {
       return false;
     }
 
     // Each block has a 3-bit header
-    final blockHeader = await _readBits(3);
+    final blockHeader = _readBits(3);
 
     // BFINAL (is this the final block)?
     final finalBlock = (blockHeader & 0x1) != 0;
@@ -103,17 +101,17 @@ class Inflate {
     final blockType = blockHeader >> 1;
     switch (blockType) {
       case 0: // Uncompressed block
-        if (await _parseUncompressedBlock() == -1) {
+        if (_parseUncompressedBlock() == -1) {
           return false;
         }
         break;
       case 1: // Fixed huffman block
-        if (await _parseFixedHuffmanBlock() == -1) {
+        if (_parseFixedHuffmanBlock() == -1) {
           return false;
         }
         break;
       case 2: // Dynamic huffman block
-        if (await _parseDynamicHuffmanBlock() == -1) {
+        if (_parseDynamicHuffmanBlock() == -1) {
           return false;
         }
         break;
@@ -126,7 +124,7 @@ class Inflate {
   }
 
   /// Read a number of bits from the input stream.
-  Future<int> _readBits(int length) async {
+  int _readBits(int length) {
     if (length == 0) {
       return 0;
     }
@@ -138,7 +136,7 @@ class Inflate {
       }
 
       // input byte
-      final octet = await input.readByte();
+      final octet = input.readByte();
 
       // concat octet
       _bitBuffer |= octet << _bitBufferLen;
@@ -154,7 +152,7 @@ class Inflate {
   }
 
   /// Read huffman code using [table].
-  Future<int> _readCodeByTable(HuffmanTable table) async {
+  int _readCodeByTable(HuffmanTable table) {
     final codeTable = table.table;
     final maxCodeLength = table.maxCodeLength;
 
@@ -164,7 +162,7 @@ class Inflate {
         return -1;
       }
 
-      final octet = await input.readByte();
+      final octet = input.readByte();
 
       _bitBuffer |= octet << _bitBufferLen;
       _bitBufferLen += 8;
@@ -180,13 +178,13 @@ class Inflate {
     return codeWithLength & 0xffff;
   }
 
-  Future<int> _parseUncompressedBlock() async {
+  int _parseUncompressedBlock() {
     // skip buffered header bits
     _bitBuffer = 0;
     _bitBufferLen = 0;
 
-    final len = await _readBits(16);
-    final nlen = await _readBits(16) ^ 0xffff;
+    final len = _readBits(16);
+    final nlen = _readBits(16) ^ 0xffff;
 
     // Make sure the block size checksum is valid.
     if (len != 0 && len != nlen) {
@@ -198,16 +196,16 @@ class Inflate {
       return -1;
     }
 
-    await output.writeStream(await input.readBytes(len));
+    output.writeStream(input.readBytes(len));
     return 0;
   }
 
-  Future<int> _parseFixedHuffmanBlock() =>
+  int _parseFixedHuffmanBlock() =>
       _decodeHuffman(_fixedLiteralLengthTable, _fixedDistanceTable);
 
-  Future<int> _parseDynamicHuffmanBlock() async {
+  int _parseDynamicHuffmanBlock() {
     // number of literal and length codes.
-    var numLitLengthCodes = await _readBits(5);
+    var numLitLengthCodes = _readBits(5);
     if (numLitLengthCodes == -1) {
       return -1;
     }
@@ -216,7 +214,7 @@ class Inflate {
       return -1;
     }
     // number of distance codes.
-    var numDistanceCodes = await _readBits(5);
+    var numDistanceCodes = _readBits(5);
     if (numDistanceCodes == -1) {
       return -1;
     }
@@ -225,7 +223,7 @@ class Inflate {
       return -1;
     }
     // number of code lengths.
-    var numCodeLengths = await _readBits(4);
+    var numCodeLengths = _readBits(4);
     if (numCodeLengths == -1) {
       return -1;
     }
@@ -237,7 +235,7 @@ class Inflate {
     // decode code lengths
     final codeLengths = Uint8List(_order.length);
     for (var i = 0; i < numCodeLengths; ++i) {
-      final len = await _readBits(3);
+      final len = _readBits(3);
       if (len == -1) {
         return -1;
       }
@@ -256,7 +254,7 @@ class Inflate {
     final distLengths = Uint8List.view(
         litLenDistLengths.buffer, numLitLengthCodes, numDistanceCodes);
 
-    if (await _decode(
+    if (_decode(
             litLenDistLengths.length, codeLengthsTable, litLenDistLengths) ==
         -1) {
       return -1;
@@ -266,9 +264,9 @@ class Inflate {
         HuffmanTable(litlenLengths), HuffmanTable(distLengths));
   }
 
-  Future<int> _decodeHuffman(HuffmanTable litLen, HuffmanTable dist) async {
+  int _decodeHuffman(HuffmanTable litLen, HuffmanTable dist) {
     while (true) {
-      final code = await _readCodeByTable(litLen);
+      final code = _readCodeByTable(litLen);
       if (code < 0 || code > 285) {
         return -1;
       }
@@ -280,7 +278,7 @@ class Inflate {
 
       // [0, 255] - Literal
       if (code < 256) {
-        await output.writeByte(code & 0xff);
+        output.writeByte(code & 0xff);
         continue;
       }
 
@@ -288,53 +286,50 @@ class Inflate {
       // length code
       final ti = code - 257;
 
-      var codeLength =
-          _lengthCodeTable[ti] + await _readBits(_lengthExtraTable[ti]);
+      var codeLength = _lengthCodeTable[ti] + _readBits(_lengthExtraTable[ti]);
 
       // distance code
-      final distCode = await _readCodeByTable(dist);
+      final distCode = _readCodeByTable(dist);
       if (distCode < 0 || distCode > 29) {
         return -1;
       }
       final distance =
-          _distCodeTable[distCode] + await _readBits(_distExtraTable[distCode]);
+          _distCodeTable[distCode] + _readBits(_distExtraTable[distCode]);
 
       // lz77 decode
       while (codeLength > distance) {
-        await output.writeBytes(await output.subset(-distance));
+        output.writeBytes(output.subset(-distance));
         codeLength -= distance;
       }
 
       if (codeLength == distance) {
-        await output.writeBytes(await output.subset(-distance));
+        output.writeBytes(output.subset(-distance));
       } else {
-        final bytes =
-            await output.subset(-distance, end: codeLength - distance);
-        await output.writeBytes(bytes);
+        final bytes = output.subset(-distance, end: codeLength - distance);
+        output.writeBytes(bytes);
       }
     }
 
     while (_bitBufferLen >= 8) {
       _bitBufferLen -= 8;
-      await input.rewind();
+      input.rewind();
     }
 
     return 0;
   }
 
-  Future<int> _decode(
-      int num, HuffmanTable table, Uint8List codeLengths) async {
+  int _decode(int num, HuffmanTable table, Uint8List codeLengths) {
     var prev = 0;
     var i = 0;
     while (i < num) {
-      final code = await _readCodeByTable(table);
+      final code = _readCodeByTable(table);
       if (code == -1) {
         return -1;
       }
       switch (code) {
         case 16:
           // Repeat last code
-          var repeat = await _readBits(2);
+          var repeat = _readBits(2);
           if (repeat == -1) {
             return -1;
           }
@@ -345,7 +340,7 @@ class Inflate {
           break;
         case 17:
           // Repeat 0
-          var repeat = await _readBits(3);
+          var repeat = _readBits(3);
           if (repeat == -1) {
             return -1;
           }
@@ -357,7 +352,7 @@ class Inflate {
           break;
         case 18:
           // Repeat lots of 0s.
-          var repeat = await _readBits(7);
+          var repeat = _readBits(7);
           if (repeat == -1) {
             return -1;
           }

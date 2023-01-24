@@ -11,11 +11,10 @@ class _ZLibDecoder extends ZLibDecoderBase {
   const _ZLibDecoder();
 
   @override
-  Future<Uint8List> decodeBytes(Uint8List data, {bool verify = false}) async =>
+  Uint8List decodeBytes(Uint8List data, {bool verify = false}) =>
       ZLibCodec().decoder.convert(data) as Uint8List;
 
   @override
-  Future<Uint8List> decodeStream(InputStream input,
-          {bool verify = false}) async =>
-      decodeBytes(await input.toUint8List(), verify: verify);
+  Uint8List decodeStream(InputStream input, {bool verify = false}) =>
+      decodeBytes(input.toUint8List(), verify: verify);
 }

@@ -13,15 +13,15 @@ class ZLibEncoder {
 
   const ZLibEncoder();
 
-  Future<Uint8List> encodeBytes(Uint8List bytes,
-      {int level = CompressionLevel.defaultCompression}) async {
+  Uint8List encodeBytes(Uint8List bytes,
+      {int level = CompressionLevel.defaultCompression}) {
     final output = OutputStreamMemory(byteOrder: ByteOrder.bigEndian);
-    await encodeStream(InputStreamMemory(bytes), output, level: level);
+    encodeStream(InputStreamMemory(bytes), output, level: level);
     return output.getBytes();
   }
 
-  Future<void> encodeStream(InputStream input, OutputStream output,
-      {int level = CompressionLevel.defaultCompression}) async {
+  void encodeStream(InputStream input, OutputStream output,
+      {int level = CompressionLevel.defaultCompression}) {
     output.byteOrder = ByteOrder.bigEndian;
 
     // Compression Method and Flags
@@ -29,7 +29,7 @@ class ZLibEncoder {
     const cinfo = 7; //2^(7+8) = 32768 window size
 
     const cmf = (cinfo << 4) | cm;
-    await output.writeByte(cmf);
+    output.writeByte(cmf);
 
     // 0x01, (00 0 00001) (FLG)
     // bits 0 to 4  FCHECK  (check bits for CMF and FLG)
@@ -45,18 +45,17 @@ class ZLibEncoder {
       fcheck++;
     }
     flag |= fcheck;
-    await output.writeByte(flag);
+    output.writeByte(flag);
 
     final startPos = input.position;
-    final adler32 = await getAdler32Stream(input);
+    final adler32 = getAdler32Stream(input);
 
-    await input.setPosition(startPos);
+    input.setPosition(startPos);
 
-    final deflate = Deflate.stream(input, level: level, output: output);
-    await deflate.deflate();
+    Deflate.stream(input, level: level, output: output)
+    .deflate();
 
-    await output.writeUint32(adler32);
-
-    await output.flush();
+    output..writeUint32(adler32)
+    ..flush();
   }
 }

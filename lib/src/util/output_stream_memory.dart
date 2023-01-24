@@ -14,13 +14,13 @@ class OutputStreamMemory extends OutputStream {
   /// Create a byte buffer for writing.
   OutputStreamMemory(
       {int? size = defaultBufferSize,
-        ByteOrder byteOrder = ByteOrder.littleEndian})
-      : _buffer = Uint8List(size ?? defaultBufferSize)
-      , length = 0
-      , super(byteOrder: byteOrder);
+      ByteOrder byteOrder = ByteOrder.littleEndian})
+      : _buffer = Uint8List(size ?? defaultBufferSize),
+        length = 0,
+        super(byteOrder: byteOrder);
 
   @override
- void flush() {}
+  void flush() {}
 
   /// Get the resulting bytes from the buffer.
   @override
@@ -29,7 +29,7 @@ class OutputStreamMemory extends OutputStream {
 
   /// Clear the buffer.
   @override
- void clear() {
+  void clear() {
     _buffer.length = defaultBufferSize;
     length = 0;
   }
@@ -41,7 +41,7 @@ class OutputStreamMemory extends OutputStream {
 
   /// Write a byte to the end of the buffer.
   @override
- void writeByte(int value) {
+  void writeByte(int value) {
     if (length == _buffer.length) {
       _expandBuffer();
     }
@@ -50,7 +50,7 @@ class OutputStreamMemory extends OutputStream {
 
   /// Write a set of bytes to the end of the buffer.
   @override
- void writeBytes(Uint8List bytes, {int? length}) {
+  void writeBytes(Uint8List bytes, {int? length}) {
     length ??= bytes.length;
 
     while (this.length + length > _buffer.length) {
@@ -61,7 +61,7 @@ class OutputStreamMemory extends OutputStream {
   }
 
   @override
- Future<void> writeStream(InputStream stream) async {
+  void writeStream(InputStream stream) {
     while (length + stream.length > _buffer.length) {
       _expandBuffer((length + stream.length) - _buffer.length);
     }
@@ -70,7 +70,7 @@ class OutputStreamMemory extends OutputStream {
       _buffer.setRange(
           length, length + stream.length, stream.buffer, stream.position);
     } else {
-      final bytes = await stream.toUint8List();
+      final bytes = stream.toUint8List();
       _buffer.setRange(length, length + stream.length, bytes, 0);
     }
     length += stream.length;
@@ -107,7 +107,7 @@ class OutputStreamMemory extends OutputStream {
     }
     final newLength = (_buffer.length + blockSize) * 2;
     final newBuffer = Uint8List(newLength)
-    ..setRange(0, _buffer.length, _buffer);
+      ..setRange(0, _buffer.length, _buffer);
     _buffer = newBuffer;
   }
 }

@@ -51,19 +51,18 @@ class ArchiveFile extends ArchiveEntry {
     _rawContent = file;
   }
 
-  Future<void> writeContent(OutputStream output,
-      {bool freeMemory = true}) async {
+  void writeContent(OutputStream output, {bool freeMemory = true}) {
     if (_content == null) {
       if (_rawContent == null) {
         return;
       }
-      await decompress(output);
+      decompress(output);
     }
 
-    await _content?.write(output);
+    _content?.write(output);
 
     if (freeMemory && _content != null) {
-      await _content!.close();
+      _content!.close();
       _content = null;
     }
   }
@@ -72,9 +71,9 @@ class ArchiveFile extends ArchiveEntry {
   FileContent? get rawContent => _rawContent;
 
   /// Get the content of the file, decompressing on demand as necessary.
-  Future<InputStream?> getContent() async {
+  InputStream? getContent() {
     if (_content == null) {
-      await decompress();
+      decompress();
     }
     return _content?.getStream();
   }
@@ -83,39 +82,41 @@ class ArchiveFile extends ArchiveEntry {
     _content = null;
   }
 
-  Future<Uint8List?> readBytes() async {
-    final stream = await getContent();
+  Uint8List? readBytes() {
+    final stream = getContent();
     return stream?.toUint8List();
   }
 
   @override
-  Future<void> close() async {
-    final futures = <Future<void>>[];
+  void close() {
+    //final futures = <Future<void>>[];
     if (_content != null) {
-      futures.add(_content!.close());
+      _content!.close();
+      //futures.add(_content!.close());
     }
     if (_rawContent != null) {
-      futures.add(_rawContent!.close());
+      _rawContent!.close();
+      //futures.add(_rawContent!.close());
     }
     _content = null;
     _rawContent = null;
-    await Future.wait(futures);
+    //Future.wait(futures);
   }
 
   /// If the file data is compressed, decompress it.
-  Future<void> decompress([OutputStream? output]) async {
+  void decompress([OutputStream? output]) {
     if (_content == null && _rawContent != null) {
       if (compression != CompressionType.none) {
         if (output != null) {
-          await _rawContent!.decompress(output);
+          _rawContent!.decompress(output);
         } else {
-          final rawStream = await _rawContent!.getStream();
-          final bytes = await rawStream.toUint8List();
+          final rawStream = _rawContent!.getStream();
+          final bytes = rawStream.toUint8List();
           _content = FileContentMemory(bytes);
         }
       } else {
         if (output != null) {
-          await output.writeStream(await _rawContent!.getStream());
+          output.writeStream(_rawContent!.getStream());
         } else {
           _content = _rawContent;
         }

@@ -20,42 +20,42 @@ class ZipDirectory {
   String zipFileComment = '';
   final fileHeaders = <ZipFileHeader>[];
 
-  Future<void> read(InputStream input, {String? password}) async {
-    filePosition = await _findSignature(input);
-    await input.setPosition(filePosition);
-    final sig = await input.readUint32();
+  void read(InputStream input, {String? password}) {
+    filePosition = _findSignature(input);
+    input.setPosition(filePosition);
+    final sig = input.readUint32();
     if (sig != signature) {
       throw ArchiveException('Could not find End of Central Directory Record');
     }
-    numberOfThisDisk = await input.readUint16();
-    diskWithTheStartOfTheCentralDirectory = await input.readUint16();
-    totalCentralDirectoryEntriesOnThisDisk = await input.readUint16();
-    totalCentralDirectoryEntries = await input.readUint16();
-    centralDirectorySize = await input.readUint32();
-    centralDirectoryOffset = await input.readUint32();
+    numberOfThisDisk = input.readUint16();
+    diskWithTheStartOfTheCentralDirectory = input.readUint16();
+    totalCentralDirectoryEntriesOnThisDisk = input.readUint16();
+    totalCentralDirectoryEntries = input.readUint16();
+    centralDirectorySize = input.readUint32();
+    centralDirectoryOffset = input.readUint32();
 
-    final len = await input.readUint16();
+    final len = input.readUint16();
     if (len > 0) {
-      zipFileComment = await input.readString(size: len, utf8: false);
+      zipFileComment = input.readString(size: len, utf8: false);
     }
 
-    await _readZip64Data(input);
+    _readZip64Data(input);
 
-    final dirContent = await input.subset(
+    final dirContent = input.subset(
         position: centralDirectoryOffset, length: centralDirectorySize);
 
     while (!dirContent.isEOS) {
-      final fileSig = await dirContent.readUint32();
+      final fileSig = dirContent.readUint32();
       if (fileSig != ZipFileHeader.signature) {
         break;
       }
-      final header = ZipFileHeader();
-      await header.read(dirContent, fileBytes: input, password: password);
+      final header = ZipFileHeader()
+        ..read(dirContent, fileBytes: input, password: password);
       fileHeaders.add(header);
     }
   }
 
-  Future<void> _readZip64Data(InputStream input) async {
+  void _readZip64Data(InputStream input) {
     final ip = input.position;
     // Check for zip64 data.
 
@@ -72,21 +72,20 @@ class ZipDirectory {
     if (locPos < 0) {
       return;
     }
-    final zip64 =
-        await input.subset(position: locPos, length: zip64EocdLocatorSize);
+    final zip64 = input.subset(position: locPos, length: zip64EocdLocatorSize);
 
-    var sig = await zip64.readUint32();
+    var sig = zip64.readUint32();
     // If this isn't the signature we're looking for, nothing more to do.
     if (sig != zip64EocdLocatorSignature) {
-      await input.setPosition(ip);
+      input.setPosition(ip);
       return;
     }
 
-    /*final startZip64Disk =*/ await zip64.readUint32();
-    final zip64DirOffset = await zip64.readUint64();
-    /*final numZip64Disks =*/ await zip64.readUint32();
+    /*final startZip64Disk =*/ zip64.readUint32();
+    final zip64DirOffset = zip64.readUint64();
+    /*final numZip64Disks =*/ zip64.readUint32();
 
-    await input.setPosition(zip64DirOffset);
+    input.setPosition(zip64DirOffset);
 
     // Zip64 end of central directory record
     // signature                       4 bytes  (0x06064b50)
@@ -106,21 +105,22 @@ class ZipDirectory {
     // directory with respect to
     // the starting disk number        8 bytes
     // zip64 extensible data sector    (variable size)
-    sig = await input.readUint32();
+    sig = input.readUint32();
     if (sig != zip64EocdSignature) {
-      await input.setPosition(ip);
+      input.setPosition(ip);
       return;
     }
 
-    /*final zip64EOCDSize =*/ await input.readUint64();
-    /*final zip64Version =*/ await input.readUint16();
-    /*final zip64VersionNeeded =*/ await input.readUint16();
-    final zip64DiskNumber = await input.readUint32();
-    final zip64StartDisk = await input.readUint32();
-    final zip64NumEntriesOnDisk = await input.readUint64();
-    final zip64NumEntries = await input.readUint64();
-    final dirSize = await input.readUint64();
-    final dirOffset = await input.readUint64();
+    /*final zip64EOCDSize =*/ input
+      ..readUint64()
+      /*final zip64Version =*/ ..readUint16() /*final zip64VersionNeeded =*/
+      ..readUint16();
+    final zip64DiskNumber = input.readUint32();
+    final zip64StartDisk = input.readUint32();
+    final zip64NumEntriesOnDisk = input.readUint64();
+    final zip64NumEntries = input.readUint64();
+    final dirSize = input.readUint64();
+    final dirOffset = input.readUint64();
 
     numberOfThisDisk = zip64DiskNumber;
     diskWithTheStartOfTheCentralDirectory = zip64StartDisk;
@@ -129,10 +129,10 @@ class ZipDirectory {
     centralDirectorySize = dirSize;
     centralDirectoryOffset = dirOffset;
 
-    await input.setPosition(ip);
+    input.setPosition(ip);
   }
 
-  Future<int> _findSignature(InputStream input) async {
+  int _findSignature(InputStream input) {
     final pos = input.position;
     final length = input.length;
 
@@ -140,10 +140,10 @@ class ZipDirectory {
     // file. We need to search from the end to find these structures,
     // starting with the 'End of central directory' record (EOCD).
     for (var ip = length - 5; ip >= 0; --ip) {
-      await input.setPosition(ip);
-      final sig = await input.readUint32();
+      input.setPosition(ip);
+      final sig = input.readUint32();
       if (sig == signature) {
-        await input.setPosition(pos);
+        input.setPosition(pos);
         return ip;
       }
     }

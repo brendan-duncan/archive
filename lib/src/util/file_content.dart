@@ -5,18 +5,18 @@ import 'input_stream_memory.dart';
 import 'output_stream.dart';
 
 abstract class FileContent {
-  Future<InputStream> getStream();
+  InputStream getStream();
 
-  Future<void> write(OutputStream output);
+  void write(OutputStream output);
 
-  Future<void> close();
+  void close();
 
-  Future<Uint8List> readBytes() async {
-    final stream = await getStream();
+  Uint8List readBytes() {
+    final stream = getStream();
     return stream.toUint8List();
   }
 
-  Future<void> decompress(OutputStream output) async {}
+  void decompress(OutputStream output) {}
 }
 
 class FileContentMemory extends FileContent {
@@ -25,13 +25,13 @@ class FileContentMemory extends FileContent {
   FileContentMemory(this.bytes);
 
   @override
-  Future<InputStream> getStream() async => InputStreamMemory(bytes);
+  InputStream getStream() => InputStreamMemory(bytes);
 
   @override
-  Future<void> write(OutputStream output) async => output.writeBytes(bytes);
+  void write(OutputStream output) => output.writeBytes(bytes);
 
   @override
-  Future<void> close() async {}
+  void close() {}
 }
 
 class FileContentStream extends FileContent {
@@ -40,11 +40,11 @@ class FileContentStream extends FileContent {
   FileContentStream(this.stream);
 
   @override
-  Future<InputStream> getStream() async => stream;
+  InputStream getStream() => stream;
 
   @override
-  Future<void> write(OutputStream output) async => output.writeStream(stream);
+  void write(OutputStream output) => output.writeStream(stream);
 
   @override
-  Future<void> close() async => stream.close();
+  void close() => stream.close();
 }

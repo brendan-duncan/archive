@@ -21,18 +21,18 @@ class OutputStreamFile extends OutputStream {
   int get length => _length;
 
   @override
-  Future<void> open() async {
-    final file = await File(path).create(recursive: true);
-    _fp = await file.open(mode: FileMode.write);
+  void open() {
+    final file = File(path)..createSync(recursive: true);
+    _fp = file.openSync(mode: FileMode.write);
   }
 
   @override
-  Future<void> close() async {
+  void close() {
     if (_fp == null) {
       return;
     }
-    await flush();
-    await _fp?.close();
+    flush();
+    _fp?.closeSync();
     _fp = null;
   }
 
@@ -40,15 +40,15 @@ class OutputStreamFile extends OutputStream {
   bool get isOpen => _fp != null;
 
   @override
-  Future<void> clear() async {
+  void clear() {
     _length = 0;
-    await _fp?.setPosition(0);
+    _fp?.setPositionSync(0);
   }
 
   @override
-  Future<void> flush() async {
+  void flush() {
     if (_bufferPosition > 0 && _buffer != null) {
-      await _fp?.writeFrom(_buffer!, 0, _bufferPosition);
+      _fp?.writeFromSync(_buffer!, 0, _bufferPosition);
       _bufferPosition = 0;
     }
   }
@@ -63,28 +63,28 @@ class OutputStreamFile extends OutputStream {
 
   /// Write a byte to the end of the buffer.
   @override
-  Future<void> writeByte(int value) async {
+  void writeByte(int value) {
     if (!isOpen) {
       throw ArchiveException('OutputStreamFile is not open');
     }
     final b = _getBuffer();
     b[_bufferPosition++] = value;
     if (_bufferPosition == b.length) {
-      await flush();
+      flush();
     }
     _length++;
   }
 
   /// Write a set of bytes to the end of the buffer.
   @override
-  Future<void> writeBytes(Uint8List bytes, {int? length}) async {
+  void writeBytes(Uint8List bytes, {int? length}) {
     if (!isOpen) {
       throw ArchiveException('OutputStreamFile is not open');
     }
     final b = _getBuffer();
     length ??= bytes.length;
     if (_bufferPosition + length >= b.length) {
-      await flush();
+      flush();
 
       if (_bufferPosition + length < b.length) {
         for (var i = 0, j = _bufferPosition; i < length; ++i, ++j) {
@@ -96,13 +96,13 @@ class OutputStreamFile extends OutputStream {
       }
     }
 
-    await flush();
-    await _fp!.writeFrom(bytes, 0, length);
+    flush();
+    _fp!.writeFromSync(bytes, 0, length);
     _length += length;
   }
 
   @override
-  Future<void> writeStream(InputStream stream) async {
+  void writeStream(InputStream stream) {
     if (!isOpen) {
       throw ArchiveException('OutputStreamFile is not open');
     }
@@ -111,7 +111,7 @@ class OutputStreamFile extends OutputStream {
       final len = stream.length;
 
       if (_bufferPosition + len >= b.length) {
-        await flush();
+        flush();
 
         if (_bufferPosition + len < b.length) {
           for (var i = 0, j = _bufferPosition, k = stream.position;
@@ -126,27 +126,27 @@ class OutputStreamFile extends OutputStream {
       }
 
       if (_bufferPosition > 0) {
-        await flush();
+        flush();
       }
-      await _fp!.writeFrom(
+      _fp!.writeFromSync(
           stream.buffer, stream.position, stream.position + stream.length);
       _length += stream.length;
     } else {
-      final bytes = await stream.toUint8List();
-      await writeBytes(bytes);
+      final bytes = stream.toUint8List();
+      writeBytes(bytes);
     }
   }
 
   @override
-  Future<Uint8List> subset(int start, {int? end}) async {
+  Uint8List subset(int start, {int? end}) {
     if (!isOpen) {
       throw ArchiveException('OutputStreamFile is not open');
     }
     if (_bufferPosition > 0) {
-      await flush();
+      flush();
     }
     final fp = _fp!;
-    final pos = await fp.position();
+    final pos = fp.positionSync();
     if (start < 0) {
       start = pos + start;
     }
@@ -157,11 +157,11 @@ class OutputStreamFile extends OutputStream {
       end = pos + end;
     }
     length = end - start;
-    //final flen = fp.lengthSync();
-    await fp.setPosition(start);
     final buffer = Uint8List(length);
-    await fp.readInto(buffer);
-    await fp.setPosition(pos);
+    fp
+      ..setPositionSync(start)
+      ..readIntoSync(buffer)
+      ..setPositionSync(pos);
     return buffer;
   }
 }

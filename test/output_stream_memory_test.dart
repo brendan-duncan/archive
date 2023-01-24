@@ -26,7 +26,7 @@ void main() {
 
       const len = 0xffff;
       for (var i = 0; i < len; ++i) {
-        await out.writeUint16(i);
+        out.writeUint16(i);
       }
 
       final bytes = out.getBytes();
@@ -34,7 +34,7 @@ void main() {
 
       final input = InputStreamMemory(bytes);
       for (var i = 0; i < len; ++i) {
-        final x = await input.readUint16();
+        final x = input.readUint16();
         expect(x, equals(i));
       }
     });
@@ -44,7 +44,7 @@ void main() {
 
       const len = 0xffff;
       for (var i = 0; i < len; ++i) {
-        await out.writeUint32(0xffff + i);
+        out.writeUint32(0xffff + i);
       }
 
       final bytes = out.getBytes();
@@ -52,7 +52,7 @@ void main() {
 
       final input = InputStreamMemory(bytes);
       for (var i = 0; i < len; ++i) {
-        final x = await input.readUint32();
+        final x = input.readUint32();
         expect(x, equals(0xffff + i));
       }
     });

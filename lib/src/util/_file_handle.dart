@@ -16,11 +16,11 @@ class FileHandle {
 
   bool get isOpen => false;
 
-  Future<void> setPosition(int p) async {}
+  void setPosition(int p) {}
 
-  Future<bool> open() async { return false; }
+  bool open() => false;
 
-  Future<void> close() async {}
+  void close() {}
 
-  Future<int> readInto(Uint8List buffer, [int? end]) async => 0;
+  int readInto(Uint8List buffer, [int? end]) => 0;
 }

@@ -8,15 +8,15 @@ class FileHandle {
   int _length;
 
   FileHandle(this._path)
-      : _position = 0
-      , _length = 0;
+      : _position = 0,
+        _length = 0;
 
-  Future<bool> open() async {
+  bool open() {
     if (_file != null) {
       return true;
     }
-    _file = await File(_path).open();
-    _length = await _file?.length() ?? 0;
+    _file = File(_path).openSync();
+    _length = _file?.lengthSync() ?? 0;
     _position = 0;
     return _file != null;
   }
@@ -29,29 +29,29 @@ class FileHandle {
 
   bool get isOpen => _file != null;
 
-  Future<void> setPosition(int p) async {
+  void setPosition(int p) {
     if (_file == null || p == _position) {
       return;
     }
     _position = p;
-    await _file!.setPosition(p);
+    _file!.setPositionSync(p);
   }
 
-  Future<void> close() async {
+  void close() {
     if (_file == null) {
       return;
     }
     final fp = _file;
     _file = null;
     _position = 0;
-    await fp!.close();
+    fp!.closeSync();
   }
 
-  Future<int> readInto(Uint8List buffer, [int? end]) async {
+  int readInto(Uint8List buffer, [int? end]) {
     if (_file == null) {
-      await open();
+      open();
     }
-    final size = await _file!.readInto(buffer, 0, end);
+    final size = _file!.readIntoSync(buffer, 0, end);
     _position += size;
     return size;
   }

@@ -39,36 +39,33 @@ class Deflate {
     _init(level);
   }
 
-  Future<int> deflate({FlushMode flush = FlushMode.finish}) =>
-      _deflate(flush: flush);
+  int deflate({FlushMode flush = FlushMode.finish}) => _deflate(flush: flush);
 
-  Future<void> finish() async =>
-    _flushPending();
+  void finish() => _flushPending();
 
   /// Get the resulting compressed bytes.
-  Future<Uint8List> getBytes() async {
-    await _flushPending();
+  Uint8List getBytes() {
+    _flushPending();
     return output.getBytes();
   }
 
   /// Get the resulting compressed bytes without storing the resulting data to
   /// minimize memory usage.
-  Future<Uint8List> takeBytes() async {
-    await _flushPending();
-    final bytes = await output.getBytes();
-    await output.clear();
+  Uint8List takeBytes() {
+    _flushPending();
+    final bytes = output.getBytes();
+    output.clear();
     return bytes;
   }
 
   /// Add more data to be deflated.
-  Future<void> addBytes(Uint8List bytes, {FlushMode flush = FlushMode.finish}) {
+  void addBytes(Uint8List bytes, {FlushMode flush = FlushMode.finish}) {
     input = InputStreamMemory(bytes);
-    return _deflate(flush: flush);
+    _deflate(flush: flush);
   }
 
   /// Add more data to be deflated.
-  Future<int> addStream(InputStream buffer,
-      {FlushMode flush = FlushMode.finish}) {
+  int addStream(InputStream buffer, {FlushMode flush = FlushMode.finish}) {
     input = buffer;
     return _deflate(flush: flush);
   }
@@ -140,13 +137,13 @@ class Deflate {
   }
 
   /// Compress the current input buffer.
-  Future<int> _deflate({FlushMode flush = FlushMode.finish}) async {
+  int _deflate({FlushMode flush = FlushMode.finish}) {
     // Flush as much pending output as possible
     if (_pending != 0) {
       // Make sure there is something to do and avoid duplicate consecutive
       // flushes. For repeated and useless calls with FINISH, we keep
       // returning Z_STREAM_END instead of Z_BUFF_ERROR.
-      await _flushPending();
+      _flushPending();
     }
 
     // Start a block or continue the current one.
@@ -156,13 +153,13 @@ class Deflate {
       var bState = -1;
       switch (_config.function) {
         case stored:
-          bState = await _deflateStored(flush);
+          bState = _deflateStored(flush);
           break;
         case fast:
-          bState = await _deflateFast(flush);
+          bState = _deflateFast(flush);
           break;
         case slow:
-          bState = await _deflateSlow(flush);
+          bState = _deflateSlow(flush);
           break;
         default:
           break;
@@ -198,7 +195,7 @@ class Deflate {
           }
         }
 
-        await _flushPending();
+        _flushPending();
       }
     }
 
@@ -655,11 +652,11 @@ class Deflate {
     _putBytes(_window, buf, len);
   }
 
-  Future<void> _flushBlockOnly(bool eof) async {
+  void _flushBlockOnly(bool eof) {
     _trFlushBlock(
         _blockStart >= 0 ? _blockStart : -1, _strStart - _blockStart, eof);
     _blockStart = _strStart;
-    await _flushPending();
+    _flushPending();
   }
 
   // Copy without compression as much as possible from the input stream, return
@@ -669,7 +666,7 @@ class Deflate {
   // only for the level=0 compression option.
   // NOTE: this function should be optimized to avoid extra copying from
   // window to pending_buf.
-  Future<int> _deflateStored(FlushMode flush) async {
+  int _deflateStored(FlushMode flush) {
     // Stored blocks are limited to 0xffff bytes, pending_buf is limited
     // to pending_buf_size, and each stored block has a 5 byte header:
     var maxBlockSize = 0xffff;
@@ -682,7 +679,7 @@ class Deflate {
     while (true) {
       // Fill the window as much as possible:
       if (_lookAhead <= 1) {
-        await _fillWindow();
+        _fillWindow();
 
         if (_lookAhead == 0 && flush == FlushMode.none) {
           return needMore;
@@ -702,17 +699,17 @@ class Deflate {
       if (_strStart >= maxStart) {
         _lookAhead = _strStart - maxStart;
         _strStart = maxStart;
-        await _flushBlockOnly(false);
+        _flushBlockOnly(false);
       }
 
       // Flush if we may have to slide, otherwise block_start may become
       // negative and the data will be gone:
       if (_strStart - _blockStart >= _windowSize - minLookAhead) {
-        await _flushBlockOnly(false);
+        _flushBlockOnly(false);
       }
     }
 
-    await _flushBlockOnly(flush == FlushMode.finish);
+    _flushBlockOnly(flush == FlushMode.finish);
 
     return (flush == FlushMode.finish) ? finishDone : blockDone;
   }
@@ -794,7 +791,7 @@ class Deflate {
   //    At least one byte has been read, or avail_in == 0; reads are
   //    performed for at least two bytes (required for the zip translate_eol
   //    option -- not supported here).
-  Future<void> _fillWindow() async {
+  void _fillWindow() {
     do {
       // Amount of free space at the end of the window.
       var more = _actualWindowSize - _lookAhead - _strStart;
@@ -852,7 +849,7 @@ class Deflate {
       // Otherwise, window_size == 2*WSIZE so more >= 2.
       // If there was sliding, more >= WSIZE. So in all cases, more >= 2.
 
-      final n = await _readBuf(_window, _strStart + _lookAhead, more);
+      final n = _readBuf(_window, _strStart + _lookAhead, more);
       _lookAhead += n;
 
       // Initialize the hash value now that we have some input:
@@ -873,7 +870,7 @@ class Deflate {
   // This function does not perform lazy evaluation of matches and inserts
   // strings in the dictionary only for unmatched strings or for short
   // matches. It is used only for the fast compression options.
-  Future<int> _deflateFast(FlushMode flush) async {
+  int _deflateFast(FlushMode flush) {
     var hashHead = 0; // head of the hash chain
     bool bflush = false; // set if current block must be flushed
 
@@ -883,7 +880,7 @@ class Deflate {
       // for the next match, plus MIN_MATCH bytes to insert the
       // string following the next match.
       if (_lookAhead < minLookAhead) {
-        await _fillWindow();
+        _fillWindow();
         if (_lookAhead < minLookAhead && flush == FlushMode.none) {
           return needMore;
         }
@@ -963,11 +960,11 @@ class Deflate {
       }
 
       if (bflush) {
-        await _flushBlockOnly(false);
+        _flushBlockOnly(false);
       }
     }
 
-    await _flushBlockOnly(flush == FlushMode.finish);
+    _flushBlockOnly(flush == FlushMode.finish);
 
     return flush == FlushMode.finish ? finishDone : blockDone;
   }
@@ -975,7 +972,7 @@ class Deflate {
   /// Same as above, but achieves better compression. We use a lazy
   /// evaluation for matches: a match is finally adopted only if there is
   /// no better match at the next window position.
-  Future<int> _deflateSlow(FlushMode flush) async {
+  int _deflateSlow(FlushMode flush) {
     var hashHead = 0; // head of hash chain
     bool bflush = false; // set if current block must be flushed
 
@@ -986,7 +983,7 @@ class Deflate {
       // for the next match, plus MIN_MATCH bytes to insert the
       // string following the next match.
       if (_lookAhead < minLookAhead) {
-        await _fillWindow();
+        _fillWindow();
 
         if (_lookAhead < minLookAhead && flush == FlushMode.none) {
           return needMore;
@@ -1066,7 +1063,7 @@ class Deflate {
         _strStart++;
 
         if (bflush) {
-          await _flushBlockOnly(false);
+          _flushBlockOnly(false);
         }
       } else if (_matchAvailable != 0) {
         // If there was no match at the previous position, output a
@@ -1076,7 +1073,7 @@ class Deflate {
         bflush = _trTally(0, _window[_strStart - 1] & 0xff);
 
         if (bflush) {
-          await _flushBlockOnly(false);
+          _flushBlockOnly(false);
         }
         _strStart++;
         _lookAhead--;
@@ -1093,7 +1090,7 @@ class Deflate {
       bflush = _trTally(0, _window[_strStart - 1] & 0xff);
       _matchAvailable = 0;
     }
-    await _flushBlockOnly(flush == FlushMode.finish);
+    _flushBlockOnly(flush == FlushMode.finish);
 
     return flush == FlushMode.finish ? finishDone : blockDone;
   }
@@ -1192,18 +1189,18 @@ class Deflate {
   /// allocating a large strm->next_in buffer and copying from it.
   /// (See also flush_pending()).
   int total = 0;
-  Future<int> _readBuf(Uint8List buf, int start, int size) async {
+  int _readBuf(Uint8List buf, int start, int size) {
     if (size == 0 || input.isEOS) {
       return 0;
     }
 
-    final data = await input.readBytes(size);
+    final data = input.readBytes(size);
     var len = data.length;
     if (len == 0) {
       return 0;
     }
 
-    final bytes = await data.toUint8List();
+    final bytes = data.toUint8List();
     if (len > bytes.length) {
       len = bytes.length;
     }
@@ -1217,9 +1214,9 @@ class Deflate {
   /// Flush as much pending output as possible. All deflate() output goes
   /// through this function so some applications may wish to modify it
   /// to avoid allocating a large strm->next_out buffer and copying into it.
-  Future<void> _flushPending() async {
+  void _flushPending() {
     final len = _pending;
-    await output.writeBytes(_pendingBuffer, length: len);
+    output.writeBytes(_pendingBuffer, length: len);
 
     _pendingOut += len;
     _pending -= len;

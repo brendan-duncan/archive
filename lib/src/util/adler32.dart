@@ -4,7 +4,7 @@ import 'package:crypto/crypto.dart' as crypto;
 
 import 'input_stream.dart';
 
-Future<int> getAdler32Stream(InputStream stream, [int adler = 1]) async {
+int getAdler32Stream(InputStream stream, [int adler = 1]) {
   // largest prime smaller than 65536
   const base = 65521;
 
@@ -18,7 +18,7 @@ Future<int> getAdler32Stream(InputStream stream, [int adler = 1]) async {
     }
     len -= n;
     while (--n >= 0) {
-      s1 = s1 + await stream.readByte();
+      s1 = s1 + stream.readByte();
       s2 = s2 + s1;
     }
     s1 %= base;
