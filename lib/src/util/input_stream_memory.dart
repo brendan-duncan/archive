@@ -57,43 +57,36 @@ class InputStreamMemory extends InputStream {
   bool get isEOS => _position >= _length;
 
   @override
-  Future<void> setPosition(int v) {
+  Future<void> setPosition(int v) async {
     _position = v;
-    return Future<void>.value();
   }
 
   /// Reset to the beginning of the stream.
   @override
-  Future<void> reset() {
+  Future<void> reset() async {
     _position = 0;
-    return Future<void>.value();
   }
 
   @override
-  Future<bool> open() {
-    return Future<bool>.value(true);
-  }
+  Future<bool> open() async => true;
 
   @override
-  Future<void> close() {
+  Future<void> close() async {
     _position = 0;
-    return Future<void>.value();
   }
 
   /// Rewind the read head of the stream by the given number of bytes.
   @override
-  Future<void> rewind([int length = 1]) {
+  Future<void> rewind([int length = 1]) async {
     _position -= length;
     _position = _position.clamp(0, _length);
-    return Future<void>.value();
   }
 
   /// Move the read position by [count] bytes.
   @override
-  Future<void> skip(int count) {
+  Future<void> skip(int count) async {
     _position += count;
     _position = _position.clamp(0, _length);
-    return Future<void>.value();
   }
 
   /// Access the buffer relative from the current position.
@@ -105,22 +98,22 @@ class InputStreamMemory extends InputStream {
   /// read position is used. If [length] is not specified, the remainder of this
   /// stream is used.
   @override
-  Future<InputStream> subset({int? position, int? length}) {
+  Future<InputStream> subset({int? position, int? length}) async {
     position ??= _position;
     length ??= _length - position;
-    return Future<InputStream>.value(InputStreamMemory(buffer,
-        byteOrder: byteOrder, offset: position, length: length));
+    return InputStreamMemory(buffer,
+        byteOrder: byteOrder, offset: position, length: length);
   }
 
   /// Read a single byte.
   @override
-  Future<int> readByte() {
+  Future<int> readByte() async {
     final b = buffer[_position++];
-    return Future<int>.value(b);
+    return b;
   }
 
   @override
-  Future<Uint8List> toUint8List() {
+  Future<Uint8List> toUint8List() async {
     var len = length;
     if ((_position + len) > buffer.length) {
       len = buffer.length - _position;
@@ -129,6 +122,6 @@ class InputStreamMemory extends InputStream {
     final bytes =
     Uint8List.view(buffer.buffer, buffer.offsetInBytes + _position, len);
 
-    return Future<Uint8List>.value(bytes);
+    return bytes;
   }
 }
