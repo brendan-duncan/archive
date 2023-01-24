@@ -1,5 +1,32 @@
 import 'dart:convert';
+
 import 'package:crypto/crypto.dart' as crypto;
+
+import 'input_stream.dart';
+
+Future<int> getAdler32Stream(InputStream stream, [int adler = 1]) async {
+  // largest prime smaller than 65536
+  const base = 65521;
+
+  var s1 = adler & 0xffff;
+  var s2 = adler >> 16;
+  var len = stream.length;
+  while (len > 0) {
+    var n = 3800;
+    if (n > len) {
+      n = len;
+    }
+    len -= n;
+    while (--n >= 0) {
+      s1 = s1 + await stream.readByte();
+      s2 = s2 + s1;
+    }
+    s1 %= base;
+    s2 %= base;
+  }
+
+  return (s2 << 16) | s1;
+}
 
 /// Get the Adler-32 checksum for the given array. You can append bytes to an
 /// already computed adler checksum by specifying the previous [adler] value.
@@ -32,7 +59,8 @@ int getAdler32(List<int> array, [int adler = 1]) {
 class Adler32 extends crypto.Hash {
   int _hash = 1;
 
-  /// Get the value of the hash directly. This returns the same value as [close].
+  /// Get the value of the hash directly. This returns the same value as
+  /// [close].
   int get hash => _hash;
 
   @override
@@ -50,17 +78,15 @@ class Adler32 extends crypto.Hash {
     _hash = getAdler32(data, _hash);
   }
 
-  List<int> close() {
-    return [
-      ((_hash >> 24) & 0xFF),
-      ((_hash >> 16) & 0xFF),
-      ((_hash >> 8) & 0xFF),
-      (_hash & 0xFF)
-    ];
-  }
+  List<int> close() => [
+        ((_hash >> 24) & 0xff),
+        ((_hash >> 16) & 0xff),
+        ((_hash >> 8) & 0xff),
+        (_hash & 0xff)
+      ];
 }
 
-/// A [ByteConversionSink] that computes Adler-32 checksums.
+// A [ByteConversionSink] that computes Adler-32 checksums.
 class _Adler32Sink extends ByteConversionSinkBase {
   final Sink<crypto.Digest> _inner;
 
@@ -83,10 +109,10 @@ class _Adler32Sink extends ByteConversionSinkBase {
     _isClosed = true;
 
     _inner.add(crypto.Digest([
-      ((_hash >> 24) & 0xFF),
-      ((_hash >> 16) & 0xFF),
-      ((_hash >> 8) & 0xFF),
-      (_hash & 0xFF)
+      ((_hash >> 24) & 0xff),
+      ((_hash >> 16) & 0xff),
+      ((_hash >> 8) & 0xff),
+      (_hash & 0xff)
     ]));
   }
 }

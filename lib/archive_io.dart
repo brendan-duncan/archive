@@ -1,10 +1,6 @@
-library archive_io;
+library archive;
 
 export 'archive.dart';
-
-export 'src/io/create_archive_from_directory.dart';
-export 'src/io/extract_archive_to_disk.dart';
-export 'src/io/input_file_stream.dart';
-export 'src/io/output_file_stream.dart';
-export 'src/io/tar_file_encoder.dart';
-export 'src/io/zip_file_encoder.dart';
+export 'src/util/file_handle.dart';
+export 'src/util/input_stream_file.dart';
+export 'src/util/output_stream_file.dart';
