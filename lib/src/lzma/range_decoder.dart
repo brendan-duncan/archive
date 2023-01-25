@@ -1,6 +1,5 @@
 import 'dart:typed_data';
 
-import '../util/archive_exception.dart';
 import '../util/input_stream.dart';
 
 // Number of bits used for probabilities.
