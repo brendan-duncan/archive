@@ -140,6 +140,7 @@ class LzmaDecoder {
   // Decode [input] which contains compressed LZMA data that unpacks to [uncompressedLength] bytes.
   Uint8List decode(InputStreamBase input, int uncompressedLength) {
     _input.input = input;
+    reset();
 
     // Expand dictionary to fit new data.
     var initialSize = _dictionary.length;
@@ -324,6 +325,9 @@ class LzmaDecoder {
       }
       _dictionary[_writePosition] = _dictionary[start + i];
       _writePosition++;
+      /*if (_writePosition >= _dictionary.length) {
+        break; // TODO: what is this?
+      }*/
     }
   }
 }

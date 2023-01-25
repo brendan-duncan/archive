@@ -31,7 +31,7 @@ class RangeDecoderTable {
 // Implements the LZMA range decoder.
 class RangeDecoder {
   // Data being read from.
-  InputStreamBase? _input;
+  late InputStreamBase _input;
 
   // True once initialization bytes have been loaded.
   var _initialized = false;
@@ -44,19 +44,19 @@ class RangeDecoder {
 
   // Set the input being read from. Must be set before initializing or reading
   // bits.
-  set input(InputStreamBase value) => _input = value;
+  set input(InputStreamBase value) {
+    _initialized = false;
+    _input = value;
+  }
 
   // Read a single bit from the decoder, using the supplied [index] into a
   // probabilities [table].
   int readBit(RangeDecoderTable table, int index) {
-    if (_input == null) {
-      throw ArchiveException('Invalid stream for LZMA');
-    }
     if (!_initialized) {
       // Skip the first byte, then load four for the initial state.
-      _input!.skip(1);
+      _input.skip(1);
       for (var i = 0; i < 4; i++) {
-        code = (code << 8 | _input!.readByte());
+        code = (code << 8 | _input.readByte());
       }
       _initialized = true;
     }
@@ -125,12 +125,9 @@ class RangeDecoder {
   // Load a byte if we can fit it.
   void _load() {
     const topValue = 1 << 24;
-    if (_input == null) {
-      throw ArchiveException('Invalid stream for LZMA');
-    }
     if (range < topValue) {
       range <<= 8;
-      code = (code << 8) | _input!.readByte();
+      code = (code << 8) | _input.readByte();
     }
   }
 }
