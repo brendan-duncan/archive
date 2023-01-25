@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import '../util/archive_exception.dart';
 import '../util/input_stream.dart';
 
 // Number of bits used for probabilities.
@@ -16,12 +17,12 @@ class RangeDecoderTable {
   // Table of probabilities for each symbol.
   final Uint16List table;
 
-  // Creates a new probability table for [length] elemets.
+  // Creates a new probability table for [length] elements.
   RangeDecoderTable(int length) : table = Uint16List(length) {
     reset();
   }
 
-  // Reset the table to probabibilities of 0.5.
+  // Reset the table to probabilities of 0.5.
   void reset() {
     table.fillRange(0, table.length, _probabilityHalf);
   }
@@ -30,7 +31,7 @@ class RangeDecoderTable {
 // Implements the LZMA range decoder.
 class RangeDecoder {
   // Data being read from.
-  late final InputStreamBase _input;
+  InputStreamBase? _input;
 
   // True once initialization bytes have been loaded.
   var _initialized = false;
@@ -41,24 +42,29 @@ class RangeDecoder {
   // Current code being stored.
   var code = 0;
 
-  // Set the input being read from. Must be set before initializing or reading bits.
+  // Set the input being read from. Must be set before initializing or reading
+  // bits.
   set input(InputStreamBase value) => _input = value;
 
-  // Read a single bit from the decoder, using the supplied [index] into a probabilities [table].
+  // Read a single bit from the decoder, using the supplied [index] into a
+  // probabilities [table].
   int readBit(RangeDecoderTable table, int index) {
+    if (_input == null) {
+      throw ArchiveException('Invalid stream for LZMA');
+    }
     if (!_initialized) {
       // Skip the first byte, then load four for the initial state.
-      _input.skip(1);
+      _input!.skip(1);
       for (var i = 0; i < 4; i++) {
-        code = (code << 8 | _input.readByte());
+        code = (code << 8 | _input!.readByte());
       }
       _initialized = true;
     }
 
     _load();
 
-    var p = table.table[index];
-    var bound = (range >> _probabilityBitCount) * p;
+    final p = table.table[index];
+    final bound = (range >> _probabilityBitCount) * p;
     const moveBits = 5;
     if (code < bound) {
       range = bound;
@@ -78,8 +84,8 @@ class RangeDecoder {
     var symbolPrefix = 1;
     for (var i = 0; i < count; i++) {
       var b = readBit(table, symbolPrefix | value);
-      value = (value << 1) | b;
-      symbolPrefix <<= 1;
+      value = ((value << 1) | b) & 0xffffffff;
+      symbolPrefix = (symbolPrefix << 1) & 0xffffffff;
     }
 
     return value;
@@ -91,8 +97,8 @@ class RangeDecoder {
     var symbolPrefix = 1;
     for (var i = 0; i < count; i++) {
       var b = readBit(table, symbolPrefix | value);
-      value |= b << i;
-      symbolPrefix <<= 1;
+      value = (value | b << i) & 0xffffffff;
+      symbolPrefix = (symbolPrefix << 1) & 0xffffffff;
     }
 
     return value;
@@ -119,9 +125,12 @@ class RangeDecoder {
   // Load a byte if we can fit it.
   void _load() {
     const topValue = 1 << 24;
+    if (_input == null) {
+      throw ArchiveException('Invalid stream for LZMA');
+    }
     if (range < topValue) {
       range <<= 8;
-      code = (code << 8) | _input.readByte();
+      code = (code << 8) | _input!.readByte();
     }
   }
 }

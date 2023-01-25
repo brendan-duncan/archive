@@ -9,6 +9,13 @@ import 'test_utils.dart';
 
 void main() {
   group('xz', () {
+    test('good-1-lzma2-1.xz', () {
+      var file = File(p.join(testDirPath, 'res/xz/good-1-lzma2-1.xz'));
+      final compressed = file.readAsBytesSync();
+      final data = XZDecoder().decodeBytes(compressed);
+      expect(data.length, greaterThan(0));
+    });
+
     test('decode empty', () {
       var file = File(p.join(testDirPath, 'res/xz/empty.xz'));
       final compressed = file.readAsBytesSync();

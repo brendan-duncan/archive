@@ -94,7 +94,7 @@ class LzmaDecoder {
     _distance2 = 0;
     _distance3 = 0;
 
-    var maxLiteralStates = 1 << (_literalPositionBits + _literalContextBits);
+    final maxLiteralStates = 1 << (_literalPositionBits + _literalContextBits);
     if (_literalTables.length != maxLiteralStates) {
       _literalTables.clear();
       _matchLiteralTables0.clear();
@@ -106,27 +106,27 @@ class LzmaDecoder {
       }
     }
 
-    for (var table in _nonLiteralTables) {
+    for (final table in _nonLiteralTables) {
       table.reset();
     }
     _repeatTable.reset();
     _repeat0Table.reset();
-    for (var table in _longRepeat0Tables) {
+    for (final table in _longRepeat0Tables) {
       table.reset();
     }
     _repeat1Table.reset();
     _repeat2Table.reset();
-    for (var table in _literalTables) {
+    for (final table in _literalTables) {
       table.reset();
     }
-    for (var table in _matchLiteralTables0) {
+    for (final table in _matchLiteralTables0) {
       table.reset();
     }
-    for (var table in _matchLiteralTables1) {
+    for (final table in _matchLiteralTables1) {
       table.reset();
     }
 
-    var positionCount = 1 << _positionBits;
+    final positionCount = 1 << _positionBits;
     _matchLengthDecoder.reset(positionCount);
     _repeatLengthDecoder.reset(positionCount);
     _distanceDecoder.reset();
@@ -144,7 +144,7 @@ class LzmaDecoder {
     // Expand dictionary to fit new data.
     var initialSize = _dictionary.length;
     var finalSize = initialSize + uncompressedLength;
-    var newDictionary = Uint8List(finalSize);
+    final newDictionary = Uint8List(finalSize);
     for (var i = 0; i < initialSize; i++) {
       newDictionary[i] = _dictionary[i];
     }
@@ -152,8 +152,8 @@ class LzmaDecoder {
 
     // Decode packets (literal, match or repeat) until all the data has been decoded.
     while (_writePosition < finalSize) {
-      var positionMask = (1 << _positionBits) - 1;
-      var posState = _writePosition & positionMask;
+      final positionMask = (1 << _positionBits) - 1;
+      final posState = _writePosition & positionMask;
       if (_input.readBit(_nonLiteralTables[state.index], posState) == 0) {
         _decodeLiteral();
       } else if (_input.readBit(_repeatTable, state.index) == 0) {
@@ -262,8 +262,8 @@ class LzmaDecoder {
 
   // Decode a packet that matches some already decoded data.
   void _decodeMatch(int posState) {
-    var length = _matchLengthDecoder.readLength(posState);
-    var distance = _distanceDecoder.readDistance(length);
+    final length = _matchLengthDecoder.readLength(posState);
+    final distance = _distanceDecoder.readDistance(length);
 
     _repeatData(distance, length);
 
@@ -314,10 +314,14 @@ class LzmaDecoder {
         _prevPacketIsLiteral() ? _LzmaState.litLongRep : _LzmaState.nonLitRep;
   }
 
-  // Repeat decompressed data, starting [distance] bytes back from the end of the buffer and copying [length] bytes.
+  // Repeat decompressed data, starting [distance] bytes back from the end of
+  // the buffer and copying [length] bytes.
   void _repeatData(int distance, int length) {
-    var start = _writePosition - distance - 1;
+    final start = _writePosition - distance - 1;
     for (var i = 0; i < length; i++) {
+      if (start < 0 || _writePosition < 0) {
+        break;
+      }
       _dictionary[_writePosition] = _dictionary[start + i];
       _writePosition++;
     }
@@ -455,10 +459,10 @@ class _DistanceDecoder {
     if (distState >= _slotTables.length) {
       distState = _slotTables.length - 1;
     }
-    var table = _slotTables[distState];
+    final table = _slotTables[distState];
 
     // Distances are encoded starting with a six bit slot.
-    var slot = _input.readBittree(table, _slotBitCount);
+    final slot = _input.readBittree(table, _slotBitCount);
 
     // Slots 0-3 map to the distances 0-3.
     if (slot < 4) {
@@ -466,19 +470,23 @@ class _DistanceDecoder {
     }
 
     // Larger slots have a variable number of bits that follow.
-    var prefix = 0x2 | (slot & 0x1);
-    var bitCount = (slot ~/ 2) - 1;
+    final prefix = 0x2 | (slot & 0x1);
+    final bitCount = (slot ~/ 2) - 1;
 
     // Short distances are stored in reverse bittree format.
     if (slot < 14) {
-      return prefix << bitCount |
+      final result = (prefix << bitCount) |
           _input.readBittreeReverse(_shortTables[slot - 4], bitCount);
+      return result;
     }
 
     // Large distances are a combination of direct bits and reverse bittree format.
-    var directCount = bitCount - _alignBitCount;
-    var directBits = _input.readDirect(directCount);
-    var alignBits = _input.readBittreeReverse(_longTable, _alignBitCount);
-    return prefix << bitCount | directBits << _alignBitCount | alignBits;
+    final directCount = bitCount - _alignBitCount;
+    final directBits = _input.readDirect(directCount);
+    final alignBits = _input.readBittreeReverse(_longTable, _alignBitCount);
+    final r1 = (prefix << bitCount) & 0xffffffff;
+    final r2 = (directBits << _alignBitCount) & 0xffffffff;
+    final result = r1 | r2 | alignBits;
+    return result;
   }
 }
