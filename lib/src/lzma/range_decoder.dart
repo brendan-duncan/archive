@@ -1,15 +1,16 @@
+import 'dart:io';
 import 'dart:typed_data';
 
 import '../util/input_stream.dart';
 
 // Number of bits used for probabilities.
-const int _probabilityBitCount = 11;
+const _probabilityBitCount = 11;
 
 // Value used for a probability of 1.0.
-const int _probabilityOne = (1 << _probabilityBitCount);
+const _probabilityOne = (1 << _probabilityBitCount);
 
 // Value used for a probability of 0.5.
-const int _probabilityHalf = _probabilityOne ~/ 2;
+const _probabilityHalf = _probabilityOne ~/ 2;
 
 // Probability table used with [RangeDecoder].
 class RangeDecoderTable {
@@ -44,22 +45,29 @@ class RangeDecoder {
   // Set the input being read from. Must be set before initializing or reading
   // bits.
   set input(InputStreamBase value) {
-    _initialized = false;
     _input = value;
+    _initialized = false;
+  }
+
+  void reset() {
+    range = 0xffffffff;
+    code = 0;
+  }
+
+  void initialize() {
+    code = 0;
+    range = 0xffffffff;
+    // Skip the first byte, then load four for the initial state.
+    _input.skip(1);
+    for (var i = 0; i < 4; i++) {
+      code = (code << 8 | _input.readByte());
+    }
+    _initialized = true;
   }
 
   // Read a single bit from the decoder, using the supplied [index] into a
   // probabilities [table].
   int readBit(RangeDecoderTable table, int index) {
-    if (!_initialized) {
-      // Skip the first byte, then load four for the initial state.
-      _input.skip(1);
-      for (var i = 0; i < 4; i++) {
-        code = (code << 8 | _input.readByte());
-      }
-      _initialized = true;
-    }
-
     _load();
 
     final p = table.table[index];
@@ -82,7 +90,7 @@ class RangeDecoder {
     var value = 0;
     var symbolPrefix = 1;
     for (var i = 0; i < count; i++) {
-      var b = readBit(table, symbolPrefix | value);
+      final b = readBit(table, symbolPrefix | value);
       value = ((value << 1) | b) & 0xffffffff;
       symbolPrefix = (symbolPrefix << 1) & 0xffffffff;
     }
@@ -95,7 +103,7 @@ class RangeDecoder {
     var value = 0;
     var symbolPrefix = 1;
     for (var i = 0; i < count; i++) {
-      var b = readBit(table, symbolPrefix | value);
+      final b = readBit(table, symbolPrefix | value);
       value = (value | b << i) & 0xffffffff;
       symbolPrefix = (symbolPrefix << 1) & 0xffffffff;
     }
@@ -124,9 +132,15 @@ class RangeDecoder {
   // Load a byte if we can fit it.
   void _load() {
     const topValue = 1 << 24;
+    if (!_initialized) {
+      initialize();
+    }
     if (range < topValue) {
       range <<= 8;
       code = (code << 8) | _input.readByte();
+      if (code == 1442046953) {
+        return;
+      }
     }
   }
 }

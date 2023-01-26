@@ -172,9 +172,9 @@ class _XZStreamDecoder {
       case 0: // none
         break;
       case 0x1: // CRC32
-        var expectedCrc = input.readUint32();
+        final expectedCrc = input.readUint32();
         if (verify) {
-          var actualCrc = getCrc32(data.toBytes().sublist(startDataLength));
+          final actualCrc = getCrc32(data.toBytes().sublist(startDataLength));
           if (actualCrc != expectedCrc) {
             throw ArchiveException('CRC32 check failed');
           }
@@ -242,14 +242,14 @@ class _XZStreamDecoder {
         throw ArchiveException('Unknown block check type $checkType');
     }
 
-    var unpaddedLength = input.position - blockStart - paddingSize;
+    final unpaddedLength = input.position - blockStart - paddingSize;
     _blockSizes.add(_XZBlockSize(unpaddedLength, uncompressedLength));
   }
 
   // Reads LZMA2 data from [input].
   void _readLZMA2(InputStreamBase input, int dictionarySize) {
     while (true) {
-      var control = input.readByte();
+      final control = input.readByte();
       // Control values:
       // 00000000 - end marker
       // 00000001 - reset dictionary and uncompresed data
@@ -271,12 +271,12 @@ class _XZStreamDecoder {
         // 1 - reset state
         // 2 - reset state, properties
         // 3 - reset state, properties and dictionary
-        var reset = (control >> 5) & 0x3;
-        var uncompressedLength = ((control & 0x1f) << 16 |
+        final reset = (control >> 5) & 0x3;
+        final uncompressedLength = ((control & 0x1f) << 16 |
                 input.readByte() << 8 |
                 input.readByte()) +
             1;
-        var compressedLength = (input.readByte() << 8 | input.readByte()) + 1;
+        final compressedLength = (input.readByte() << 8 | input.readByte()) + 1;
         int? literalContextBits;
         int? literalPositionBits;
         int? positionBits;
@@ -305,16 +305,16 @@ class _XZStreamDecoder {
   // Reads an XZ stream index from [input].
   // Returns the length of the index in bytes.
   int _readStreamIndex(InputStreamBase input) {
-    var startPosition = input.position;
+    final startPosition = input.position;
     input.skip(1); // Skip index indicator
-    var nRecords = _readMultibyteInteger(input);
+    final nRecords = _readMultibyteInteger(input);
     if (nRecords != _blockSizes.length) {
       throw ArchiveException('Stream index block count mismatch');
     }
 
     for (var i = 0; i < nRecords; i++) {
-      var unpaddedLength = _readMultibyteInteger(input);
-      var uncompressedLength = _readMultibyteInteger(input);
+      final unpaddedLength = _readMultibyteInteger(input);
+      final uncompressedLength = _readMultibyteInteger(input);
       if (_blockSizes[i].unpaddedLength != unpaddedLength) {
         throw ArchiveException('Stream index compressed length mismatch');
       }
@@ -325,11 +325,11 @@ class _XZStreamDecoder {
     _readPadding(input);
 
     // Re-read for CRC calculation
-    var indexLength = input.position - startPosition;
+    final indexLength = input.position - startPosition;
     input.rewind(indexLength);
-    var indexData = input.readBytes(indexLength);
+    final indexData = input.readBytes(indexLength);
 
-    var crc = input.readUint32();
+    final crc = input.readUint32();
     if (getCrc32(indexData.toUint8List()) != crc) {
       throw ArchiveException('Invalid stream index CRC checksum');
     }
@@ -340,16 +340,16 @@ class _XZStreamDecoder {
   // Reads an XZ stream footer from [input] and check the index size matches
   // [indexSize].
   void _readStreamFooter(InputStreamBase input, int indexSize) {
-    var crc = input.readUint32();
-    var footer = input.readBytes(6);
-    var backwardSize = (footer.readUint32() + 1) * 4;
+    final crc = input.readUint32();
+    final footer = input.readBytes(6);
+    final backwardSize = (footer.readUint32() + 1) * 4;
     if (backwardSize != indexSize) {
       throw ArchiveException('Stream footer has invalid index size');
     }
     if (footer.readByte() != 0) {
       throw ArchiveException('Invalid stream flags');
     }
-    var footerFlags = footer.readByte();
+    final footerFlags = footer.readByte();
     if (footerFlags != streamFlags) {
       throw ArchiveException("Stream footer flags don't match header flags");
     }
@@ -359,7 +359,7 @@ class _XZStreamDecoder {
       throw ArchiveException('Invalid stream footer CRC checksum');
     }
 
-    var magic = input.readBytes(2).toUint8List();
+    final magic = input.readBytes(2).toUint8List();
     if (magic[0] != 89 /* 'Y' */ && magic[1] != 90 /* 'Z' */) {
       throw ArchiveException('Invalid XZ stream footer signature');
     }
@@ -370,7 +370,7 @@ class _XZStreamDecoder {
     var value = 0;
     var shift = 0;
     while (true) {
-      var data = input.readByte();
+      final data = input.readByte();
       value |= (data & 0x7f) << shift;
       if (data & 0x80 == 0) {
         return value;

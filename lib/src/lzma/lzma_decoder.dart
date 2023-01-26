@@ -192,11 +192,11 @@ class LzmaDecoder {
   void _decodeLiteral() {
     // Get probabilities based on previous byte written.
     var prevByte = _writePosition > 0 ? _dictionary[_writePosition - 1] : 0;
-    var low = prevByte >> (8 - _literalContextBits);
-    var positionMask = (1 << _literalPositionBits) - 1;
-    var high = (_writePosition & positionMask) << _literalContextBits;
-    var hash = low + high;
-    var table = _literalTables[hash];
+    final low = prevByte >> (8 - _literalContextBits);
+    final positionMask = (1 << _literalPositionBits) - 1;
+    final high = (_writePosition & positionMask) << _literalContextBits;
+    final hash = low + high;
+    final table = _literalTables[hash];
 
     int value;
     if (_prevPacketIsLiteral()) {
@@ -208,8 +208,8 @@ class LzmaDecoder {
       value = 0;
       var symbolPrefix = 1;
       var matched = true;
-      var matchTable0 = _matchLiteralTables0[hash];
-      var matchTable1 = _matchLiteralTables1[hash];
+      final matchTable0 = _matchLiteralTables0[hash];
+      final matchTable1 = _matchLiteralTables1[hash];
       for (var i = 0; i < 8; i++) {
         int b;
         if (matched) {
