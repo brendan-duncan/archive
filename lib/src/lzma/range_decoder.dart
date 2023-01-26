@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'dart:typed_data';
 
 import '../util/input_stream.dart';
@@ -33,9 +32,6 @@ class RangeDecoder {
   // Data being read from.
   late InputStreamBase _input;
 
-  // True once initialization bytes have been loaded.
-  var _initialized = false;
-
   // Mask showing the current bits in [code].
   var range = 0xffffffff;
 
@@ -46,7 +42,6 @@ class RangeDecoder {
   // bits.
   set input(InputStreamBase value) {
     _input = value;
-    _initialized = false;
   }
 
   void reset() {
@@ -62,7 +57,6 @@ class RangeDecoder {
     for (var i = 0; i < 4; i++) {
       code = (code << 8 | _input.readByte());
     }
-    _initialized = true;
   }
 
   // Read a single bit from the decoder, using the supplied [index] into a
@@ -132,9 +126,6 @@ class RangeDecoder {
   // Load a byte if we can fit it.
   void _load() {
     const topValue = 1 << 24;
-    if (!_initialized) {
-      initialize();
-    }
     if (range < topValue) {
       range <<= 8;
       code = (code << 8) | _input.readByte();

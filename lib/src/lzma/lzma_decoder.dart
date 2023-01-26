@@ -11,7 +11,7 @@ import 'range_decoder.dart';
 
 class LzmaDecoder {
   // Compressed data.
-  final _input = RangeDecoder();
+  final _rc = RangeDecoder();
 
   // Number of bits used from [_dictionary] length for probabilities.
   int _positionBits = 2;
@@ -71,9 +71,9 @@ class LzmaDecoder {
     _repeat2Table = RangeDecoderTable(_LzmaState.values.length);
 
     var positionCount = 1 << _positionBits;
-    _matchLengthDecoder = _LengthDecoder(_input, positionCount);
-    _repeatLengthDecoder = _LengthDecoder(_input, positionCount);
-    _distanceDecoder = _DistanceDecoder(_input);
+    _matchLengthDecoder = _LengthDecoder(_rc, positionCount);
+    _repeatLengthDecoder = _LengthDecoder(_rc, positionCount);
+    _distanceDecoder = _DistanceDecoder(_rc);
 
     reset();
   }
@@ -139,8 +139,8 @@ class LzmaDecoder {
 
   // Decode [input] which contains compressed LZMA data that unpacks to [uncompressedLength] bytes.
   Uint8List decode(InputStreamBase input, int uncompressedLength) {
-    _input.input = input;
-    reset();
+    _rc.input = input;
+    _rc.initialize();
 
     // Expand dictionary to fit new data.
     var initialSize = _dictionary.length;
@@ -155,9 +155,9 @@ class LzmaDecoder {
     while (_writePosition < finalSize) {
       final positionMask = (1 << _positionBits) - 1;
       final posState = _writePosition & positionMask;
-      if (_input.readBit(_nonLiteralTables[state.index], posState) == 0) {
+      if (_rc.readBit(_nonLiteralTables[state.index], posState) == 0) {
         _decodeLiteral();
-      } else if (_input.readBit(_repeatTable, state.index) == 0) {
+      } else if (_rc.readBit(_repeatTable, state.index) == 0) {
         _decodeMatch(posState);
       } else {
         _decodeRepeat(posState);
@@ -200,7 +200,7 @@ class LzmaDecoder {
 
     int value;
     if (_prevPacketIsLiteral()) {
-      value = _input.readBittree(table, 8);
+      value = _rc.readBittree(table, 8);
     } else {
       // Get the last byte before the match that just occurred.
       prevByte = _dictionary[_writePosition - _distance0 - 1];
@@ -215,11 +215,11 @@ class LzmaDecoder {
         if (matched) {
           var matchBit = (prevByte >> 7) & 0x1;
           prevByte <<= 1;
-          b = _input.readBit(
+          b = _rc.readBit(
               matchBit == 0 ? matchTable0 : matchTable1, symbolPrefix | value);
           matched = b == matchBit;
         } else {
-          b = _input.readBit(table, symbolPrefix | value);
+          b = _rc.readBit(table, symbolPrefix | value);
         }
         value = (value << 1) | b;
         symbolPrefix <<= 1;
@@ -280,8 +280,8 @@ class LzmaDecoder {
   // Decode a packet that repeats a match already done.
   void _decodeRepeat(int posState) {
     int distance;
-    if (_input.readBit(_repeat0Table, state.index) == 0) {
-      if (_input.readBit(_longRepeat0Tables[state.index], posState) == 0) {
+    if (_rc.readBit(_repeat0Table, state.index) == 0) {
+      if (_rc.readBit(_longRepeat0Tables[state.index], posState) == 0) {
         _repeatData(_distance0, 1);
         state = _prevPacketIsLiteral()
             ? _LzmaState.litShortRep
@@ -290,11 +290,11 @@ class LzmaDecoder {
       } else {
         distance = _distance0;
       }
-    } else if (_input.readBit(_repeat1Table, state.index) == 0) {
+    } else if (_rc.readBit(_repeat1Table, state.index) == 0) {
       distance = _distance1;
       _distance1 = _distance0;
       _distance0 = distance;
-    } else if (_input.readBit(_repeat2Table, state.index) == 0) {
+    } else if (_rc.readBit(_repeat2Table, state.index) == 0) {
       distance = _distance2;
       _distance2 = _distance1;
       _distance1 = _distance0;
