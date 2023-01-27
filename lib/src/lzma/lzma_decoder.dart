@@ -96,10 +96,7 @@ class LzmaDecoder {
 
     final maxLiteralStates = 1 << (_literalPositionBits + _literalContextBits);
     if (_literalTables.length != maxLiteralStates) {
-      _literalTables.clear();
-      _matchLiteralTables0.clear();
-      _matchLiteralTables1.clear();
-      for (var i = 0; i < maxLiteralStates; i++) {
+      for (var i = _literalTables.length; i < maxLiteralStates; i++) {
         _literalTables.add(RangeDecoderTable(256));
         _matchLiteralTables0.add(RangeDecoderTable(256));
         _matchLiteralTables1.add(RangeDecoderTable(256));
@@ -213,7 +210,7 @@ class LzmaDecoder {
       for (var i = 0; i < 8; i++) {
         int b;
         if (matched) {
-          var matchBit = (prevByte >> 7) & 0x1;
+          final matchBit = (prevByte >> 7) & 0x1;
           prevByte <<= 1;
           b = _rc.readBit(
               matchBit == 0 ? matchTable0 : matchTable1, symbolPrefix | value);

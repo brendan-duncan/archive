@@ -69,7 +69,9 @@ class RangeDecoder {
     const moveBits = 5;
     if (code < bound) {
       range = bound;
-      table.table[index] += (_probabilityOne - p) >> moveBits;
+      final oneMinusP = _probabilityOne - p;
+      final shifted = oneMinusP >> moveBits;
+      table.table[index] += shifted;
       return 0;
     } else {
       range -= bound;
@@ -129,9 +131,6 @@ class RangeDecoder {
     if (range < topValue) {
       range <<= 8;
       code = (code << 8) | _input.readByte();
-      if (code == 1442046953) {
-        return;
-      }
     }
   }
 }

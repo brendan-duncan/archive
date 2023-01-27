@@ -286,7 +286,7 @@ class _XZStreamDecoder {
           positionBits = properties ~/ 45;
           properties -= positionBits * 45;
           literalPositionBits = properties ~/ 9;
-          literalContextBits = properties - literalPositionBits * 8;
+          literalContextBits = properties - literalPositionBits * 9;
         }
         if (reset > 0) {
           decoder.reset(
