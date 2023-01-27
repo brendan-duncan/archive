@@ -1,3 +1,7 @@
+## 3.3.6 - January 27, 2023
+
+* Fix errors decoding XZ files.
+
 ## 3.3.5 - November 22, 2022
 
 * Fix file content when decoding zips
