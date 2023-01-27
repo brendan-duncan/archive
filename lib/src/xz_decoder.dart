@@ -9,7 +9,8 @@ import 'util/input_stream.dart';
 
 import 'lzma/lzma_decoder.dart';
 
-// The XZ specification can be found at https://tukaani.org/xz/xz-file-format.txt.
+// The XZ specification can be found at
+// https://tukaani.org/xz/xz-file-format.txt.
 
 /// Decompress data with the xz format decoder.
 class XZDecoder {
@@ -262,6 +263,12 @@ class _XZStreamDecoder {
         } else if (control == 1) {
           final length = (input.readByte() << 8 | input.readByte()) + 1;
           data.add(input.readBytes(length).toUint8List());
+        } else if (control == 2) {
+          // uncompressed data
+          final length =
+              (input.readByte() << 8 | input.readByte()) + 1;
+          data.add(decoder.decodeUncompressed(
+              input.readBytes(length), length));
         } else {
           throw ArchiveException('Unknown LZMA2 control code $control');
         }

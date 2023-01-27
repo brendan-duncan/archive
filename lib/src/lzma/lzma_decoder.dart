@@ -134,7 +134,24 @@ class LzmaDecoder {
     }
   }
 
-  // Decode [input] which contains compressed LZMA data that unpacks to [uncompressedLength] bytes.
+  Uint8List decodeUncompressed(InputStreamBase input, int uncompressedLength) {
+    final inputData = input.readBytes(uncompressedLength);
+
+    var initialSize = _dictionary.length;
+    var finalSize = initialSize + uncompressedLength;
+    final newDictionary = Uint8List(finalSize);
+    newDictionary.setAll(0, _dictionary);
+    _dictionary = newDictionary;
+
+    final inputBytes = inputData.toUint8List();
+    _dictionary.setAll(initialSize, inputBytes);
+    _writePosition += uncompressedLength;
+
+    return inputBytes;
+  }
+
+  // Decode [input] which contains compressed LZMA data that unpacks to
+  // [uncompressedLength] bytes.
   Uint8List decode(InputStreamBase input, int uncompressedLength) {
     _rc.input = input;
     _rc.initialize();
@@ -143,12 +160,11 @@ class LzmaDecoder {
     var initialSize = _dictionary.length;
     var finalSize = initialSize + uncompressedLength;
     final newDictionary = Uint8List(finalSize);
-    for (var i = 0; i < initialSize; i++) {
-      newDictionary[i] = _dictionary[i];
-    }
+    newDictionary.setAll(0, _dictionary);
     _dictionary = newDictionary;
 
-    // Decode packets (literal, match or repeat) until all the data has been decoded.
+    // Decode packets (literal, match or repeat) until all the data has been
+    // decoded.
     while (_writePosition < finalSize) {
       final positionMask = (1 << _positionBits) - 1;
       final posState = _writePosition & positionMask;
