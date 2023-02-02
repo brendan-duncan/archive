@@ -122,10 +122,10 @@ class _XZStreamDecoder {
           throw ArchiveException('Invalid LZMA dictionary size');
         } else if (v == 40) {
           dictionarySize = 0xffffffff;
-        } else if (v % 2 == 0) {
-          dictionarySize = 1 << ((v ~/ 2) + 12);
         } else {
-          dictionarySize = 1 << (((v - 1) ~/ 2) + 11);
+          final mantissa = 2 | (v & 0x1);
+          final exponent = (v >> 1) + 11;
+          dictionarySize = mantissa << exponent;
         }
         filters.add(id);
         filters.add(dictionarySize);
