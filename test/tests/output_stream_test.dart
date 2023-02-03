@@ -55,4 +55,22 @@ void main() {
       expect(x, equals(0xffff + i));
     }
   });
+
+  test('writeUint64', () {
+    final out = OutputStream();
+
+    const LEN = 0xffff;
+    for (var i = 0; i < LEN; ++i) {
+      out.writeUint64(0xffff + i);
+    }
+
+    var bytes = out.getBytes();
+    expect(bytes.length, equals(LEN * 8));
+
+    final input = InputStream(bytes);
+    for (var i = 0; i < LEN; ++i) {
+      final x = input.readUint64();
+      expect(x, equals(0xffff + i));
+    }
+  });
 }

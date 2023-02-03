@@ -31,6 +31,7 @@ export 'src/gzip_encoder.dart';
 export 'src/tar_decoder.dart';
 export 'src/tar_encoder.dart';
 export 'src/xz_decoder.dart';
+export 'src/xz_encoder.dart';
 export 'src/zip_decoder.dart';
 export 'src/zip_encoder.dart';
 export 'src/zlib_decoder.dart';

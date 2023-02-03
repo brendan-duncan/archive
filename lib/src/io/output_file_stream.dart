@@ -142,6 +142,35 @@ class OutputFileStream extends OutputStreamBase {
     writeByte((value >> 24) & 0xff);
   }
 
+  /// Write a 64-bit word to the end of the buffer.
+  @override
+  void writeUint64(int value) {
+    var topBit = 0x00;
+    if (value & 0x8000000000000000 != 0) {
+      topBit = 0x80;
+      value ^= 0x8000000000000000;
+    }
+    if (byteOrder == BIG_ENDIAN) {
+      writeByte(topBit | ((value >> 56) & 0xff));
+      writeByte((value >> 48) & 0xff);
+      writeByte((value >> 40) & 0xff);
+      writeByte((value >> 32) & 0xff);
+      writeByte((value >> 24) & 0xff);
+      writeByte((value >> 16) & 0xff);
+      writeByte((value >> 8) & 0xff);
+      writeByte((value) & 0xff);
+      return;
+    }
+    writeByte((value) & 0xff);
+    writeByte((value >> 8) & 0xff);
+    writeByte((value >> 16) & 0xff);
+    writeByte((value >> 24) & 0xff);
+    writeByte((value >> 32) & 0xff);
+    writeByte((value >> 40) & 0xff);
+    writeByte((value >> 48) & 0xff);
+    writeByte(topBit | ((value >> 56) & 0xff));
+  }
+
   List<int> subset(int start, [int? end]) {
     if (_bufferPosition > 0) {
       flush();

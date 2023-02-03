@@ -22,6 +22,9 @@ abstract class OutputStreamBase {
 
   /// Write a 32-bit word to the end of the buffer.
   void writeUint32(int value);
+
+  /// Write a 64-bit word to the end of the buffer.
+  void writeUint64(int value);
 }
 
 class OutputStream extends OutputStreamBase {
@@ -116,6 +119,36 @@ class OutputStream extends OutputStreamBase {
     writeByte((value >> 8) & 0xff);
     writeByte((value >> 16) & 0xff);
     writeByte((value >> 24) & 0xff);
+  }
+
+  /// Write a 64-bit word to the end of the buffer.
+  @override
+  void writeUint64(int value) {
+    // Works around Dart treating 64 bit integers as signed when shifting.
+    var topBit = 0x00;
+    if (value & 0x8000000000000000 != 0) {
+      topBit = 0x80;
+      value ^= 0x8000000000000000;
+    }
+    if (byteOrder == BIG_ENDIAN) {
+      writeByte(topBit | ((value >> 56) & 0xff));
+      writeByte((value >> 48) & 0xff);
+      writeByte((value >> 40) & 0xff);
+      writeByte((value >> 32) & 0xff);
+      writeByte((value >> 24) & 0xff);
+      writeByte((value >> 16) & 0xff);
+      writeByte((value >> 8) & 0xff);
+      writeByte((value) & 0xff);
+      return;
+    }
+    writeByte((value) & 0xff);
+    writeByte((value >> 8) & 0xff);
+    writeByte((value >> 16) & 0xff);
+    writeByte((value >> 24) & 0xff);
+    writeByte((value >> 32) & 0xff);
+    writeByte((value >> 40) & 0xff);
+    writeByte((value >> 48) & 0xff);
+    writeByte(topBit | ((value >> 56) & 0xff));
   }
 
   /// Return the subset of the buffer in the range [start:end].

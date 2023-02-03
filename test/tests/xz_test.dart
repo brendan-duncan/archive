@@ -96,5 +96,62 @@ void main() {
       var data = XZDecoder().decodeBytes(compressed);
       compareBytes(data, bBytes);
     });
+
+    test('encode empty', () {
+      var file = File(p.join(testDirPath, 'res/xz/empty.xz'));
+      final expected = file.readAsBytesSync();
+
+      var data = XZEncoder().encode([]);
+      compareBytes(data, expected);
+    });
+
+    test('encode hello', () {
+      // hello.xz has no LZMA compression due to its simplicity.
+      var file = File(p.join(testDirPath, 'res/xz/hello.xz'));
+      final expected = file.readAsBytesSync();
+
+      var data = XZEncoder().encode(utf8.encode('hello\n'));
+      compareBytes(data, expected);
+    });
+
+    test('encode crc32', () {
+      // Uses a CRC-32 checksum.
+      var file = File(p.join(testDirPath, 'res/xz/crc32.xz'));
+      final expected = file.readAsBytesSync();
+
+      var data =
+          XZEncoder().encode(utf8.encode('hello\n'), check: XZCheck.crc32);
+      compareBytes(data, expected);
+    });
+
+    test('encode crc64', () {
+      // Uses a CRC-64 checksum.
+      var file = File(p.join(testDirPath, 'res/xz/crc64.xz'));
+      final expected = file.readAsBytesSync();
+
+      var data =
+          XZEncoder().encode(utf8.encode('hello\n'), check: XZCheck.crc64);
+      compareBytes(data, expected);
+    });
+
+    test('encode sha256', () {
+      // Uses a SHA-256 checksum.
+      var file = File(p.join(testDirPath, 'res/xz/sha256.xz'));
+      final expected = file.readAsBytesSync();
+
+      var data =
+          XZEncoder().encode(utf8.encode('hello\n'), check: XZCheck.sha256);
+      compareBytes(data, expected);
+    });
+
+    test('encode nocheck', () {
+      // Uses no checksum
+      var file = File(p.join(testDirPath, 'res/xz/nocheck.xz'));
+      final expected = file.readAsBytesSync();
+
+      var data =
+          XZEncoder().encode(utf8.encode('hello\n'), check: XZCheck.none);
+      compareBytes(data, expected);
+    });
   });
 }
