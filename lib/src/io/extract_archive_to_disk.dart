@@ -24,7 +24,7 @@ void extractArchiveToDisk(Archive archive, String outputPath,
     outDir.createSync(recursive: true);
   }
   for (final file in archive.files) {
-    final filePath = '$outputPath${Platform.pathSeparator}${file.name}';
+    final filePath = p.join(outputPath, p.normalize(file.name));
 
     if ((!file.isFile && !file.isSymbolicLink) ||
         !isWithinOutputPath(outputPath, filePath)) {
@@ -34,7 +34,7 @@ void extractArchiveToDisk(Archive archive, String outputPath,
     if (asyncWrite) {
       if (file.isSymbolicLink) {
         final link = Link(filePath);
-        link.create(file.nameOfLinkedFile, recursive: true);
+        link.create(p.normalize(file.nameOfLinkedFile), recursive: true);
       } else {
         final output = File(filePath);
         output.create(recursive: true).then((f) {
@@ -50,7 +50,7 @@ void extractArchiveToDisk(Archive archive, String outputPath,
     } else {
       if (file.isSymbolicLink) {
         final link = Link(filePath);
-        link.createSync(file.nameOfLinkedFile, recursive: true);
+        link.createSync(p.normalize(file.nameOfLinkedFile), recursive: true);
       } else {
         final output = OutputFileStream(filePath, bufferSize: bufferSize);
         try {
@@ -72,7 +72,7 @@ Future<void> extractFileToDisk(String inputPath, String outputPath,
   var futures = <Future<void>>[];
   if (inputPath.endsWith('tar.gz') || inputPath.endsWith('tgz')) {
     tempDir = Directory.systemTemp.createTempSync('dart_archive');
-    archivePath = '${tempDir.path}${Platform.pathSeparator}temp.tar';
+    archivePath = p.join(tempDir.path, 'temp.tar');
     final input = InputFileStream(inputPath);
     final output = OutputFileStream(archivePath, bufferSize: bufferSize);
     GZipDecoder().decodeStream(input, output);
@@ -80,7 +80,7 @@ Future<void> extractFileToDisk(String inputPath, String outputPath,
     futures.add(output.close());
   } else if (inputPath.endsWith('tar.bz2') || inputPath.endsWith('tbz')) {
     tempDir = Directory.systemTemp.createTempSync('dart_archive');
-    archivePath = '${tempDir.path}${Platform.pathSeparator}temp.tar';
+    archivePath = p.join(tempDir.path, 'temp.tar');
     final input = InputFileStream(inputPath);
     final output = OutputFileStream(archivePath, bufferSize: bufferSize);
     BZip2Decoder().decodeBuffer(input, output: output);
@@ -88,7 +88,7 @@ Future<void> extractFileToDisk(String inputPath, String outputPath,
     futures.add(output.close());
   } else if (inputPath.endsWith('tar.xz') || inputPath.endsWith('txz')) {
     tempDir = Directory.systemTemp.createTempSync('dart_archive');
-    archivePath = '${tempDir.path}${Platform.pathSeparator}temp.tar';
+    archivePath = p.join(tempDir.path, 'temp.tar');
     final input = InputFileStream(inputPath);
     final output = OutputFileStream(archivePath, bufferSize: bufferSize);
     output.writeBytes(XZDecoder().decodeBuffer(input));
@@ -114,7 +114,7 @@ Future<void> extractFileToDisk(String inputPath, String outputPath,
   }
 
   for (final file in archive.files) {
-    final filePath = '$outputPath${Platform.pathSeparator}${file.name}';
+    final filePath = p.join(outputPath, p.normalize(file.name));
 
     if (!isWithinOutputPath(outputPath, filePath)) {
       continue;
@@ -128,7 +128,7 @@ Future<void> extractFileToDisk(String inputPath, String outputPath,
     if (asyncWrite) {
       if (file.isSymbolicLink) {
         final link = Link(filePath);
-        await link.create(file.nameOfLinkedFile, recursive: true);
+        await link.create(p.normalize(file.nameOfLinkedFile), recursive: true);
       } else {
         final output = File(filePath);
         final f = await output.create(recursive: true);
@@ -141,7 +141,7 @@ Future<void> extractFileToDisk(String inputPath, String outputPath,
     } else {
       if (file.isSymbolicLink) {
         final link = Link(filePath);
-        link.createSync(file.nameOfLinkedFile, recursive: true);
+        link.createSync(p.normalize(file.nameOfLinkedFile), recursive: true);
       } else {
         final output = OutputFileStream(filePath, bufferSize: bufferSize);
         try {
