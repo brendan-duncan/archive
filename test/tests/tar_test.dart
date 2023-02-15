@@ -1,5 +1,5 @@
 import 'dart:io';
-import 'package:archive/archive.dart';
+import 'package:archive/archive_io.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 import 'package:http/http.dart' as http;
@@ -180,6 +180,18 @@ void main() {
     }
     x += '.txt';
     expect(archive.files[0].name, equals(x));
+  });
+
+  test('long file name encode & decode', () {
+    const kLongFileName = '/long_path_name/long_path_name/long_path_name/long_path_name/to/this_is_an_extremely_long_filename.bin';
+    const kFilePath = 'output.tar';
+    final archive = Archive()..addFile(ArchiveFile(kLongFileName, 1, [1]));
+    try {
+      TarEncoder().encode(archive, output: OutputFileStream(kFilePath));
+      TarDecoder().decodeBuffer(InputFileStream(kFilePath));
+    } finally {
+      File(kFilePath).deleteSync();
+    }
   });
 
   test('long file name not null terminated', () async {
