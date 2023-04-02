@@ -198,26 +198,33 @@ class ZipFile extends FileContent {
 
   InputStream _decodeAes(InputStreamBase input) {
     Uint8List salt;
+    int keySize = 16;
     if (_aesHeader!.encryptionStrength == 1) {
       // 128-bit
       salt = input.readBytes(8).toUint8List();
+      keySize = 16;
     } else if (_aesHeader!.encryptionStrength == 1) {
       // 192-bit
       salt = input.readBytes(12).toUint8List();
+      keySize = 24;
     } else {
       // 256-bit
       salt = input.readBytes(16).toUint8List();
+      keySize = 32;
     }
-
-    //int verification = input.readUint16();
+    var verify = input.readBytes(2).toUint8List();
     final dataBytes = input.readBytes(input.length - 10);
     final bytes = dataBytes.toUint8List();
 
-    final key = _deriveKey(_password!, salt);
-
-    final decrypt = AesDecrypt(key, mode: AesDecrypt.aes256);
-    decrypt.decryptCrt(bytes);
-
+    var deriveKey = _deriveKey(_password!, salt,derivedKeyLength: keySize);
+    var keyData = Uint8List.fromList(deriveKey.sublist(0, keySize));
+    // var authCode = deriveKey.sublist(keySize, keySize*2);
+    var pwdCheck = deriveKey.sublist(keySize*2, keySize*2 + 2);
+    if (Uint8ListEquality.equals(pwdCheck, verify) == false) {
+      throw Exception('password error');
+    }
+    AesDecrypt aesDecrypt = AesDecrypt(keyData,keySize);
+    aesDecrypt.decryptData(bytes, 0, bytes.length);
     return InputStream(bytes);
   }
 
@@ -226,14 +233,12 @@ class ZipFile extends FileContent {
     if (password.isEmpty) {
       return Uint8List(0);
     }
-
     final passwordBytes = Uint8List.fromList(password.codeUnits);
-
     const iterationCount = 1000;
-    final params = Pbkdf2Parameters(salt, iterationCount, derivedKeyLength);
-    final keyDerivator = PBKDF2KeyDerivator(HMac(SHA256Digest(), 64));
+    int totalSize = (derivedKeyLength * 2) + 2;
+    final params = Pbkdf2Parameters(salt, iterationCount, totalSize);
+    final keyDerivator = PBKDF2KeyDerivator(HMac(SHA1Digest(), 64));
     keyDerivator.init(params);
-
     return keyDerivator.process(passwordBytes);
   }
 
