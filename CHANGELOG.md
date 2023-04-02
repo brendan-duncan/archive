@@ -1,3 +1,7 @@
+## 3.3.7 - April 01, 2023
+
+* Add Zip AES-256 decryption
+
 ## 3.3.6 - January 27, 2023
 
 * Fix errors decoding XZ files.
