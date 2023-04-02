@@ -373,7 +373,7 @@ void main() {
     }
   });
 
-  /*test('aes256', () {
+  test('aes256', () {
     var file = File(p.join(testDirPath, 'res/zip/aes256.zip'));
     var bytes = file.readAsBytesSync();
     final archive =
@@ -384,7 +384,7 @@ void main() {
       var file = File(p.join(testDirPath, 'res/zip/${archive.files[i].name}'));
       var bytes = file.readAsBytesSync();
       var content = archive.files[i].content as Uint8List;
-      expect(equals(content.length), bytes.length);
+      expect(content.length, equals(bytes.length));
       bool diff = false;
       for (int i = 0; i < bytes.length; ++i) {
         if (bytes[i] != content[i]) {
@@ -394,7 +394,7 @@ void main() {
       }
       expect(diff, equals(false));
     }
-  });*/
+  });
 
   test('password', () {
     var file = File(p.join(testDirPath, 'res/zip/password_zipcrypto.zip'));
