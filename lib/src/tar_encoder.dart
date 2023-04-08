@@ -52,6 +52,10 @@ class TarEncoder {
     ts.groupId = file.groupId;
     ts.lastModTime = file.lastModTime;
     ts.content = file.content;
+    if (file.isSymbolicLink) {
+      ts.typeFlag = TarFile.TYPE_SYMBOLIC_LINK;
+      ts.nameOfLinkedFile = file.nameOfLinkedFile;
+    }
     ts.write(_outputStream);
   }
 
