@@ -51,7 +51,7 @@ class TarFile {
   int lastModTime = 0; // 12 bytes
   int checksum = 0; // 8 bytes
   String typeFlag = '0'; // 1 byte
-  late String nameOfLinkedFile; // 100 bytes
+  String? nameOfLinkedFile; // 100 bytes
   // UStar Format
   String ustarIndicator = ''; // 6 bytes (ustar)
   String ustarVersion = ''; // 2 bytes (00)
@@ -146,6 +146,11 @@ class TarFile {
     _writeInt(header, lastModTime, 12);
     _writeString(header, '        ', 8); // checksum placeholder
     _writeString(header, typeFlag, 1);
+    if (nameOfLinkedFile != null) {
+      _writeString(header, nameOfLinkedFile!, 100);
+    } else {
+      _writeString(header, '', 100);
+    }
 
     final remainder = 512 - header.length;
     var nulls = Uint8List(remainder); // typed arrays default to 0.
