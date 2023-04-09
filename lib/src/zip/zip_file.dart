@@ -216,14 +216,14 @@ class ZipFile extends FileContent {
     final dataBytes = input.readBytes(input.length - 10);
     final bytes = dataBytes.toUint8List();
 
-    var deriveKey = _deriveKey(_password!, salt,derivedKeyLength: keySize);
+    var deriveKey = _deriveKey(_password!, salt, derivedKeyLength: keySize);
     var keyData = Uint8List.fromList(deriveKey.sublist(0, keySize));
     // var authCode = deriveKey.sublist(keySize, keySize*2);
-    var pwdCheck = deriveKey.sublist(keySize*2, keySize*2 + 2);
+    var pwdCheck = deriveKey.sublist(keySize * 2, keySize * 2 + 2);
     if (Uint8ListEquality.equals(pwdCheck, verify) == false) {
       throw Exception('password error');
     }
-    AesDecrypt aesDecrypt = AesDecrypt(keyData,keySize);
+    AesDecrypt aesDecrypt = AesDecrypt(keyData, keySize);
     aesDecrypt.decryptData(bytes, 0, bytes.length);
     return InputStream(bytes);
   }

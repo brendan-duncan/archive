@@ -31,7 +31,7 @@ class AesCipherUtil {
     buff[2] = (nonce >> 16) & 0xFF;
     buff[3] = (nonce >> 24) & 0xFF;
 
-    for(int i = 4; i <= 15; ++i) {
+    for (int i = 4; i <= 15; ++i) {
       buff[i] = 0;
     }
   }
@@ -47,13 +47,13 @@ class AesDecrypt {
   AESEngine? aesEngine;
   HMac? mac;
 
-  int decryptData(Uint8List buff, int start, int len){
-    for(int j = start; j < start + len; j += 16) {
+  int decryptData(Uint8List buff, int start, int len) {
+    for (int j = start; j < start + len; j += 16) {
       int loopCount = j + 16 <= start + len ? 16 : start + len - j;
       mac?.update(buff, j, loopCount);
       AesCipherUtil.prepareBuffAESIVBytes(iv, nonce);
-      aesEngine?.processBlock(iv,0, counterBlock,0);
-      for(int k = 0; k < loopCount; ++k) {
+      aesEngine?.processBlock(iv, 0, counterBlock, 0);
+      for (int k = 0; k < loopCount; ++k) {
         buff[j + k] ^= counterBlock[k];
       }
       ++nonce;
@@ -61,8 +61,8 @@ class AesDecrypt {
     return len;
   }
 
-  AesDecrypt(this.derivedKey,this.aesKeyStrength){
-    aesEngine =  AESEngine();
+  AesDecrypt(this.derivedKey, this.aesKeyStrength) {
+    aesEngine = AESEngine();
     aesEngine!.init(true, KeyParameter(derivedKey));
     mac = AesCipherUtil.getMacBasedPRF(derivedKey, aesKeyStrength);
   }

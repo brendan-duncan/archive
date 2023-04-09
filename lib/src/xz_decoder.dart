@@ -113,11 +113,13 @@ class _XZStreamDecoder {
       final id = _readMultibyteInteger(header);
       final propertiesLength = _readMultibyteInteger(header);
       final properties = header.readBytes(propertiesLength).toUint8List();
-      if (id == 0x03) { // delta filter
+      if (id == 0x03) {
+        // delta filter
         final distance = properties[0];
         filters.add(id);
         filters.add(distance);
-      } else if (id == 0x21) { // lzma2 filter
+      } else if (id == 0x21) {
+        // lzma2 filter
         final v = properties[0];
         if (v > 40) {
           throw ArchiveException('Invalid LZMA dictionary size');
@@ -265,10 +267,8 @@ class _XZStreamDecoder {
           data.add(input.readBytes(length).toUint8List());
         } else if (control == 2) {
           // uncompressed data
-          final length =
-              (input.readByte() << 8 | input.readByte()) + 1;
-          data.add(decoder.decodeUncompressed(
-              input.readBytes(length), length));
+          final length = (input.readByte() << 8 | input.readByte()) + 1;
+          data.add(decoder.decodeUncompressed(input.readBytes(length), length));
         } else {
           throw ArchiveException('Unknown LZMA2 control code $control');
         }
