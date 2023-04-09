@@ -168,6 +168,18 @@ void main() {
       ..writeAsBytesSync(tar);
   });
 
+  test('tar file with symlink', () {
+    ArchiveFile symlink = ArchiveFile('file.txt', 1, List<int>.empty())
+      ..isSymbolicLink = true
+      ..nameOfLinkedFile = 'file2.txt';
+    final tar = TarEncoder().encode(Archive()..addFile(symlink));
+    File(p.join(testDirPath, 'out/tar_encoded.tar'))
+      ..createSync(recursive: true)
+      ..writeAsBytesSync(tar);
+    final archive = TarDecoder().decodeBytes(tar);
+    expect(archive.files[0].isSymbolicLink, true);
+  });
+
   test('long file name', () {
     final file = File(p.join(testDirPath, 'res/tar/x.tar'));
     final bytes = file.readAsBytesSync();
