@@ -203,7 +203,7 @@ class ZipFile extends FileContent {
       // 128-bit
       salt = input.readBytes(8).toUint8List();
       keySize = 16;
-    } else if (_aesHeader!.encryptionStrength == 1) {
+    } else if (_aesHeader!.encryptionStrength == 2) {
       // 192-bit
       salt = input.readBytes(12).toUint8List();
       keySize = 24;
