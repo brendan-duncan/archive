@@ -105,9 +105,11 @@ Future<void> extractFileToDisk(String inputPath, String outputPath,
   if (archivePath.endsWith('tar')) {
     final input = InputFileStream(archivePath);
     archive = TarDecoder().decodeBuffer(input);
+    futures.add(input.close());
   } else if (archivePath.endsWith('zip')) {
     final input = InputFileStream(archivePath);
     archive = ZipDecoder().decodeBuffer(input, password: password);
+    futures.add(input.close());
   } else {
     throw ArgumentError.value(inputPath, 'inputPath',
         'Must end tar.gz, tgz, tar.bz2, tbz, tar.xz, txz, tar or zip.');
