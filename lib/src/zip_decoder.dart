@@ -21,8 +21,20 @@ class ZipDecoder {
     bool verify = false,
     String? password,
   }) {
-    directory = ZipDirectory.read(input, password: password);
     final archive = Archive();
+    onDecodeBuffer(input, (ArchiveFile file) {
+      archive.addFile(file);
+    }, verify: verify, password: password);
+    return archive;
+  }
+
+  void onDecodeBuffer(
+    InputStreamBase input,
+    FnArchiveFile fnArchiveFile, {
+    bool verify = false,
+    String? password,
+  }) {
+    directory = ZipDirectory.read(input, password: password);
 
     for (final zfh in directory.fileHeaders) {
       final zf = zfh.file!;
@@ -69,9 +81,7 @@ class ZipDecoder {
       file.compress = compress;
       file.lastModTime = zf.lastModFileDate << 16 | zf.lastModFileTime;
 
-      archive.addFile(file);
+      fnArchiveFile(file);
     }
-
-    return archive;
   }
 }
