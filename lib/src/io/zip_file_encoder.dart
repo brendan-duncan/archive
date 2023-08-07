@@ -19,13 +19,18 @@ class ZipFileEncoder {
       {String? filename,
       int? level,
       bool followLinks = true,
+      void Function(double)? onProgress,
       DateTime? modified}) {
     final dirPath = dir.path;
     final zipPath = filename ?? '$dirPath.zip';
     level ??= GZIP;
     create(zipPath, level: level, modified: modified);
-    addDirectory(dir,
-        includeDirName: false, level: level, followLinks: followLinks);
+    addDirectory(
+      dir,
+      includeDirName: false,
+      level: level,
+      followLinks: followLinks,
+    );
     close();
   }
 
@@ -39,11 +44,18 @@ class ZipFileEncoder {
     _encoder.startEncode(_output, level: level, modified: modified);
   }
 
-  Future<void> addDirectory(Directory dir,
-      {bool includeDirName = true, int? level, bool followLinks = true}) async {
+  Future<void> addDirectory(
+    Directory dir, {
+    bool includeDirName = true,
+    int? level,
+    bool followLinks = true,
+    void Function(double)? onProgress,
+  }) async {
     final dirName = path.basename(dir.path);
     final files = dir.listSync(recursive: true, followLinks: followLinks);
     var futures = <Future<void>>[];
+    final amount = files.length;
+    var current = 0;
     for (var file in files) {
       if (file is Directory) {
         var filename = path.relative(file.path, from: dir.path);
@@ -57,8 +69,9 @@ class ZipFileEncoder {
       } else if (file is File) {
         final dirName = path.basename(dir.path);
         final relPath = path.relative(file.path, from: dir.path);
-        futures.add(addFile(
-            file, includeDirName ? (dirName + '/' + relPath) : relPath, level));
+        futures.add(addFile(file,
+                includeDirName ? (dirName + '/' + relPath) : relPath, level)
+            .then((value) => onProgress?.call(++current / amount)));
       }
     }
     await Future.wait(futures);
