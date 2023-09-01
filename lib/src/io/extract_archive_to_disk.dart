@@ -31,6 +31,14 @@ void extractArchiveToDisk(Archive archive, String outputPath,
       continue;
     }
 
+    if (file.isSymbolicLink) {
+      if (file.nameOfLinkedFile.startsWith('/') ||
+          file.nameOfLinkedFile.startsWith('..')) {
+        // Don't allow decoding of files outside of the output path.
+        continue;
+      }
+    }
+
     if (asyncWrite) {
       if (file.isSymbolicLink) {
         final link = Link(filePath);
@@ -117,9 +125,16 @@ Future<void> extractFileToDisk(String inputPath, String outputPath,
 
   for (final file in archive.files) {
     final filePath = p.join(outputPath, p.normalize(file.name));
-
     if (!isWithinOutputPath(outputPath, filePath)) {
       continue;
+    }
+
+    if (file.isSymbolicLink) {
+      if (file.nameOfLinkedFile.startsWith('/') ||
+          file.nameOfLinkedFile.startsWith('..')) {
+        // Don't allow decoding of files outside of the output path.
+        continue;
+      }
     }
 
     if (!file.isFile && !file.isSymbolicLink) {
