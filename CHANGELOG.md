@@ -1,3 +1,11 @@
+## 3.3.8 - September 02, 2023
+
+* Fix for zip security issue with symlinks, https://github.com/brendan-duncan/archive/issues/265.
+* Fix for zip security issue with file paths, https://github.com/brendan-duncan/archive/issues/266.
+* Add progress callback for decoding zip files.
+* Don't allow tar files to include absolute paths.
+* Fix error decoding AES-192.
+
 ## 3.3.7 - April 01, 2023
 
 * Add Zip AES-256 decryption
