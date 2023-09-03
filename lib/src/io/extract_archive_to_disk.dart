@@ -1,8 +1,9 @@
 import 'dart:io';
 
-import 'package:path/path.dart' as p;
+import 'package:path/path.dart' as path;
 
 import '../archive.dart';
+import '../archive_file.dart';
 import '../bzip2_decoder.dart';
 import '../gzip_decoder.dart';
 import '../tar_decoder.dart';
@@ -14,7 +15,23 @@ import 'output_file_stream.dart';
 /// Ensure filePath is contained in the outputDir folder, to make sure archives
 /// aren't trying to write to some system path.
 bool isWithinOutputPath(String outputDir, String filePath) {
-  return p.isWithin(p.canonicalize(outputDir), p.canonicalize(filePath));
+  return path.isWithin(
+      path.canonicalize(outputDir), path.canonicalize(filePath));
+}
+
+bool _isValidSymLink(String outputPath, ArchiveFile file) {
+  final filePath = path.dirname(path.join(outputPath, path.normalize(file.name)));
+  final linkPath = path.normalize(file.nameOfLinkedFile);
+  if (path.isAbsolute(linkPath)) {
+    // Don't allow decoding of files outside of the output path.
+    return false;
+  }
+  final absLinkPath = path.normalize(path.join(filePath, linkPath));
+  if (!isWithinOutputPath(outputPath, absLinkPath)) {
+    // Don't allow decoding of files outside of the output path.
+    return false;
+  }
+  return true;
 }
 
 void extractArchiveToDisk(Archive archive, String outputPath,
@@ -24,7 +41,7 @@ void extractArchiveToDisk(Archive archive, String outputPath,
     outDir.createSync(recursive: true);
   }
   for (final file in archive.files) {
-    final filePath = p.join(outputPath, p.normalize(file.name));
+    final filePath = path.join(outputPath, path.normalize(file.name));
 
     if ((!file.isFile && !file.isSymbolicLink) ||
         !isWithinOutputPath(outputPath, filePath)) {
@@ -32,9 +49,7 @@ void extractArchiveToDisk(Archive archive, String outputPath,
     }
 
     if (file.isSymbolicLink) {
-      if (file.nameOfLinkedFile.startsWith('/') ||
-          file.nameOfLinkedFile.startsWith('..')) {
-        // Don't allow decoding of files outside of the output path.
+      if (!_isValidSymLink(outputPath, file)) {
         continue;
       }
     }
@@ -42,7 +57,7 @@ void extractArchiveToDisk(Archive archive, String outputPath,
     if (asyncWrite) {
       if (file.isSymbolicLink) {
         final link = Link(filePath);
-        link.create(p.normalize(file.nameOfLinkedFile), recursive: true);
+        link.create(path.normalize(file.nameOfLinkedFile), recursive: true);
       } else {
         final output = File(filePath);
         output.create(recursive: true).then((f) {
@@ -58,7 +73,7 @@ void extractArchiveToDisk(Archive archive, String outputPath,
     } else {
       if (file.isSymbolicLink) {
         final link = Link(filePath);
-        link.createSync(p.normalize(file.nameOfLinkedFile), recursive: true);
+        link.createSync(path.normalize(file.nameOfLinkedFile), recursive: true);
       } else {
         final output = OutputFileStream(filePath, bufferSize: bufferSize);
         try {
@@ -80,7 +95,7 @@ Future<void> extractFileToDisk(String inputPath, String outputPath,
   var futures = <Future<void>>[];
   if (inputPath.endsWith('tar.gz') || inputPath.endsWith('tgz')) {
     tempDir = Directory.systemTemp.createTempSync('dart_archive');
-    archivePath = p.join(tempDir.path, 'temp.tar');
+    archivePath = path.join(tempDir.path, 'temp.tar');
     final input = InputFileStream(inputPath);
     final output = OutputFileStream(archivePath, bufferSize: bufferSize);
     GZipDecoder().decodeStream(input, output);
@@ -88,7 +103,7 @@ Future<void> extractFileToDisk(String inputPath, String outputPath,
     futures.add(output.close());
   } else if (inputPath.endsWith('tar.bz2') || inputPath.endsWith('tbz')) {
     tempDir = Directory.systemTemp.createTempSync('dart_archive');
-    archivePath = p.join(tempDir.path, 'temp.tar');
+    archivePath = path.join(tempDir.path, 'temp.tar');
     final input = InputFileStream(inputPath);
     final output = OutputFileStream(archivePath, bufferSize: bufferSize);
     BZip2Decoder().decodeBuffer(input, output: output);
@@ -96,7 +111,7 @@ Future<void> extractFileToDisk(String inputPath, String outputPath,
     futures.add(output.close());
   } else if (inputPath.endsWith('tar.xz') || inputPath.endsWith('txz')) {
     tempDir = Directory.systemTemp.createTempSync('dart_archive');
-    archivePath = p.join(tempDir.path, 'temp.tar');
+    archivePath = path.join(tempDir.path, 'temp.tar');
     final input = InputFileStream(inputPath);
     final output = OutputFileStream(archivePath, bufferSize: bufferSize);
     output.writeBytes(XZDecoder().decodeBuffer(input));
@@ -124,15 +139,13 @@ Future<void> extractFileToDisk(String inputPath, String outputPath,
   }
 
   for (final file in archive.files) {
-    final filePath = p.join(outputPath, p.normalize(file.name));
+    final filePath = path.join(outputPath, path.normalize(file.name));
     if (!isWithinOutputPath(outputPath, filePath)) {
       continue;
     }
 
     if (file.isSymbolicLink) {
-      if (file.nameOfLinkedFile.startsWith('/') ||
-          file.nameOfLinkedFile.startsWith('..')) {
-        // Don't allow decoding of files outside of the output path.
+      if (!_isValidSymLink(outputPath, file)) {
         continue;
       }
     }
@@ -145,7 +158,8 @@ Future<void> extractFileToDisk(String inputPath, String outputPath,
     if (asyncWrite) {
       if (file.isSymbolicLink) {
         final link = Link(filePath);
-        await link.create(p.normalize(file.nameOfLinkedFile), recursive: true);
+        await link.create(path.normalize(file.nameOfLinkedFile),
+            recursive: true);
       } else {
         final output = File(filePath);
         final f = await output.create(recursive: true);
@@ -158,7 +172,7 @@ Future<void> extractFileToDisk(String inputPath, String outputPath,
     } else {
       if (file.isSymbolicLink) {
         final link = Link(filePath);
-        link.createSync(p.normalize(file.nameOfLinkedFile), recursive: true);
+        link.createSync(path.normalize(file.nameOfLinkedFile), recursive: true);
       } else {
         final output = OutputFileStream(filePath, bufferSize: bufferSize);
         try {
