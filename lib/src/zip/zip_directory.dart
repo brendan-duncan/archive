@@ -74,7 +74,7 @@ class ZipDirectory {
     final zip64 = input.subset(locPos, zip64EocdLocatorSize);
 
     var sig = zip64.readUint32();
-    // If this ins't the signature we're looking for, nothing more to do.
+    // If this isn't the signature we're looking for, nothing more to do.
     if (sig != zip64EocdLocatorSignature) {
       input.position = ip;
       return;

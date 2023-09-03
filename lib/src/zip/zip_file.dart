@@ -107,6 +107,10 @@ class ZipFile extends FileContent {
         uncompressedSize = input.readUint32();
       }
     }
+
+    // Make sure to use the Central Directory filename to avoid filename
+    // spoofing. https://github.com/brendan-duncan/archive/issues/266
+    filename = header?.filename ?? filename;
   }
 
   /// This will decompress the data (if necessary) in order to calculate the
