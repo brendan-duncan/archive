@@ -9,6 +9,7 @@ import '../gzip_decoder.dart';
 import '../tar_decoder.dart';
 import '../xz_decoder.dart';
 import '../zip_decoder.dart';
+import '../util/input_stream.dart';
 import 'input_file_stream.dart';
 import 'output_file_stream.dart';
 
@@ -124,15 +125,17 @@ Future<void> extractFileToDisk(String inputPath, String outputPath,
     futures.clear();
   }
 
+  InputStreamBase? toClose = null;
+
   Archive archive;
   if (archivePath.endsWith('tar')) {
     final input = InputFileStream(archivePath);
     archive = TarDecoder().decodeBuffer(input);
-    futures.add(input.close());
+    toClose = input;
   } else if (archivePath.endsWith('zip')) {
     final input = InputFileStream(archivePath);
     archive = ZipDecoder().decodeBuffer(input, password: password);
-    futures.add(input.close());
+    toClose = input;
   } else {
     throw ArgumentError.value(inputPath, 'inputPath',
         'Must end tar.gz, tgz, tar.bz2, tbz, tar.xz, txz, tar or zip.');
@@ -184,6 +187,8 @@ Future<void> extractFileToDisk(String inputPath, String outputPath,
       }
     }
   }
+
+  futures.add(toClose.close());
 
   if (futures.isNotEmpty) {
     await Future.wait(futures);
