@@ -125,7 +125,7 @@ Future<void> extractFileToDisk(String inputPath, String outputPath,
     futures.clear();
   }
 
-  InputStreamBase? toClose = null;
+  InputStreamBase? toClose;
 
   Archive archive;
   if (archivePath.endsWith('tar')) {
