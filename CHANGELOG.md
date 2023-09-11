@@ -1,3 +1,7 @@
+## 3.3.9 - September 10, 2023
+
+* Fix for extractFileToDisk causing corrupt files by closing a file stream before it finished writing. 
+
 ## 3.3.8 - September 02, 2023
 
 * Fix for zip security issue with symlinks, https://github.com/brendan-duncan/archive/issues/265. https://osv.dev/vulnerability/GHSA-9v85-q87q-g4vg.
