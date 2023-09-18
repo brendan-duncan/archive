@@ -54,7 +54,7 @@ abstract class InputStreamBase {
   /// Read a 64-bit word form the stream.
   int readUint64();
 
-  Uint8List toUint8List();
+  Uint8List toUint8List([Uint8List? bytes]);
 }
 
 /// A buffer that can be read as a stream of bytes
@@ -288,7 +288,7 @@ class InputStream extends InputStreamBase {
   }
 
   @override
-  Uint8List toUint8List() {
+  Uint8List toUint8List([Uint8List? bytes]) {
     var len = length;
     if (buffer is Uint8List) {
       final b = buffer as Uint8List;

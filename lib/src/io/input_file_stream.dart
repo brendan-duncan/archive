@@ -316,12 +316,12 @@ class InputFileStream extends InputStreamBase {
   }
 
   @override
-  Uint8List toUint8List() {
+  Uint8List toUint8List([Uint8List? bytes]) {
     if (isEOS) {
       return Uint8List(0);
     }
     var length = fileRemaining;
-    final bytes = Uint8List(length);
+    bytes = bytes != null && bytes.length == length ? bytes : Uint8List(length);
     _file.position = _fileOffset + _position;
     final readBytes = _file.readInto(bytes);
     skip(length);

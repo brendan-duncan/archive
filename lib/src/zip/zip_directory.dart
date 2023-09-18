@@ -5,7 +5,7 @@ import 'zip_file_header.dart';
 
 class ZipDirectory {
   // End of Central Directory Record
-  static const int signature = 0x06054b50;
+  static const int eocdLocatorSignature = 0x06054b50;
   static const int zip64EocdLocatorSignature = 0x07064b50;
   static const int zip64EocdLocatorSize = 20;
   static const int zip64EocdSignature = 0x06064b50;
@@ -25,7 +25,7 @@ class ZipDirectory {
   ZipDirectory();
 
   ZipDirectory.read(InputStreamBase input, {String? password}) {
-    filePosition = _findSignature(input);
+    filePosition = _findEocdrSignature(input);
     input.position = filePosition;
     final signature = input.readUint32(); // ignore: unused_local_variable
     numberOfThisDisk = input.readUint16();
@@ -40,7 +40,12 @@ class ZipDirectory {
       zipFileComment = input.readString(size: len, utf8: false);
     }
 
-    _readZip64Data(input);
+    if (centralDirectoryOffset == 0xffffffff ||
+        centralDirectorySize == 0xffffffff ||
+        totalCentralDirectoryEntriesOnThisDisk == 0xffff ||
+        numberOfThisDisk == 0xffff) {
+      _readZip64Data(input);
+    }
 
     final dirContent =
         input.subset(centralDirectoryOffset, centralDirectorySize);
@@ -84,8 +89,6 @@ class ZipDirectory {
     final zip64DirOffset = zip64.readUint64();
     final numZip64Disks = zip64.readUint32(); // ignore: unused_local_variable
 
-    input.position = zip64DirOffset;
-
     // Zip64 end of central directory record
     // signature                       4 bytes  (0x06064b50)
     // size of zip64 end of central
@@ -104,6 +107,8 @@ class ZipDirectory {
     // directory with respect to
     // the starting disk number        8 bytes
     // zip64 extensible data sector    (variable size)
+    input.position = zip64DirOffset;
+
     sig = input.readUint32();
     if (sig != zip64EocdSignature) {
       input.position = ip;
@@ -131,7 +136,7 @@ class ZipDirectory {
     input.position = ip;
   }
 
-  int _findSignature(InputStreamBase input) {
+  int _findEocdrSignature(InputStreamBase input) {
     final pos = input.position;
     final length = input.length;
 
@@ -141,7 +146,7 @@ class ZipDirectory {
     for (var ip = length - 5; ip >= 0; --ip) {
       input.position = ip;
       final sig = input.readUint32();
-      if (sig == signature) {
+      if (sig == eocdLocatorSignature) {
         input.position = pos;
         return ip;
       }

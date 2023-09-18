@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'util/crc32.dart';
 import 'util/input_stream.dart';
@@ -99,10 +100,21 @@ class ZipEncoder {
       return 0;
     }
     if (file.content is InputStreamBase) {
-      var s = file.content as InputStreamBase;
+      final s = file.content as InputStreamBase;
       s.reset();
-      var bytes = s.toUint8List();
-      final crc32 = getCrc32(bytes);
+      var crc32 = 0;
+      var size = s.length;
+      Uint8List? bytes;
+      const chunkSize = 1024 * 1024;
+      while (size > chunkSize) {
+        bytes = s.readBytes(chunkSize).toUint8List(bytes);
+        crc32 = getCrc32(bytes, crc32);
+        size -= chunkSize;
+      }
+      if (size > 0) {
+        bytes = s.readBytes(size).toUint8List(bytes);
+        crc32 = getCrc32(bytes, crc32);
+      }
       file.content.reset();
       return crc32;
     }
@@ -166,11 +178,11 @@ class ZipEncoder {
       compressedData = InputStream(bytes);
     }
 
-    var encodedFilename = filenameEncoding.encode(file.name);
-    var comment =
+    final encodedFilename = filenameEncoding.encode(file.name);
+    final comment =
         file.comment != null ? filenameEncoding.encode(file.comment!) : null;
 
-    var dataLen = compressedData?.length ?? 0;
+    final dataLen = compressedData?.length ?? 0;
     _data.localFileSize += 30 + encodedFilename.length + dataLen;
 
     _data.centralDirectorySize +=
@@ -197,12 +209,29 @@ class ZipEncoder {
     }
   }
 
+  List<int> _getZip64ExtraData(_ZipFileData fileData) {
+    final out = OutputStream();
+    // zip64 ID
+    out.writeByte(0x01);
+    out.writeByte(0x00);
+    // field length
+    out.writeByte(0x10);
+    out.writeByte(0x00);
+    // uncompressed size
+    out.writeUint64(fileData.uncompressedSize);
+    // compressed size
+    out.writeUint64(fileData.compressedSize);
+    return out.getBytes();
+  }
+
   void _writeFile(_ZipFileData fileData, OutputStreamBase output) {
-    var filename = fileData.name;
+    final filename = fileData.name;
 
     output.writeUint32(ZipFile.SIGNATURE);
 
-    final version = VERSION;
+    final needsZip64 = fileData.compressedSize > 0xFFFFFFFF ||
+        fileData.uncompressedSize > 0xFFFFFFFF;
+
     final flags =
         filenameEncoding.name == "utf-8" ? languageEncodingBitUtf8 : 0;
     final compressionMethod =
@@ -210,14 +239,16 @@ class ZipEncoder {
     final lastModFileTime = fileData.time;
     final lastModFileDate = fileData.date;
     final crc32 = fileData.crc32;
-    final compressedSize = fileData.compressedSize;
-    final uncompressedSize = fileData.uncompressedSize;
-    final extra = <int>[];
+    final compressedSize = needsZip64 ? 0xFFFFFFFF : fileData.compressedSize;
+    final uncompressedSize =
+        needsZip64 ? 0xFFFFFFFF : fileData.uncompressedSize;
+    final extra = needsZip64 ? _getZip64ExtraData(fileData) : <int>[];
 
     final compressedData = fileData.compressedData;
 
-    var encodedFilename = filenameEncoding.encode(filename);
+    final encodedFilename = filenameEncoding.encode(filename);
 
+    // local file header
     output.writeUint16(version);
     output.writeUint16(flags);
     output.writeUint16(compressionMethod);
@@ -232,20 +263,42 @@ class ZipEncoder {
     output.writeBytes(extra);
 
     if (compressedData != null) {
+      // local file data
       output.writeInputStream(compressedData);
     }
+  }
+
+  List<int> _getZip64CfhData(_ZipFileData fileData) {
+    final out = OutputStream();
+    // zip64 ID
+    out.writeByte(0x01);
+    out.writeByte(0x00);
+    // field length
+    out.writeByte(0x18);
+    out.writeByte(0x00);
+    // uncompressed size
+    out.writeUint64(fileData.uncompressedSize);
+    // compressed size
+    out.writeUint64(fileData.compressedSize);
+    out.writeUint64(fileData.position);
+    return out.getBytes();
   }
 
   void _writeCentralDirectory(
       List<_ZipFileData> files, String? comment, OutputStreamBase output) {
     comment ??= '';
-    var encodedComment = filenameEncoding.encode(comment);
+    final encodedComment = filenameEncoding.encode(comment);
 
     final centralDirPosition = output.length;
-    final version = VERSION;
     final os = OS_MSDOS;
+    var zipNeedsZip64 = false;
 
-    for (var fileData in files) {
+    for (final fileData in files) {
+      final needsZip64 = fileData.compressedSize > 0xFFFFFFFF ||
+          fileData.uncompressedSize > 0xFFFFFFFF ||
+          fileData.position > 0xFFFFFFFF;
+      zipNeedsZip64 |= needsZip64;
+
       final versionMadeBy = (os << 8) | version;
       final versionNeededToExtract = version;
       final generalPurposeBitFlag = languageEncodingBitUtf8;
@@ -254,16 +307,17 @@ class ZipEncoder {
       final lastModifiedFileTime = fileData.time;
       final lastModifiedFileDate = fileData.date;
       final crc32 = fileData.crc32;
-      final compressedSize = fileData.compressedSize;
-      final uncompressedSize = fileData.uncompressedSize;
+      final compressedSize = needsZip64 ? 0xFFFFFFFF : fileData.compressedSize;
+      final uncompressedSize =
+          needsZip64 ? 0xFFFFFFFF : fileData.uncompressedSize;
       final diskNumberStart = 0;
       final internalFileAttributes = 0;
       final externalFileAttributes = fileData.mode << 16;
       /*if (!fileData.isFile) {
         externalFileAttributes |= 0x4000; // ?
       }*/
-      final localHeaderOffset = fileData.position;
-      final extraField = <int>[];
+      final localHeaderOffset = needsZip64 ? 0xFFFFFFFF : fileData.position;
+      final extraField = needsZip64 ? _getZip64CfhData(fileData) : <int>[];
       final fileComment = fileData.comment ?? '';
 
       final encodedFilename = filenameEncoding.encode(fileData.name);
@@ -298,18 +352,48 @@ class ZipEncoder {
     final centralDirectorySize = output.length - centralDirPosition;
     final centralDirectoryOffset = centralDirPosition;
 
-    output.writeUint32(ZipDirectory.signature);
+    final needsZip64 = zipNeedsZip64 ||
+        totalCentralDirectoryEntriesOnThisDisk > 0xffff ||
+        totalCentralDirectoryEntries > 0xffff ||
+        centralDirectorySize > 0xffffffff ||
+        centralDirPosition > 0xffffffff;
+
+    if (needsZip64) {
+      final eocdOffset = output.length;
+      output.writeUint32(ZipDirectory.zip64EocdSignature);
+      output.writeUint64(0x2c); // size
+      output.writeUint16(0x2d); // version (Creator)
+      output.writeUint16(0x2d); // version (Viewer)
+      output.writeUint32(numberOfThisDisk);
+      output.writeUint32(diskWithTheStartOfTheCentralDirectory);
+      output.writeUint64(totalCentralDirectoryEntriesOnThisDisk);
+      output.writeUint64(totalCentralDirectoryEntries);
+      output.writeUint64(centralDirectorySize);
+      output.writeUint64(centralDirectoryOffset);
+
+      const totalNumberOfDisks = 1;
+
+      output.writeUint32(ZipDirectory.zip64EocdLocatorSignature);
+      output.writeUint32(diskWithTheStartOfTheCentralDirectory);
+      output.writeUint64(eocdOffset);
+      output.writeUint32(totalNumberOfDisks);
+    }
+
+    // End of Central Directory
+    output.writeUint32(ZipDirectory.eocdLocatorSignature);
     output.writeUint16(numberOfThisDisk);
-    output.writeUint16(diskWithTheStartOfTheCentralDirectory);
-    output.writeUint16(totalCentralDirectoryEntriesOnThisDisk);
-    output.writeUint16(totalCentralDirectoryEntries);
-    output.writeUint32(centralDirectorySize);
-    output.writeUint32(centralDirectoryOffset);
+    output.writeUint16(
+        needsZip64 ? 0xffff : diskWithTheStartOfTheCentralDirectory);
+    output.writeUint16(
+        needsZip64 ? 0xffff : totalCentralDirectoryEntriesOnThisDisk);
+    output.writeUint16(needsZip64 ? 0xffff : totalCentralDirectoryEntries);
+    output.writeUint32(needsZip64 ? 0xffffffff : centralDirectorySize);
+    output.writeUint32(needsZip64 ? 0xffffffff : centralDirectoryOffset);
     output.writeUint16(encodedComment.length);
     output.writeBytes(encodedComment);
   }
 
-  static const int VERSION = 20;
+  static const int version = 20;
 
   // enum OS
   static const int OS_MSDOS = 0;

@@ -53,10 +53,10 @@ class ZipFileEncoder {
   }) async {
     final dirName = path.basename(dir.path);
     final files = dir.listSync(recursive: true, followLinks: followLinks);
-    var futures = <Future<void>>[];
+    final futures = <Future<void>>[];
     final amount = files.length;
     var current = 0;
-    for (var file in files) {
+    for (final file in files) {
       if (file is Directory) {
         var filename = path.relative(file.path, from: dir.path);
         filename = includeDirName ? (dirName + '/' + filename) : filename;
@@ -78,8 +78,8 @@ class ZipFileEncoder {
   }
 
   Future<void> addFile(File file, [String? filename, int? level = GZIP]) async {
-    var fileStream = InputFileStream(file.path);
-    var archiveFile = ArchiveFile.stream(
+    final fileStream = InputFileStream(file.path);
+    final archiveFile = ArchiveFile.stream(
         filename ?? path.basename(file.path), file.lengthSync(), fileStream);
 
     if (level == STORE) {

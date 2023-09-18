@@ -21,7 +21,8 @@ bool isWithinOutputPath(String outputDir, String filePath) {
 }
 
 bool _isValidSymLink(String outputPath, ArchiveFile file) {
-  final filePath = path.dirname(path.join(outputPath, path.normalize(file.name)));
+  final filePath =
+      path.dirname(path.join(outputPath, path.normalize(file.name)));
   final linkPath = path.normalize(file.nameOfLinkedFile);
   if (path.isAbsolute(linkPath)) {
     // Don't allow decoding of files outside of the output path.

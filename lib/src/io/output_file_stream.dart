@@ -109,8 +109,18 @@ class OutputFileStream extends OutputStreamBase {
           stream.buffer, stream.offset, stream.offset + stream.length);
       _length += stream.length;
     } else {
-      var bytes = stream.toUint8List();
-      writeBytes(bytes);
+      var size = stream.length;
+      const chunkSize = 1024 * 1024;
+      Uint8List? bytes;
+      while (size > chunkSize) {
+        bytes = stream.readBytes(chunkSize).toUint8List(bytes);
+        writeBytes(bytes);
+        size -= chunkSize;
+      }
+      if (size > 0) {
+        bytes = stream.readBytes(size).toUint8List(bytes);
+        writeBytes(bytes);
+      }
     }
   }
 
