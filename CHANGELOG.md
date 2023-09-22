@@ -1,3 +1,7 @@
+## 3.4.0 - September 21, 2023
+
+* Add Zip64 support to ZipEncoder to allow it to create zip files > 4GB.
+
 ## 3.3.9 - September 10, 2023
 
 * Fix for extractFileToDisk causing corrupt files by closing a file stream before it finished writing. 
