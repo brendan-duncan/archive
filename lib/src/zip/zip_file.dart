@@ -153,8 +153,11 @@ class ZipFile extends FileContent {
         BZip2Decoder().decodeStream(_rawContent, output);
         _content = output.getBytes();
         compressionMethod = zipCompressionStore;
-      } else {
+      } else if (compressionMethod == zipCompressionStore) {
         _content = _rawContent.toUint8List();
+      } else {
+        throw ArchiveException(
+            'Unsupported zip compression method $compressionMethod');
       }
     }
 
