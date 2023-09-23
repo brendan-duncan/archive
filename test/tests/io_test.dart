@@ -341,6 +341,19 @@ void main() {
     expect(files.length, 2);
   });
 
+  test('extractFileToDisk zip bzip2', () async {
+    final inPath = '$testDirPath/res/zip/zip_bzip2.zip';
+    final outPath = '$testDirPath/out/extractFileToDisk_zip_bzip2';
+    final dir = Directory(outPath);
+    if (dir.existsSync()) {
+      dir.deleteSync(recursive: true);
+    }
+    await extractFileToDisk(inPath, outPath);
+
+    final files = dir.listSync(recursive: true);
+    expect(files.length, 2);
+  });
+
   test('extractArchiveToDisk symlink', () async {
     final f1 = ArchiveFile('test', 3, 'foo'.codeUnits);
     final f2 = ArchiveFile('link', 0, null);

@@ -227,15 +227,16 @@ class ZipEncoder {
   void _writeFile(_ZipFileData fileData, OutputStreamBase output) {
     final filename = fileData.name;
 
-    output.writeUint32(ZipFile.SIGNATURE);
+    output.writeUint32(ZipFile.zipFileSignature);
 
     final needsZip64 = fileData.compressedSize > 0xFFFFFFFF ||
         fileData.uncompressedSize > 0xFFFFFFFF;
 
     final flags =
         filenameEncoding.name == "utf-8" ? languageEncodingBitUtf8 : 0;
-    final compressionMethod =
-        fileData.compress ? ZipFile.DEFLATE : ZipFile.STORE;
+    final compressionMethod = fileData.compress
+        ? ZipFile.zipCompressionDeflate
+        : ZipFile.zipCompressionStore;
     final lastModFileTime = fileData.time;
     final lastModFileDate = fileData.date;
     final crc32 = fileData.crc32;
@@ -302,8 +303,9 @@ class ZipEncoder {
       final versionMadeBy = (os << 8) | version;
       final versionNeededToExtract = version;
       final generalPurposeBitFlag = languageEncodingBitUtf8;
-      final compressionMethod =
-          fileData.compress ? ZipFile.DEFLATE : ZipFile.STORE;
+      final compressionMethod = fileData.compress
+          ? ZipFile.zipCompressionDeflate
+          : ZipFile.zipCompressionStore;
       final lastModifiedFileTime = fileData.time;
       final lastModifiedFileDate = fileData.date;
       final crc32 = fileData.crc32;

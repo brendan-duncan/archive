@@ -416,6 +416,19 @@ void main() {
     }
   });
 
+  test('decode zip bzip2', () {
+    var file = File(p.join(testDirPath, 'res/zip/zip_bzip2.zip'));
+    var bytes = file.readAsBytesSync();
+
+    final archive = ZipDecoder().decodeBytes(bytes, verify: true);
+    expect(archive.numberOfFiles(), equals(2));
+
+    for (final f in archive) {
+      final c = f.content;
+      expect(c, isNotNull);
+    }
+  });
+
   test('decode/encode', () {
     var file = File(p.join(testDirPath, 'res/test.zip'));
     var bytes = file.readAsBytesSync();

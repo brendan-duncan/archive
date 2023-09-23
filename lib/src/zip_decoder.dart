@@ -29,7 +29,7 @@ class ZipDecoder {
 
       // The attributes are stored in base 8
       final mode = zfh.externalFileAttributes!;
-      final compress = zf.compressionMethod != ZipFile.STORE;
+      final compress = zf.compressionMethod != ZipFile.zipCompressionStore;
 
       if (verify) {
         final computedCrc = getCrc32(zf.content);

@@ -1,7 +1,9 @@
+import '../bzip2_decoder.dart';
 import '../util/aes_decrypt.dart';
 import '../util/archive_exception.dart';
 import '../util/crc32.dart';
 import '../util/input_stream.dart';
+import '../util/output_stream.dart';
 import '../util/_file_content.dart';
 import '../zlib/inflate.dart';
 import 'zip_file_header.dart';
@@ -21,13 +23,13 @@ class AesHeader {
 }
 
 class ZipFile extends FileContent {
-  static const int STORE = 0;
-  static const int DEFLATE = 8;
-  static const int BZIP2 = 12;
+  static const int zipCompressionStore = 0;
+  static const int zipCompressionDeflate = 8;
+  static const int zipCompressionBZip2 = 12;
 
-  static const int SIGNATURE = 0x04034b50;
+  static const int zipFileSignature = 0x04034b50;
 
-  int signature = SIGNATURE; // 4 bytes
+  int signature = zipFileSignature; // 4 bytes
   int version = 0; // 2 bytes
   int flags = 0; // 2 bytes
   int compressionMethod = 0; // 2 bytes
@@ -43,7 +45,7 @@ class ZipFile extends FileContent {
   ZipFile([InputStreamBase? input, this.header, String? password]) {
     if (input != null) {
       signature = input.readUint32();
-      if (signature != SIGNATURE) {
+      if (signature != zipFileSignature) {
         throw ArchiveException('Invalid Zip Signature');
       }
 
@@ -143,9 +145,14 @@ class ZipFile extends FileContent {
         }
       }
 
-      if (compressionMethod == DEFLATE) {
+      if (compressionMethod == zipCompressionDeflate) {
         _content = Inflate.buffer(_rawContent, uncompressedSize).getBytes();
-        compressionMethod = STORE;
+        compressionMethod = zipCompressionStore;
+      } else if (compressionMethod == zipCompressionBZip2) {
+        final output = OutputStream();
+        BZip2Decoder().decodeStream(_rawContent, output);
+        _content = output.getBytes();
+        compressionMethod = zipCompressionStore;
       } else {
         _content = _rawContent.toUint8List();
       }
