@@ -1,3 +1,7 @@
+## 3.4.1 - September 23, 2023
+
+* Fix for decoding zip64 zip files that have multiple extra fields.
+
 ## 3.4.0 - September 21, 2023
 
 * Add Zip64 support to ZipEncoder to allow it to create zip files > 4GB.
