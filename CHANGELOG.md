@@ -1,3 +1,7 @@
+## 3.4.2 - September 23, 2023
+
+* Add bzip2 decompression for zip files.
+
 ## 3.4.1 - September 23, 2023
 
 * Fix for decoding zip64 zip files that have multiple extra fields.
