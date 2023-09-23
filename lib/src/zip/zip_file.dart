@@ -69,22 +69,25 @@ class ZipFile extends FileContent {
 
       if (_encryptionType != 0 && exLen > 2) {
         final extra = InputStream(extraField);
-        final id = extra.readUint16();
-        if (id == AesHeader.signature) {
-          extra.readUint16(); // dataSize = 7
-          final vendorVersion = extra.readUint16();
-          final vendorId = extra.readString(size: 2);
-          final encryptionStrength = extra.readByte();
-          final compressionMethod = extra.readUint16();
+        while (!extra.isEOS) {
+          final id = extra.readUint16();
+          final size = extra.readUint16();
+          final extraBytes = extra.readBytes(size);
+          if (id == AesHeader.signature) {
+            final vendorVersion = extraBytes.readUint16();
+            final vendorId = extraBytes.readString(size: 2);
+            final encryptionStrength = extraBytes.readByte();
+            final compressionMethod = extraBytes.readUint16();
 
-          _encryptionType = encryptionAes;
-          _aesHeader = AesHeader(
-              vendorVersion, vendorId, encryptionStrength, compressionMethod);
+            _encryptionType = encryptionAes;
+            _aesHeader = AesHeader(
+                vendorVersion, vendorId, encryptionStrength, compressionMethod);
 
-          // compressionMethod in the file header will be 99 for aes encrypted
-          // files. The compressionMethod value in the AES extraField stores the
-          // actual compressionMethod.
-          this.compressionMethod = _aesHeader!.compressionMethod;
+            // compressionMethod in the file header will be 99 for aes encrypted
+            // files. The compressionMethod value in the AES extraField stores
+            // the actual compressionMethod.
+            this.compressionMethod = _aesHeader!.compressionMethod;
+          }
         }
       } else if (_encryptionType == 1 && password != null) {
         _initKeys(password);

@@ -38,13 +38,13 @@ void main() {
     });
 
     test('readBytes', () {
-      var input = InputFileStream(testPath);
+      final input = InputFileStream(testPath);
       expect(input.length, equals(120));
       var same = true;
       var ai = 0;
       while (!input.isEOS) {
-        var bs = input.readBytes(50);
-        var bytes = bs.toUint8List();
+        final bs = input.readBytes(50);
+        final bytes = bs.toUint8List();
         for (var i = 0; i < bytes.length; ++i) {
           same = bytes[i] == ai + i;
           if (!same) {
@@ -82,8 +82,8 @@ void main() {
       final fs = InputFileStream(testPath, bufferSize: 2);
       fs.skip(50);
       fs.rewind(10);
-      var bs = fs.readBytes(50);
-      var b = bs.toUint8List();
+      final bs = fs.readBytes(50);
+      final b = bs.toUint8List();
       expect(b.length, 50);
       for (var i = 0; i < b.length; ++i) {
         expect(b[i], testData[40 + i]);
@@ -117,14 +117,14 @@ void main() {
     var input = InputFileStream(p.join(testDirPath, 'res/cat.jpg'));
     var output = OutputFileStream(p.join(testDirPath, 'out/cat2.jpg'));
     while (!input.isEOS) {
-      var bytes = input.readBytes(50);
+      final bytes = input.readBytes(50);
       output.writeInputStream(bytes);
     }
     input.close();
     output.close();
 
-    var aBytes = File(p.join(testDirPath, 'res/cat.jpg')).readAsBytesSync();
-    var bBytes = File(p.join(testDirPath, 'out/cat2.jpg')).readAsBytesSync();
+    final aBytes = File(p.join(testDirPath, 'res/cat.jpg')).readAsBytesSync();
+    final bBytes = File(p.join(testDirPath, 'out/cat2.jpg')).readAsBytesSync();
 
     expect(aBytes.length, equals(bBytes.length));
     var same = true;
@@ -135,30 +135,30 @@ void main() {
   });
 
   test('empty file', () {
-    var encoder = ZipFileEncoder();
+    final encoder = ZipFileEncoder();
     encoder.create('$testDirPath/out/testEmpty.zip');
     encoder.addFile(File('$testDirPath/res/emptyfile.txt'));
     encoder.close();
 
-    var zipDecoder = ZipDecoder();
-    var f = File('$testDirPath/out/testEmpty.zip');
+    final zipDecoder = ZipDecoder();
+    final f = File('$testDirPath/out/testEmpty.zip');
     final archive = zipDecoder.decodeBytes(f.readAsBytesSync(), verify: true);
     expect(archive.length, equals(1));
   });
 
   test('stream tar decode', () {
     // Decode a tar from disk to memory
-    var stream = InputFileStream(p.join(testDirPath, 'res/test2.tar'));
-    var tarArchive = TarDecoder();
+    final stream = InputFileStream(p.join(testDirPath, 'res/test2.tar'));
+    final tarArchive = TarDecoder();
     tarArchive.decodeBuffer(stream);
 
     for (final file in tarArchive.files) {
       if (!file.isFile) {
         continue;
       }
-      var filename = file.filename;
+      final filename = file.filename;
       try {
-        var f = File('$testDirPath/out/$filename');
+        final f = File('$testDirPath/out/$filename');
         f.parent.createSync(recursive: true);
         f.writeAsBytesSync(file.content as List<int>);
       } catch (e) {
@@ -171,8 +171,8 @@ void main() {
 
   test('stream zip decode', () {
     // Decode a tar from disk to memory
-    var stream = InputFileStream(p.join(testDirPath, 'res/test.zip'));
-    var zip = ZipDecoder().decodeBuffer(stream);
+    final stream = InputFileStream(p.join(testDirPath, 'res/test.zip'));
+    final zip = ZipDecoder().decodeBuffer(stream);
 
     expect(zip.files.length, equals(2));
     expect(zip.files[0].name, equals("a.txt"));
@@ -187,8 +187,8 @@ void main() {
     encoder.addDirectory(Directory('$testDirPath/res/test2'));
     await encoder.close();
 
-    var tarDecoder = TarDecoder();
-    var f = File('$testDirPath/out/test3.tar');
+    final tarDecoder = TarDecoder();
+    final f = File('$testDirPath/out/test3.tar');
     final archive = tarDecoder.decodeBytes(f.readAsBytesSync(), verify: true);
     expect(archive.length, equals(4));
   });
@@ -203,8 +203,8 @@ void main() {
   });
 
   test('stream gzip decode', () {
-    var input = InputFileStream(p.join(testDirPath, 'out/cat.jpg.gz'));
-    var output = OutputFileStream(p.join(testDirPath, 'out/cat.jpg'));
+    final input = InputFileStream(p.join(testDirPath, 'out/cat.jpg.gz'));
+    final output = OutputFileStream(p.join(testDirPath, 'out/cat.jpg'));
 
     GZipDecoder().decodeStream(input, output);
     output.close();
@@ -212,13 +212,13 @@ void main() {
 
   test('TarFileEncoder -> GZipEncoder', () async {
     // Encode a directory from disk to disk, no memory
-    var encoder = TarFileEncoder();
+    final encoder = TarFileEncoder();
     encoder.create('$testDirPath/out/example2.tar');
     encoder.addDirectory(Directory('$testDirPath/res/test2'));
     await encoder.close();
 
-    var input = InputFileStream(p.join(testDirPath, 'out/example2.tar'));
-    var output = OutputFileStream(p.join(testDirPath, 'out/example2.tgz'));
+    final input = InputFileStream(p.join(testDirPath, 'out/example2.tar'));
+    final output = OutputFileStream(p.join(testDirPath, 'out/example2.tgz'));
     GZipEncoder().encode(input, output: output);
     input.close();
     output.close();
@@ -233,39 +233,39 @@ void main() {
   });
 
   test('stream zip encode', () {
-    var encoder = ZipFileEncoder();
+    final encoder = ZipFileEncoder();
     encoder.create('$testDirPath/out/example2.zip');
     encoder.addDirectory(Directory('$testDirPath/res/test2'));
     encoder.addFile(File('$testDirPath/res/cat.jpg'));
     encoder.addFile(File('$testDirPath/res/tarurls.txt'));
     encoder.close();
 
-    var zipDecoder = ZipDecoder();
-    var f = File('$testDirPath/out/example2.zip');
+    final zipDecoder = ZipDecoder();
+    final f = File('$testDirPath/out/example2.zip');
     final archive = zipDecoder.decodeBytes(f.readAsBytesSync(), verify: true);
     expect(archive.length, equals(6));
   });
 
   test('decode_empty_directory', () {
-    var zip = ZipDecoder();
-    var archive =
+    final zip = ZipDecoder();
+    final archive =
         zip.decodeBytes(File('$testDirPath/res/test2.zip').readAsBytesSync());
     expect(archive.length, 4);
   });
 
   test('create_archive_from_directory', () {
-    var dir = Directory('$testDirPath/res/test2');
-    var archive = createArchiveFromDirectory(dir);
+    final dir = Directory('$testDirPath/res/test2');
+    final archive = createArchiveFromDirectory(dir);
     expect(archive.length, equals(4));
-    var encoder = ZipEncoder();
+    final encoder = ZipEncoder();
 
-    var bytes = encoder.encode(archive)!;
+    final bytes = encoder.encode(archive)!;
     File('$testDirPath/out/test2_.zip')
       ..openSync(mode: FileMode.write)
       ..writeAsBytesSync(bytes);
 
-    var zipDecoder = ZipDecoder();
-    var archive2 = zipDecoder.decodeBytes(bytes, verify: true);
+    final zipDecoder = ZipDecoder();
+    final archive2 = zipDecoder.decodeBytes(bytes, verify: true);
     expect(archive2.length, equals(4));
   });
 
