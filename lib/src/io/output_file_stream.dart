@@ -14,10 +14,12 @@ class OutputFileStream extends OutputStreamBase {
   int _bufferPosition;
   bool _isOpen;
 
+  static const int kDefaultBufferSize = 1024*1024; // 1MB
+
   OutputFileStream(this.path, {this.byteOrder = LITTLE_ENDIAN, int? bufferSize})
       : _length = 0,
         _buffer = Uint8List(bufferSize == null
-            ? 8192
+            ? kDefaultBufferSize
             : bufferSize < 1
                 ? 1
                 : bufferSize),

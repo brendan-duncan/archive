@@ -74,7 +74,7 @@ class InputFileStream extends InputStreamBase {
   int _bufferSize = 0;
   int _bufferPosition = 0;
 
-  static const int kDefaultBufferSize = 4096;
+  static const int kDefaultBufferSize = 1024*1024; // 1MB
 
   InputFileStream(this.path,
       {this.byteOrder = LITTLE_ENDIAN, int bufferSize = kDefaultBufferSize})
@@ -84,7 +84,7 @@ class InputFileStream extends InputStreamBase {
     // Also, make sure it's at least 8 bytes, so reading a 64-bit value doesn't
     // have to deal with buffer overflow.
     bufferSize = max(min(bufferSize, _fileSize), 8);
-    _buffer = Uint8List(min(bufferSize, 8));
+    _buffer = Uint8List(max(bufferSize, 8));
     _readBuffer();
   }
 
