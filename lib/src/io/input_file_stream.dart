@@ -74,7 +74,7 @@ class InputFileStream extends InputStreamBase {
   int _bufferSize = 0;
   int _bufferPosition = 0;
 
-  static const int kDefaultBufferSize = 1024*1024; // 1MB
+  static const int kDefaultBufferSize = 1024 * 1024; // 1MB
 
   InputFileStream(this.path,
       {this.byteOrder = LITTLE_ENDIAN, int bufferSize = kDefaultBufferSize})

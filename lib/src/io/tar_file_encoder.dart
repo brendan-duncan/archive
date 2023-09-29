@@ -73,8 +73,8 @@ class TarFileEncoder {
       } else if (file is File) {
         final dirName = path.basename(dir.path);
         final relPath = path.relative(file.path, from: dir.path);
-        futures.add(addFile(
-            file, includeDirName ? '$dirName/$relPath' : relPath));
+        futures
+            .add(addFile(file, includeDirName ? '$dirName/$relPath' : relPath));
       }
     }
 

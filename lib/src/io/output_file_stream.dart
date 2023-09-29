@@ -14,7 +14,7 @@ class OutputFileStream extends OutputStreamBase {
   int _bufferPosition;
   bool _isOpen;
 
-  static const int kDefaultBufferSize = 1024*1024; // 1MB
+  static const int kDefaultBufferSize = 1024 * 1024; // 1MB
 
   OutputFileStream(this.path, {this.byteOrder = LITTLE_ENDIAN, int? bufferSize})
       : _length = 0,

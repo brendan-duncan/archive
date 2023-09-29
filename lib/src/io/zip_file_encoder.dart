@@ -69,9 +69,9 @@ class ZipFileEncoder {
       } else if (file is File) {
         final dirName = path.basename(dir.path);
         final relPath = path.relative(file.path, from: dir.path);
-        futures.add(addFile(file,
-                includeDirName ? '$dirName/$relPath' : relPath, level)
-            .then((value) => onProgress?.call(++current / amount)));
+        futures.add(
+            addFile(file, includeDirName ? '$dirName/$relPath' : relPath, level)
+                .then((value) => onProgress?.call(++current / amount)));
       }
     }
     await Future.wait(futures);
