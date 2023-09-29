@@ -1,3 +1,9 @@
+## 3.4.3 - September 28, 2023
+
+* Fix bug in InputFileStream that caused it to only have an 8-byte buffer, making file streaming slow.
+* Increase the default buffer size for file I/O streams to 1MB.
+* Update pubspec dependency versions.
+
 ## 3.4.2 - September 23, 2023
 
 * Add bzip2 decompression for zip files.
