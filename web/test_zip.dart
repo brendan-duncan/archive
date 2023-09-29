@@ -15,7 +15,7 @@ void main() {
 
   // Use an http request to get the image file from disk.
   var req = HttpRequest();
-  req.open('GET', path + '/readme.zip');
+  req.open('GET', '$path/readme.zip');
   req.responseType = 'arraybuffer';
   req.onLoadEnd.listen((e) {
     if (req.status == 200) {

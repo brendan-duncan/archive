@@ -74,10 +74,10 @@ class BZip2Decoder {
     }
   }
 
-  List<int> decodeBuffer(InputStreamBase _input,
+  List<int> decodeBuffer(InputStreamBase input,
       {bool verify = false, OutputStreamBase? output}) {
     output ??= OutputStream();
-    final br = Bz2BitReader(_input);
+    final br = Bz2BitReader(input);
 
     _groupPos = 0;
     _groupNo = 0;

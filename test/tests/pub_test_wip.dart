@@ -15,7 +15,7 @@ void extract7z(List<String> urls) {
     final filename = url.split('/').last;
     final inputPath = '$path\\out\\$filename';
 
-    final outputPath = path + '\\out\\' + filename + '.7z';
+    final outputPath = 'path\\out\\$filename.7z';
     print('$inputPath : $outputPath');
 
     final outDir = Directory(outputPath);
@@ -54,7 +54,7 @@ Future<void> downloadUrls(HttpClient? client, List<String> urls) async {
         .then(((HttpClientRequest request) => request.close()))
         .then<dynamic>(((HttpClientResponse response) => response
             .cast<List<int>>()
-            .pipe(File(path + '/out/' + filename).openWrite())));
+            .pipe(File('$path/out/$filename').openWrite())));
 
     downloads.add(download);
   }
@@ -72,12 +72,12 @@ void extractDart(List<String> urls) {
     final filename = url.split('/').last;
     final inputPath = '$path\\out\\$filename';
 
-    final outputPath = path + '\\out\\' + filename + '.out';
+    final outputPath = '$path\\out\\$filename.out';
     print('$inputPath : $outputPath');
 
     print('EXTRACTING $inputPath');
 
-    final fp = File(path + '/out/' + filename);
+    final fp = File('$path/out/$filename');
     final data = fp.readAsBytesSync();
 
     final tarArchive = TarDecoder();
@@ -155,7 +155,7 @@ void definePubTests() {
     test('PUB ARCHIVES', () async {
       final script = File(Platform.script.toFilePath());
       final path = script.parent.path;
-      final fp = File(path + '/res/tarurls.txt');
+      final fp = File('$path/res/tarurls.txt');
       final urls = fp.readAsLinesSync();
 
       await downloadUrls(client, urls);

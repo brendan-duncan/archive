@@ -13,11 +13,11 @@ void main() {
     final filename = file.name;
     if (file.isFile) {
       final data = file.content as List<int>;
-      File('out/' + filename)
+      File('out/$filename')
         ..createSync(recursive: true)
         ..writeAsBytesSync(data);
     } else {
-      Directory('out/' + filename).create(recursive: true);
+      Directory('out/$filename').create(recursive: true);
     }
   }
 

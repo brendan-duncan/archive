@@ -59,8 +59,8 @@ class ZipFileEncoder {
     for (final file in files) {
       if (file is Directory) {
         var filename = path.relative(file.path, from: dir.path);
-        filename = includeDirName ? (dirName + '/' + filename) : filename;
-        final af = ArchiveFile(filename + '/', 0, null);
+        filename = includeDirName ? '$dirName/$filename' : filename;
+        final af = ArchiveFile('$filename/', 0, null);
         af.mode = file.statSync().mode;
         af.lastModTime =
             file.statSync().modified.millisecondsSinceEpoch ~/ 1000;
@@ -70,7 +70,7 @@ class ZipFileEncoder {
         final dirName = path.basename(dir.path);
         final relPath = path.relative(file.path, from: dir.path);
         futures.add(addFile(file,
-                includeDirName ? (dirName + '/' + relPath) : relPath, level)
+                includeDirName ? '$dirName/$relPath' : relPath, level)
             .then((value) => onProgress?.call(++current / amount)));
       }
     }

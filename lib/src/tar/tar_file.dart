@@ -169,7 +169,7 @@ class TarFile {
 
     var sumStr = sum.toRadixString(8); // octal basis
     while (sumStr.length < 6) {
-      sumStr = '0' + sumStr;
+      sumStr = '0$sumStr';
     }
 
     var checksumIndex = 148; // checksum is at 148th byte
@@ -238,7 +238,7 @@ class TarFile {
   void _writeInt(OutputStream output, int value, int numBytes) {
     var s = value.toRadixString(8);
     while (s.length < numBytes - 1) {
-      s = '0' + s;
+      s = '0$s';
     }
     _writeString(output, s, numBytes);
   }
