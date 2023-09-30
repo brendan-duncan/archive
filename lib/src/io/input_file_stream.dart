@@ -74,17 +74,22 @@ class InputFileStream extends InputStreamBase {
   int _bufferSize = 0;
   int _bufferPosition = 0;
 
+  /// The buffer size should be at least 8 bytes, so reading a 64-bit value doesn't
+  /// have to deal with buffer overflow.
+  static const int kMinBufferSize = 8;
   static const int kDefaultBufferSize = 1024 * 1024; // 1MB
 
   InputFileStream(this.path,
       {this.byteOrder = LITTLE_ENDIAN, int bufferSize = kDefaultBufferSize})
       : _file = FileHandle(path) {
     _fileSize = _file.length;
-    // Don't have a buffer bigger than the file itself.
-    // Also, make sure it's at least 8 bytes, so reading a 64-bit value doesn't
-    // have to deal with buffer overflow.
-    bufferSize = max(min(bufferSize, _fileSize), 8);
-    _buffer = Uint8List(max(bufferSize, 8));
+    // Prevent having a buffer smaller than the minimum buffer size
+    bufferSize = max(
+      // If possible, avoid having a buffer bigger than the file itself
+      min(bufferSize, _fileSize),
+      kMinBufferSize,
+    );
+    _buffer = Uint8List(bufferSize);
     _readBuffer();
   }
 
@@ -93,8 +98,13 @@ class InputFileStream extends InputStreamBase {
         _file = other._file,
         byteOrder = other.byteOrder,
         _fileOffset = other._fileOffset + (position ?? 0),
-        _fileSize = length ?? other._fileSize,
-        _buffer = Uint8List(kDefaultBufferSize) {
+        _fileSize = length ?? other._fileSize {
+    // We only want to allocate the min buffer size here, because of the way
+    // ZipDirectory is currently implemented.
+    // ZipDirectory.read calls InputFileStream.clone and stores the result
+    // for each file in the archive. If we used a buffer size of 1MB here, reading
+    // an archive containing 50000 files would have a 50GB memory footprint.
+    _buffer = Uint8List(kMinBufferSize);
     _readBuffer();
   }
 
