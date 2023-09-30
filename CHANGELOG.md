@@ -1,3 +1,7 @@
+## 3.4.4
+
+* Fix for new default buffer size for InputFileStream consuming too much memory for large archives.
+
 ## 3.4.3 - September 28, 2023
 
 * Fix bug in InputFileStream that caused it to only have an 8-byte buffer, making file streaming slow.
