@@ -468,6 +468,42 @@ void main() {
     }
   });
 
+  test('decode many files (100k)', () {
+    final Archive archive = ZipDecoder().decodeBuffer(InputFileStream(
+        p.join(testDirPath, 'res/test_100k_files.zip'),
+        bufferSize: 1024 * 1024,
+      ),
+    );
+
+    final int totalArchiveEntriesCount = archive.files.length;
+    expect(archive.numberOfFiles(), equals(100000));
+
+    int nextEntryIndex = 0;
+    ArchiveFile? file;
+    while (nextEntryIndex < totalArchiveEntriesCount) {
+      file = archive.files[nextEntryIndex];
+      if (!file.isFile) {
+        nextEntryIndex++;
+        continue;
+      }
+      final ArchiveFile f = file;
+      final String filename = f.name;
+      final dynamic data = f.content;
+      f.clear();
+      expect(
+        filename.trim().isEmpty,
+        false,
+        reason: 'Archive file check error: file name empty',
+      );
+      expect(
+        data == null,
+        false,
+        reason: 'Archive file check error: content for $filename is null',
+      );
+      nextEntryIndex++;
+    }
+  });
+
   for (final Z in zipTests) {
     final z = Z as Map<String, dynamic>;
     test('unzip ${z['Name']}', () {
