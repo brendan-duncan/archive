@@ -11,6 +11,7 @@ dependencies:
   crypto: ^3.0.3
   path: ^1.8.0
   pointycastle: ^3.6.2
+  enough_convert: ^1.6.0
 
 dev_dependencies:
   http: ^1.1.0
