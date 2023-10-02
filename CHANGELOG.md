@@ -1,3 +1,8 @@
+## 3.4.5 - October 01, 2023
+
+* Rewrote InputFileStream to reduce overall memory by using a shared file cache.
+* Added `DateTime lastModDateTime` getter to ArchiveFile.
+
 ## 3.4.4
 
 * Fix for new default buffer size for InputFileStream consuming too much memory for large archives.
