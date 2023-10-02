@@ -187,6 +187,16 @@ class ArchiveFile {
   /// Get the content without decompressing it first.
   InputStreamBase? get rawContent => _rawContent;
 
+  DateTime get lastModDateTime {
+    final year = ((lastModTime >> 25) & 0x7f) + 1980;
+    final month = ((lastModTime >> 21) & 0x0f);
+    final day = (lastModTime >> 16) & 0x1f;
+    final hours = (lastModTime >> 11) & 0x1f;
+    final minutes = (lastModTime >> 5) & 0x3f;
+    final seconds = (lastModTime << 1) & 0x3e;
+    return DateTime.utc(year, month, day, hours, minutes, seconds);
+  }
+
   @override
   String toString() => name;
 
