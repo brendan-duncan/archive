@@ -32,7 +32,8 @@ void writeFile(String path, int size) {
   }
 }
 
-void generateDataDirectory(String path, {required int fileSize, required int numFiles}) {
+void generateDataDirectory(String path,
+    {required int fileSize, required int numFiles}) {
   for (var i = 0; i < numFiles; ++i) {
     writeFile('$path/$i.bin', fileSize);
   }
@@ -326,7 +327,7 @@ void main() {
   test('decode_empty_directory', () {
     final zip = ZipDecoder();
     final archive =
-    zip.decodeBytes(File('$testDirPath/res/test2.zip').readAsBytesSync());
+        zip.decodeBytes(File('$testDirPath/res/test2.zip').readAsBytesSync());
     expect(archive.length, 4);
   });
 
