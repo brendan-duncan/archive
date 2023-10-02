@@ -9,6 +9,35 @@ import 'package:test/test.dart';
 
 import 'test_utils.dart';
 
+Uint8List? fileData;
+
+void writeFile(String path, int size) {
+  if (fileData == null) {
+    const oneMeg = 1024 * 1024;
+    fileData = Uint8List(oneMeg);
+    for (var i = 0, l = fileData!.length; i < l; ++i) {
+      fileData![i] = i % 256;
+    }
+  }
+  final fp = File(path);
+  fp.createSync(recursive: true);
+  fp.openSync(mode: FileMode.writeOnly);
+  while (size > fileData!.length) {
+    fp.writeAsBytesSync(fileData!);
+    size -= fileData!.length;
+  }
+  if (size > 0) {
+    final remaining = Uint8List.view(fileData!.buffer, 0, size);
+    fp.writeAsBytesSync(remaining);
+  }
+}
+
+void generateDataDirectory(String path, {required int fileSize, required int numFiles}) {
+  for (var i = 0; i < numFiles; ++i) {
+    writeFile('$path/$i.bin', fileSize);
+  }
+}
+
 void main() {
   final testPath = p.join(testDirPath, 'out/test_123.bin');
   final testData = Uint8List(120);
@@ -23,6 +52,39 @@ void main() {
   testFile.createSync(recursive: true);
   testFile.openSync(mode: FileMode.write);
   testFile.writeAsBytesSync(testData);
+
+  test('FileBuffer', () async {
+    FileBuffer fb = FileBuffer(testPath, bufferSize: 5);
+    expect(fb.length, equals(testData.length));
+    var indices = [5, 110, 0, 64];
+    for (final i in indices) {
+      var b = fb.readUint8(i, fb.length);
+      expect(b, equals(testData[i]));
+    }
+
+    final bytes = fb.readBytes(5, 10, fb.length);
+    expect(bytes, equals(testData.sublist(5, 5 + 10)));
+
+    final bytes2 = fb.readBytes(115, 10, fb.length);
+    expect(bytes2.length, equals(5));
+    expect(bytes2, equals(testData.sublist(115, 115 + 5)));
+
+    final u16 = fb.readUint16(8, fb.length);
+    expect(u16, equals(2312));
+
+    final u24 = fb.readUint24(50, fb.length);
+    expect(u24, equals(3420978));
+
+    final u32 = fb.readUint32(15, fb.length);
+    expect(u32, equals(303108111));
+
+    // make sure re-reading the same position is consistent
+    final u32_2 = fb.readUint32(15, fb.length);
+    expect(u32_2, equals(303108111));
+
+    final u64 = fb.readUint64(0, fb.length);
+    expect(u64, equals(0x0706050403020100));
+  });
 
   group('InputFileStream', () {
     test('length', () {
@@ -40,17 +102,14 @@ void main() {
     test('readBytes', () {
       final input = InputFileStream(testPath);
       expect(input.length, equals(120));
-      var same = true;
       var ai = 0;
       while (!input.isEOS) {
-        final bs = input.readBytes(50);
+        final bs = input.readBytes(40);
+        expect(bs.length, 40);
         final bytes = bs.toUint8List();
+        expect(bytes.length, 40);
         for (var i = 0; i < bytes.length; ++i) {
-          same = bytes[i] == ai + i;
-          if (!same) {
-            expect(same, equals(true));
-            return;
-          }
+          expect(bytes[i], equals(ai + i));
         }
         ai += bytes.length;
       }
@@ -90,6 +149,17 @@ void main() {
       }
     });
 
+    test('rewind 2', () {
+      final fs = InputFileStream(testPath, bufferSize: 2);
+      final bs = fs.readBytes(50);
+      final b = bs.toUint8List();
+      fs.rewind(50);
+      expect(b.length, 50);
+      for (var i = 0; i < b.length; ++i) {
+        expect(b[i], fs.readByte());
+      }
+    });
+
     test('peakBytes', () {
       final fs = InputFileStream(testPath, bufferSize: 2);
       final bs = fs.peekBytes(10);
@@ -116,8 +186,15 @@ void main() {
   test('InputFileStream/OutputFileStream', () {
     var input = InputFileStream(p.join(testDirPath, 'res/cat.jpg'));
     var output = OutputFileStream(p.join(testDirPath, 'out/cat2.jpg'));
+    var offset = 0;
+    var inputLength = input.length;
     while (!input.isEOS) {
       final bytes = input.readBytes(50);
+      if (offset + 50 > inputLength) {
+        final remaining = inputLength - offset;
+        expect(bytes.length, equals(remaining));
+      }
+      offset += bytes.length;
       output.writeInputStream(bytes);
     }
     input.close();
@@ -249,7 +326,7 @@ void main() {
   test('decode_empty_directory', () {
     final zip = ZipDecoder();
     final archive =
-        zip.decodeBytes(File('$testDirPath/res/test2.zip').readAsBytesSync());
+    zip.decodeBytes(File('$testDirPath/res/test2.zip').readAsBytesSync());
     expect(archive.length, 4);
   });
 
@@ -364,4 +441,34 @@ void main() {
     a.addFile(f2);
     extractArchiveToDisk(a, '$testDirPath/out/extractArchiveToDisk_symlink');
   });
+
+  /*test('zip directory', () async {
+    final tmpPath = '$testDirPath/out/test_zip_dir';
+
+    generateDataDirectory(tmpPath, fileSize: 1024*1024, numFiles: 5*1024);
+
+    final inPath = '$testDirPath/out/test_zip_dir_2.zip';
+    final outPath = '$testDirPath/out/test_zip_dir_2';
+
+    final encoder = ZipFileEncoder();
+    try {
+      encoder.zipDirectory(
+          Directory(tmpPath), level: 0, filename: inPath);
+      //expect(true, isFalse);
+    } catch (e) {
+      print(e);
+      //expect(e is ArchiveException, equals(true));
+    }
+
+    final dir = Directory(outPath);
+    if (dir.existsSync()) {
+      dir.deleteSync(recursive: true);
+    }
+    await extractFileToDisk(inPath, outPath);
+
+    final srcFiles = Directory(tmpPath).listSync(recursive: true);
+    final dstFiles = Directory('$testDirPath/out/test_zip_dir_2').listSync(recursive: true);
+    expect(dstFiles.length, equals(srcFiles.length));
+    //encoder.close();
+  });*/
 }

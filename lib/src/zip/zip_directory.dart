@@ -50,12 +50,17 @@ class ZipDirectory {
     final dirContent =
         input.subset(centralDirectoryOffset, centralDirectorySize);
 
-    while (!dirContent.isEOS) {
-      final fileSig = dirContent.readUint32();
+    final dirStream = InputStream(dirContent.toUint8List());
+    while (!dirStream.isEOS) {
+      final fileSig = dirStream.readUint32();
       if (fileSig != ZipFileHeader.SIGNATURE) {
         break;
       }
-      fileHeaders.add(ZipFileHeader(dirContent, input, password));
+      fileHeaders.add(ZipFileHeader(dirStream));
+    }
+
+    for (final file in fileHeaders) {
+      file.readLocalFileHeader(input, password);
     }
   }
 

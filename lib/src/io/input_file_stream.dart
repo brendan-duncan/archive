@@ -1,118 +1,41 @@
 import 'dart:convert';
-import 'dart:io';
-import 'dart:math';
 import 'dart:typed_data';
+
+import 'file_buffer.dart';
 import '../util/archive_exception.dart';
 import '../util/byte_order.dart';
 import '../util/input_stream.dart';
 
-class FileHandle {
-  final String _path;
-  RandomAccessFile? _file;
-  int _position;
-  late int _length;
-
-  FileHandle(this._path)
-      : _file = File(_path).openSync(),
-        _position = 0 {
-    _length = _file!.lengthSync();
-  }
-
-  String get path => _path;
-
-  int get position => _position;
-
-  set position(int p) {
-    if (_file == null || p == _position) {
-      return;
-    }
-    _position = p;
-    _file!.setPositionSync(p);
-  }
-
-  int get length => _length;
-
-  bool get isOpen => _file != null;
-
-  Future<void> close() async {
-    if (_file == null) {
-      return;
-    }
-    var fp = _file;
-    _file = null;
-    _position = 0;
-    await fp!.close();
-  }
-
-  void open() {
-    if (_file != null) {
-      return;
-    }
-
-    _file = File(_path).openSync();
-    _position = 0;
-  }
-
-  int readInto(Uint8List buffer, [int? end]) {
-    if (_file == null) {
-      open();
-    }
-    final size = _file!.readIntoSync(buffer, 0, end);
-    _position += size;
-    return size;
-  }
-}
-
 class InputFileStream extends InputStreamBase {
   final String path;
-  final FileHandle _file;
   final int byteOrder;
-  int _fileOffset = 0;
-  int _fileSize = 0;
-  late Uint8List _buffer;
-  int _position = 0;
-  int _bufferSize = 0;
-  int _bufferPosition = 0;
-
-  /// The buffer size should be at least 8 bytes, so reading a 64-bit value doesn't
-  /// have to deal with buffer overflow.
-  static const int kMinBufferSize = 8;
-  static const int kDefaultBufferSize = 1024 * 1024; // 1MB
+  final FileBuffer _file;
+  final int _fileOffset;
+  late int _fileSize;
+  int _position;
 
   InputFileStream(this.path,
-      {this.byteOrder = LITTLE_ENDIAN, int bufferSize = kDefaultBufferSize})
-      : _file = FileHandle(path) {
+      {this.byteOrder = LITTLE_ENDIAN,
+      int bufferSize = FileBuffer.kDefaultBufferSize})
+      : _file = FileBuffer(path),
+        _fileOffset = 0,
+        _position = 0 {
     _fileSize = _file.length;
-    // Prevent having a buffer smaller than the minimum buffer size
-    bufferSize = max(
-      // If possible, avoid having a buffer bigger than the file itself
-      min(bufferSize, _fileSize),
-      kMinBufferSize,
-    );
-    _buffer = Uint8List(bufferSize);
-    _readBuffer();
   }
 
   InputFileStream.clone(InputFileStream other, {int? position, int? length})
       : path = other.path,
-        _file = other._file,
         byteOrder = other.byteOrder,
+        _file = other._file,
         _fileOffset = other._fileOffset + (position ?? 0),
-        _fileSize = length ?? other._fileSize {
-    // We only want to allocate the min buffer size here, because of the way
-    // ZipDirectory is currently implemented.
-    // ZipDirectory.read calls InputFileStream.clone and stores the result
-    // for each file in the archive. If we used a buffer size of 1MB here, reading
-    // an archive containing 50000 files would have a 50GB memory footprint.
-    _buffer = Uint8List(kMinBufferSize);
-    _readBuffer();
-  }
+        _fileSize = length ?? other._fileSize,
+        _position = 0;
 
   @override
   Future<void> close() async {
     await _file.close();
-    _fileSize = 0;
     _position = 0;
+    _fileSize = 0;
   }
 
   @override
@@ -133,28 +56,23 @@ class InputFileStream extends InputStreamBase {
   @override
   bool get isEOS => _position >= _fileSize;
 
-  int get bufferSize => _bufferSize;
-
-  int get bufferPosition => _bufferPosition;
-
-  int get bufferRemaining => _bufferSize - _bufferPosition;
-
   int get fileRemaining => _fileSize - _position;
 
   @override
   void reset() {
     _position = 0;
-    _readBuffer();
   }
 
   @override
   void skip(int length) {
-    if ((_bufferPosition + length) < _bufferSize) {
-      _bufferPosition += length;
-      _position += length;
-    } else {
-      _position += length;
-      _readBuffer();
+    _position += length;
+  }
+
+  @override
+  void rewind([int length = 1]) {
+    _position -= length;
+    if (_position < 0) {
+      _position = 0;
     }
   }
 
@@ -171,157 +89,70 @@ class InputFileStream extends InputStreamBase {
   }
 
   @override
-  void rewind([int length = 1]) {
-    if ((_bufferPosition - length) < 0) {
-      _position = max(_position - length, 0);
-      _readBuffer();
-      return;
-    }
-    _bufferPosition -= length;
-    _position -= length;
-  }
-
-  @override
   int readByte() {
     if (isEOS) {
       return 0;
     }
-    if (_bufferPosition >= _bufferSize) {
-      _readBuffer();
-    }
-    if (_bufferPosition >= _bufferSize) {
-      return 0;
-    }
+    final b = _file.readUint8(_fileOffset + _position, _fileSize);
     _position++;
-    return _buffer[_bufferPosition++] & 0xff;
+    return b;
   }
 
   /// Read a 16-bit word from the stream.
   @override
   int readUint16() {
-    var b1 = 0;
-    var b2 = 0;
-    if ((_bufferPosition + 2) < _bufferSize) {
-      b1 = _buffer[_bufferPosition++] & 0xff;
-      b2 = _buffer[_bufferPosition++] & 0xff;
-      _position += 2;
-    } else {
-      b1 = readByte();
-      b2 = readByte();
+    if (isEOS) {
+      return 0;
     }
-    if (byteOrder == BIG_ENDIAN) {
-      return (b1 << 8) | b2;
-    }
-    return (b2 << 8) | b1;
+    final b = _file.readUint16(_fileOffset + _position, _fileSize);
+    _position += 2;
+    return b;
   }
 
   /// Read a 24-bit word from the stream.
   @override
   int readUint24() {
-    var b1 = 0;
-    var b2 = 0;
-    var b3 = 0;
-    if ((_bufferPosition + 3) < _bufferSize) {
-      b1 = _buffer[_bufferPosition++] & 0xff;
-      b2 = _buffer[_bufferPosition++] & 0xff;
-      b3 = _buffer[_bufferPosition++] & 0xff;
-      _position += 3;
-    } else {
-      b1 = readByte();
-      b2 = readByte();
-      b3 = readByte();
+    if (isEOS) {
+      return 0;
     }
-
-    if (byteOrder == BIG_ENDIAN) {
-      return b3 | (b2 << 8) | (b1 << 16);
-    }
-    return b1 | (b2 << 8) | (b3 << 16);
+    final b = _file.readUint24(_fileOffset + _position, _fileSize);
+    _position += 3;
+    return b;
   }
 
   /// Read a 32-bit word from the stream.
   @override
   int readUint32() {
-    var b1 = 0;
-    var b2 = 0;
-    var b3 = 0;
-    var b4 = 0;
-    if ((_bufferPosition + 4) < _bufferSize) {
-      b1 = _buffer[_bufferPosition++] & 0xff;
-      b2 = _buffer[_bufferPosition++] & 0xff;
-      b3 = _buffer[_bufferPosition++] & 0xff;
-      b4 = _buffer[_bufferPosition++] & 0xff;
-      _position += 4;
-    } else {
-      b1 = readByte();
-      b2 = readByte();
-      b3 = readByte();
-      b4 = readByte();
+    if (isEOS) {
+      return 0;
     }
-
-    if (byteOrder == BIG_ENDIAN) {
-      return (b1 << 24) | (b2 << 16) | (b3 << 8) | b4;
-    }
-    return (b4 << 24) | (b3 << 16) | (b2 << 8) | b1;
+    final b = _file.readUint32(_fileOffset + _position, _fileSize);
+    _position += 4;
+    return b;
   }
 
   /// Read a 64-bit word form the stream.
   @override
   int readUint64() {
-    var b1 = 0;
-    var b2 = 0;
-    var b3 = 0;
-    var b4 = 0;
-    var b5 = 0;
-    var b6 = 0;
-    var b7 = 0;
-    var b8 = 0;
-    if ((_bufferPosition + 8) < _bufferSize) {
-      b1 = _buffer[_bufferPosition++] & 0xff;
-      b2 = _buffer[_bufferPosition++] & 0xff;
-      b3 = _buffer[_bufferPosition++] & 0xff;
-      b4 = _buffer[_bufferPosition++] & 0xff;
-      b5 = _buffer[_bufferPosition++] & 0xff;
-      b6 = _buffer[_bufferPosition++] & 0xff;
-      b7 = _buffer[_bufferPosition++] & 0xff;
-      b8 = _buffer[_bufferPosition++] & 0xff;
-      _position += 8;
-    } else {
-      b1 = readByte();
-      b2 = readByte();
-      b3 = readByte();
-      b4 = readByte();
-      b5 = readByte();
-      b6 = readByte();
-      b7 = readByte();
-      b8 = readByte();
+    if (isEOS) {
+      return 0;
     }
-
-    if (byteOrder == BIG_ENDIAN) {
-      return (b1 << 56) |
-          (b2 << 48) |
-          (b3 << 40) |
-          (b4 << 32) |
-          (b5 << 24) |
-          (b6 << 16) |
-          (b7 << 8) |
-          b8;
-    }
-    return (b8 << 56) |
-        (b7 << 48) |
-        (b6 << 40) |
-        (b5 << 32) |
-        (b4 << 24) |
-        (b3 << 16) |
-        (b2 << 8) |
-        b1;
+    final b = _file.readUint64(_fileOffset + _position, _fileSize);
+    _position += 8;
+    return b;
   }
 
   @override
   InputStreamBase readBytes(int count) {
-    count = min(count, fileRemaining);
+    if (isEOS) {
+      return InputFileStream.clone(this, length: 0);
+    }
+    if ((_position + count) > _fileSize) {
+      count = _fileSize - _position;
+    }
     final bytes =
         InputFileStream.clone(this, position: _position, length: count);
-    skip(count);
+    _position += bytes.length;
     return bytes;
   }
 
@@ -330,15 +161,7 @@ class InputFileStream extends InputStreamBase {
     if (isEOS) {
       return Uint8List(0);
     }
-    var length = fileRemaining;
-    bytes = bytes != null && bytes.length == length ? bytes : Uint8List(length);
-    _file.position = _fileOffset + _position;
-    final readBytes = _file.readInto(bytes);
-    skip(length);
-    if (readBytes != bytes.length) {
-      bytes.length = readBytes;
-    }
-    return bytes;
+    return _file.readBytes(_fileOffset + position, fileRemaining, _fileSize);
   }
 
   /// Read a null-terminated string, or if [len] is provided, that number of
@@ -366,9 +189,5 @@ class InputFileStream extends InputStreamBase {
     return str;
   }
 
-  void _readBuffer() {
-    _bufferPosition = 0;
-    _file.position = _fileOffset + _position;
-    _bufferSize = _file.readInto(_buffer, _buffer.length);
-  }
+  FileBuffer get file => _file;
 }

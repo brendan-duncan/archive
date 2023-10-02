@@ -21,8 +21,7 @@ class ZipFileHeader {
   String fileComment = '';
   ZipFile? file;
 
-  ZipFileHeader(
-      [InputStreamBase? input, InputStreamBase? bytes, String? password]) {
+  ZipFileHeader([InputStreamBase? input]) {
     if (input != null) {
       versionMadeBy = input.readUint16();
       versionNeededToExtract = input.readUint16();
@@ -46,11 +45,10 @@ class ZipFileHeader {
       }
 
       if (extraLen > 0) {
-        final extra = input.readBytes(extraLen);
-        extraField = extra.toUint8List();
-        // Rewind to start of the extra fields to read field by field.
-        extra.rewind(extraLen);
+        final extraBytes = input.readBytes(extraLen);
+        extraField = extraBytes.toUint8List();
 
+        final extra = InputStream(extraField);
         while (!extra.isEOS) {
           final id = extra.readUint16();
           var size = extra.readUint16();
@@ -98,12 +96,12 @@ class ZipFileHeader {
       if (commentLen > 0) {
         fileComment = input.readString(size: commentLen);
       }
-
-      if (bytes != null) {
-        bytes.position = localHeaderOffset!;
-        file = ZipFile(bytes, this, password);
-      }
     }
+  }
+
+  void readLocalFileHeader(InputStreamBase input, String? password) {
+    input.position = localHeaderOffset!;
+    file = ZipFile(input, this, password);
   }
 
   @override

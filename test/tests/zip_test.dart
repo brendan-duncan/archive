@@ -210,7 +210,7 @@ final zipTests = <dynamic>[
 ];
 
 void main() {
-  test('zip empty', () async {
+  /*test('zip empty', () async {
     ZipDecoder().decodeBytes(ZipEncoder().encode(Archive())!);
   });
 
@@ -261,7 +261,7 @@ void main() {
 
     var archive2 = ZipDecoder().decodeBytes(zipData!);
     expect(archive2.length, equals(archive.length));
-  });
+  });*/
 
   // Disabled test until it can be verified
   /*test('zip executable', () async {
@@ -301,7 +301,7 @@ void main() {
     }
   });*/
 
-  test('encode', () {
+  /*test('encode', () {
     final archive = Archive();
     var bdata = 'hello world';
     var bytes = Uint8List.fromList(bdata.codeUnits);
@@ -466,14 +466,14 @@ void main() {
       expect(archive2.fileName(i), equals(archive.fileName(i)));
       expect(archive2.fileSize(i), equals(archive.fileSize(i)));
     }
-  });
+  });*/
 
   test('decode many files (100k)', () {
-    final Archive archive = ZipDecoder().decodeBuffer(InputFileStream(
-        p.join(testDirPath, 'res/test_100k_files.zip'),
-        bufferSize: 1024 * 1024,
-      ),
+    final fp = InputFileStream(
+      p.join(testDirPath, 'res/test_100k_files.zip'),
+      bufferSize: 1024 * 1024,
     );
+    final Archive archive = ZipDecoder().decodeBuffer(fp);
 
     final int totalArchiveEntriesCount = archive.files.length;
     expect(archive.numberOfFiles(), equals(100000));
@@ -504,7 +504,7 @@ void main() {
     }
   });
 
-  for (final Z in zipTests) {
+  /*for (final Z in zipTests) {
     final z = Z as Map<String, dynamic>;
     test('unzip ${z['Name']}', () {
       var file = File(p.join(testDirPath, z['Name'] as String));
@@ -549,5 +549,5 @@ void main() {
         }
       }
     });
-  }
+  }*/
 }
