@@ -1,8 +1,10 @@
 import 'dart:convert';
 import 'dart:typed_data';
+import 'dart:math';
 
 import 'util/crc32.dart';
 import 'util/input_stream.dart';
+import 'util/aes.dart';
 import 'util/output_stream.dart';
 import 'zip/zip_directory.dart';
 import 'zip/zip_file.dart';
@@ -64,11 +66,16 @@ class ZipEncoder {
   late _ZipEncoderData _data;
   OutputStreamBase? _output;
   final Encoding filenameEncoding;
+  final Random _random = Random.secure();
+  final String? password;
 
-  ZipEncoder({this.filenameEncoding = const Utf8Codec()});
+  ZipEncoder({this.filenameEncoding = const Utf8Codec(), this.password});
 
+  /// Bit 1 of the general purpose flag, File encryption flag
+  static const int fileEncryptionBit = 1;
   /// Bit 11 of the general purpose flag, Language encoding flag
-  final int languageEncodingBitUtf8 = 2048;
+  static const int languageEncodingBitUtf8 = 2048;
+  static const int _aesEncryptionExtraHeaderId = 0x9901;
 
   List<int>? encode(Archive archive,
       {int level = Deflate.BEST_SPEED,
@@ -119,6 +126,32 @@ class ZipEncoder {
       return crc32;
     }
     return getCrc32(file.content as List<int>);
+  }
+
+  // https://stackoverflow.com/questions/62708273/how-unique-is-the-salt-produced-by-this-function
+  // length is for the underlying bytes, not the resulting string.
+  Uint8List _generateSalt([int length = 94]) {
+    return Uint8List.fromList(List<int>.generate(length, (i) => _random.nextInt(256)));
+  }
+
+  Uint8List? _mac;
+  Uint8List? _pwdVer;
+
+  Uint8List _encryptCompressedData(Uint8List data, Uint8List salt) {
+    // keySize = 32 bytes (256 bits), because of 0x3 as compression type
+
+    final keySize = 32;
+
+    var derivedKey = ZipFile.deriveKey(password!, salt, derivedKeyLength: keySize);
+    final keyData = Uint8List.fromList(derivedKey.sublist(0, keySize));
+    final hmacKeyData = Uint8List.fromList(derivedKey.sublist(keySize, keySize * 2));
+
+    _pwdVer = derivedKey.sublist(keySize * 2, keySize * 2 + 2);
+
+    Aes aes = Aes(keyData, hmacKeyData, keySize, encrypt: true);
+    aes.processData(data, 0, data.length);
+    _mac = aes.mac;
+    return data;
   }
 
   void addFile(ArchiveFile file) {
@@ -182,7 +215,29 @@ class ZipEncoder {
     final comment =
         file.comment != null ? filenameEncoding.encode(file.comment!) : null;
 
-    final dataLen = compressedData?.length ?? 0;
+    Uint8List? salt;
+
+    if (password != null && compressedData != null) {
+      // https://www.winzip.com/en/support/aes-encryption/#zip-format
+      //
+      // The size of the salt value depends on the length of the encryption key, as follows:
+      //
+      // Key size Salt size
+      // 128 bits  8 bytes
+      // 192 bits 12 bytes
+      // 256 bits 16 bytes
+      //
+      salt = _generateSalt(16);
+
+      final encryptedBytes = _encryptCompressedData(compressedData.toUint8List(), salt);
+      compressedData = InputStream(encryptedBytes);
+    }
+
+    final dataLen = (compressedData?.length ?? 0)
+      + (salt?.length ?? 0)
+      + (_mac?.length ?? 0)
+      + (_pwdVer?.length ?? 0);
+
     _data.localFileSize += 30 + encodedFilename.length + dataLen;
 
     _data.centralDirectorySize +=
@@ -196,7 +251,7 @@ class ZipEncoder {
     fileData.comment = file.comment;
     fileData.position = _output!.length;
 
-    _writeFile(fileData, _output!);
+    _writeFile(fileData, _output!, salt: salt);
 
     fileData.compressedData = null;
   }
@@ -224,26 +279,49 @@ class ZipEncoder {
     return out.getBytes();
   }
 
-  void _writeFile(_ZipFileData fileData, OutputStreamBase output) {
-    final filename = fileData.name;
+  List<int> _getAexExtraData(_ZipFileData fileData) {
+    // https://www.winzip.com/en/support/aes-encryption/#zip-format
+    final out = OutputStream();
+
+    final compressionMethod = fileData.compress
+        ? ZipFile.zipCompressionDeflate
+        : ZipFile.zipCompressionStore;
+
+    out.writeUint16(_aesEncryptionExtraHeaderId); // AE-x encryption ID
+    out.writeUint16(0x0007);                      // field length
+    out.writeUint16(0x0001);                      // AE-1 encryption version
+    out.writeBytes(ascii.encode("AE"));           // "vendor ID"
+    out.writeByte(0x0003);                        // encryption strength (256-bit)
+    out.writeUint16(compressionMethod);           // actual compression method
+
+    return out.getBytes();
+  }
+
+  void _writeFile(_ZipFileData fileData, OutputStreamBase output, {Uint8List? salt}) {
+    var filename = fileData.name;
 
     output.writeUint32(ZipFile.zipFileSignature);
 
     final needsZip64 = fileData.compressedSize > 0xFFFFFFFF ||
         fileData.uncompressedSize > 0xFFFFFFFF;
 
-    final flags =
-        filenameEncoding.name == "utf-8" ? languageEncodingBitUtf8 : 0;
-    final compressionMethod = fileData.compress
-        ? ZipFile.zipCompressionDeflate
-        : ZipFile.zipCompressionStore;
+    var flags = 0;
+    if (filenameEncoding.name == "utf-8") flags |= languageEncodingBitUtf8;
+    if (password != null) flags |= fileEncryptionBit;
+
+    final compressionMethod =
+        password != null ? ZipFile.zipCompressionAexEncryption :
+        fileData.compress ? ZipFile.zipCompressionDeflate : ZipFile.zipCompressionStore;
     final lastModFileTime = fileData.time;
     final lastModFileDate = fileData.date;
     final crc32 = fileData.crc32;
     final compressedSize = needsZip64 ? 0xFFFFFFFF : fileData.compressedSize;
     final uncompressedSize =
         needsZip64 ? 0xFFFFFFFF : fileData.uncompressedSize;
-    final extra = needsZip64 ? _getZip64ExtraData(fileData) : <int>[];
+
+    final extra = <int>[];
+    if (needsZip64) extra.addAll(_getZip64ExtraData(fileData));
+    if (password != null) extra.addAll(_getAexExtraData(fileData));
 
     final compressedData = fileData.compressedData;
 
@@ -263,9 +341,18 @@ class ZipEncoder {
     output.writeBytes(encodedFilename);
     output.writeBytes(extra);
 
+    if (password != null) {
+      output.writeBytes(salt!);
+      output.writeBytes(_pwdVer!);
+    }
+
     if (compressedData != null) {
       // local file data
       output.writeInputStream(compressedData);
+    }
+
+    if (password != null) {
+      output.writeBytes(_mac!);
     }
   }
 
@@ -302,10 +389,11 @@ class ZipEncoder {
 
       final versionMadeBy = (os << 8) | version;
       final versionNeededToExtract = version;
-      final generalPurposeBitFlag = languageEncodingBitUtf8;
-      final compressionMethod = fileData.compress
-          ? ZipFile.zipCompressionDeflate
-          : ZipFile.zipCompressionStore;
+      var generalPurposeBitFlag = languageEncodingBitUtf8;
+      if (password != null) generalPurposeBitFlag |= fileEncryptionBit;
+      final compressionMethod =
+          password != null ? ZipFile.zipCompressionAexEncryption :
+          fileData.compress ? ZipFile.zipCompressionDeflate : ZipFile.zipCompressionStore;
       final lastModifiedFileTime = fileData.time;
       final lastModifiedFileDate = fileData.date;
       final crc32 = fileData.crc32;
@@ -319,7 +407,11 @@ class ZipEncoder {
         externalFileAttributes |= 0x4000; // ?
       }*/
       final localHeaderOffset = needsZip64 ? 0xFFFFFFFF : fileData.position;
-      final extraField = needsZip64 ? _getZip64CfhData(fileData) : <int>[];
+
+      var extraField = <int>[];
+      if (needsZip64) extraField.addAll(_getZip64CfhData(fileData));
+      if (password != null) extraField.addAll(_getAexExtraData(fileData));
+
       final fileComment = fileData.comment ?? '';
 
       final encodedFilename = filenameEncoding.encode(fileData.name);

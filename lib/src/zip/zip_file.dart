@@ -1,5 +1,5 @@
 import '../bzip2_decoder.dart';
-import '../util/aes_decrypt.dart';
+import '../util/aes.dart';
 import '../util/archive_exception.dart';
 import '../util/crc32.dart';
 import '../util/input_stream.dart';
@@ -26,6 +26,7 @@ class ZipFile extends FileContent {
   static const int zipCompressionStore = 0;
   static const int zipCompressionDeflate = 8;
   static const int zipCompressionBZip2 = 12;
+  static const int zipCompressionAexEncryption = 99;
 
   static const int zipFileSignature = 0x04034b50;
 
@@ -229,23 +230,30 @@ class ZipFile extends FileContent {
       salt = input.readBytes(16).toUint8List();
       keySize = 32;
     }
+
     var verify = input.readBytes(2).toUint8List();
     final dataBytes = input.readBytes(input.length - 10);
+    final dataMac = input.readBytes(10);
     final bytes = dataBytes.toUint8List();
 
-    var deriveKey = _deriveKey(_password!, salt, derivedKeyLength: keySize);
-    var keyData = Uint8List.fromList(deriveKey.sublist(0, keySize));
+    var derivedKey = deriveKey(_password!, salt, derivedKeyLength: keySize);
+    final keyData = Uint8List.fromList(derivedKey.sublist(0, keySize));
+    final hmacKeyData = Uint8List.fromList(derivedKey.sublist(keySize, keySize * 2));
     // var authCode = deriveKey.sublist(keySize, keySize*2);
-    var pwdCheck = deriveKey.sublist(keySize * 2, keySize * 2 + 2);
-    if (Uint8ListEquality.equals(pwdCheck, verify) == false) {
+    var pwdCheck = derivedKey.sublist(keySize * 2, keySize * 2 + 2);
+    if (!Uint8ListEquality.equals(pwdCheck, verify)) {
       throw Exception('password error');
     }
-    AesDecrypt aesDecrypt = AesDecrypt(keyData, keySize);
-    aesDecrypt.decryptData(bytes, 0, bytes.length);
+
+    Aes aes = Aes(keyData, hmacKeyData, keySize);
+    aes.processData(bytes, 0, bytes.length);
+    if (!Uint8ListEquality.equals(dataMac.toUint8List(), aes.mac)) {
+      throw Exception('macs don\'t match');
+    }
     return InputStream(bytes);
   }
 
-  static Uint8List _deriveKey(String password, Uint8List salt,
+  static Uint8List deriveKey(String password, Uint8List salt,
       {int derivedKeyLength = 32}) {
     if (password.isEmpty) {
       return Uint8List(0);

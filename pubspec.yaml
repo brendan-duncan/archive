@@ -10,7 +10,7 @@ environment:
 dependencies:
   crypto: ^3.0.3
   path: ^1.8.0
-  pointycastle: ^3.6.2
+  pointycastle: ^3.7.3
 
 dev_dependencies:
   http: ^1.1.0

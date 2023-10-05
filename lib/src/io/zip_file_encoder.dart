@@ -11,9 +11,12 @@ class ZipFileEncoder {
   late String zipPath;
   late OutputFileStream _output;
   late ZipEncoder _encoder;
+  final String? password;
 
   static const int STORE = 0;
   static const int GZIP = 1;
+
+  ZipFileEncoder({this.password});
 
   void zipDirectory(Directory dir,
       {String? filename,
@@ -40,7 +43,7 @@ class ZipFileEncoder {
     this.zipPath = zipPath;
 
     _output = OutputFileStream(zipPath);
-    _encoder = ZipEncoder();
+    _encoder = ZipEncoder(password: password);
     _encoder.startEncode(_output, level: level, modified: modified);
   }
 
