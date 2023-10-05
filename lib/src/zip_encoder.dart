@@ -73,6 +73,7 @@ class ZipEncoder {
 
   /// Bit 1 of the general purpose flag, File encryption flag
   static const int fileEncryptionBit = 1;
+
   /// Bit 11 of the general purpose flag, Language encoding flag
   static const int languageEncodingBitUtf8 = 2048;
   static const int _aesEncryptionExtraHeaderId = 0x9901;
@@ -131,7 +132,8 @@ class ZipEncoder {
   // https://stackoverflow.com/questions/62708273/how-unique-is-the-salt-produced-by-this-function
   // length is for the underlying bytes, not the resulting string.
   Uint8List _generateSalt([int length = 94]) {
-    return Uint8List.fromList(List<int>.generate(length, (i) => _random.nextInt(256)));
+    return Uint8List.fromList(
+        List<int>.generate(length, (i) => _random.nextInt(256)));
   }
 
   Uint8List? _mac;
@@ -142,9 +144,11 @@ class ZipEncoder {
 
     final keySize = 32;
 
-    var derivedKey = ZipFile.deriveKey(password!, salt, derivedKeyLength: keySize);
+    var derivedKey =
+        ZipFile.deriveKey(password!, salt, derivedKeyLength: keySize);
     final keyData = Uint8List.fromList(derivedKey.sublist(0, keySize));
-    final hmacKeyData = Uint8List.fromList(derivedKey.sublist(keySize, keySize * 2));
+    final hmacKeyData =
+        Uint8List.fromList(derivedKey.sublist(keySize, keySize * 2));
 
     _pwdVer = derivedKey.sublist(keySize * 2, keySize * 2 + 2);
 
@@ -229,14 +233,15 @@ class ZipEncoder {
       //
       salt = _generateSalt(16);
 
-      final encryptedBytes = _encryptCompressedData(compressedData.toUint8List(), salt);
+      final encryptedBytes =
+          _encryptCompressedData(compressedData.toUint8List(), salt);
       compressedData = InputStream(encryptedBytes);
     }
 
-    final dataLen = (compressedData?.length ?? 0)
-      + (salt?.length ?? 0)
-      + (_mac?.length ?? 0)
-      + (_pwdVer?.length ?? 0);
+    final dataLen = (compressedData?.length ?? 0) +
+        (salt?.length ?? 0) +
+        (_mac?.length ?? 0) +
+        (_pwdVer?.length ?? 0);
 
     _data.localFileSize += 30 + encodedFilename.length + dataLen;
 
@@ -288,16 +293,17 @@ class ZipEncoder {
         : ZipFile.zipCompressionStore;
 
     out.writeUint16(_aesEncryptionExtraHeaderId); // AE-x encryption ID
-    out.writeUint16(0x0007);                      // field length
-    out.writeUint16(0x0001);                      // AE-1 encryption version
-    out.writeBytes(ascii.encode("AE"));           // "vendor ID"
-    out.writeByte(0x0003);                        // encryption strength (256-bit)
-    out.writeUint16(compressionMethod);           // actual compression method
+    out.writeUint16(0x0007); // field length
+    out.writeUint16(0x0001); // AE-1 encryption version
+    out.writeBytes(ascii.encode("AE")); // "vendor ID"
+    out.writeByte(0x0003); // encryption strength (256-bit)
+    out.writeUint16(compressionMethod); // actual compression method
 
     return out.getBytes();
   }
 
-  void _writeFile(_ZipFileData fileData, OutputStreamBase output, {Uint8List? salt}) {
+  void _writeFile(_ZipFileData fileData, OutputStreamBase output,
+      {Uint8List? salt}) {
     var filename = fileData.name;
 
     output.writeUint32(ZipFile.zipFileSignature);
@@ -309,9 +315,11 @@ class ZipEncoder {
     if (filenameEncoding.name == "utf-8") flags |= languageEncodingBitUtf8;
     if (password != null) flags |= fileEncryptionBit;
 
-    final compressionMethod =
-        password != null ? ZipFile.zipCompressionAexEncryption :
-        fileData.compress ? ZipFile.zipCompressionDeflate : ZipFile.zipCompressionStore;
+    final compressionMethod = password != null
+        ? ZipFile.zipCompressionAexEncryption
+        : fileData.compress
+            ? ZipFile.zipCompressionDeflate
+            : ZipFile.zipCompressionStore;
     final lastModFileTime = fileData.time;
     final lastModFileDate = fileData.date;
     final crc32 = fileData.crc32;
@@ -391,9 +399,11 @@ class ZipEncoder {
       final versionNeededToExtract = version;
       var generalPurposeBitFlag = languageEncodingBitUtf8;
       if (password != null) generalPurposeBitFlag |= fileEncryptionBit;
-      final compressionMethod =
-          password != null ? ZipFile.zipCompressionAexEncryption :
-          fileData.compress ? ZipFile.zipCompressionDeflate : ZipFile.zipCompressionStore;
+      final compressionMethod = password != null
+          ? ZipFile.zipCompressionAexEncryption
+          : fileData.compress
+              ? ZipFile.zipCompressionDeflate
+              : ZipFile.zipCompressionStore;
       final lastModifiedFileTime = fileData.time;
       final lastModifiedFileDate = fileData.date;
       final crc32 = fileData.crc32;

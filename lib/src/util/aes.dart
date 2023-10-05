@@ -72,7 +72,8 @@ class Aes {
     return len;
   }
 
-  Aes(this.derivedKey, Uint8List hmacDerivedKey, this.aesKeyStrength, {this.encrypt = false}) {
+  Aes(this.derivedKey, Uint8List hmacDerivedKey, this.aesKeyStrength,
+      {this.encrypt = false}) {
     aesEngine = AESEngine();
     aesEngine!.init(true, KeyParameter(derivedKey));
     _macGen = AesCipherUtil.getMacBasedPRF(hmacDerivedKey);

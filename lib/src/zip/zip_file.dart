@@ -238,7 +238,8 @@ class ZipFile extends FileContent {
 
     var derivedKey = deriveKey(_password!, salt, derivedKeyLength: keySize);
     final keyData = Uint8List.fromList(derivedKey.sublist(0, keySize));
-    final hmacKeyData = Uint8List.fromList(derivedKey.sublist(keySize, keySize * 2));
+    final hmacKeyData =
+        Uint8List.fromList(derivedKey.sublist(keySize, keySize * 2));
     // var authCode = deriveKey.sublist(keySize, keySize*2);
     var pwdCheck = derivedKey.sublist(keySize * 2, keySize * 2 + 2);
     if (!Uint8ListEquality.equals(pwdCheck, verify)) {
