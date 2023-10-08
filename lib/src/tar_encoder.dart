@@ -55,6 +55,8 @@ class TarEncoder {
     if (file.isSymbolicLink) {
       ts.typeFlag = TarFile.TYPE_SYMBOLIC_LINK;
       ts.nameOfLinkedFile = file.nameOfLinkedFile;
+    } else if (!file.isFile) {
+      ts.typeFlag = TarFile.TYPE_DIRECTORY;
     }
     ts.write(_outputStream);
   }
