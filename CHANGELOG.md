@@ -2,6 +2,7 @@
 
 * Rewrote InputFileStream to reduce overall memory by using a shared file cache.
 * Added `DateTime lastModDateTime` getter to ArchiveFile.
+* Add support for zip encryption.
 
 ## 3.4.4
 
