@@ -63,6 +63,11 @@ class ZipFile extends FileContent {
       filename = input.readString(size: fnLen);
       extraField = input.readBytes(exLen).toUint8List();
 
+      // Use the compressedSize and uncompressedSize from the CFD header.
+      // For Zip64, the sizes in the local header will be 0xFFFFFFFF.
+      compressedSize = header?.compressedSize ?? compressedSize;
+      uncompressedSize = header?.uncompressedSize ?? uncompressedSize;
+
       _encryptionType =
           (flags & 0x1) != 0 ? encryptionZipCrypto : encryptionNone;
       _password = password;
@@ -205,7 +210,7 @@ class ZipFile extends FileContent {
     for (var i = 0; i < 12; ++i) {
       _decodeByte(_rawContent.readByte());
     }
-    var bytes = _rawContent.toUint8List();
+    final bytes = _rawContent.toUint8List();
     for (var i = 0; i < bytes.length; ++i) {
       final temp = bytes[i] ^ _decryptByte();
       _updateKeys(temp);

@@ -250,6 +250,14 @@ void main() {
     expect(decodedFile.name, originalFileName);
   });
 
+  test('zip64', () {
+    var bytes = File(p.join(testDirPath, 'res/zip/zip64_archive.zip'))
+        .readAsBytesSync();
+    final archive = ZipDecoder().decodeBytes(bytes, verify: false);
+    expect(archive.numberOfFiles(), equals(3));
+    expect(archive.fileSize(0), equals(3136));
+  });
+
   test('zip data types', () {
     final archive = Archive();
     archive.addFile(ArchiveFile('uint8list', 2, Uint8List(2)));
@@ -426,6 +434,29 @@ void main() {
     for (final f in archive) {
       final c = f.content;
       expect(c, isNotNull);
+    }
+  });
+
+  test('encode password', () {
+    final archive = Archive();
+    final bdata = 'hello world';
+    final bytes = Uint8List.fromList(bdata.codeUnits);
+    final name = 'abc.txt';
+    final afile = ArchiveFile.noCompress(name, bytes.lengthInBytes, bytes);
+    archive.addFile(afile);
+
+    final zipData = ZipEncoder(password: 'abc123').encode(archive)!;
+
+    File(p.join(testDirPath, 'out/zip_password.zip'))
+      ..createSync(recursive: true)
+      ..writeAsBytesSync(zipData);
+
+    final arc = ZipDecoder().decodeBytes(zipData, password: 'abc123');
+    expect(arc.numberOfFiles(), equals(1));
+    var arcData = arc.fileData(0);
+    expect(arcData.length, equals(bdata.length));
+    for (var i = 0; i < arcData.length; ++i) {
+      expect(arcData[i], equals(bdata.codeUnits[i]));
     }
   });
 

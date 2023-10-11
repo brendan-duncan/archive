@@ -224,7 +224,8 @@ class ZipEncoder {
     if (password != null && compressedData != null) {
       // https://www.winzip.com/en/support/aes-encryption/#zip-format
       //
-      // The size of the salt value depends on the length of the encryption key, as follows:
+      // The size of the salt value depends on the length of the encryption key,
+      // as follows:
       //
       // Key size Salt size
       // 128 bits  8 bytes
@@ -235,6 +236,7 @@ class ZipEncoder {
 
       final encryptedBytes =
           _encryptCompressedData(compressedData.toUint8List(), salt);
+
       compressedData = InputStream(encryptedBytes);
     }
 
