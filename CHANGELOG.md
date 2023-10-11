@@ -1,3 +1,7 @@
+## 3.4.6 - October 10, 2023
+
+* Fix for Zip64 file size causing memory errors. 
+
 ## 3.4.5 - October 01, 2023
 
 * Rewrote InputFileStream to reduce overall memory by using a shared file cache.
