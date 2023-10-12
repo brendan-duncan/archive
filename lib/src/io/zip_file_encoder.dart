@@ -33,6 +33,7 @@ class ZipFileEncoder {
       includeDirName: false,
       level: level,
       followLinks: followLinks,
+      onProgress: onProgress,
     );
     close();
   }
