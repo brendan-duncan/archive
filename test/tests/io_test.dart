@@ -55,7 +55,7 @@ void main() {
   testFile.writeAsBytesSync(testData);
 
   test('FileBuffer', () async {
-    FileBuffer fb = FileBuffer(testPath, bufferSize: 5);
+    FileBuffer fb = FileBuffer(FileHandle(testPath), bufferSize: 5);
     expect(fb.length, equals(testData.length));
     var indices = [5, 110, 0, 64];
     for (final i in indices) {

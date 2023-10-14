@@ -1,7 +1,17 @@
 import 'dart:io';
 import 'dart:typed_data';
 
-class FileHandle {
+abstract class AbstractFileHandle {
+  int get position ;
+  set position(int p);
+  int get length ;
+  bool get isOpen;
+  Future<void> close();
+  void open() ;
+  int readInto(Uint8List buffer, [int? end]) ;
+}
+
+class FileHandle extends AbstractFileHandle {
   final String _path;
   RandomAccessFile? _file;
   int _position;
@@ -15,8 +25,10 @@ class FileHandle {
 
   String get path => _path;
 
+  @override
   int get position => _position;
 
+  @override
   set position(int p) {
     if (_file == null || p == _position) {
       return;
@@ -25,10 +37,13 @@ class FileHandle {
     _file!.setPositionSync(p);
   }
 
+  @override
   int get length => _length;
 
+  @override
   bool get isOpen => _file != null;
 
+  @override
   Future<void> close() async {
     if (_file == null) {
       return;
@@ -39,6 +54,7 @@ class FileHandle {
     await fp!.close();
   }
 
+  @override
   void open() {
     if (_file != null) {
       return;
@@ -48,6 +64,7 @@ class FileHandle {
     _position = 0;
   }
 
+  @override
   int readInto(Uint8List buffer, [int? end]) {
     if (_file == null) {
       open();
@@ -57,3 +74,8 @@ class FileHandle {
     return size;
   }
 }
+
+//TODO add a RAM-based file handle implementation
+// class RAMFileHandle extends AbstractFileHandle {
+//   // IMPLEMENTATION TODO
+// }

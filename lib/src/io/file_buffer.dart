@@ -4,9 +4,8 @@ import 'file_handle.dart';
 import '../util/byte_order.dart';
 
 class FileBuffer {
-  final String path;
   final int byteOrder;
-  final FileHandle _file;
+  final AbstractFileHandle _file;
   late Uint8List _buffer;
   int _fileSize = 0;
   int _position = 0;
@@ -17,9 +16,11 @@ class FileBuffer {
   static const int kMinBufferSize = 8;
   static const int kDefaultBufferSize = 1024 * 1024; // 1MB
 
-  FileBuffer(this.path,
-      {this.byteOrder = LITTLE_ENDIAN, int bufferSize = kDefaultBufferSize})
-      : _file = FileHandle(path) {
+  FileBuffer(
+    this._file, {
+    this.byteOrder = LITTLE_ENDIAN,
+    int bufferSize = kDefaultBufferSize,
+  }) {
     _fileSize = _file.length;
     // Prevent having a buffer smaller than the minimum buffer size
     _bufferSize = max(
