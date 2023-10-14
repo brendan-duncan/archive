@@ -453,7 +453,7 @@ void main() {
 
     final encoder = ZipFileEncoder();
     try {
-      encoder.zipDirectory(
+      await encoder.zipDirectory(
           Directory(tmpPath), level: 0, filename: inPath);
       //expect(true, isFalse);
     } catch (e) {

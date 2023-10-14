@@ -18,17 +18,17 @@ class ZipFileEncoder {
 
   ZipFileEncoder({this.password});
 
-  void zipDirectory(Directory dir,
+  Future<void> zipDirectory(Directory dir,
       {String? filename,
       int? level,
       bool followLinks = true,
       void Function(double)? onProgress,
-      DateTime? modified}) {
+      DateTime? modified}) async {
     final dirPath = dir.path;
     final zipPath = filename ?? '$dirPath.zip';
     level ??= GZIP;
     create(zipPath, level: level, modified: modified);
-    addDirectory(
+    await addDirectory(
       dir,
       includeDirName: false,
       level: level,
