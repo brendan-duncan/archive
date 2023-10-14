@@ -296,7 +296,8 @@ void main() {
       await Process.run('chmod', ['+x', file2.path]);
 
       var dstFilePath = p.join(path, 'test.zip');
-      ZipFileEncoder().zipDirectory(Directory(srcPath), filename: dstFilePath);
+      ZipFileEncoder encoder = ZipFileEncoder();
+      await encoder.zipDirectory(Directory(srcPath), filename: dstFilePath);
 
       // Read
       final bytes = await File(dstFilePath).readAsBytes();
