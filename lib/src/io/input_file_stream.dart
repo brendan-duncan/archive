@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'file_buffer.dart';
 import 'file_handle.dart';
+import 'ram_file_handle.dart';
 import '../util/archive_exception.dart';
 import '../util/byte_order.dart';
 import '../util/input_stream.dart';
@@ -29,7 +30,7 @@ class InputFileStream extends InputStreamBase {
     int bufferSize = FileBuffer.kDefaultBufferSize,
   }) {
     return InputFileStream.withFileBuffer(
-      FileBuffer(FileHandle(path)),
+      FileBuffer(FileHandle(path, openMode: AbstractFileOpenMode.read)),
       byteOrder: byteOrder,
       bufferSize: bufferSize,
     );

@@ -1,33 +1,57 @@
-import 'dart:io';
 import 'dart:typed_data';
+
+import 'package:archive/src/io/file_handle.dart';
+import 'package:archive/src/io/ram_file_handle.dart';
 
 import '../util/byte_order.dart';
 import '../util/input_stream.dart';
 import '../util/output_stream.dart';
 
 class OutputFileStream extends OutputStreamBase {
-  String path;
   final int byteOrder;
   int _length;
-  late RandomAccessFile _fp;
+  final AbstractFileHandle _fileHandle;
   final Uint8List _buffer;
   int _bufferPosition;
   bool _isOpen;
 
   static const int kDefaultBufferSize = 1024 * 1024; // 1MB
 
-  OutputFileStream(this.path, {this.byteOrder = LITTLE_ENDIAN, int? bufferSize})
-      : _length = 0,
+  OutputFileStream.withFileHandle(
+    this._fileHandle, {
+    this.byteOrder = LITTLE_ENDIAN,
+    int? bufferSize,
+  })  : _length = 0,
         _buffer = Uint8List(bufferSize == null
             ? kDefaultBufferSize
             : bufferSize < 1
                 ? 1
                 : bufferSize),
         _bufferPosition = 0,
-        _isOpen = true {
-    final file = File(path);
-    file.createSync(recursive: true);
-    _fp = file.openSync(mode: FileMode.write);
+        _isOpen = true;
+
+  factory OutputFileStream(
+    String path, {
+    int byteOrder = LITTLE_ENDIAN,
+    int? bufferSize,
+  }) {
+    return OutputFileStream.withFileHandle(
+      FileHandle(path, openMode: AbstractFileOpenMode.write),
+      byteOrder: byteOrder,
+      bufferSize: bufferSize,
+    );
+  }
+
+  factory OutputFileStream.toRAMFile(
+    RAMFileHandle ramFileHandle, {
+    int byteOrder = LITTLE_ENDIAN,
+    int? bufferSize,
+  }) {
+    return OutputFileStream.withFileHandle(
+      ramFileHandle,
+      byteOrder: byteOrder,
+      bufferSize: bufferSize,
+    );
   }
 
   @override
@@ -37,7 +61,7 @@ class OutputFileStream extends OutputStreamBase {
   void flush() {
     if (_bufferPosition > 0) {
       if (_isOpen) {
-        _fp.writeFromSync(_buffer, 0, _bufferPosition);
+        _fileHandle.writeFromSync(_buffer, 0, _bufferPosition);
       }
       _bufferPosition = 0;
     }
@@ -49,7 +73,7 @@ class OutputFileStream extends OutputStreamBase {
     }
     flush();
     _isOpen = false;
-    await _fp.close();
+    await _fileHandle.close();
   }
 
   /// Write a byte to the end of the buffer.
@@ -80,7 +104,7 @@ class OutputFileStream extends OutputStreamBase {
     }
 
     flush();
-    _fp.writeFromSync(bytes, 0, len);
+    _fileHandle.writeFromSync(bytes, 0, len);
     _length += len;
   }
 
@@ -107,7 +131,7 @@ class OutputFileStream extends OutputStreamBase {
       if (_bufferPosition > 0) {
         flush();
       }
-      _fp.writeFromSync(
+      _fileHandle.writeFromSync(
           stream.buffer, stream.offset, stream.offset + stream.length);
       _length += stream.length;
     } else {
@@ -188,7 +212,7 @@ class OutputFileStream extends OutputStreamBase {
       flush();
     }
 
-    final pos = _fp.positionSync();
+    final pos = _fileHandle.position;
     if (start < 0) {
       start = pos + start;
     }
@@ -199,10 +223,10 @@ class OutputFileStream extends OutputStreamBase {
       end = pos + end;
     }
     length = (end - start);
-    _fp.setPositionSync(start);
+    _fileHandle.position = start;
     final buffer = Uint8List(length);
-    _fp.readIntoSync(buffer);
-    _fp.setPositionSync(pos);
+    _fileHandle.readInto(buffer);
+    _fileHandle.position = pos;
     return buffer;
   }
 }

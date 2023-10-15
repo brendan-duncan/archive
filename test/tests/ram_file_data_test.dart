@@ -2,7 +2,7 @@
 
 import 'dart:math' as math;
 import 'dart:typed_data';
-import 'package:archive/archive_io.dart';
+import 'package:archive/src/io/ram_file_handle.dart';
 import 'package:test/test.dart';
 
 const int _sourceListMinSize = 1;
