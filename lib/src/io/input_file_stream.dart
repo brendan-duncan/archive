@@ -35,17 +35,18 @@ class InputFileStream extends InputStreamBase {
     );
   }
 
-  // TODO implement this
-  //static  Future<InputFileStream> fromRAMFile(Stream<Uint8List> stream, {
-  //  int byteOrder = LITTLE_ENDIAN,
-  //  int bufferSize = FileBuffer.kDefaultBufferSize,
-  //}) async {
-  //  return InputFileStream.withFileBuffer(
-  //    FileBuffer(await RAMFileHandle.fromStream(stream)),
-  //    byteOrder: byteOrder,
-  //    bufferSize: bufferSize,
-  //  );
-  //}
+  static Future<InputFileStream> asRAMFile(
+    Stream<Uint8List> stream,
+    int fileLength, {
+    int byteOrder = LITTLE_ENDIAN,
+    int bufferSize = FileBuffer.kDefaultBufferSize,
+  }) async {
+    return InputFileStream.withFileBuffer(
+      FileBuffer(await RAMFileHandle.fromStream(stream, fileLength)),
+      byteOrder: byteOrder,
+      bufferSize: bufferSize,
+    );
+  }
 
   InputFileStream.clone(InputFileStream other, {int? position, int? length})
       : byteOrder = other.byteOrder,
