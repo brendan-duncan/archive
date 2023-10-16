@@ -18,6 +18,7 @@ class ZipFileEncoder {
 
   ZipFileEncoder({this.password});
 
+  //@Deprecated('Use zipDirectoryAsync instead')
   void zipDirectory(Directory dir,
       {String? filename,
       int? level,
@@ -28,13 +29,31 @@ class ZipFileEncoder {
     final zipPath = filename ?? '$dirPath.zip';
     level ??= GZIP;
     create(zipPath, level: level, modified: modified);
-    addDirectory(
+    _addDirectory(
       dir,
       includeDirName: false,
       level: level,
       followLinks: followLinks,
       onProgress: onProgress,
     );
+    close();
+  }
+
+  Future<void> zipDirectoryAsync(Directory dir,
+      {String? filename,
+      int? level,
+      bool followLinks = true,
+      void Function(double)? onProgress,
+      DateTime? modified}) async {
+    final dirPath = dir.path;
+    final zipPath = filename ?? '$dirPath.zip';
+    level ??= GZIP;
+    create(zipPath, level: level, modified: modified);
+    await addDirectory(dir,
+        includeDirName: false,
+        level: level,
+        followLinks: followLinks,
+        onProgress: onProgress);
     close();
   }
 
@@ -46,6 +65,36 @@ class ZipFileEncoder {
     _output = OutputFileStream(zipPath);
     _encoder = ZipEncoder(password: password);
     _encoder.startEncode(_output, level: level, modified: modified);
+  }
+
+  void _addDirectory(
+    Directory dir, {
+    bool includeDirName = true,
+    int? level,
+    bool followLinks = true,
+    void Function(double)? onProgress,
+  }) {
+    final dirName = path.basename(dir.path);
+    final files = dir.listSync(recursive: true, followLinks: followLinks);
+    final amount = files.length;
+    var current = 0;
+    for (final file in files) {
+      if (file is Directory) {
+        var filename = path.relative(file.path, from: dir.path);
+        filename = includeDirName ? '$dirName/$filename' : filename;
+        final af = ArchiveFile('$filename/', 0, null);
+        af.mode = file.statSync().mode;
+        af.lastModTime =
+            file.statSync().modified.millisecondsSinceEpoch ~/ 1000;
+        af.isFile = false;
+        _encoder.addFile(af);
+      } else if (file is File) {
+        final dirName = path.basename(dir.path);
+        final relPath = path.relative(file.path, from: dir.path);
+        _addFile(file, includeDirName ? '$dirName/$relPath' : relPath, level);
+        onProgress?.call(++current / amount);
+      }
+    }
   }
 
   Future<void> addDirectory(
@@ -79,6 +128,23 @@ class ZipFileEncoder {
       }
     }
     await Future.wait(futures);
+  }
+
+  void _addFile(File file, [String? filename, int? level = GZIP]) {
+    final fileStream = InputFileStream(file.path);
+    final archiveFile = ArchiveFile.stream(
+        filename ?? path.basename(file.path), file.lengthSync(), fileStream);
+
+    if (level == STORE) {
+      archiveFile.compress = false;
+    }
+
+    archiveFile.lastModTime =
+        file.lastModifiedSync().millisecondsSinceEpoch ~/ 1000;
+    archiveFile.mode = file.statSync().mode;
+
+    _encoder.addFile(archiveFile);
+    fileStream.closeSync();
   }
 
   Future<void> addFile(File file, [String? filename, int? level = GZIP]) async {

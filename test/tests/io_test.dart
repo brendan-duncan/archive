@@ -443,23 +443,22 @@ void main() {
     extractArchiveToDisk(a, '$testDirPath/out/extractArchiveToDisk_symlink');
   });
 
-  /*test('zip directory', () async {
+  test('zip directory', () async {
     final tmpPath = '$testDirPath/out/test_zip_dir';
 
-    generateDataDirectory(tmpPath, fileSize: 1024*1024, numFiles: 5*1024);
+    generateDataDirectory(tmpPath, fileSize: 1024, numFiles: 5);
 
     final inPath = '$testDirPath/out/test_zip_dir_2.zip';
     final outPath = '$testDirPath/out/test_zip_dir_2';
 
+    var count = 0;
     final encoder = ZipFileEncoder();
-    try {
-      encoder.zipDirectory(
-          Directory(tmpPath), level: 0, filename: inPath);
-      //expect(true, isFalse);
-    } catch (e) {
-      print(e);
-      //expect(e is ArchiveException, equals(true));
-    }
+    await encoder.zipDirectoryAsync(Directory(tmpPath),
+        level: 0, filename: inPath, onProgress: (double x) {
+      count++;
+    });
+
+    expect(count, equals(5));
 
     final dir = Directory(outPath);
     if (dir.existsSync()) {
@@ -468,8 +467,9 @@ void main() {
     await extractFileToDisk(inPath, outPath);
 
     final srcFiles = Directory(tmpPath).listSync(recursive: true);
-    final dstFiles = Directory('$testDirPath/out/test_zip_dir_2').listSync(recursive: true);
+    final dstFiles =
+        Directory('$testDirPath/out/test_zip_dir_2').listSync(recursive: true);
     expect(dstFiles.length, equals(srcFiles.length));
     //encoder.close();
-  });*/
+  });
 }

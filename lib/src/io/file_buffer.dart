@@ -39,6 +39,12 @@ class FileBuffer {
     _position = 0;
   }
 
+  void closeSync() {
+    _file.closeSync();
+    _fileSize = 0;
+    _position = 0;
+  }
+
   void reset() {
     _position = 0;
   }
