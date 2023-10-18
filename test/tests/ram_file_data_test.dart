@@ -5,6 +5,8 @@ import 'dart:typed_data';
 import 'package:archive/src/io/ram_file_handle.dart';
 import 'package:test/test.dart';
 
+import 'test_utils.dart';
+
 const int _sourceListMinSize = 1;
 const int _sourceListMaxSize = 10;
 const int _sourceStreamListsMinSize = 1;
@@ -161,6 +163,39 @@ void main() {
           true,
           reason: 'Expected an exception to occur',
         );
+      },
+    );
+  });
+
+  group('Writing to a RAM file -', () {
+    test(
+      'Writing bytes into a RAM file can be properly read after',
+      () async {
+        final testData = Uint8List(120);
+        for (var i = 0; i < testData.length; ++i) {
+          testData[i] = i;
+        }
+        final List<int> possibleBufferSizes = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 20, 30, 40, 50];
+        final List<int> possibleSubListSizes = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 20, 30, 40, 50, 100, 200];
+        for (int subListSize in possibleSubListSizes) {
+          for (int bufferSize in possibleBufferSizes) {
+            final rfh = RAMFileHandle.asWritableRAMBuffer(subListSize: subListSize);
+            for (int i = 0; i < testData.length; i += bufferSize) {
+              final buffer = Uint8List(bufferSize);
+              final absStartIndex = i;
+              final absEndIndex = math.min(i + bufferSize, testData.length);
+              final int writtenLength = absEndIndex - absStartIndex;
+              if (writtenLength <= 0) {
+                break;
+              }
+              buffer.setRange(0, writtenLength, testData.getRange(absStartIndex, absEndIndex));
+              rfh.writeFromSync(buffer, 0, writtenLength);
+            }
+            final outputData = Uint8List(rfh.length);
+            rfh.readInto(outputData);
+            compareBytes(testData, outputData);
+          }
+        }
       },
     );
   });

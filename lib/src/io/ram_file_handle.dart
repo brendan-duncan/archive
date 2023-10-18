@@ -7,13 +7,21 @@ class RAMFileHandle extends AbstractFileHandle {
   // ignore: deprecated_member_use_from_same_package
   final RamFileData _ramFileData;
   int _position = 0;
-  final int _length;
 
-  RAMFileHandle._(AbstractFileOpenMode openMode, this._ramFileData, this._length) : super(openMode);
+  RAMFileHandle._(AbstractFileOpenMode openMode, this._ramFileData) : super(openMode);
 
+  /// Creates a writeable RAMFileHandle
+  factory RAMFileHandle.asWritableRAMBuffer({
+    @Deprecated('Visible for testing only') int subListSize = 1024 * 1024,
+  }) {
+    // ignore: deprecated_member_use_from_same_package
+    return RAMFileHandle._(AbstractFileOpenMode.write, RamFileData.outputBuffer(subListSize));
+  }
+
+  /// Creates a read-only RAMFileHandle from a stream
   static Future<RAMFileHandle> fromStream(Stream<Uint8List> stream, int fileLength) async {
     // ignore: deprecated_member_use_from_same_package
-    return RAMFileHandle._(AbstractFileOpenMode.read, await RamFileData.fromStream(stream, fileLength), fileLength);
+    return RAMFileHandle._(AbstractFileOpenMode.read, await RamFileData.fromStream(stream, fileLength));
   }
 
   @override
@@ -28,7 +36,7 @@ class RAMFileHandle extends AbstractFileHandle {
   }
 
   @override
-  int get length => _length;
+  int get length => _ramFileData._length;
 
   @override
   bool get isOpen => true;
@@ -60,16 +68,17 @@ class RAMFileHandle extends AbstractFileHandle {
 class RamFileData {
   final List<List<int>> _content;
   final int _subListSize;
-  final int fileLength;
+  int _length;
+  final bool _readOnly;
 
   @Deprecated('Visible for testing only')
   List<List<int>> get content => _content;
 
-  @Deprecated('Visible for testing only')
-  RamFileData.fromBytes(Uint8List source)
-      : _content = <List<int>>[source],
-        _subListSize = source.length,
-        fileLength = source.length;
+  RamFileData.outputBuffer(int subListSize)
+      : _content = <List<int>>[],
+        _subListSize = subListSize,
+        _length = 0,
+        _readOnly = false;
 
   static Future<RamFileData> fromStream(
     Stream<List<int>> source,
@@ -99,10 +108,10 @@ class RamFileData {
     if (usedSubListSize == null) {
       throw Exception('RamFileData.fromStream: usedSubListSize is null');
     }
-    return RamFileData._(list, usedSubListSize, fileLength);
+    return RamFileData._(list, usedSubListSize, fileLength, true);
   }
 
-  RamFileData._(this._content, this._subListSize, this.fileLength);
+  RamFileData._(this._content, this._subListSize, this._length, this._readOnly);
 
   void clear() {
     _content.clear();
@@ -114,7 +123,7 @@ class RamFileData {
   }
 
   int readIntoSync(Uint8List buffer, int start, int? end) {
-    final int usedEnd = math.min(end ?? (start + buffer.length), fileLength);
+    final int usedEnd = math.min(end ?? (start + buffer.length), _length);
     int bufferStartWriteIndex = 0;
     int relativeStart;
     do {
@@ -143,14 +152,18 @@ class RamFileData {
   }
 
   void writeFromSync(List<int> buffer, [int start = 0, int? end]) {
-    final int usedEnd = math.min(end ?? (start + buffer.length), fileLength);
+    if (_readOnly) {
+      throw Exception('Cannot write to read-only RAM file data');
+    }
+    final int usedStart = _length + start;
+    final int usedEnd = _length + (end ?? (start + buffer.length));
     int bufferStartWriteIndex = 0;
     int relativeStart;
     do {
-      relativeStart = start + bufferStartWriteIndex;
+      relativeStart = usedStart + bufferStartWriteIndex;
       final int contentIndex = relativeStart ~/ _subListSize;
-      if (contentIndex >= _content.length) {
-        break;
+      while (contentIndex >= _content.length) {
+        _content.add(Uint8List(_subListSize));
       }
       final List<int> contentSubList = _content[contentIndex];
       final int subListStartIndex = relativeStart % _subListSize;
@@ -168,5 +181,6 @@ class RamFileData {
       );
       bufferStartWriteIndex += dataLengthToCopy;
     } while (relativeStart < usedEnd);
+    _length = math.max(usedEnd, _length);
   }
 }

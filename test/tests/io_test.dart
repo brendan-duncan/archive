@@ -43,9 +43,9 @@ void generateDataDirectory(String path,
 
 Future<InputFileStream> _buildFileIFS(String path, [int? bufferSize]) async {
   if (bufferSize == null) {
-    return  InputFileStream(path);
+    return InputFileStream(path);
   } else {
-    return  InputFileStream(path, bufferSize: bufferSize);
+    return InputFileStream(path, bufferSize: bufferSize);
   }
 }
 
@@ -63,16 +63,16 @@ Future<InputFileStream> _buildRAMIFS(String path, [int? bufferSize]) async {
   );
   final RAMFileHandle fileHandle = await RAMFileHandle.fromStream(fileStream, fileLength);
   if (bufferSize == null) {
-    return  InputFileStream.withFileBuffer(FileBuffer(fileHandle));
+    return InputFileStream.withFileBuffer(FileBuffer(fileHandle));
   } else {
-    return  InputFileStream.withFileBuffer(FileBuffer(fileHandle, bufferSize: bufferSize));
+    return InputFileStream.withFileBuffer(FileBuffer(fileHandle, bufferSize: bufferSize));
   }
 }
 
 void _testInputFileStream(
   String description,
   dynamic Function(Future<InputFileStream> Function(String, [int?]) ifsConstructor) testFunction,
-){
+) {
   test('$description (file)', () => testFunction(_buildFileIFS));
   test('$description (ram)', () => testFunction(_buildRAMIFS));
 }
@@ -222,7 +222,7 @@ void main() {
     });
   });
 
-  test('InputFileStream/OutputFileStream', () {
+  test('InputFileStream/OutputFileStream (files)', () {
     var input = InputFileStream(p.join(testDirPath, 'res/cat.jpg'));
     var output = OutputFileStream(p.join(testDirPath, 'out/cat2.jpg'));
     var offset = 0;
@@ -248,6 +248,31 @@ void main() {
       same = aBytes[i] == bBytes[i];
     }
     expect(same, equals(true));
+  });
+
+  test('InputFileStream/OutputFileStream (ram)', () {
+    var input = InputFileStream(p.join(testDirPath, 'res/cat.jpg'));
+    final RAMFileHandle rfh = RAMFileHandle.asWritableRAMBuffer();
+    var output = OutputFileStream.toRAMFile(rfh);
+    var offset = 0;
+    var inputLength = input.length;
+    while (!input.isEOS) {
+      final bytes = input.readBytes(50);
+      if (offset + 50 > inputLength) {
+        final remaining = inputLength - offset;
+        expect(bytes.length, equals(remaining));
+      }
+      offset += bytes.length;
+      output.writeInputStream(bytes);
+    }
+    input.close();
+
+    final aBytes = File(p.join(testDirPath, 'res/cat.jpg')).readAsBytesSync();
+    final bBytes = Uint8List(rfh.length);
+    rfh.readInto(bBytes);
+
+    compareBytes(bBytes, aBytes);
+    output.close();
   });
 
   test('empty file', () {
