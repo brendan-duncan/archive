@@ -1,9 +1,11 @@
 // ignore_for_file: avoid_print
 
+import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:archive/archive_io.dart';
+import 'package:archive/src/io/ram_file_handle.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
@@ -37,6 +39,42 @@ void generateDataDirectory(String path,
   for (var i = 0; i < numFiles; ++i) {
     writeFile('$path/$i.bin', fileSize);
   }
+}
+
+Future<InputFileStream> _buildFileIFS(String path, [int? bufferSize]) async {
+  if (bufferSize == null) {
+    return  InputFileStream(path);
+  } else {
+    return  InputFileStream(path, bufferSize: bufferSize);
+  }
+}
+
+Future<InputFileStream> _buildRAMIFS(String path, [int? bufferSize]) async {
+  final File file = File(path);
+  final int fileLength = file.lengthSync();
+  final rawFileStream = file.openRead();
+  final fileStream = rawFileStream.transform(
+    StreamTransformer<List<int>, Uint8List>.fromHandlers(
+      handleData: (List<int> data, EventSink<Uint8List> sink) {
+        final uint8List = Uint8List.fromList(data);
+        sink.add(uint8List);
+      },
+    ),
+  );
+  final RAMFileHandle fileHandle = await RAMFileHandle.fromStream(fileStream, fileLength);
+  if (bufferSize == null) {
+    return  InputFileStream.withFileBuffer(FileBuffer(fileHandle));
+  } else {
+    return  InputFileStream.withFileBuffer(FileBuffer(fileHandle, bufferSize: bufferSize));
+  }
+}
+
+void _testInputFileStream(
+  String description,
+  dynamic Function(Future<InputFileStream> Function(String, [int?]) ifsConstructor) testFunction,
+){
+  test('$description (file)', () => testFunction(_buildFileIFS));
+  test('$description (ram)', () => testFunction(_buildRAMIFS));
 }
 
 void main() {
@@ -88,20 +126,20 @@ void main() {
   });
 
   group('InputFileStream', () {
-    test('length', () {
-      final fs = InputFileStream(testPath, bufferSize: 2);
+    _testInputFileStream('length', (ifsConstructor) async {
+      final fs = await ifsConstructor(testPath, 2);
       expect(fs.length, testData.length);
     });
 
-    test('readByte', () {
-      final fs = InputFileStream(testPath, bufferSize: 2);
+    _testInputFileStream('readByte', (ifsConstructor) async {
+      final fs = await ifsConstructor(testPath, 2);
       for (var i = 0; i < testData.length; ++i) {
-        expect(fs.readByte(), testData[i]);
+        expect(fs.readByte(), testData[i], reason: 'Byte at index $i was incorrect');
       }
     });
 
-    test('readBytes', () {
-      final input = InputFileStream(testPath);
+    _testInputFileStream('readBytes', (ifsConstructor) async {
+      final input = await ifsConstructor(testPath);
       expect(input.length, equals(120));
       var ai = 0;
       while (!input.isEOS) {
@@ -116,8 +154,8 @@ void main() {
       }
     });
 
-    test('position', () {
-      final fs = InputFileStream(testPath, bufferSize: 2);
+    _testInputFileStream('position', (ifsConstructor) async {
+      final fs = await ifsConstructor(testPath, 2);
       fs.position = 50;
       final bs = fs.readBytes(50);
       final b = bs.toUint8List();
@@ -127,8 +165,8 @@ void main() {
       }
     });
 
-    test('skip', () {
-      final fs = InputFileStream(testPath, bufferSize: 2);
+    _testInputFileStream('skip', (ifsConstructor) async {
+      final fs = await ifsConstructor(testPath, 2);
       fs.skip(50);
       final bs = fs.readBytes(50);
       final b = bs.toUint8List();
@@ -138,8 +176,8 @@ void main() {
       }
     });
 
-    test('rewind', () {
-      final fs = InputFileStream(testPath, bufferSize: 2);
+    _testInputFileStream('rewind', (ifsConstructor) async {
+      final fs = await ifsConstructor(testPath, 2);
       fs.skip(50);
       fs.rewind(10);
       final bs = fs.readBytes(50);
@@ -150,8 +188,8 @@ void main() {
       }
     });
 
-    test('rewind 2', () {
-      final fs = InputFileStream(testPath, bufferSize: 2);
+    _testInputFileStream('rewind 2', (ifsConstructor) async {
+      final fs = await ifsConstructor(testPath, 2);
       final bs = fs.readBytes(50);
       final b = bs.toUint8List();
       fs.rewind(50);
@@ -161,8 +199,8 @@ void main() {
       }
     });
 
-    test('peakBytes', () {
-      final fs = InputFileStream(testPath, bufferSize: 2);
+    _testInputFileStream('peakBytes', (ifsConstructor) async {
+      final fs = await ifsConstructor(testPath, 2);
       final bs = fs.peekBytes(10);
       final b = bs.toUint8List();
       expect(fs.position, 0);
@@ -172,8 +210,8 @@ void main() {
       }
     });
 
-    test("clone", () {
-      final input = InputFileStream(testPath);
+    _testInputFileStream("clone", (ifsConstructor) async {
+      final input = await ifsConstructor(testPath);
       final input2 = InputFileStream.clone(input, position: 6, length: 5);
       final bs = input2.readBytes(5);
       final b = bs.toUint8List();

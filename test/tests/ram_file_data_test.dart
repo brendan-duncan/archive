@@ -34,7 +34,7 @@ Future<void> _testRamFileDataBuilder({
   required int targetSubListMaxSize,
 }) async {
   final List<int> sourceListsData = <int>[];
-  for (int i = 0; i <= sourceListTotalSize; i++) {
+  for (int i = 0; i < sourceListTotalSize; i++) {
     sourceListsData.add(i);
   }
   final RamFileData data = await RamFileData.fromStream(
@@ -52,7 +52,7 @@ Future<void> _testRamFileDataBuilder({
       expect(
         readLength,
         actualEnd - start,
-        reason: 'readLength had the wrong value when calling readIntoSync(readBuffer, $start, $end)\n'
+        reason: 'readLength had the wrong value when calling readIntoSync($readBuffer, $start, $end)\n'
             'Value of data.content: ${data.content}',
       );
       expect(

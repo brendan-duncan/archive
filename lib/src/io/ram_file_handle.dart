@@ -114,22 +114,28 @@ class RamFileData {
   }
 
   int readIntoSync(Uint8List buffer, int start, int? end) {
-    final int usedEnd = math.min(end ?? (start + buffer.length), fileLength - 1);
+    final int usedEnd = math.min(end ?? (start + buffer.length), fileLength);
     int bufferStartWriteIndex = 0;
     int relativeStart;
     do {
       relativeStart = start + bufferStartWriteIndex;
       final int contentIndex = relativeStart ~/ _subListSize;
+      if (contentIndex >= _content.length) {
+        break;
+      }
       final List<int> contentSubList = _content[contentIndex];
       final int subListStartIndex = relativeStart % _subListSize;
       final int dataLengthToCopy = math.min(
         usedEnd - relativeStart,
-        contentSubList.length - subListStartIndex,
+        _subListSize - subListStartIndex,
       );
       buffer.setRange(
         bufferStartWriteIndex,
         bufferStartWriteIndex + dataLengthToCopy,
-        contentSubList.getRange(subListStartIndex, subListStartIndex + dataLengthToCopy),
+        contentSubList.getRange(
+          subListStartIndex,
+          subListStartIndex + dataLengthToCopy,
+        ),
       );
       bufferStartWriteIndex += dataLengthToCopy;
     } while (relativeStart < usedEnd);
@@ -137,17 +143,20 @@ class RamFileData {
   }
 
   void writeFromSync(List<int> buffer, [int start = 0, int? end]) {
-    final int usedEnd = math.min(end ?? (start + buffer.length), fileLength - 1);
+    final int usedEnd = math.min(end ?? (start + buffer.length), fileLength);
     int bufferStartWriteIndex = 0;
     int relativeStart;
     do {
       relativeStart = start + bufferStartWriteIndex;
       final int contentIndex = relativeStart ~/ _subListSize;
+      if (contentIndex >= _content.length) {
+        break;
+      }
       final List<int> contentSubList = _content[contentIndex];
       final int subListStartIndex = relativeStart % _subListSize;
       final int dataLengthToCopy = math.min(
         usedEnd - relativeStart,
-        contentSubList.length - subListStartIndex,
+        _subListSize - subListStartIndex,
       );
       contentSubList.setRange(
         subListStartIndex,
