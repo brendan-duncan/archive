@@ -287,9 +287,9 @@ void main() {
     expect(archive.length, equals(1));
   });
 
-  test('stream tar decode', () {
+  _testInputFileStream('stream tar decode', (ifsConstructor) async {
     // Decode a tar from disk to memory
-    final stream = InputFileStream(p.join(testDirPath, 'res/test2.tar'));
+    final stream = await ifsConstructor(p.join(testDirPath, 'res/test2.tar'));
     final tarArchive = TarDecoder();
     tarArchive.decodeBuffer(stream);
 
@@ -310,9 +310,9 @@ void main() {
     expect(tarArchive.files.length, equals(4));
   });
 
-  test('stream zip decode', () {
+  _testInputFileStream('stream zip decode', (ifsConstructor) async {
     // Decode a tar from disk to memory
-    final stream = InputFileStream(p.join(testDirPath, 'res/test.zip'));
+    final stream = await ifsConstructor(p.join(testDirPath, 'res/test.zip'));
     final zip = ZipDecoder().decodeBuffer(stream);
 
     expect(zip.files.length, equals(2));
@@ -334,8 +334,8 @@ void main() {
     expect(archive.length, equals(4));
   });
 
-  test('stream gzip encode', () {
-    final input = InputFileStream(p.join(testDirPath, 'res/cat.jpg'));
+  _testInputFileStream('stream gzip encode', (ifsConstructor) async {
+    final input = await ifsConstructor(p.join(testDirPath, 'res/cat.jpg'));
     final output = OutputFileStream(p.join(testDirPath, 'out/cat.jpg.gz'));
 
     final encoder = GZipEncoder();
@@ -343,22 +343,22 @@ void main() {
     output.close();
   });
 
-  test('stream gzip decode', () {
-    final input = InputFileStream(p.join(testDirPath, 'out/cat.jpg.gz'));
+  _testInputFileStream('stream gzip decode', (ifsConstructor) async {
+    final input = await ifsConstructor(p.join(testDirPath, 'out/cat.jpg.gz'));
     final output = OutputFileStream(p.join(testDirPath, 'out/cat.jpg'));
 
     GZipDecoder().decodeStream(input, output);
     output.close();
   });
 
-  test('TarFileEncoder -> GZipEncoder', () async {
+  _testInputFileStream('TarFileEncoder -> GZipEncoder', (ifsConstructor) async {
     // Encode a directory from disk to disk, no memory
     final encoder = TarFileEncoder();
     encoder.create('$testDirPath/out/example2.tar');
     encoder.addDirectory(Directory('$testDirPath/res/test2'));
     await encoder.close();
 
-    final input = InputFileStream(p.join(testDirPath, 'out/example2.tar'));
+    final input = await ifsConstructor(p.join(testDirPath, 'out/example2.tar'));
     final output = OutputFileStream(p.join(testDirPath, 'out/example2.tgz'));
     GZipEncoder().encode(input, output: output);
     input.close();
@@ -410,7 +410,7 @@ void main() {
     expect(archive2.length, equals(4));
   });
 
-  test('file close', () {
+  _testInputFileStream('file close', (ifsConstructor) async {
     final testPath = p.join(testDirPath, 'out/test2.bin');
     final testData = Uint8List(120);
     for (var i = 0; i < testData.length; ++i) {
@@ -422,7 +422,7 @@ void main() {
     fp.writeFromSync(testData);
     fp.closeSync();
 
-    final input = InputFileStream(testPath);
+    final input = await ifsConstructor(testPath);
     final bs = input.readBytes(50);
     expect(bs.length, 50);
     input.close();
