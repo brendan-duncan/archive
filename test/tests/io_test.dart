@@ -69,12 +69,35 @@ Future<InputFileStream> _buildRAMIFS(String path, [int? bufferSize]) async {
   }
 }
 
+Future<OutputFileStream> _buildFileOFS(String path) async {
+  return OutputFileStream(path);
+}
+
+Future<OutputFileStream> _buildRAMOFS(String path) async {
+  return OutputFileStream.toRAMFile(RAMFileHandle.asWritableRAMBuffer());
+}
+
 void _testInputFileStream(
   String description,
-  dynamic Function(Future<InputFileStream> Function(String, [int?]) ifsConstructor) testFunction,
+  dynamic Function(
+    Future<InputFileStream> Function(String, [int?]) ifsConstructor,
+  ) testFunction,
 ) {
   test('$description (file)', () => testFunction(_buildFileIFS));
   test('$description (ram)', () => testFunction(_buildRAMIFS));
+}
+
+void _testInputOutputFileStream(
+  String description,
+  dynamic Function(
+    Future<InputFileStream> Function(String, [int?]) ifsConstructor,
+    Future<OutputFileStream> Function(String) ofsConstructor,
+  ) testFunction,
+) {
+  test('$description (file > file)', () => testFunction(_buildFileIFS, _buildFileOFS));
+  test('$description (file > ram)', () => testFunction(_buildFileIFS, _buildRAMOFS));
+  test('$description (ram > file)', () => testFunction(_buildRAMIFS, _buildFileOFS));
+  test('$description (ram > ram)', () => testFunction(_buildRAMIFS, _buildRAMOFS));
 }
 
 void main() {
@@ -334,24 +357,33 @@ void main() {
     expect(archive.length, equals(4));
   });
 
-  _testInputFileStream('stream gzip encode', (ifsConstructor) async {
+  _testInputOutputFileStream('stream gzip encode', (
+    ifsConstructor,
+    ofsConstructor,
+  ) async {
     final input = await ifsConstructor(p.join(testDirPath, 'res/cat.jpg'));
-    final output = OutputFileStream(p.join(testDirPath, 'out/cat.jpg.gz'));
+    final output = await ofsConstructor(p.join(testDirPath, 'out/cat.jpg.gz'));
 
     final encoder = GZipEncoder();
     encoder.encode(input, output: output);
     output.close();
   });
 
-  _testInputFileStream('stream gzip decode', (ifsConstructor) async {
+  _testInputOutputFileStream('stream gzip decode', (
+    ifsConstructor,
+    ofsConstructor,
+  ) async {
     final input = await ifsConstructor(p.join(testDirPath, 'out/cat.jpg.gz'));
-    final output = OutputFileStream(p.join(testDirPath, 'out/cat.jpg'));
+    final output = await ofsConstructor(p.join(testDirPath, 'out/cat.jpg'));
 
     GZipDecoder().decodeStream(input, output);
     output.close();
   });
 
-  _testInputFileStream('TarFileEncoder -> GZipEncoder', (ifsConstructor) async {
+  _testInputOutputFileStream('TarFileEncoder -> GZipEncoder', (
+    ifsConstructor,
+    ofsConstructor,
+  ) async {
     // Encode a directory from disk to disk, no memory
     final encoder = TarFileEncoder();
     encoder.create('$testDirPath/out/example2.tar');
@@ -359,7 +391,7 @@ void main() {
     await encoder.close();
 
     final input = await ifsConstructor(p.join(testDirPath, 'out/example2.tar'));
-    final output = OutputFileStream(p.join(testDirPath, 'out/example2.tgz'));
+    final output = await ofsConstructor(p.join(testDirPath, 'out/example2.tgz'));
     GZipEncoder().encode(input, output: output);
     input.close();
     output.close();
