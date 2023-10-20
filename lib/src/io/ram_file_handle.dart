@@ -6,7 +6,8 @@ import 'file_handle.dart';
 class RAMFileHandle extends AbstractFileHandle {
   // ignore: deprecated_member_use_from_same_package
   final RamFileData _ramFileData;
-  int _position = 0;
+  int _readPosition = 0;
+  int _writePosition = 0;
 
   RAMFileHandle._(AbstractFileOpenMode openMode, this._ramFileData) : super(openMode);
 
@@ -25,14 +26,14 @@ class RAMFileHandle extends AbstractFileHandle {
   }
 
   @override
-  int get position => _position;
+  int get position => _readPosition;
 
   @override
   set position(int p) {
-    if (p == _position) {
+    if (p == _readPosition) {
       return;
     }
-    _position = p;
+    _readPosition = p;
   }
 
   @override
@@ -44,27 +45,33 @@ class RAMFileHandle extends AbstractFileHandle {
   @override
   Future<void> close() async {
     _ramFileData._content.clear();
-    _position = 0;
+    _readPosition = 0;
   }
 
   @override
   int readInto(Uint8List buffer, [int? end]) {
     final size = _ramFileData.readIntoSync(
       buffer,
-      _position,
-      end == null ? null : end + _position,
+      _readPosition,
+      end == null ? null : end + _readPosition,
     );
-    _position += size;
+    _readPosition += size;
     return size;
   }
 
   @override
   void writeFromSync(List<int> buffer, [int start = 0, int? end]) {
-    _ramFileData.writeFromSync(buffer, start, end);
+    final int? usedEnd;
+    if (end == null) {
+      usedEnd = _writePosition + start + buffer.length;
+    } else {
+      usedEnd = _writePosition + end;
+    }
+    _ramFileData.writeFromSync(buffer, _writePosition + start, usedEnd);
+    _writePosition = _ramFileData._length;
   }
 }
 
-@Deprecated('Visible for testing only')
 class RamFileData {
   final List<List<int>> _content;
   final int _subListSize;
@@ -151,12 +158,12 @@ class RamFileData {
     return usedEnd - start;
   }
 
-  void writeFromSync(List<int> buffer, [int start = 0, int? end]) {
+  int writeFromSync(List<int> buffer, [int start = 0, int? end]) {
     if (_readOnly) {
       throw Exception('Cannot write to read-only RAM file data');
     }
-    final int usedStart = _length + start;
-    final int usedEnd = _length + (end ?? (start + buffer.length));
+    final int usedStart = start;
+    final int usedEnd = end ?? (start + buffer.length);
     int bufferStartWriteIndex = 0;
     int relativeStart;
     do {
@@ -182,5 +189,6 @@ class RamFileData {
       bufferStartWriteIndex += dataLengthToCopy;
     } while (relativeStart < usedEnd);
     _length = math.max(usedEnd, _length);
+    return usedEnd - start;
   }
 }
