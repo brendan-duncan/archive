@@ -16,13 +16,27 @@ class RAMFileHandle extends AbstractFileHandle {
     @Deprecated('Visible for testing only') int subListSize = 1024 * 1024,
   }) {
     // ignore: deprecated_member_use_from_same_package
-    return RAMFileHandle._(AbstractFileOpenMode.write, RamFileData.outputBuffer(subListSize));
+    return RAMFileHandle._(
+      AbstractFileOpenMode.write,
+      RamFileData.outputBuffer(subListSize: subListSize),
+    );
+  }
+
+  /// Creates a read-only RAMFileHandle from a RAMFileData
+  factory RAMFileHandle.fromRAMFileData(RamFileData ramFileData) {
+    // ignore: deprecated_member_use_from_same_package
+    return RAMFileHandle._(AbstractFileOpenMode.read, ramFileData);
   }
 
   /// Creates a read-only RAMFileHandle from a stream
-  static Future<RAMFileHandle> fromStream(Stream<Uint8List> stream, int fileLength) async {
+  static Future<RAMFileHandle> fromStream(
+    Stream<Uint8List> stream,
+    int fileLength,
+  ) async {
     // ignore: deprecated_member_use_from_same_package
-    return RAMFileHandle._(AbstractFileOpenMode.read, await RamFileData.fromStream(stream, fileLength));
+    return RAMFileHandle.fromRAMFileData(
+      await RamFileData.fromStream(stream, fileLength),
+    );
   }
 
   @override
@@ -76,16 +90,22 @@ class RamFileData {
   final List<List<int>> _content;
   final int _subListSize;
   int _length;
+  int get length => _length;
   final bool _readOnly;
 
   @Deprecated('Visible for testing only')
   List<List<int>> get content => _content;
 
-  RamFileData.outputBuffer(int subListSize)
-      : _content = <List<int>>[],
+  RamFileData.outputBuffer({
+    int subListSize = 1024 * 1024,
+  })  : _content = <List<int>>[],
         _subListSize = subListSize,
         _length = 0,
         _readOnly = false;
+
+  factory RamFileData.fromBytes(Uint8List bytes) {
+    return RamFileData._([bytes], bytes.length, bytes.length, true);
+  }
 
   static Future<RamFileData> fromStream(
     Stream<List<int>> source,

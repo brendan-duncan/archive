@@ -8,7 +8,6 @@ import 'input_file_stream.dart';
 import 'output_file_stream.dart';
 
 class ZipFileEncoder {
-  late String zipPath;
   late OutputFileStream _output;
   late ZipEncoder _encoder;
   final String? password;
@@ -41,9 +40,15 @@ class ZipFileEncoder {
   void open(String zipPath) => create(zipPath);
 
   void create(String zipPath, {int? level, DateTime? modified}) {
-    this.zipPath = zipPath;
+    createWithBuffer(OutputFileStream(zipPath), level: level, modified: modified);
+  }
 
-    _output = OutputFileStream(zipPath);
+  void createWithBuffer(
+    OutputFileStream outputFileStream, {
+    int? level,
+    DateTime? modified,
+  }) {
+    _output = outputFileStream;
     _encoder = ZipEncoder(password: password);
     _encoder.startEncode(_output, level: level, modified: modified);
   }
