@@ -179,7 +179,8 @@ void main() {
         final List<int> possibleSubListSizes = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 20, 30, 40, 50, 100, 200];
         for (int subListSize in possibleSubListSizes) {
           for (int bufferSize in possibleBufferSizes) {
-            final rfh = RAMFileHandle.asWritableRAMBuffer(subListSize: subListSize);
+            final ramFileData = RamFileData.outputBuffer(subListSize: subListSize);
+            final ramFileHandle = RAMFileHandle.fromRAMFileData(ramFileData);
             for (int i = 0; i < testData.length; i += bufferSize) {
               final buffer = Uint8List(bufferSize);
               final absStartIndex = i;
@@ -189,11 +190,14 @@ void main() {
                 break;
               }
               buffer.setRange(0, writtenLength, testData.getRange(absStartIndex, absEndIndex));
-              rfh.writeFromSync(buffer, 0, writtenLength);
+              ramFileHandle.writeFromSync(buffer, 0, writtenLength);
             }
-            final outputData = Uint8List(rfh.length);
-            rfh.readInto(outputData);
-            compareBytes(testData, outputData);
+            final outputData1 = Uint8List(ramFileData.length);
+            ramFileData.readIntoSync(outputData1, 0, ramFileData.length);
+            compareBytes(testData, outputData1);
+            final outputData2 = Uint8List(ramFileHandle.length);
+            ramFileHandle.readInto(outputData2);
+            compareBytes(testData, outputData2);
           }
         }
       },
