@@ -58,7 +58,6 @@ class RAMFileHandle extends AbstractFileHandle {
 
   @override
   Future<void> close() async {
-    _ramFileData._content.clear();
     _readPosition = 0;
   }
 

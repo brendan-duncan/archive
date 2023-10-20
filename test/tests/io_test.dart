@@ -288,6 +288,7 @@ void main() {
       output.writeInputStream(bytes);
     }
     input.close();
+    output.close();
 
     final aBytes = File(p.join(testDirPath, 'res/cat.jpg')).readAsBytesSync();
     final bBytes = Uint8List(rfh.length);
@@ -295,6 +296,58 @@ void main() {
 
     compareBytes(bBytes, aBytes);
     output.close();
+  });
+
+  test('Zip in RAM and then unzip from RAM', () {
+    final testFiles = [
+      'a.txt.gz',
+      'cat.jpg',
+      'cat.jpg.gz',
+      'emptyfile.txt',
+      'example.tar',
+      'tarurls.txt',
+      'test_100k_files.zip',
+      'test2.tar',
+      'test2.tar.bz2',
+      'test2.tar.gz',
+      'test2.zip',
+      'test.tar',
+      'test.zip',
+    ];
+    final fileNameToFileContent = <String, Uint8List>{};
+    for (final fileName in testFiles) {
+      fileNameToFileContent[fileName] = File(p.join(testDirPath, 'res/cat.jpg')).readAsBytesSync();
+    }
+    final RamFileData ramFileData = RamFileData.outputBuffer();
+    final zipEncoder = ZipFileEncoder()
+      ..createWithBuffer(
+        OutputFileStream.toRAMFile(
+          RAMFileHandle.fromRAMFileData(ramFileData),
+        ),
+      );
+    for (final fileEntry in fileNameToFileContent.entries) {
+      final name = fileEntry.key;
+      final content = fileEntry.value;
+      zipEncoder.addArchiveFile(ArchiveFile(name, content.length, content));
+    }
+    zipEncoder.close();
+    final Uint8List zippedBytes = Uint8List(ramFileData.length);
+    ramFileData.readIntoSync(zippedBytes, 0, zippedBytes.length);
+    final RamFileData readRamFileData = RamFileData.fromBytes(zippedBytes);
+    final Archive archive = ZipDecoder().decodeBuffer(
+      InputFileStream.withFileBuffer(
+        FileBuffer(
+          RAMFileHandle.fromRAMFileData(readRamFileData),
+        ),
+      ),
+    );
+    expect(archive.files.length, fileNameToFileContent.length);
+    for (int i = 0; i < archive.files.length; i++) {
+      final file = archive.files[i];
+      final Uint8List? fileContent = fileNameToFileContent[file.name];
+      expect(fileContent != null, true, reason: 'File content was null for "${file.name}"');
+      compareBytes(file.content as List<int>, fileContent as List<int>);
+    }
   });
 
   test('empty file', () {
