@@ -62,6 +62,11 @@ class RamFileHandle extends AbstractFileHandle {
   }
 
   @override
+  void closeSync() {
+    _readPosition = 0;
+  }
+
+  @override
   int readInto(Uint8List buffer, [int? end]) {
     final size = _ramFileData.readIntoSync(
       buffer,

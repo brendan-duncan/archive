@@ -16,6 +16,7 @@ abstract class AbstractFileHandle {
   int get length;
   bool get isOpen;
   Future<void> close();
+  void closeSync();
   int readInto(Uint8List buffer, [int? end]);
   void writeFromSync(List<int> buffer, [int start = 0, int? end]);
 }
@@ -67,6 +68,7 @@ class FileHandle extends AbstractFileHandle {
     await fp.close();
   }
 
+  @override
   void closeSync() {
     if (_file == null) {
       return;
