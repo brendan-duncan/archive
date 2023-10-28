@@ -67,32 +67,29 @@ Future<void> _testRamFileDataBuilder({
 }
 
 void main() {
-  group('testRamFileData initialization - ', () {
-    for (int sourceListTotalSize = _sourceListMinSize;
-        sourceListTotalSize <= _sourceListMaxSize;
-        sourceListTotalSize++) {
-      for (int sourceStreamListsMaxSize = _sourceStreamListsMinSize;
-          sourceStreamListsMaxSize <= _sourceStreamListsMaxSize;
-          sourceStreamListsMaxSize++) {
-        for (int targetSubListMaxSize = _targetSubListMinSize;
-            targetSubListMaxSize <= _targetSubListMaxSize;
-            targetSubListMaxSize++) {
-          test(
-            'Source of $sourceListTotalSize bytes in $sourceStreamListsMaxSize bytes stream chunks, stored in $targetSubListMaxSize bytes chunks',
-            () => _testRamFileDataBuilder(
+  group('RamFileData initialization -', () {
+    test('Various init parameters', () async {
+      for (int sourceListTotalSize = _sourceListMinSize;
+          sourceListTotalSize <= _sourceListMaxSize;
+          sourceListTotalSize++) {
+        for (int sourceStreamListsMaxSize = _sourceStreamListsMinSize;
+            sourceStreamListsMaxSize <= _sourceStreamListsMaxSize;
+            sourceStreamListsMaxSize++) {
+          for (int targetSubListMaxSize = _targetSubListMinSize;
+              targetSubListMaxSize <= _targetSubListMaxSize;
+              targetSubListMaxSize++) {
+            await _testRamFileDataBuilder(
               sourceListTotalSize: sourceListTotalSize,
               sourceStreamListsMaxSize: sourceStreamListsMaxSize,
               targetSubListMaxSize: targetSubListMaxSize,
-            ),
-          );
+            );
+          }
         }
       }
-    }
-  });
+    });
 
-  group('Passing an erratic stream produces an exception -', () {
     test(
-      'Last item larger than previous items',
+      'Erratic stream - last item larger than previous items',
       () async {
         Object? triggeredError;
         try {
@@ -116,7 +113,7 @@ void main() {
       },
     );
     test(
-      'Middle item smaller than previous items',
+      'Erratic stream - middle item smaller than previous items',
       () async {
         Object? triggeredError;
         try {
@@ -142,7 +139,7 @@ void main() {
       },
     );
     test(
-      'Middle item larger than previous items',
+      'Erratic stream - middle item larger than previous items',
       () async {
         Object? triggeredError;
         try {
@@ -167,40 +164,38 @@ void main() {
     );
   });
 
-  group('Writing to a RAM file -', () {
-    test(
-      'Writing bytes into a RAM file can be properly read after',
-      () async {
-        final testData = Uint8List(120);
-        for (var i = 0; i < testData.length; ++i) {
-          testData[i] = i;
-        }
-        final List<int> possibleBufferSizes = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 20, 30, 40, 50];
-        final List<int> possibleSubListSizes = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 20, 30, 40, 50, 100, 200];
-        for (int subListSize in possibleSubListSizes) {
-          for (int bufferSize in possibleBufferSizes) {
-            final ramFileData = RamFileData.outputBuffer(subListSize: subListSize);
-            final ramFileHandle = RamFileHandle.fromRamFileData(ramFileData);
-            for (int i = 0; i < testData.length; i += bufferSize) {
-              final buffer = Uint8List(bufferSize);
-              final absStartIndex = i;
-              final absEndIndex = math.min(i + bufferSize, testData.length);
-              final int writtenLength = absEndIndex - absStartIndex;
-              if (writtenLength <= 0) {
-                break;
-              }
-              buffer.setRange(0, writtenLength, testData.getRange(absStartIndex, absEndIndex));
-              ramFileHandle.writeFromSync(buffer, 0, writtenLength);
+  test(
+    'Writing bytes into a RAM file can be properly read after',
+    () async {
+      final testData = Uint8List(120);
+      for (var i = 0; i < testData.length; ++i) {
+        testData[i] = i;
+      }
+      final List<int> possibleBufferSizes = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 20, 30, 40, 50];
+      final List<int> possibleSubListSizes = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 20, 30, 40, 50, 100, 200];
+      for (int subListSize in possibleSubListSizes) {
+        for (int bufferSize in possibleBufferSizes) {
+          final ramFileData = RamFileData.outputBuffer(subListSize: subListSize);
+          final ramFileHandle = RamFileHandle.fromRamFileData(ramFileData);
+          for (int i = 0; i < testData.length; i += bufferSize) {
+            final buffer = Uint8List(bufferSize);
+            final absStartIndex = i;
+            final absEndIndex = math.min(i + bufferSize, testData.length);
+            final int writtenLength = absEndIndex - absStartIndex;
+            if (writtenLength <= 0) {
+              break;
             }
-            final outputData1 = Uint8List(ramFileData.length);
-            ramFileData.readIntoSync(outputData1, 0, ramFileData.length);
-            compareBytes(testData, outputData1);
-            final outputData2 = Uint8List(ramFileHandle.length);
-            ramFileHandle.readInto(outputData2);
-            compareBytes(testData, outputData2);
+            buffer.setRange(0, writtenLength, testData.getRange(absStartIndex, absEndIndex));
+            ramFileHandle.writeFromSync(buffer, 0, writtenLength);
           }
+          final outputData1 = Uint8List(ramFileData.length);
+          ramFileData.readIntoSync(outputData1, 0, ramFileData.length);
+          compareBytes(testData, outputData1);
+          final outputData2 = Uint8List(ramFileHandle.length);
+          ramFileHandle.readInto(outputData2);
+          compareBytes(testData, outputData2);
         }
-      },
-    );
-  });
+      }
+    },
+  );
 }
