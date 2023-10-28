@@ -36,7 +36,7 @@ class InputFileStream extends InputStreamBase {
     );
   }
 
-  static Future<InputFileStream> asRAMFile(
+  static Future<InputFileStream> asRamFile(
     Stream<Uint8List> stream,
     int fileLength, {
     int byteOrder = LITTLE_ENDIAN,
