@@ -74,7 +74,7 @@ Future<List<_FileData>> _readZipContentFromStream(
   final Archive archive = ZipDecoder().decodeBuffer(
     InputFileStream.withFileBuffer(
       FileBuffer(
-        RAMFileHandle.fromRAMFileData(inputRamFileData),
+        RamFileHandle.fromRamFileData(inputRamFileData),
       ),
     ),
   );
@@ -95,8 +95,8 @@ RamFileData _writeFilesDataAsZipRamData(List<_FileData> fileDataList) {
   // Create a ZipFileEncoder that will write into the RamFileData
   final ZipFileEncoder zipEncoder = ZipFileEncoder()
     ..createWithBuffer(
-      OutputFileStream.toRAMFile(
-        RAMFileHandle.fromRAMFileData(outputRamFileData),
+      OutputFileStream.toRamFile(
+        RamFileHandle.fromRamFileData(outputRamFileData),
       ),
     );
 

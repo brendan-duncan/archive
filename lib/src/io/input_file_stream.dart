@@ -43,7 +43,7 @@ class InputFileStream extends InputStreamBase {
     int bufferSize = FileBuffer.kDefaultBufferSize,
   }) async {
     return InputFileStream.withFileBuffer(
-      FileBuffer(await RAMFileHandle.fromStream(stream, fileLength)),
+      FileBuffer(await RamFileHandle.fromStream(stream, fileLength)),
       byteOrder: byteOrder,
       bufferSize: bufferSize,
     );

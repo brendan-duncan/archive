@@ -42,8 +42,8 @@ class OutputFileStream extends OutputStreamBase {
     );
   }
 
-  factory OutputFileStream.toRAMFile(
-    RAMFileHandle ramFileHandle, {
+  factory OutputFileStream.toRamFile(
+    RamFileHandle ramFileHandle, {
     int byteOrder = LITTLE_ENDIAN,
     int? bufferSize,
   }) {

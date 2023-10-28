@@ -48,7 +48,7 @@ Future<InputFileStream> _buildFileIFS(String path, [int? bufferSize]) async {
   }
 }
 
-Future<InputFileStream> _buildRAMIFS(String path, [int? bufferSize]) async {
+Future<InputFileStream> _buildRamIfs(String path, [int? bufferSize]) async {
   final File file = File(path);
   final int fileLength = file.lengthSync();
   final rawFileStream = file.openRead();
@@ -60,7 +60,7 @@ Future<InputFileStream> _buildRAMIFS(String path, [int? bufferSize]) async {
       },
     ),
   );
-  final RAMFileHandle fileHandle = await RAMFileHandle.fromStream(fileStream, fileLength);
+  final RamFileHandle fileHandle = await RamFileHandle.fromStream(fileStream, fileLength);
   if (bufferSize == null) {
     return InputFileStream.withFileBuffer(FileBuffer(fileHandle));
   } else {
@@ -72,8 +72,8 @@ Future<OutputFileStream> _buildFileOFS(String path) async {
   return OutputFileStream(path);
 }
 
-Future<OutputFileStream> _buildRAMOFS(String path) async {
-  return OutputFileStream.toRAMFile(RAMFileHandle.asWritableRAMBuffer());
+Future<OutputFileStream> _buildRamOfs(String path) async {
+  return OutputFileStream.toRamFile(RamFileHandle.asWritableRamBuffer());
 }
 
 void _testInputFileStream(
@@ -83,7 +83,7 @@ void _testInputFileStream(
   ) testFunction,
 ) {
   test('$description (file)', () => testFunction(_buildFileIFS));
-  test('$description (ram)', () => testFunction(_buildRAMIFS));
+  test('$description (ram)', () => testFunction(_buildRamIfs));
 }
 
 void _testInputOutputFileStream(
@@ -94,9 +94,9 @@ void _testInputOutputFileStream(
   ) testFunction,
 ) {
   test('$description (file > file)', () => testFunction(_buildFileIFS, _buildFileOFS));
-  test('$description (file > ram)', () => testFunction(_buildFileIFS, _buildRAMOFS));
-  test('$description (ram > file)', () => testFunction(_buildRAMIFS, _buildFileOFS));
-  test('$description (ram > ram)', () => testFunction(_buildRAMIFS, _buildRAMOFS));
+  test('$description (file > ram)', () => testFunction(_buildFileIFS, _buildRamOfs));
+  test('$description (ram > file)', () => testFunction(_buildRamIfs, _buildFileOFS));
+  test('$description (ram > ram)', () => testFunction(_buildRamIfs, _buildRamOfs));
 }
 
 void main() {
@@ -274,8 +274,8 @@ void main() {
 
   test('InputFileStream/OutputFileStream (ram)', () {
     var input = InputFileStream(p.join(testDirPath, 'res/cat.jpg'));
-    final RAMFileHandle rfh = RAMFileHandle.asWritableRAMBuffer();
-    var output = OutputFileStream.toRAMFile(rfh);
+    final RamFileHandle rfh = RamFileHandle.asWritableRamBuffer();
+    var output = OutputFileStream.toRamFile(rfh);
     var offset = 0;
     var inputLength = input.length;
     while (!input.isEOS) {
@@ -321,8 +321,8 @@ void main() {
     final RamFileData ramFileData = RamFileData.outputBuffer();
     final zipEncoder = ZipFileEncoder()
       ..createWithBuffer(
-        OutputFileStream.toRAMFile(
-          RAMFileHandle.fromRAMFileData(ramFileData),
+        OutputFileStream.toRamFile(
+          RamFileHandle.fromRamFileData(ramFileData),
         ),
       );
     for (final fileEntry in fileNameToFileContent.entries) {
@@ -337,7 +337,7 @@ void main() {
     final Archive archive = ZipDecoder().decodeBuffer(
       InputFileStream.withFileBuffer(
         FileBuffer(
-          RAMFileHandle.fromRAMFileData(readRamFileData),
+          RamFileHandle.fromRamFileData(readRamFileData),
         ),
       ),
     );

@@ -3,38 +3,38 @@ import 'dart:typed_data';
 
 import 'file_handle.dart';
 
-class RAMFileHandle extends AbstractFileHandle {
+class RamFileHandle extends AbstractFileHandle {
   // ignore: deprecated_member_use_from_same_package
   final RamFileData _ramFileData;
   int _readPosition = 0;
   int _writePosition = 0;
 
-  RAMFileHandle._(AbstractFileOpenMode openMode, this._ramFileData) : super(openMode);
+  RamFileHandle._(AbstractFileOpenMode openMode, this._ramFileData) : super(openMode);
 
-  /// Creates a writeable RAMFileHandle
-  factory RAMFileHandle.asWritableRAMBuffer({
+  /// Creates a writeable RamFileHandle
+  factory RamFileHandle.asWritableRamBuffer({
     @Deprecated('Visible for testing only') int subListSize = 1024 * 1024,
   }) {
     // ignore: deprecated_member_use_from_same_package
-    return RAMFileHandle._(
+    return RamFileHandle._(
       AbstractFileOpenMode.write,
       RamFileData.outputBuffer(subListSize: subListSize),
     );
   }
 
-  /// Creates a read-only RAMFileHandle from a RAMFileData
-  factory RAMFileHandle.fromRAMFileData(RamFileData ramFileData) {
+  /// Creates a read-only RamFileHandle from a RamFileData
+  factory RamFileHandle.fromRamFileData(RamFileData ramFileData) {
     // ignore: deprecated_member_use_from_same_package
-    return RAMFileHandle._(AbstractFileOpenMode.read, ramFileData);
+    return RamFileHandle._(AbstractFileOpenMode.read, ramFileData);
   }
 
-  /// Creates a read-only RAMFileHandle from a stream
-  static Future<RAMFileHandle> fromStream(
+  /// Creates a read-only RamFileHandle from a stream
+  static Future<RamFileHandle> fromStream(
     Stream<Uint8List> stream,
     int fileLength,
   ) async {
     // ignore: deprecated_member_use_from_same_package
-    return RAMFileHandle.fromRAMFileData(
+    return RamFileHandle.fromRamFileData(
       await RamFileData.fromStream(stream, fileLength),
     );
   }

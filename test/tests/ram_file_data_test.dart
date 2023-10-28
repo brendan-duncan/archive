@@ -180,7 +180,7 @@ void main() {
         for (int subListSize in possibleSubListSizes) {
           for (int bufferSize in possibleBufferSizes) {
             final ramFileData = RamFileData.outputBuffer(subListSize: subListSize);
-            final ramFileHandle = RAMFileHandle.fromRAMFileData(ramFileData);
+            final ramFileHandle = RamFileHandle.fromRamFileData(ramFileData);
             for (int i = 0; i < testData.length; i += bufferSize) {
               final buffer = Uint8List(bufferSize);
               final absStartIndex = i;
