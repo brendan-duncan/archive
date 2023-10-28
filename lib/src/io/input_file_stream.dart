@@ -64,6 +64,13 @@ class InputFileStream extends InputStreamBase {
   }
 
   @override
+  closeSync() {
+    _file.closeSync();
+    _position = 0;
+    _fileSize = 0;
+  }
+
+  @override
   int get length => _fileSize;
 
   @override

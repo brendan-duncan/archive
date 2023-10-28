@@ -17,6 +17,9 @@ abstract class InputStreamBase {
   /// Asynchronously closes the input stream.
   Future<void> close() async {}
 
+  /// Synchronously close the input stream
+  void closeSync() {}
+
   /// Reset to the beginning of the stream.
   void reset();
 
@@ -110,6 +113,12 @@ class InputStream extends InputStreamBase {
 
   @override
   Future<void> close() async {
+    buffer = <int>[];
+    _length = 0;
+  }
+
+  @override
+  void closeSync() {
     buffer = <int>[];
     _length = 0;
   }

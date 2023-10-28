@@ -61,10 +61,20 @@ class FileHandle extends AbstractFileHandle {
     if (_file == null) {
       return;
     }
-    var fp = _file;
+    var fp = _file!;
     _file = null;
     _position = 0;
-    await fp!.close();
+    await fp.close();
+  }
+
+  void closeSync() {
+    if (_file == null) {
+      return;
+    }
+    var fp = _file!;
+    _file = null;
+    _position = 0;
+    fp.closeSync();
   }
 
   void _open() {
