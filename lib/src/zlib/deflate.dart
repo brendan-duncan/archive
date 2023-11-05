@@ -452,7 +452,9 @@ class Deflate {
     if (len == 0) {
       return;
     }
-    _pendingBuffer.setRange(_pending, _pending + len, p, start);
+    for (int i = 0, j = _pending; i < len; ++i, ++j) {
+      _pendingBuffer[j] = p[i + start];
+    }
     _pending += len;
   }
 
