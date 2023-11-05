@@ -1,3 +1,7 @@
+## 3.4.7 - November 4, 2023
+
+* Improve performance by not using List.setRange for copying bytes, which turns out to be very slow.
+
 ## 3.4.6 - October 10, 2023
 
 * Fix for Zip64 file size causing memory errors. 
