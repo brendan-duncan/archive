@@ -1,3 +1,7 @@
+## 3.4.8 - November 5, 2023
+
+* Improve zip decompression performance with dart:io by using native ZLib decompression when possible.
+
 ## 3.4.7 - November 4, 2023
 
 * Improve performance by not using List.setRange for copying bytes, which turns out to be very slow.
