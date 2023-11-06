@@ -36,8 +36,9 @@ bool _isValidSymLink(String outputPath, ArchiveFile file) {
   return true;
 }
 
-void extractArchiveToDisk(Archive archive, String outputPath,
-    {bool asyncWrite = false, int? bufferSize}) {
+Future<void> extractArchiveToDisk(Archive archive, String outputPath,
+    {bool asyncWrite = false, int? bufferSize}) async {
+  final futures = <Future<void>>[];
   final outDir = Directory(outputPath);
   if (!outDir.existsSync()) {
     outDir.createSync(recursive: true);
@@ -59,18 +60,16 @@ void extractArchiveToDisk(Archive archive, String outputPath,
     if (asyncWrite) {
       if (file.isSymbolicLink) {
         final link = Link(filePath);
-        link.create(path.normalize(file.nameOfLinkedFile), recursive: true);
+        await link.create(path.normalize(file.nameOfLinkedFile),
+            recursive: true);
       } else {
         final output = File(filePath);
-        output.create(recursive: true).then((f) {
-          f.open(mode: FileMode.write).then((fp) {
-            final bytes = file.content as List<int>;
-            fp.writeFrom(bytes).then((fp) {
-              file.clear();
-              fp.close();
-            });
-          });
-        });
+        final f = await output.create(recursive: true);
+        final fp = await f.open(mode: FileMode.write);
+        final bytes = file.content as List<int>;
+        await fp.writeFrom(bytes);
+        file.clear();
+        futures.add(fp.close());
       }
     } else {
       if (file.isSymbolicLink) {
@@ -86,6 +85,10 @@ void extractArchiveToDisk(Archive archive, String outputPath,
         output.close();
       }
     }
+  }
+  if (futures.isNotEmpty) {
+    await Future.wait(futures);
+    futures.clear();
   }
 }
 
