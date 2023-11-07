@@ -2,7 +2,7 @@
 
 - Improve zip decompression performance with dart:io by using native ZLib decompression when possible.
 
-> **BREAKING**: If you're using the `unawaited_futures`(https://dart.dev/tools/linter-rules/unawaited_futures) lint rule, this would fail the analysis; ensure awaiting `extractArchiveToDisk`.
+> **BREAKING**: If you're using the [`unawaited_futures`](https://dart.dev/tools/linter-rules/unawaited_futures) lint rule, this would fail the analysis; ensure awaiting `extractArchiveToDisk`.
 
 ## 3.4.7 - November 4, 2023
 
