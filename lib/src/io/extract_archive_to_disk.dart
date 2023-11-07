@@ -36,7 +36,61 @@ bool _isValidSymLink(String outputPath, ArchiveFile file) {
   return true;
 }
 
-Future<void> extractArchiveToDisk(Archive archive, String outputPath,
+void extractArchiveToDisk(Archive archive, String outputPath,
+    {bool asyncWrite = false, int? bufferSize}) {
+  final outDir = Directory(outputPath);
+  if (!outDir.existsSync()) {
+    outDir.createSync(recursive: true);
+  }
+  for (final file in archive.files) {
+    final filePath = path.join(outputPath, path.normalize(file.name));
+
+    if ((!file.isFile && !file.isSymbolicLink) ||
+        !isWithinOutputPath(outputPath, filePath)) {
+      continue;
+    }
+
+    if (file.isSymbolicLink) {
+      if (!_isValidSymLink(outputPath, file)) {
+        continue;
+      }
+    }
+
+    if (asyncWrite) {
+      if (file.isSymbolicLink) {
+        final link = Link(filePath);
+        link.create(path.normalize(file.nameOfLinkedFile),
+            recursive: true);
+      } else {
+        final output = File(filePath);
+        output.create(recursive: true).then((f) {
+          f.open(mode: FileMode.write).then((fp) {
+            final bytes = file.content as List<int>;
+            fp.writeFrom(bytes).then((fp) {
+              file.clear();
+              fp.close();
+            });
+          });
+        });
+      }
+    } else {
+      if (file.isSymbolicLink) {
+        final link = Link(filePath);
+        link.createSync(path.normalize(file.nameOfLinkedFile), recursive: true);
+      } else {
+        final output = OutputFileStream(filePath, bufferSize: bufferSize);
+        try {
+          file.writeContent(output);
+        } catch (err) {
+          //
+        }
+        output.close();
+      }
+    }
+  }
+}
+
+Future<void> extractArchiveToDiskAsync(Archive archive, String outputPath,
     {bool asyncWrite = false, int? bufferSize}) async {
   final futures = <Future<void>>[];
   final outDir = Directory(outputPath);
