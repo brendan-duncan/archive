@@ -59,8 +59,7 @@ void extractArchiveToDisk(Archive archive, String outputPath,
     if (asyncWrite) {
       if (file.isSymbolicLink) {
         final link = Link(filePath);
-        link.create(path.normalize(file.nameOfLinkedFile),
-            recursive: true);
+        link.create(path.normalize(file.nameOfLinkedFile), recursive: true);
       } else {
         final output = File(filePath);
         output.create(recursive: true).then((f) {
