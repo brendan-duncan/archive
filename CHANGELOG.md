@@ -289,4 +289,4 @@
 - Renamed `InputBuffer` and `OutputBuffer` to `InputStream` and `OutputStream`,
   respectively.
 
-- Added `readBits` method to `InputStream`. 
+- Added `readBits` method to `InputStream`.
