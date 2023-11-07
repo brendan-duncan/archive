@@ -1,3 +1,8 @@
+## 3.4.9 - November 7, 2023
+
+* Revert breaking change for extractArchiveToDisk becoming async;
+add extractArchiveToDiskAsync for the async version.
+
 ## 3.4.8 - November 5, 2023
 
 * Improve zip decompression performance with dart:io by using native ZLib decompression when possible.
