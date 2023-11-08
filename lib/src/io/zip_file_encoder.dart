@@ -25,7 +25,7 @@ class ZipFileEncoder {
   /// See also:
   ///
   /// * [zipDirectoryAsync] for the asynchronous version of this method.
-  /// * [_composeZipDirectoryPath] for the logic of composing the zip file path.
+  /// * [_composeZipDirectoryPath] for the logic of composing the Zip file path.
   //@Deprecated('Use zipDirectoryAsync instead')
   void zipDirectory(Directory dir,
       {String? filename,
@@ -56,7 +56,7 @@ class ZipFileEncoder {
   /// See also:
   ///
   /// * [zipDirectory] for the synchronous version of this method.
-  /// * [_composeZipDirectoryPath] for the logic of composing the zip file path.
+  /// * [_composeZipDirectoryPath] for the logic of composing the Zip file path.
   Future<void> zipDirectoryAsync(Directory dir,
       {String? filename,
       int? level,
