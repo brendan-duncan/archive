@@ -100,7 +100,8 @@ class ZipFileEncoder {
 
     if (path.isWithin(dirPath, filename)) {
       throw FormatException(
-        'filename ($filename) must not be within the directory being zipped',
+        'filename must not be within the directory being zipped',
+        filename,
       );
     }
 
