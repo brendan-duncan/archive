@@ -77,7 +77,7 @@ class ZipFileEncoder {
     close();
   }
 
-  /// Composes the target of the Zip file after a [Directory] is zipped.
+  /// Composes the path (target) of the Zip file after a [Directory] is zipped.
   ///
   /// {@template ZipFileEncoder._composeZipDirectoryPath.filename}
   /// [filename] determines where the Zip file will be created. If [filename]
