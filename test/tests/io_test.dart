@@ -472,4 +472,64 @@ void main() {
     expect(dstFiles.length, equals(srcFiles.length));
     //encoder.close();
   });
+
+  group('$ZipFileEncoder', () {
+    test(
+      'zipDirectory throws a FormatException when filename is within dir',
+      () {
+        final encoder = ZipFileEncoder();
+        final invalidFilename = p.join(testDirPath, 'res/test2.zip');
+
+        expect(
+          () => encoder.zipDirectory(
+            Directory(testDirPath),
+            filename: invalidFilename,
+          ),
+          throwsA(
+            isA<FormatException>()
+                .having(
+                  (exception) => exception.message,
+                  'message',
+                  equals(
+                      'filename must not be within the directory being zipped'),
+                )
+                .having(
+                  (exception) => exception.source,
+                  'source',
+                  equals(invalidFilename),
+                ),
+          ),
+        );
+      },
+    );
+
+    test(
+      'zipDirectoryAsync throws a FormatException when filename is within dir',
+      () async {
+        final encoder = ZipFileEncoder();
+        final invalidFilename = p.join(testDirPath, 'res/test2.zip');
+
+        await expectLater(
+          () => encoder.zipDirectoryAsync(
+            Directory(testDirPath),
+            filename: invalidFilename,
+          ),
+          throwsA(
+            isA<FormatException>()
+                .having(
+                  (exception) => exception.message,
+                  'message',
+                  equals(
+                      'filename must not be within the directory being zipped'),
+                )
+                .having(
+                  (exception) => exception.source,
+                  'source',
+                  equals(invalidFilename),
+                ),
+          ),
+        );
+      },
+    );
+  });
 }

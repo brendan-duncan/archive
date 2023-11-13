@@ -18,6 +18,14 @@ class ZipFileEncoder {
 
   ZipFileEncoder({this.password});
 
+  /// Zips a [dir] to a Zip file synchronously.
+  ///
+  /// {@macro ZipFileEncoder._composeZipDirectoryPath.filename}
+  ///
+  /// See also:
+  ///
+  /// * [zipDirectoryAsync] for the asynchronous version of this method.
+  /// * [_composeZipDirectoryPath] for the logic of composing the Zip file path.
   //@Deprecated('Use zipDirectoryAsync instead')
   void zipDirectory(Directory dir,
       {String? filename,
@@ -25,10 +33,12 @@ class ZipFileEncoder {
       bool followLinks = true,
       void Function(double)? onProgress,
       DateTime? modified}) {
-    final dirPath = dir.path;
-    final zipPath = filename ?? '$dirPath.zip';
-    level ??= GZIP;
-    create(zipPath, level: level, modified: modified);
+    create(
+      _composeZipDirectoryPath(dir: dir, filename: filename),
+      level: level ??= GZIP,
+      modified: modified,
+    );
+
     _addDirectory(
       dir,
       includeDirName: false,
@@ -39,22 +49,63 @@ class ZipFileEncoder {
     close();
   }
 
+  /// Zips a [dir] to a Zip file asynchronously.
+  ///
+  /// {@macro ZipFileEncoder._composeZipDirectoryPath.filename}
+  ///
+  /// See also:
+  ///
+  /// * [zipDirectory] for the synchronous version of this method.
+  /// * [_composeZipDirectoryPath] for the logic of composing the Zip file path.
   Future<void> zipDirectoryAsync(Directory dir,
       {String? filename,
       int? level,
       bool followLinks = true,
       void Function(double)? onProgress,
       DateTime? modified}) async {
-    final dirPath = dir.path;
-    final zipPath = filename ?? '$dirPath.zip';
-    level ??= GZIP;
-    create(zipPath, level: level, modified: modified);
+    create(
+      _composeZipDirectoryPath(dir: dir, filename: filename),
+      level: level ??= GZIP,
+      modified: modified,
+    );
+
     await addDirectory(dir,
         includeDirName: false,
         level: level,
         followLinks: followLinks,
         onProgress: onProgress);
     close();
+  }
+
+  /// Composes the path (target) of the Zip file after a [Directory] is zipped.
+  ///
+  /// {@template ZipFileEncoder._composeZipDirectoryPath.filename}
+  /// [filename] determines where the Zip file will be created. If [filename]
+  /// is not specified, the name of the directory will be used with a '.zip'
+  /// extension. If [filename] is within [dir], it will throw a [FormatException].
+  /// {@endtemplate}
+  ///
+  /// See also:
+  ///
+  /// * [zipDirectory] and [zipDirectoryAsync] for the methods that use this logic.
+  String _composeZipDirectoryPath({
+    required Directory dir,
+    required String? filename,
+  }) {
+    final dirPath = dir.path;
+
+    if (filename == null) {
+      return '$dirPath.zip';
+    }
+
+    if (path.isWithin(dirPath, filename)) {
+      throw FormatException(
+        'filename must not be within the directory being zipped',
+        filename,
+      );
+    }
+
+    return filename;
   }
 
   void open(String zipPath) => create(zipPath);
