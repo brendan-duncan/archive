@@ -14,7 +14,7 @@ class _ZLibDecoder extends ZLibDecoderBase {
   }
 
   @override
-  List<int> decodeBuffer(InputStream input, {bool verify = false}) {
+  List<int> decodeBuffer(InputStreamBase input, {bool verify = false}) {
     return decodeBytes(input.toUint8List(), verify: verify);
   }
 }
