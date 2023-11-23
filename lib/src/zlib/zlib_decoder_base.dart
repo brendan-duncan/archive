@@ -6,5 +6,5 @@ abstract class ZLibDecoderBase {
 
   List<int> decodeBytes(List<int> data, {bool verify = false});
 
-  List<int> decodeBuffer(InputStream input, {bool verify = false});
+  List<int> decodeBuffer(InputStreamBase input, {bool verify = false});
 }

@@ -20,7 +20,7 @@ class _ZLibDecoder extends ZLibDecoderBase {
   }
 
   @override
-  List<int> decodeBuffer(InputStream input, {bool verify = false}) {
+  List<int> decodeBuffer(InputStreamBase input, {bool verify = false}) {
     /*
      * The zlib format has the following structure:
      * CMF  1 byte
