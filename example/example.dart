@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'package:archive/archive_io.dart';
 
-void main() {
+Future<void> main() async {
   // Read the Zip file from disk.
   final bytes = File('test.zip').readAsBytesSync();
 
@@ -31,7 +31,7 @@ void main() {
 
   // Zip a directory to out.zip using the zipDirectory convenience method
   var encoder = ZipFileEncoder();
-  encoder.zipDirectory(Directory('out'), filename: 'out.zip');
+  await encoder.zipDirectoryAsync(Directory('out'), filename: 'out.zip');
 
   // Manually create a zip of a directory and individual files.
   encoder.create('out2.zip');
