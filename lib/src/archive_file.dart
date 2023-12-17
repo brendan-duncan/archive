@@ -158,6 +158,17 @@ class ArchiveFile {
     await Future.wait(futures);
   }
 
+  void closeSync() {
+    if (_content is InputStreamBase) {
+      (_content as InputStreamBase).closeSync();
+    }
+    if (_rawContent is InputStreamBase) {
+      (_rawContent as InputStreamBase).closeSync();
+    }
+    _content = null;
+    _rawContent = null;
+  }
+
   /// If the file data is compressed, decompress it.
   void decompress([OutputStreamBase? output]) {
     if (_content == null && _rawContent != null) {
