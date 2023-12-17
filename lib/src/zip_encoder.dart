@@ -81,12 +81,13 @@ class ZipEncoder {
   List<int>? encode(Archive archive,
       {int level = Deflate.BEST_SPEED,
       OutputStreamBase? output,
-      DateTime? modified}) {
+      DateTime? modified,
+      bool autoClose = true}) {
     output ??= OutputStream();
 
     startEncode(output, level: level, modified: modified);
     for (final file in archive.files) {
-      addFile(file);
+      addFile(file, autoClose: autoClose);
     }
     endEncode(comment: archive.comment);
 
@@ -158,7 +159,7 @@ class ZipEncoder {
     return data;
   }
 
-  void addFile(ArchiveFile file) {
+  void addFile(ArchiveFile file, {bool autoClose = true}) {
     final fileData = _ZipFileData();
     _data.files.add(fileData);
 
@@ -261,6 +262,8 @@ class ZipEncoder {
     _writeFile(fileData, _output!, salt: salt);
 
     fileData.compressedData = null;
+
+    file.closeSync();
   }
 
   void endEncode({String? comment = ''}) {
