@@ -1,3 +1,7 @@
+## 3.4.10 - January 2, 2024
+
+* Fix ZipCrypto decryption
+
 ## 3.4.9 - November 7, 2023
 
 * Revert breaking change for extractArchiveToDisk becoming async;
