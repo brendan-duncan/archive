@@ -63,7 +63,7 @@ class Archive extends IterableBase<ArchiveFile> {
   ArchiveFile operator [](int index) => _files[index];
 
   /// Set a file in the archive.
-  operator[]=(int index, ArchiveFile file) {
+  void operator[]=(int index, ArchiveFile file) {
     if (index < 0 || index >= _files.length) {
       return;
     }
