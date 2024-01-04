@@ -28,6 +28,22 @@ class Archive extends IterableBase<ArchiveFile> {
     _fileMap[file.name] = _files.length - 1;
   }
 
+  void removeFile(ArchiveFile file) {
+    final index = _fileMap[file.name];
+    if (index != null) {
+      _files.removeAt(index);
+      _fileMap.remove(file.name);
+    }
+  }
+
+  void removeAt(int index) {
+    if (index < 0 || index >= _files.length) {
+      return;
+    }
+    _fileMap.remove(_files[index].name);
+    _files.removeAt(index);
+  }
+
   Future<void> clear() async {
     var futures = <Future<void>>[];
     for (var fp in _files) {
@@ -45,6 +61,16 @@ class Archive extends IterableBase<ArchiveFile> {
 
   /// Get a file from the archive.
   ArchiveFile operator [](int index) => _files[index];
+
+  /// Set a file in the archive.
+  operator[]=(int index, ArchiveFile file) {
+    if (index < 0 || index >= _files.length) {
+      return;
+    }
+    _fileMap.remove(_files[index].name);
+    _files[index] = file;
+    _fileMap[file.name] = index;
+  }
 
   /// Find a file with the given [name] in the archive. If the file isn't found,
   /// null will be returned.
