@@ -83,7 +83,7 @@ class OutputFileStream extends OutputStreamBase {
     }
     flush();
     _isOpen = false;
-    _fp.closeSync();
+    _fileHandle.closeSync();
   }
 
   /// Write a byte to the end of the buffer.
