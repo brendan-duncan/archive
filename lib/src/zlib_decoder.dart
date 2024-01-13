@@ -13,7 +13,7 @@ class ZLibDecoder {
     return platformZLibDecoder.decodeBytes(data, verify: verify);
   }
 
-  List<int> decodeBuffer(InputStream input, {bool verify = false}) {
+  List<int> decodeBuffer(InputStreamBase input, {bool verify = false}) {
     return platformZLibDecoder.decodeBuffer(input, verify: verify);
   }
 }

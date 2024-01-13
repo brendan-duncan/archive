@@ -77,6 +77,15 @@ class OutputFileStream extends OutputStreamBase {
     await _fileHandle.close();
   }
 
+  void closeSync() {
+    if (!_isOpen) {
+      return;
+    }
+    flush();
+    _isOpen = false;
+    _fp.closeSync();
+  }
+
   /// Write a byte to the end of the buffer.
   @override
   void writeByte(int value) {

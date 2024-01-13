@@ -6,6 +6,7 @@ import '../util/input_stream.dart';
 import '../util/output_stream.dart';
 import '../util/_file_content.dart';
 import '../zlib/inflate.dart';
+import '../zlib/inflate_buffer.dart';
 import 'zip_file_header.dart';
 import 'dart:typed_data';
 import "package:pointycastle/export.dart";
@@ -97,7 +98,9 @@ class ZipFile extends FileContent {
             this.compressionMethod = _aesHeader!.compressionMethod;
           }
         }
-      } else if (_encryptionType == 1 && password != null) {
+      }
+
+      if (_encryptionType == 1 && password != null) {
         _initKeys(password);
       }
 
@@ -152,7 +155,13 @@ class ZipFile extends FileContent {
       }
 
       if (compressionMethod == zipCompressionDeflate) {
-        _content = Inflate.buffer(_rawContent, uncompressedSize).getBytes();
+        const oneGB = 1024 * 1024 * 1024;
+        if (_rawContent is InputStream ||
+            (useNativeZLib() && _rawContent.length < oneGB)) {
+          _content = inflateBuffer(_rawContent.toUint8List());
+        } else {
+          _content = Inflate.buffer(_rawContent, uncompressedSize).getBytes();
+        }
         compressionMethod = zipCompressionStore;
       } else if (compressionMethod == zipCompressionBZip2) {
         final output = OutputStream();
@@ -193,7 +202,7 @@ class ZipFile extends FileContent {
     _keys[0] = CRC32(_keys[0], c);
     _keys[1] += _keys[0] & 0xff;
     _keys[1] = _keys[1] * 134775813 + 1;
-    _keys[2] = CRC32(_keys[2], _keys[1] >> 24);
+    _keys[2] = CRC32(_keys[2], (_keys[1] >> 24) & 0xff);
   }
 
   int _decryptByte() {

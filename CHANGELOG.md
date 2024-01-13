@@ -1,3 +1,20 @@
+## 3.4.10 - January 2, 2024
+
+* Fix ZipCrypto decryption
+
+## 3.4.9 - November 7, 2023
+
+* Revert breaking change for extractArchiveToDisk becoming async;
+add extractArchiveToDiskAsync for the async version.
+
+## 3.4.8 - November 5, 2023
+
+* Improve zip decompression performance with dart:io by using native ZLib decompression when possible.
+
+## 3.4.7 - November 4, 2023
+
+* Improve performance by not using List.setRange for copying bytes, which turns out to be very slow.
+
 ## 3.4.6 - October 10, 2023
 
 * Fix for Zip64 file size causing memory errors. 

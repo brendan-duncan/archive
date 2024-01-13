@@ -5,3 +5,7 @@ import '_inflate_buffer_stub.dart'
 List<int>? inflateBuffer(List<int> array) {
   return inflateBuffer_(array);
 }
+
+bool useNativeZLib() {
+  return useNativeZLib_();
+}

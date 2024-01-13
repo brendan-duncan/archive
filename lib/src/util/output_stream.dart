@@ -73,7 +73,78 @@ class OutputStream extends OutputStreamBase {
     while (length + len > _buffer.length) {
       _expandBuffer((length + len) - _buffer.length);
     }
-    _buffer.setRange(length, length + len, bytes);
+
+    //_buffer.setRange is very slow in Dart, a for-loop is much faster.
+    if (len == 1) {
+      _buffer[length] = bytes[0];
+    } else if (len == 2) {
+      _buffer[length] = bytes[0];
+      _buffer[length + 1] = bytes[1];
+    } else if (len == 3) {
+      _buffer[length] = bytes[0];
+      _buffer[length + 1] = bytes[1];
+      _buffer[length + 2] = bytes[2];
+    } else if (len == 4) {
+      _buffer[length] = bytes[0];
+      _buffer[length + 1] = bytes[1];
+      _buffer[length + 2] = bytes[2];
+      _buffer[length + 3] = bytes[3];
+    } else if (len == 5) {
+      _buffer[length] = bytes[0];
+      _buffer[length + 1] = bytes[1];
+      _buffer[length + 2] = bytes[2];
+      _buffer[length + 3] = bytes[3];
+      _buffer[length + 4] = bytes[4];
+    } else if (len == 6) {
+      _buffer[length] = bytes[0];
+      _buffer[length + 1] = bytes[1];
+      _buffer[length + 2] = bytes[2];
+      _buffer[length + 3] = bytes[3];
+      _buffer[length + 4] = bytes[4];
+      _buffer[length + 5] = bytes[5];
+    } else if (len == 7) {
+      _buffer[length] = bytes[0];
+      _buffer[length + 1] = bytes[1];
+      _buffer[length + 2] = bytes[2];
+      _buffer[length + 3] = bytes[3];
+      _buffer[length + 4] = bytes[4];
+      _buffer[length + 5] = bytes[5];
+      _buffer[length + 6] = bytes[6];
+    } else if (len == 8) {
+      _buffer[length] = bytes[0];
+      _buffer[length + 1] = bytes[1];
+      _buffer[length + 2] = bytes[2];
+      _buffer[length + 3] = bytes[3];
+      _buffer[length + 4] = bytes[4];
+      _buffer[length + 5] = bytes[5];
+      _buffer[length + 6] = bytes[6];
+      _buffer[length + 7] = bytes[7];
+    } else if (len == 9) {
+      _buffer[length] = bytes[0];
+      _buffer[length + 1] = bytes[1];
+      _buffer[length + 2] = bytes[2];
+      _buffer[length + 3] = bytes[3];
+      _buffer[length + 4] = bytes[4];
+      _buffer[length + 5] = bytes[5];
+      _buffer[length + 6] = bytes[6];
+      _buffer[length + 7] = bytes[7];
+      _buffer[length + 8] = bytes[8];
+    } else if (len == 10) {
+      _buffer[length] = bytes[0];
+      _buffer[length + 1] = bytes[1];
+      _buffer[length + 2] = bytes[2];
+      _buffer[length + 3] = bytes[3];
+      _buffer[length + 4] = bytes[4];
+      _buffer[length + 5] = bytes[5];
+      _buffer[length + 6] = bytes[6];
+      _buffer[length + 7] = bytes[7];
+      _buffer[length + 8] = bytes[8];
+      _buffer[length + 9] = bytes[9];
+    } else {
+      for (int i = 0, j = length; i < len; ++i, ++j) {
+        _buffer[j] = bytes[i];
+      }
+    }
     length += len;
   }
 
@@ -87,8 +158,10 @@ class OutputStream extends OutputStreamBase {
       _buffer.setRange(
           length, length + stream.length, stream.buffer, stream.offset);
     } else {
-      var bytes = stream.toUint8List();
-      _buffer.setRange(length, length + stream.length, bytes, 0);
+      final bytes = stream.toUint8List();
+      for (int i = 0, j = length, l = bytes.length; i < l; ++i, ++j) {
+        _buffer[j] = bytes[i];
+      }
     }
     length += stream.length;
   }
