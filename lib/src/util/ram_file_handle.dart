@@ -1,7 +1,7 @@
 import 'dart:math' as math;
 import 'dart:typed_data';
 
-import 'file_handle.dart';
+import 'abstract_file_handle.dart';
 
 class RamFileHandle extends AbstractFileHandle {
   // ignore: deprecated_member_use_from_same_package

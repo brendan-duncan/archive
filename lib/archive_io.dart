@@ -10,4 +10,3 @@ export 'src/io/input_file_stream.dart';
 export 'src/io/output_file_stream.dart';
 export 'src/io/tar_file_encoder.dart';
 export 'src/io/zip_file_encoder.dart';
-export 'src/io/ram_file_handle.dart';

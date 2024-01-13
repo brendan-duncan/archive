@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'dart:typed_data';
-import 'file_handle.dart';
+
+import '../util/abstract_file_handle.dart';
 import '../util/byte_order.dart';
 
 class FileBuffer {
