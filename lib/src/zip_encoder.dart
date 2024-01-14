@@ -354,8 +354,8 @@ class ZipEncoder {
     output.writeBytes(encodedFilename);
     output.writeBytes(extra);
 
-    if (password != null) {
-      output.writeBytes(salt!);
+    if (password != null && salt != null) {
+      output.writeBytes(salt);
       output.writeBytes(_pwdVer!);
     }
 
