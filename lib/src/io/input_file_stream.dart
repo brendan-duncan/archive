@@ -2,30 +2,56 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'file_buffer.dart';
+import 'file_handle.dart';
+import '../util/ram_file_handle.dart';
+import '../util/abstract_file_handle.dart';
 import '../util/archive_exception.dart';
 import '../util/byte_order.dart';
 import '../util/input_stream.dart';
 
 class InputFileStream extends InputStreamBase {
-  final String path;
-  final int byteOrder;
   final FileBuffer _file;
+  final int byteOrder;
   final int _fileOffset;
   late int _fileSize;
   int _position;
 
-  InputFileStream(this.path,
-      {this.byteOrder = LITTLE_ENDIAN,
-      int bufferSize = FileBuffer.kDefaultBufferSize})
-      : _file = FileBuffer(path),
-        _fileOffset = 0,
+  InputFileStream.withFileBuffer(
+    this._file, {
+    this.byteOrder = LITTLE_ENDIAN,
+    int bufferSize = FileBuffer.kDefaultBufferSize,
+  })  : _fileOffset = 0,
         _position = 0 {
     _fileSize = _file.length;
   }
 
+  factory InputFileStream(
+    String path, {
+    int byteOrder = LITTLE_ENDIAN,
+    int bufferSize = FileBuffer.kDefaultBufferSize,
+  }) {
+    return InputFileStream.withFileBuffer(
+      FileBuffer(FileHandle(path, openMode: AbstractFileOpenMode.read)),
+      byteOrder: byteOrder,
+      bufferSize: bufferSize,
+    );
+  }
+
+  static Future<InputFileStream> asRamFile(
+    Stream<Uint8List> stream,
+    int fileLength, {
+    int byteOrder = LITTLE_ENDIAN,
+    int bufferSize = FileBuffer.kDefaultBufferSize,
+  }) async {
+    return InputFileStream.withFileBuffer(
+      FileBuffer(await RamFileHandle.fromStream(stream, fileLength)),
+      byteOrder: byteOrder,
+      bufferSize: bufferSize,
+    );
+  }
+
   InputFileStream.clone(InputFileStream other, {int? position, int? length})
-      : path = other.path,
-        byteOrder = other.byteOrder,
+      : byteOrder = other.byteOrder,
         _file = other._file,
         _fileOffset = other._fileOffset + (position ?? 0),
         _fileSize = length ?? other._fileSize,

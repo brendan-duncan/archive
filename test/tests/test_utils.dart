@@ -10,11 +10,11 @@ final String testDirPath = p.dirname(p.fromUri(currentMirrorSystem()
     .findLibrary(const Symbol('archive.test.test_utils'))
     .uri));
 
-void compareBytes(List<int> a, List<int> b) {
-  expect(a.length, equals(b.length));
-  final len = a.length;
+void compareBytes(List<int> actual, List<int> expected) {
+  expect(actual.length, equals(expected.length));
+  final len = actual.length;
   for (var i = 0; i < len; ++i) {
-    expect(a[i], equals(b[i]));
+    expect(actual[i], equals(expected[i]), reason: 'Wrong value for Byte at index $i');
   }
 }
 

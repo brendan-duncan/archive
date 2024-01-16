@@ -1,5 +1,6 @@
 // ignore_for_file: avoid_print
 
+import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -39,6 +40,65 @@ void generateDataDirectory(String path,
   }
 }
 
+Future<InputFileStream> _buildFileIFS(String path, [int? bufferSize]) async {
+  if (bufferSize == null) {
+    return InputFileStream(path);
+  } else {
+    return InputFileStream(path, bufferSize: bufferSize);
+  }
+}
+
+Future<InputFileStream> _buildRamIfs(String path, [int? bufferSize]) async {
+  final File file = File(path);
+  final int fileLength = file.lengthSync();
+  final rawFileStream = file.openRead();
+  final fileStream = rawFileStream.transform(
+    StreamTransformer<List<int>, Uint8List>.fromHandlers(
+      handleData: (List<int> data, EventSink<Uint8List> sink) {
+        final uint8List = Uint8List.fromList(data);
+        sink.add(uint8List);
+      },
+    ),
+  );
+  final RamFileHandle fileHandle = await RamFileHandle.fromStream(fileStream, fileLength);
+  if (bufferSize == null) {
+    return InputFileStream.withFileBuffer(FileBuffer(fileHandle));
+  } else {
+    return InputFileStream.withFileBuffer(FileBuffer(fileHandle, bufferSize: bufferSize));
+  }
+}
+
+Future<OutputFileStream> _buildFileOFS(String path) async {
+  return OutputFileStream(path);
+}
+
+Future<OutputFileStream> _buildRamOfs(String path) async {
+  return OutputFileStream.toRamFile(RamFileHandle.asWritableRamBuffer());
+}
+
+void _testInputFileStream(
+  String description,
+  dynamic Function(
+    Future<InputFileStream> Function(String, [int?]) ifsConstructor,
+  ) testFunction,
+) {
+  test('$description (file)', () => testFunction(_buildFileIFS));
+  test('$description (ram)', () => testFunction(_buildRamIfs));
+}
+
+void _testInputOutputFileStream(
+  String description,
+  dynamic Function(
+    Future<InputFileStream> Function(String, [int?]) ifsConstructor,
+    Future<OutputFileStream> Function(String) ofsConstructor,
+  ) testFunction,
+) {
+  test('$description (file > file)', () => testFunction(_buildFileIFS, _buildFileOFS));
+  test('$description (file > ram)', () => testFunction(_buildFileIFS, _buildRamOfs));
+  test('$description (ram > file)', () => testFunction(_buildRamIfs, _buildFileOFS));
+  test('$description (ram > ram)', () => testFunction(_buildRamIfs, _buildRamOfs));
+}
+
 void main() {
   final testPath = p.join(testDirPath, 'out/test_123.bin');
   final testData = Uint8List(120);
@@ -55,7 +115,7 @@ void main() {
   testFile.writeAsBytesSync(testData);
 
   test('FileBuffer', () async {
-    FileBuffer fb = FileBuffer(testPath, bufferSize: 5);
+    FileBuffer fb = FileBuffer(FileHandle(testPath), bufferSize: 5);
     expect(fb.length, equals(testData.length));
     var indices = [5, 110, 0, 64];
     for (final i in indices) {
@@ -88,20 +148,20 @@ void main() {
   });
 
   group('InputFileStream', () {
-    test('length', () {
-      final fs = InputFileStream(testPath, bufferSize: 2);
+    _testInputFileStream('length', (ifsConstructor) async {
+      final fs = await ifsConstructor(testPath, 2);
       expect(fs.length, testData.length);
     });
 
-    test('readByte', () {
-      final fs = InputFileStream(testPath, bufferSize: 2);
+    _testInputFileStream('readByte', (ifsConstructor) async {
+      final fs = await ifsConstructor(testPath, 2);
       for (var i = 0; i < testData.length; ++i) {
-        expect(fs.readByte(), testData[i]);
+        expect(fs.readByte(), testData[i], reason: 'Byte at index $i was incorrect');
       }
     });
 
-    test('readBytes', () {
-      final input = InputFileStream(testPath);
+    _testInputFileStream('readBytes', (ifsConstructor) async {
+      final input = await ifsConstructor(testPath);
       expect(input.length, equals(120));
       var ai = 0;
       while (!input.isEOS) {
@@ -116,8 +176,8 @@ void main() {
       }
     });
 
-    test('position', () {
-      final fs = InputFileStream(testPath, bufferSize: 2);
+    _testInputFileStream('position', (ifsConstructor) async {
+      final fs = await ifsConstructor(testPath, 2);
       fs.position = 50;
       final bs = fs.readBytes(50);
       final b = bs.toUint8List();
@@ -127,8 +187,8 @@ void main() {
       }
     });
 
-    test('skip', () {
-      final fs = InputFileStream(testPath, bufferSize: 2);
+    _testInputFileStream('skip', (ifsConstructor) async {
+      final fs = await ifsConstructor(testPath, 2);
       fs.skip(50);
       final bs = fs.readBytes(50);
       final b = bs.toUint8List();
@@ -138,8 +198,8 @@ void main() {
       }
     });
 
-    test('rewind', () {
-      final fs = InputFileStream(testPath, bufferSize: 2);
+    _testInputFileStream('rewind', (ifsConstructor) async {
+      final fs = await ifsConstructor(testPath, 2);
       fs.skip(50);
       fs.rewind(10);
       final bs = fs.readBytes(50);
@@ -150,8 +210,8 @@ void main() {
       }
     });
 
-    test('rewind 2', () {
-      final fs = InputFileStream(testPath, bufferSize: 2);
+    _testInputFileStream('rewind 2', (ifsConstructor) async {
+      final fs = await ifsConstructor(testPath, 2);
       final bs = fs.readBytes(50);
       final b = bs.toUint8List();
       fs.rewind(50);
@@ -161,8 +221,8 @@ void main() {
       }
     });
 
-    test('peakBytes', () {
-      final fs = InputFileStream(testPath, bufferSize: 2);
+    _testInputFileStream('peakBytes', (ifsConstructor) async {
+      final fs = await ifsConstructor(testPath, 2);
       final bs = fs.peekBytes(10);
       final b = bs.toUint8List();
       expect(fs.position, 0);
@@ -172,8 +232,8 @@ void main() {
       }
     });
 
-    test("clone", () {
-      final input = InputFileStream(testPath);
+    _testInputFileStream("clone", (ifsConstructor) async {
+      final input = await ifsConstructor(testPath);
       final input2 = InputFileStream.clone(input, position: 6, length: 5);
       final bs = input2.readBytes(5);
       final b = bs.toUint8List();
@@ -184,7 +244,7 @@ void main() {
     });
   });
 
-  test('InputFileStream/OutputFileStream', () {
+  test('InputFileStream/OutputFileStream (files)', () {
     var input = InputFileStream(p.join(testDirPath, 'res/cat.jpg'));
     var output = OutputFileStream(p.join(testDirPath, 'out/cat2.jpg'));
     var offset = 0;
@@ -212,6 +272,84 @@ void main() {
     expect(same, equals(true));
   });
 
+  test('InputFileStream/OutputFileStream (ram)', () {
+    var input = InputFileStream(p.join(testDirPath, 'res/cat.jpg'));
+    final RamFileHandle rfh = RamFileHandle.asWritableRamBuffer();
+    var output = OutputFileStream.toRamFile(rfh);
+    var offset = 0;
+    var inputLength = input.length;
+    while (!input.isEOS) {
+      final bytes = input.readBytes(50);
+      if (offset + 50 > inputLength) {
+        final remaining = inputLength - offset;
+        expect(bytes.length, equals(remaining));
+      }
+      offset += bytes.length;
+      output.writeInputStream(bytes);
+    }
+    input.close();
+    output.close();
+
+    final aBytes = File(p.join(testDirPath, 'res/cat.jpg')).readAsBytesSync();
+    final bBytes = Uint8List(rfh.length);
+    rfh.readInto(bBytes);
+
+    compareBytes(bBytes, aBytes);
+    output.close();
+  });
+
+  test('Zip in RAM and then unzip from RAM', () {
+    final testFiles = [
+      'a.txt.gz',
+      'cat.jpg',
+      'cat.jpg.gz',
+      'emptyfile.txt',
+      'example.tar',
+      'tarurls.txt',
+      'test_100k_files.zip',
+      'test2.tar',
+      'test2.tar.bz2',
+      'test2.tar.gz',
+      'test2.zip',
+      'test.tar',
+      'test.zip',
+    ];
+    final fileNameToFileContent = <String, Uint8List>{};
+    for (final fileName in testFiles) {
+      fileNameToFileContent[fileName] = File(p.join(testDirPath, 'res/cat.jpg')).readAsBytesSync();
+    }
+    final RamFileData ramFileData = RamFileData.outputBuffer();
+    final zipEncoder = ZipFileEncoder()
+      ..createWithBuffer(
+        OutputFileStream.toRamFile(
+          RamFileHandle.fromRamFileData(ramFileData),
+        ),
+      );
+    for (final fileEntry in fileNameToFileContent.entries) {
+      final name = fileEntry.key;
+      final content = fileEntry.value;
+      zipEncoder.addArchiveFile(ArchiveFile(name, content.length, content));
+    }
+    zipEncoder.close();
+    final Uint8List zippedBytes = Uint8List(ramFileData.length);
+    ramFileData.readIntoSync(zippedBytes, 0, zippedBytes.length);
+    final RamFileData readRamFileData = RamFileData.fromBytes(zippedBytes);
+    final Archive archive = ZipDecoder().decodeBuffer(
+      InputFileStream.withFileBuffer(
+        FileBuffer(
+          RamFileHandle.fromRamFileData(readRamFileData),
+        ),
+      ),
+    );
+    expect(archive.files.length, fileNameToFileContent.length);
+    for (int i = 0; i < archive.files.length; i++) {
+      final file = archive.files[i];
+      final Uint8List? fileContent = fileNameToFileContent[file.name];
+      expect(fileContent != null, true, reason: 'File content was null for "${file.name}"');
+      compareBytes(file.content as List<int>, fileContent as List<int>);
+    }
+  });
+
   test('empty file', () {
     final encoder = ZipFileEncoder();
     encoder.create('$testDirPath/out/testEmpty.zip');
@@ -224,9 +362,9 @@ void main() {
     expect(archive.length, equals(1));
   });
 
-  test('stream tar decode', () {
+  _testInputFileStream('stream tar decode', (ifsConstructor) async {
     // Decode a tar from disk to memory
-    final stream = InputFileStream(p.join(testDirPath, 'res/test2.tar'));
+    final stream = await ifsConstructor(p.join(testDirPath, 'res/test2.tar'));
     final tarArchive = TarDecoder();
     tarArchive.decodeBuffer(stream);
 
@@ -247,9 +385,9 @@ void main() {
     expect(tarArchive.files.length, equals(4));
   });
 
-  test('stream zip decode', () {
+  _testInputFileStream('stream zip decode', (ifsConstructor) async {
     // Decode a tar from disk to memory
-    final stream = InputFileStream(p.join(testDirPath, 'res/test.zip'));
+    final stream = await ifsConstructor(p.join(testDirPath, 'res/test.zip'));
     final zip = ZipDecoder().decodeBuffer(stream);
 
     expect(zip.files.length, equals(2));
@@ -271,32 +409,41 @@ void main() {
     expect(archive.length, equals(4));
   });
 
-  test('stream gzip encode', () {
-    final input = InputFileStream(p.join(testDirPath, 'res/cat.jpg'));
-    final output = OutputFileStream(p.join(testDirPath, 'out/cat.jpg.gz'));
+  _testInputOutputFileStream('stream gzip encode', (
+    ifsConstructor,
+    ofsConstructor,
+  ) async {
+    final input = await ifsConstructor(p.join(testDirPath, 'res/cat.jpg'));
+    final output = await ofsConstructor(p.join(testDirPath, 'out/cat.jpg.gz'));
 
     final encoder = GZipEncoder();
     encoder.encode(input, output: output);
     output.close();
   });
 
-  test('stream gzip decode', () {
-    final input = InputFileStream(p.join(testDirPath, 'out/cat.jpg.gz'));
-    final output = OutputFileStream(p.join(testDirPath, 'out/cat.jpg'));
+  _testInputOutputFileStream('stream gzip decode', (
+    ifsConstructor,
+    ofsConstructor,
+  ) async {
+    final input = await ifsConstructor(p.join(testDirPath, 'out/cat.jpg.gz'));
+    final output = await ofsConstructor(p.join(testDirPath, 'out/cat.jpg'));
 
     GZipDecoder().decodeStream(input, output);
     output.close();
   });
 
-  test('TarFileEncoder -> GZipEncoder', () async {
+  _testInputOutputFileStream('TarFileEncoder -> GZipEncoder', (
+    ifsConstructor,
+    ofsConstructor,
+  ) async {
     // Encode a directory from disk to disk, no memory
     final encoder = TarFileEncoder();
     encoder.create('$testDirPath/out/example2.tar');
     encoder.addDirectory(Directory('$testDirPath/res/test2'));
     await encoder.close();
 
-    final input = InputFileStream(p.join(testDirPath, 'out/example2.tar'));
-    final output = OutputFileStream(p.join(testDirPath, 'out/example2.tgz'));
+    final input = await ifsConstructor(p.join(testDirPath, 'out/example2.tar'));
+    final output = await ofsConstructor(p.join(testDirPath, 'out/example2.tgz'));
     GZipEncoder().encode(input, output: output);
     input.close();
     output.close();
@@ -347,7 +494,7 @@ void main() {
     expect(archive2.length, equals(4));
   });
 
-  test('file close', () {
+  _testInputFileStream('file close', (ifsConstructor) async {
     final testPath = p.join(testDirPath, 'out/test2.bin');
     final testData = Uint8List(120);
     for (var i = 0; i < testData.length; ++i) {
@@ -359,7 +506,7 @@ void main() {
     fp.writeFromSync(testData);
     fp.closeSync();
 
-    final input = InputFileStream(testPath);
+    final input = await ifsConstructor(testPath);
     final bs = input.readBytes(50);
     expect(bs.length, 50);
     input.close();
