@@ -1,12 +1,11 @@
 import 'dart:typed_data';
 
-import 'package:archive/src/io/file_handle.dart';
-import 'package:archive/src/util/ram_file_handle.dart';
-
+import '../io/file_handle.dart';
 import '../util/abstract_file_handle.dart';
 import '../util/byte_order.dart';
 import '../util/input_stream.dart';
 import '../util/output_stream.dart';
+import '../util/ram_file_handle.dart';
 
 class OutputFileStream extends OutputStreamBase {
   final int byteOrder;
