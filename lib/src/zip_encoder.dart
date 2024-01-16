@@ -364,7 +364,7 @@ class ZipEncoder {
       output.writeInputStream(compressedData);
     }
 
-    if (password != null) {
+    if (password != null && _mac != null) {
       output.writeBytes(_mac!);
     }
   }
