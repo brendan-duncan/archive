@@ -263,7 +263,9 @@ class ZipEncoder {
 
     fileData.compressedData = null;
 
-    file.closeSync();
+    if (autoClose) {
+      file.closeSync();
+    }
   }
 
   void endEncode({String? comment = ''}) {
