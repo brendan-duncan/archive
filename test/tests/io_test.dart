@@ -596,10 +596,8 @@ void main() {
 
   test('FileHandle', () async {
     final fp = File('$testDirPath/res/zip/zip_bzip2.zip');
-    final raf = await fp.open();
-    final fh = FileHandle.from(raf);
-    final fb = FileBuffer(fh);
-    final fs = InputFileStream.withFileBuffer(fb);
+    final fh = FileHandle.fromFile(fp);
+    final fs = InputFileStream.withFileHandle(fh);
     expect(fs.readByte(), equals(80));
   });
 

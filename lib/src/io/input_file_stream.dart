@@ -25,6 +25,15 @@ class InputFileStream extends InputStreamBase {
     _fileSize = _file.length;
   }
 
+  InputFileStream.withFileHandle(AbstractFileHandle fh, {
+    this.byteOrder = LITTLE_ENDIAN,
+    int bufferSize = FileBuffer.kDefaultBufferSize,
+  })  : _file = FileBuffer(fh)
+      , _fileOffset = 0
+      , _position = 0 {
+    _fileSize = _file.length;
+  }
+
   factory InputFileStream(
     String path, {
     int byteOrder = LITTLE_ENDIAN,

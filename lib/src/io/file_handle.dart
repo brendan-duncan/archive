@@ -9,6 +9,24 @@ class FileHandle extends AbstractFileHandle {
   int _position;
   late int _length;
 
+  FileHandle.fromFile(File fp, {
+    AbstractFileOpenMode openMode = AbstractFileOpenMode.read })
+      : _position = 0
+      , _path = ""
+      , super(openMode) {
+    final FileMode fileOpenMode;
+    switch (openMode) {
+      case AbstractFileOpenMode.read:
+        fileOpenMode = FileMode.read;
+        break;
+      case AbstractFileOpenMode.write:
+        fileOpenMode = FileMode.write;
+        break;
+    }
+    _file = fp.openSync(mode: fileOpenMode);
+    _length = _file?.lengthSync() ?? 0;
+  }
+
   FileHandle.from(RandomAccessFile fp)
       : _position = 0
       , _path = ""
