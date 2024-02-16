@@ -9,10 +9,18 @@ class FileHandle extends AbstractFileHandle {
   int _position;
   late int _length;
 
+  FileHandle.from(RandomAccessFile fp)
+      : _position = 0
+      , _path = ""
+      , super(AbstractFileOpenMode.read) {
+    _file = fp;
+    _length = fp.lengthSync();
+  }
+
   FileHandle(this._path, {
     AbstractFileOpenMode openMode = AbstractFileOpenMode.read,
   }) : _position = 0, super(openMode) {
-    if (openMode == AbstractFileOpenMode.write){
+    if (openMode == AbstractFileOpenMode.write) {
       File(_path).createSync(recursive: true);
     }
     _open();

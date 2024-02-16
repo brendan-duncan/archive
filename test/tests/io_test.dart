@@ -114,6 +114,10 @@ void main() {
   testFile.openSync(mode: FileMode.write);
   testFile.writeAsBytesSync(testData);
 
+  test('FileHandle', () async {
+
+  });
+
   test('FileBuffer', () async {
     FileBuffer fb = FileBuffer(FileHandle(testPath), bufferSize: 5);
     expect(fb.length, equals(testData.length));
@@ -588,6 +592,15 @@ void main() {
     a.addFile(f1);
     a.addFile(f2);
     extractArchiveToDisk(a, '$testDirPath/out/extractArchiveToDisk_symlink');
+  });
+
+  test('FileHandle', () async {
+    final fp = File('$testDirPath/res/zip/zip_bzip2.zip');
+    final raf = await fp.open();
+    final fh = FileHandle.from(raf);
+    final fb = FileBuffer(fh);
+    final fs = InputFileStream.withFileBuffer(fb);
+    expect(fs.readByte(), equals(80));
   });
 
   test('zip directory', () async {
