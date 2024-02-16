@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:archive/src/util/abstract_file_handle.dart';
+import '../util/abstract_file_handle.dart';
 
 class FileHandle extends AbstractFileHandle {
   final String _path;
