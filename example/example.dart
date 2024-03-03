@@ -37,5 +37,5 @@ Future<void> main() async {
   encoder.create('out2.zip');
   encoder.addDirectory(Directory('out'));
   encoder.addFile(File('test.zip'));
-  encoder.close();
+  encoder.closeSync();
 }
