@@ -110,7 +110,7 @@ RamFileData _writeFilesDataAsZipRamData(List<_FileData> fileDataList) {
   }
 
   // Close the ZipFileEncoder
-  zipEncoder.close();
+  zipEncoder.closeSync();
 
   return outputRamFileData;
 }

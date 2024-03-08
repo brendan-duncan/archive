@@ -45,7 +45,7 @@ class ZipFileEncoder {
       followLinks: followLinks,
       onProgress: onProgress,
     );
-    close();
+    closeSync();
   }
 
   /// Zips a [dir] to a Zip file asynchronously.
@@ -73,7 +73,7 @@ class ZipFileEncoder {
         level: level,
         followLinks: followLinks,
         onProgress: onProgress);
-    close();
+    closeSync();
   }
 
   /// Composes the path (target) of the Zip file after a [Directory] is zipped.
@@ -224,8 +224,13 @@ class ZipFileEncoder {
     _encoder.addFile(file);
   }
 
-  void close() {
+  void closeSync() {
     _encoder.endEncode();
-    _output.close();
+    _output.closeSync();
+  }
+
+  Future<void> close() async {
+    _encoder.endEncode();
+    await _output.close();
   }
 }

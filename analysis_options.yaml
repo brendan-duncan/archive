@@ -19,3 +19,5 @@ linter:
   rules:
     - avoid_print
     - camel_case_types
+    - unawaited_futures
+    - discarded_futures

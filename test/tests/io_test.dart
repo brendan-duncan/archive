@@ -334,7 +334,7 @@ void main() {
       final content = fileEntry.value;
       zipEncoder.addArchiveFile(ArchiveFile(name, content.length, content));
     }
-    zipEncoder.close();
+    zipEncoder.closeSync();
     final Uint8List zippedBytes = Uint8List(ramFileData.length);
     ramFileData.readIntoSync(zippedBytes, 0, zippedBytes.length);
     final RamFileData readRamFileData = RamFileData.fromBytes(zippedBytes);
@@ -358,7 +358,7 @@ void main() {
     final encoder = ZipFileEncoder();
     encoder.create('$testDirPath/out/testEmpty.zip');
     encoder.addFile(File('$testDirPath/res/emptyfile.txt'));
-    encoder.close();
+    encoder.closeSync();
 
     final zipDecoder = ZipDecoder();
     final f = File('$testDirPath/out/testEmpty.zip');
@@ -467,7 +467,7 @@ void main() {
     encoder.addDirectory(Directory('$testDirPath/res/test2'));
     encoder.addFile(File('$testDirPath/res/cat.jpg'));
     encoder.addFile(File('$testDirPath/res/tarurls.txt'));
-    encoder.close();
+    encoder.closeSync();
 
     final zipDecoder = ZipDecoder();
     final f = File('$testDirPath/out/example2.zip');
