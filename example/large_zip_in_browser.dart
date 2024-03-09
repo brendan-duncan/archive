@@ -138,7 +138,7 @@ Future<void> _saveRamFileDataToDiskRegular(RamFileData ramFileData) async {
 Future<void> _saveRamFileDataToDiskExperimental(
   RamFileData ramFileData,
 ) async {
-  _ExperimentalFileSaver.saveRamFileDataAsFile(
+  await _ExperimentalFileSaver.saveRamFileDataAsFile(
     'exported_file.zip',
     ramFileData,
   );

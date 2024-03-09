@@ -404,7 +404,7 @@ void main() {
     // Encode a directory from disk to disk, no memory
     final encoder = TarFileEncoder();
     encoder.open('$testDirPath/out/test3.tar');
-    encoder.addDirectory(Directory('$testDirPath/res/test2'));
+    await encoder.addDirectory(Directory('$testDirPath/res/test2'));
     await encoder.close();
 
     final tarDecoder = TarDecoder();
@@ -422,7 +422,7 @@ void main() {
 
     final encoder = GZipEncoder();
     encoder.encode(input, output: output);
-    output.close();
+    await output.close();
   });
 
   _testInputOutputFileStream('stream gzip decode', (
@@ -433,7 +433,7 @@ void main() {
     final output = await ofsConstructor(p.join(testDirPath, 'out/cat.jpg'));
 
     GZipDecoder().decodeStream(input, output);
-    output.close();
+    await output.close();
   });
 
   _testInputOutputFileStream('TarFileEncoder -> GZipEncoder', (
@@ -443,22 +443,22 @@ void main() {
     // Encode a directory from disk to disk, no memory
     final encoder = TarFileEncoder();
     encoder.create('$testDirPath/out/example2.tar');
-    encoder.addDirectory(Directory('$testDirPath/res/test2'));
+    await encoder.addDirectory(Directory('$testDirPath/res/test2'));
     await encoder.close();
 
     final input = await ifsConstructor(p.join(testDirPath, 'out/example2.tar'));
     final output = await ofsConstructor(p.join(testDirPath, 'out/example2.tgz'));
     GZipEncoder().encode(input, output: output);
-    input.close();
-    output.close();
+    await input.close();
+    await output.close();
   });
 
   test('TarFileEncoder tgz', () async {
     // Encode a directory from disk to disk, no memory
     final encoder = TarFileEncoder();
-    encoder.tarDirectory(Directory('$testDirPath/res/test2'),
+    await encoder.tarDirectory(Directory('$testDirPath/res/test2'),
         filename: '$testDirPath/out/example2.tgz', compression: 1);
-    encoder.close();
+    await encoder.close();
   });
 
   test('stream zip encode', () {
@@ -513,9 +513,8 @@ void main() {
     final input = await ifsConstructor(testPath);
     final bs = input.readBytes(50);
     expect(bs.length, 50);
-    input.close();
-
-    testFile.delete();
+    await input.close();
+    await testFile.delete();
   });
 
   test('extractFileToDisk tar', () async {

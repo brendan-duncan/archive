@@ -135,7 +135,7 @@ Future<void> extractArchiveToDiskAsync(Archive archive, String outputPath,
         } catch (err) {
           //
         }
-        output.close();
+        await output.close();
       }
     }
   }

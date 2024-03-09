@@ -43,7 +43,7 @@ class TarFileEncoder {
       final output = OutputFileStream(tgzPath);
       GZipEncoder().encode(input, output: output, level: level);
       await input.close();
-      File(tarPath).delete();
+      await File(tarPath).delete();
     }
   }
 
