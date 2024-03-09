@@ -590,7 +590,18 @@ void main() {
     final a = Archive();
     a.addFile(f1);
     a.addFile(f2);
-    extractArchiveToDisk(a, '$testDirPath/out/extractArchiveToDisk_symlink');
+    await extractArchiveToDisk(a, '$testDirPath/out/extractArchiveToDisk_symlink');
+  });
+
+  test('extractArchiveToDiskSync symlink', () {
+    final f1 = ArchiveFile('test', 3, 'foo'.codeUnits);
+    final f2 = ArchiveFile('link', 0, null);
+    f2.isSymbolicLink = true;
+    f2.nameOfLinkedFile = './../test.tar';
+    final a = Archive();
+    a.addFile(f1);
+    a.addFile(f2);
+    extractArchiveToDiskSync(a, '$testDirPath/out/extractArchiveToDisk_symlink');
   });
 
   test('FileHandle', () async {
