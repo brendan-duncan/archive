@@ -78,13 +78,13 @@ Directory extractFiles(String inputPath, String outputPath) {
   return outDir;
 }
 
-void createTarFile(String dirPath) {
+Future<void> createTarFile(String dirPath) async {
   final dir = Directory(dirPath);
   if (!dir.existsSync()) fail('$dirPath does not exist');
 
   // Encode a directory from disk to disk, no memory
   final encoder = TarFileEncoder();
-  encoder.tarDirectory(dir, compression: TarFileEncoder.GZIP);
+  await encoder.tarDirectory(dir, compression: TarFileEncoder.GZIP);
 }
 
 void fail(String message) {
