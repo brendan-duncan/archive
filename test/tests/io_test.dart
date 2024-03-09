@@ -262,8 +262,8 @@ void main() {
       offset += bytes.length;
       output.writeInputStream(bytes);
     }
-    input.close();
-    output.close();
+    input.closeSync();
+    output.closeSync();
 
     final aBytes = File(p.join(testDirPath, 'res/cat.jpg')).readAsBytesSync();
     final bBytes = File(p.join(testDirPath, 'out/cat2.jpg')).readAsBytesSync();
@@ -291,15 +291,15 @@ void main() {
       offset += bytes.length;
       output.writeInputStream(bytes);
     }
-    input.close();
-    output.close();
+    input.closeSync();
+    output.closeSync();
 
     final aBytes = File(p.join(testDirPath, 'res/cat.jpg')).readAsBytesSync();
     final bBytes = Uint8List(rfh.length);
     rfh.readInto(bBytes);
 
     compareBytes(bBytes, aBytes);
-    output.close();
+    output.closeSync();
   });
 
   test('Zip in RAM and then unzip from RAM', () {
@@ -354,10 +354,10 @@ void main() {
     }
   });
 
-  test('empty file', () {
+  test('empty file', () async {
     final encoder = ZipFileEncoder();
     encoder.create('$testDirPath/out/testEmpty.zip');
-    encoder.addFile(File('$testDirPath/res/emptyfile.txt'));
+    await encoder.addFile(File('$testDirPath/res/emptyfile.txt'));
     encoder.closeSync();
 
     final zipDecoder = ZipDecoder();
@@ -461,12 +461,12 @@ void main() {
     await encoder.close();
   });
 
-  test('stream zip encode', () {
+  test('stream zip encode', () async {
     final encoder = ZipFileEncoder();
     encoder.create('$testDirPath/out/example2.zip');
-    encoder.addDirectory(Directory('$testDirPath/res/test2'));
-    encoder.addFile(File('$testDirPath/res/cat.jpg'));
-    encoder.addFile(File('$testDirPath/res/tarurls.txt'));
+    await encoder.addDirectory(Directory('$testDirPath/res/test2'));
+    await encoder.addFile(File('$testDirPath/res/cat.jpg'));
+    await encoder.addFile(File('$testDirPath/res/tarurls.txt'));
     encoder.closeSync();
 
     final zipDecoder = ZipDecoder();

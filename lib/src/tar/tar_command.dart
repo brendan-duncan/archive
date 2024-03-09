@@ -44,8 +44,8 @@ Directory extractFiles(String inputPath, String outputPath) {
     final input = InputFileStream(inputPath);
     final tarOutput = OutputFileStream(tarPath);
     GZipDecoder().decodeStream(input, tarOutput);
-    input.close();
-    tarOutput.close();
+    input.closeSync();
+    tarOutput.closeSync();
   }
 
   final outDir = Directory(outputPath);
@@ -65,11 +65,11 @@ Directory extractFiles(String inputPath, String outputPath) {
     final output = OutputFileStream(filePath);
     file.writeContent(output);
     print('  extracted ${file.name}');
-    output.close();
+    output.closeSync();
   }
 
-  input.close();
-  tarArchive.clear();
+  input.closeSync();
+  tarArchive.clearSync();
 
   /*if (tempDir != null) {
     tempDir.delete(recursive: true);
