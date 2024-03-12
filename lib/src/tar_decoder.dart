@@ -36,7 +36,11 @@ class TarDecoder {
       final tf = TarFile.read(input, storeData: storeData);
       // GNU tar puts filenames in files when they exceed tar's native length.
       if (tf.filename == '././@LongLink') {
-        nextName = tf.rawContent!.readString();
+        try {
+          nextName = tf.rawContent!.readString();
+        } catch (error) {
+          nextName = tf.rawContent!.readString(size: tf.fileSize);
+        }
         continue;
       }
 
