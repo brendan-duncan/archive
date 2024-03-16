@@ -89,6 +89,10 @@ class TarFile {
       ownerGroupName = _parseString(header, 32);
       deviceMajorNumber = _parseInt(header, 8);
       deviceMinorNumber = _parseInt(header, 8);
+      filenamePrefix = _parseString(header, 155);
+      if (filenamePrefix.isNotEmpty) {
+        filename = '$filenamePrefix/$filename';
+      }
     }
 
     if (storeData || filename == '././@LongLink') {
