@@ -7,7 +7,7 @@ import 'package:archive/src/tar/tar_command.dart';
 // tar --create <source>
 const usage = 'usage: tar [--list|--extract|--create] <file> [<dest>|<source>]';
 
-void main(List<String> arguments) {
+void main(List<String> arguments) async {
   if (arguments.isEmpty) {
     fail(usage);
   }
@@ -27,7 +27,7 @@ void main(List<String> arguments) {
     if (arguments.length < 2) {
       fail(usage);
     }
-    createTarFile(arguments[1]);
+    await createTarFile(arguments[1]);
   } else {
     fail(usage);
   }

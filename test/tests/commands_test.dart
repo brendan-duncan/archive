@@ -45,8 +45,8 @@ void main() {
         }
         expect(same, equals(true));
 
-        input.close();
-        output.close();
+        input.closeSync();
+        output.closeSync();
 
         tempDir.deleteSync(recursive: true);
       }

@@ -17,7 +17,7 @@ Future<void> main() async {
         ..createSync(recursive: true)
         ..writeAsBytesSync(data);
     } else {
-      Directory('out/$filename').create(recursive: true);
+      Directory('out/$filename').createSync(recursive: true);
     }
   }
 
@@ -35,7 +35,7 @@ Future<void> main() async {
 
   // Manually create a zip of a directory and individual files.
   encoder.create('out2.zip');
-  encoder.addDirectory(Directory('out'));
-  encoder.addFile(File('test.zip'));
+  await encoder.addDirectory(Directory('out'));
+  await encoder.addFile(File('test.zip'));
   encoder.closeSync();
 }

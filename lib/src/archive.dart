@@ -55,6 +55,15 @@ class Archive extends IterableBase<ArchiveFile> {
     await Future.wait(futures);
   }
 
+  void clearSync() {
+    for (var fp in _files) {
+      fp.closeSync();
+    }
+    _files.clear();
+    _fileMap.clear();
+    comment = null;
+  }
+
   /// The number of files in the archive.
   @override
   int get length => _files.length;

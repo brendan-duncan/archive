@@ -262,8 +262,8 @@ void main() {
       offset += bytes.length;
       output.writeInputStream(bytes);
     }
-    input.close();
-    output.close();
+    input.closeSync();
+    output.closeSync();
 
     final aBytes = File(p.join(testDirPath, 'res/cat.jpg')).readAsBytesSync();
     final bBytes = File(p.join(testDirPath, 'out/cat2.jpg')).readAsBytesSync();
@@ -291,15 +291,15 @@ void main() {
       offset += bytes.length;
       output.writeInputStream(bytes);
     }
-    input.close();
-    output.close();
+    input.closeSync();
+    output.closeSync();
 
     final aBytes = File(p.join(testDirPath, 'res/cat.jpg')).readAsBytesSync();
     final bBytes = Uint8List(rfh.length);
     rfh.readInto(bBytes);
 
     compareBytes(bBytes, aBytes);
-    output.close();
+    output.closeSync();
   });
 
   test('Zip in RAM and then unzip from RAM', () {
@@ -354,10 +354,10 @@ void main() {
     }
   });
 
-  test('empty file', () {
+  test('empty file', () async {
     final encoder = ZipFileEncoder();
     encoder.create('$testDirPath/out/testEmpty.zip');
-    encoder.addFile(File('$testDirPath/res/emptyfile.txt'));
+    await encoder.addFile(File('$testDirPath/res/emptyfile.txt'));
     encoder.closeSync();
 
     final zipDecoder = ZipDecoder();
@@ -404,7 +404,7 @@ void main() {
     // Encode a directory from disk to disk, no memory
     final encoder = TarFileEncoder();
     encoder.open('$testDirPath/out/test3.tar');
-    encoder.addDirectory(Directory('$testDirPath/res/test2'));
+    await encoder.addDirectory(Directory('$testDirPath/res/test2'));
     await encoder.close();
 
     final tarDecoder = TarDecoder();
@@ -422,7 +422,7 @@ void main() {
 
     final encoder = GZipEncoder();
     encoder.encode(input, output: output);
-    output.close();
+    await output.close();
   });
 
   _testInputOutputFileStream('stream gzip decode', (
@@ -433,7 +433,7 @@ void main() {
     final output = await ofsConstructor(p.join(testDirPath, 'out/cat.jpg'));
 
     GZipDecoder().decodeStream(input, output);
-    output.close();
+    await output.close();
   });
 
   _testInputOutputFileStream('TarFileEncoder -> GZipEncoder', (
@@ -443,30 +443,30 @@ void main() {
     // Encode a directory from disk to disk, no memory
     final encoder = TarFileEncoder();
     encoder.create('$testDirPath/out/example2.tar');
-    encoder.addDirectory(Directory('$testDirPath/res/test2'));
+    await encoder.addDirectory(Directory('$testDirPath/res/test2'));
     await encoder.close();
 
     final input = await ifsConstructor(p.join(testDirPath, 'out/example2.tar'));
     final output = await ofsConstructor(p.join(testDirPath, 'out/example2.tgz'));
     GZipEncoder().encode(input, output: output);
-    input.close();
-    output.close();
+    await input.close();
+    await output.close();
   });
 
   test('TarFileEncoder tgz', () async {
     // Encode a directory from disk to disk, no memory
     final encoder = TarFileEncoder();
-    encoder.tarDirectory(Directory('$testDirPath/res/test2'),
+    await encoder.tarDirectory(Directory('$testDirPath/res/test2'),
         filename: '$testDirPath/out/example2.tgz', compression: 1);
-    encoder.close();
+    await encoder.close();
   });
 
-  test('stream zip encode', () {
+  test('stream zip encode', () async {
     final encoder = ZipFileEncoder();
     encoder.create('$testDirPath/out/example2.zip');
-    encoder.addDirectory(Directory('$testDirPath/res/test2'));
-    encoder.addFile(File('$testDirPath/res/cat.jpg'));
-    encoder.addFile(File('$testDirPath/res/tarurls.txt'));
+    await encoder.addDirectory(Directory('$testDirPath/res/test2'));
+    await encoder.addFile(File('$testDirPath/res/cat.jpg'));
+    await encoder.addFile(File('$testDirPath/res/tarurls.txt'));
     encoder.closeSync();
 
     final zipDecoder = ZipDecoder();
@@ -513,9 +513,8 @@ void main() {
     final input = await ifsConstructor(testPath);
     final bs = input.readBytes(50);
     expect(bs.length, 50);
-    input.close();
-
-    testFile.delete();
+    await input.close();
+    await testFile.delete();
   });
 
   test('extractFileToDisk tar', () async {
@@ -591,7 +590,18 @@ void main() {
     final a = Archive();
     a.addFile(f1);
     a.addFile(f2);
-    extractArchiveToDisk(a, '$testDirPath/out/extractArchiveToDisk_symlink');
+    await extractArchiveToDisk(a, '$testDirPath/out/extractArchiveToDisk_symlink');
+  });
+
+  test('extractArchiveToDiskSync symlink', () {
+    final f1 = ArchiveFile('test', 3, 'foo'.codeUnits);
+    final f2 = ArchiveFile('link', 0, null);
+    f2.isSymbolicLink = true;
+    f2.nameOfLinkedFile = './../test.tar';
+    final a = Archive();
+    a.addFile(f1);
+    a.addFile(f2);
+    extractArchiveToDiskSync(a, '$testDirPath/out/extractArchiveToDisk_symlink');
   });
 
   test('FileHandle', () async {
