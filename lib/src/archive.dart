@@ -124,3 +124,6 @@ class Archive extends IterableBase<ArchiveFile> {
   @override
   Iterator<ArchiveFile> get iterator => _files.iterator;
 }
+
+/// FnArchiveFile is the callback invoked when the zip decoder iterates through the archive.
+typedef FnArchiveFile = void Function(ArchiveFile file);
