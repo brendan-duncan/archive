@@ -4,13 +4,13 @@ import 'package:test/test.dart';
 void main() {
   group('OutputStreamMemory', () {
     test('empty', () async {
-      final out = OutputStreamMemory();
+      final out = OutputMemoryStream();
       final bytes = out.getBytes();
       expect(bytes.length, equals(0));
     });
 
     test('writeByte', () async {
-      final out = OutputStreamMemory();
+      final out = OutputMemoryStream();
       for (var i = 0; i < 10000; ++i) {
         out.writeByte(i % 256);
       }
@@ -22,7 +22,7 @@ void main() {
     });
 
     test('writeUint16', () async {
-      final out = OutputStreamMemory();
+      final out = OutputMemoryStream();
 
       const len = 0xffff;
       for (var i = 0; i < len; ++i) {
@@ -32,7 +32,7 @@ void main() {
       final bytes = out.getBytes();
       expect(bytes.length, equals(len * 2));
 
-      final input = InputStreamMemory(bytes);
+      final input = InputMemoryStream(bytes);
       for (var i = 0; i < len; ++i) {
         final x = input.readUint16();
         expect(x, equals(i));
@@ -40,7 +40,7 @@ void main() {
     });
 
     test('writeUint32', () async {
-      final out = OutputStreamMemory();
+      final out = OutputMemoryStream();
 
       const len = 0xffff;
       for (var i = 0; i < len; ++i) {
@@ -50,7 +50,7 @@ void main() {
       final bytes = out.getBytes();
       expect(bytes.length, equals(len * 4));
 
-      final input = InputStreamMemory(bytes);
+      final input = InputMemoryStream(bytes);
       for (var i = 0; i < len; ++i) {
         final x = input.readUint32();
         expect(x, equals(0xffff + i));

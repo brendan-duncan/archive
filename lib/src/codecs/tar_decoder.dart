@@ -4,7 +4,7 @@ import '../archive/archive.dart';
 import '../archive/archive_file.dart';
 import 'tar/tar_file.dart';
 import '../util/input_stream.dart';
-import '../util/input_stream_memory.dart';
+import '../util/input_memory_stream.dart';
 
 final paxRecordRegexp = RegExp(r"(\d+) (\w+)=(.*)");
 

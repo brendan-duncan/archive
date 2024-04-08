@@ -4,14 +4,14 @@ import 'package:test/test.dart';
 void main() {
   group('InputStreamMemory', () {
     test('empty', () {
-      final input = InputStreamMemory.empty();
+      final input = InputMemoryStream.empty();
       expect(input.length, equals(0));
       expect(input.isEOS, equals(true));
     });
 
     test('readByte', () async {
       const data = [0xaa, 0xbb, 0xcc];
-      final input = InputStreamMemory.fromList(data);
+      final input = InputMemoryStream.fromList(data);
       expect(input.length, equals(3));
       expect(input.readByte(), equals(0xaa));
       expect(input.readByte(), equals(0xbb));
@@ -21,7 +21,7 @@ void main() {
 
     test('peakBytes', () async {
       const data = [0xaa, 0xbb, 0xcc];
-      final input = InputStreamMemory.fromList(data);
+      final input = InputMemoryStream.fromList(data);
       expect(input.readByte(), equals(0xaa));
 
       final bytes = input.peekBytes(2).toUint8List();
@@ -34,7 +34,7 @@ void main() {
 
     test('skip', () async {
       const data = [0xaa, 0xbb, 0xcc];
-      final input = InputStreamMemory.fromList(data);
+      final input = InputMemoryStream.fromList(data);
       expect(input.length, equals(3));
       expect(input.readByte(), equals(0xaa));
       input.skip(1);
@@ -44,7 +44,7 @@ void main() {
 
     test('subset', () async {
       const data = [0xaa, 0xbb, 0xcc, 0xdd, 0xee];
-      final input = InputStreamMemory.fromList(data);
+      final input = InputMemoryStream.fromList(data);
       expect(input.length, equals(5));
       expect(input.readByte(), equals(0xaa));
 
@@ -63,7 +63,7 @@ void main() {
 
     test('readString', () async {
       const data = [84, 101, 115, 116, 0];
-      final input = InputStreamMemory.fromList(data);
+      final input = InputMemoryStream.fromList(data);
       var s = input.readString();
       expect(s, equals('Test'));
       expect(input.isEOS, equals(true));
@@ -78,7 +78,7 @@ void main() {
 
     test('readBytes', () async {
       const data = [84, 101, 115, 116, 0];
-      final input = InputStreamMemory.fromList(data);
+      final input = InputMemoryStream.fromList(data);
       final b = input.readBytes(3).toUint8List();
       expect(b.length, equals(3));
       expect(b[0], equals(84));
@@ -92,11 +92,11 @@ void main() {
     test('readUint16', () async {
       const data = [0xaa, 0xbb, 0xcc, 0xdd, 0xee];
       // Little endian (by default)
-      final input = InputStreamMemory.fromList(data);
+      final input = InputMemoryStream.fromList(data);
       expect(input.readUint16(), equals(0xbbaa));
 
       // Big endian
-      final i2 = InputStreamMemory.fromList(
+      final i2 = InputMemoryStream.fromList(
           data, byteOrder: ByteOrder.bigEndian);
       expect(i2.readUint16(), equals(0xaabb));
     });
@@ -104,11 +104,11 @@ void main() {
     test('readUint24', () async {
       const data = [0xaa, 0xbb, 0xcc, 0xdd, 0xee];
       // Little endian (by default)
-      final input = InputStreamMemory.fromList(data);
+      final input = InputMemoryStream.fromList(data);
       expect(input.readUint24(), equals(0xccbbaa));
 
       // Big endian
-      final i2 = InputStreamMemory.fromList(
+      final i2 = InputMemoryStream.fromList(
           data, byteOrder: ByteOrder.bigEndian);
       expect(i2.readUint24(), equals(0xaabbcc));
     });
@@ -116,11 +116,11 @@ void main() {
     test('readUint32', () async {
       const data = [0xaa, 0xbb, 0xcc, 0xdd, 0xee];
       // Little endian (by default)
-      final input = InputStreamMemory.fromList(data);
+      final input = InputMemoryStream.fromList(data);
       expect(input.readUint32(), equals(0xddccbbaa));
 
       // Big endian
-      final i2 = InputStreamMemory.fromList(
+      final i2 = InputMemoryStream.fromList(
           data, byteOrder: ByteOrder.bigEndian);
       expect(i2.readUint32(), equals(0xaabbccdd));
     });
@@ -128,11 +128,11 @@ void main() {
     test('readUint64', () async {
       const data = [0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff, 0xee, 0xdd];
       // Little endian (by default)
-      final input = InputStreamMemory.fromList(data);
+      final input = InputMemoryStream.fromList(data);
       expect(input.readUint64(), equals(0xddeeffeeddccbbaa));
 
       // Big endian
-      final i2 = InputStreamMemory.fromList(
+      final i2 = InputMemoryStream.fromList(
           data, byteOrder: ByteOrder.bigEndian);
       expect(i2.readUint64(), equals(0xaabbccddeeffeedd));
     });

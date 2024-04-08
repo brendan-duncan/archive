@@ -1,8 +1,10 @@
 import 'dart:io';
 import 'package:path/path.dart' as path;
+
 import '../archive/archive.dart';
 import '../archive/archive_file.dart';
-import 'input_file_stream.dart';
+import '../archive/archive_directory.dart';
+import '../util/input_file_stream.dart';
 
 Archive createArchiveFromDirectory(Directory dir,
     {bool includeDirName = true}) {
@@ -10,15 +12,14 @@ Archive createArchiveFromDirectory(Directory dir,
 
   final dirName = path.basename(dir.path);
   final files = dir.listSync(recursive: true);
-  for (var file in files) {
+  for (final file in files) {
     // If it's a Directory, only add empty directories
     if (file is Directory) {
       var filename = path.relative(file.path, from: dir.path);
       filename = includeDirName ? ('$dirName/$filename') : filename;
-      final af = ArchiveFile('$filename/', 0, null);
+      final af = ArchiveDirectory('$filename/');
       af.mode = file.statSync().mode;
-      af.isFile = false;
-      archive.addFile(af);
+      archive.add(af);
     } else if (file is File) {
       // It's a File
       var filename = path.relative(file.path, from: dir.path);
@@ -29,7 +30,7 @@ Archive createArchiveFromDirectory(Directory dir,
       af.lastModTime = file.lastModifiedSync().millisecondsSinceEpoch ~/ 1000;
       af.mode = file.statSync().mode;
 
-      archive.addFile(af);
+      archive.add(af);
     }
   }
 

@@ -8,7 +8,7 @@ import '../../util/archive_exception.dart';
 import '../../util/crc32.dart';
 import '../../util/file_content.dart';
 import '../../util/input_stream.dart';
-import '../../util/input_stream_memory.dart';
+import '../../util/input_memory_stream.dart';
 import '../../util/output_stream.dart';
 import '../zlib/inflate.dart';
 import 'zip_file_header.dart';
@@ -91,7 +91,7 @@ class ZipFile extends FileContent {
     _rawContent = input.readBytes(header!.compressedSize);
 
     if (_encryptionType != ZipEncryptionMode.none && exLen > 2) {
-      final extra = InputStreamMemory(extraField);
+      final extra = InputMemoryStream(extraField);
       final id = extra.readUint16();
       if (id == ZipAesHeader.signature) {
         extra.readUint16(); // dataSize = 7
@@ -194,7 +194,7 @@ class ZipFile extends FileContent {
       }
     }
 
-    return InputStreamMemory(_content!);
+    return InputMemoryStream(_content!);
   }
 
   Uint8List getRawContent() {
@@ -243,7 +243,7 @@ class ZipFile extends FileContent {
       _updateKeys(temp);
       bytes[i] = temp;
     }
-    return InputStreamMemory(bytes);
+    return InputMemoryStream(bytes);
   }
 
   InputStream _decodeAes(InputStream input) {
@@ -267,7 +267,7 @@ class ZipFile extends FileContent {
 
     AesDecrypt(key).decryptCrt(bytes);
 
-    return InputStreamMemory(bytes);
+    return InputMemoryStream(bytes);
   }
 
   static Uint8List _deriveKey(String password, Uint8List salt,

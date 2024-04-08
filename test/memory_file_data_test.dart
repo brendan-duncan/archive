@@ -2,7 +2,7 @@
 
 import 'dart:math' as math;
 import 'dart:typed_data';
-import 'package:archive/src/util/ram_file_handle.dart';
+import 'package:archive/src/util/memory_file_handle.dart';
 import 'package:test/test.dart';
 
 import 'test_utils.dart';
@@ -176,7 +176,7 @@ void main() {
       for (int subListSize in possibleSubListSizes) {
         for (int bufferSize in possibleBufferSizes) {
           final ramFileData = RamFileData.outputBuffer(subListSize: subListSize);
-          final ramFileHandle = RamFileHandle.fromRamFileData(ramFileData);
+          final ramFileHandle = MemoryFileHandle.fromRamFileData(ramFileData);
           for (int i = 0; i < testData.length; i += bufferSize) {
             final buffer = Uint8List(bufferSize);
             final absStartIndex = i;

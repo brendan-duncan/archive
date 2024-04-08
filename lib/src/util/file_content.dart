@@ -1,7 +1,7 @@
 import 'dart:typed_data';
 
 import 'input_stream.dart';
-import 'input_stream_memory.dart';
+import 'input_memory_stream.dart';
 import 'output_stream.dart';
 
 abstract class FileContent {
@@ -27,7 +27,7 @@ class FileContentMemory extends FileContent {
   FileContentMemory(this.bytes);
 
   @override
-  InputStream getStream() => InputStreamMemory(bytes);
+  InputStream getStream() => InputMemoryStream(bytes);
 
   @override
   void write(OutputStream output) => output.writeBytes(bytes);

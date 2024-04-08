@@ -60,7 +60,7 @@ Future<InputFileStream> _buildRamIfs(String path, [int? bufferSize]) async {
       },
     ),
   );
-  final RamFileHandle fileHandle = await RamFileHandle.fromStream(fileStream, fileLength);
+  final MemoryFileHandle fileHandle = await MemoryFileHandle.fromStream(fileStream, fileLength);
   if (bufferSize == null) {
     return InputFileStream.withFileBuffer(FileBuffer(fileHandle));
   } else {
@@ -73,7 +73,7 @@ Future<OutputFileStream> _buildFileOFS(String path) async {
 }
 
 Future<OutputFileStream> _buildRamOfs(String path) async {
-  return OutputFileStream.toRamFile(RamFileHandle.asWritableRamBuffer());
+  return OutputFileStream.toRamFile(MemoryFileHandle.asWritableRamBuffer());
 }
 
 void _testInputFileStream(
@@ -278,7 +278,7 @@ void main() {
 
   test('InputFileStream/OutputFileStream (ram)', () {
     var input = InputFileStream(p.join(testDirPath, 'res/cat.jpg'));
-    final RamFileHandle rfh = RamFileHandle.asWritableRamBuffer();
+    final MemoryFileHandle rfh = MemoryFileHandle.asWritableRamBuffer();
     var output = OutputFileStream.toRamFile(rfh);
     var offset = 0;
     var inputLength = input.length;
@@ -326,7 +326,7 @@ void main() {
     final zipEncoder = ZipFileEncoder()
       ..createWithBuffer(
         OutputFileStream.toRamFile(
-          RamFileHandle.fromRamFileData(ramFileData),
+          MemoryFileHandle.fromRamFileData(ramFileData),
         ),
       );
     for (final fileEntry in fileNameToFileContent.entries) {
@@ -341,7 +341,7 @@ void main() {
     final Archive archive = ZipDecoder().decodeBuffer(
       InputFileStream.withFileBuffer(
         FileBuffer(
-          RamFileHandle.fromRamFileData(readRamFileData),
+          MemoryFileHandle.fromRamFileData(readRamFileData),
         ),
       ),
     );

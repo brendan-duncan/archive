@@ -5,13 +5,13 @@ import 'package:path/path.dart' as path;
 import '../archive/archive.dart';
 import '../archive/archive_file.dart';
 import '../codecs/bzip2_decoder.dart';
-import '../gzip_decoder.dart';
-import '../tar_decoder.dart';
-import '../xz_decoder.dart';
-import '../zip_decoder.dart';
+import '../codecs/gzip_decoder.dart';
+import '../codecs/tar_decoder.dart';
+import '../codecs/xz_decoder.dart';
+import '../codecs/zip_decoder.dart';
 import '../util/input_stream.dart';
-import 'input_file_stream.dart';
-import 'output_file_stream.dart';
+import '../util/input_file_stream.dart';
+import '../util/output_file_stream.dart';
 
 /// Ensure filePath is contained in the outputDir folder, to make sure archives
 /// aren't trying to write to some system path.

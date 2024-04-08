@@ -4,15 +4,15 @@ import 'dart:typed_data';
 import 'byte_order.dart';
 import 'input_stream.dart';
 
-/// A buffer that can be read as a stream of bytes
-class InputStreamMemory extends InputStream {
+/// Stream in data from a memory buffer.
+class InputMemoryStream extends InputStream {
   late Uint8List buffer;
   // The read offset into the buffer.
   int _position;
   late int _length;
 
   /// Create a [InputStream] for reading from a Uint8List
-  InputStreamMemory(Uint8List bytes,
+  InputMemoryStream(Uint8List bytes,
       {super.byteOrder = ByteOrder.littleEndian, int? offset, int? length})
       : _position = 0 {
     offset ??= 0;
@@ -25,20 +25,20 @@ class InputStreamMemory extends InputStream {
     _length = buffer.length;
   }
 
-  InputStreamMemory.empty()
+  InputMemoryStream.empty()
       : buffer = Uint8List(0),
         _position = 0,
         _length = 0,
         super(byteOrder: ByteOrder.littleEndian);
 
-  InputStreamMemory.fromList(List<int> bytes,
+  InputMemoryStream.fromList(List<int> bytes,
       {super.byteOrder = ByteOrder.littleEndian})
       : buffer = Uint8List.fromList(bytes),
         _position = 0,
         _length = bytes.length;
 
   /// Create a copy of [other].
-  InputStreamMemory.from(InputStreamMemory other)
+  InputMemoryStream.from(InputMemoryStream other)
       : buffer = other.buffer,
         _position = other._position,
         _length = other._length,
@@ -106,7 +106,7 @@ class InputStreamMemory extends InputStream {
   InputStream subset({int? position, int? length}) {
     position ??= _position;
     length ??= _length - position;
-    return InputStreamMemory(buffer,
+    return InputMemoryStream(buffer,
         byteOrder: byteOrder, offset: position, length: length);
   }
 

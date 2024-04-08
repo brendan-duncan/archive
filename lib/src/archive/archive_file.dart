@@ -80,10 +80,6 @@ class ArchiveFile extends ArchiveEntry {
     return _content?.getStream();
   }
 
-  void clear() {
-    _content = null;
-  }
-
   Uint8List? readBytes() {
     final stream = getContent();
     return stream?.toUint8List();
@@ -103,7 +99,8 @@ class ArchiveFile extends ArchiveEntry {
     await Future.wait(futures);
   }
 
-  @override closeSync() {
+  @override
+  closeSync() {
     if (_content != null) {
       _content!.closeSync();
     }
@@ -112,6 +109,16 @@ class ArchiveFile extends ArchiveEntry {
     }
     _content = null;
     _rawContent = null;
+  }
+
+  @override
+  Future<void> clear() async {
+    _content = null;
+  }
+
+  @override
+  void clearSync() {
+    _content = null;
   }
 
   /// If the file data is compressed, decompress it.

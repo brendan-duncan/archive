@@ -1,5 +1,5 @@
 import '../util/output_stream.dart';
-import '../util/output_stream_memory.dart';
+import '../util/output_memory_stream.dart';
 import 'zlib/deflate.dart';
 import '../util/input_stream.dart';
 

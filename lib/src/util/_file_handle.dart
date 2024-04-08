@@ -5,7 +5,7 @@ import 'archive_exception.dart';
 import 'file_mode.dart';
 
 class FileHandle extends AbstractFileHandle {
-  FileHandle(String path) : super(FileMode.read) {
+  FileHandle(String path, {FileMode mode = FileMode.read}) : super(mode) {
     throw ArchiveException(
         'FileHandle is not supported on this platform $path.');
   }
@@ -24,6 +24,7 @@ class FileHandle extends AbstractFileHandle {
   @override
   bool get isOpen => false;
 
+  @override
   bool open() => false;
 
   @override

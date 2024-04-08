@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:archive/src/util/output_stream_memory.dart';
+import 'package:archive/src/util/output_memory_stream.dart';
 
 import '../../util/archive_exception.dart';
 import '../../util/input_stream.dart';
@@ -147,7 +147,7 @@ class TarFile {
     // The name, linkname, magic, uname, and gname are null-terminated
     // character strings. All other fields are zero-filled octal numbers in
     // ASCII. Each numeric field of width w contains w minus 1 digits, and a null.
-    final header = OutputStreamMemory();
+    final header = OutputMemoryStream();
     _writeString(header, filename, 100);
     _writeInt(header, mode, 8);
     _writeInt(header, ownerId, 8);

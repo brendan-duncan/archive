@@ -4,7 +4,7 @@ import '../../util/adler32.dart';
 import '../../util/archive_exception.dart';
 import '../../util/byte_order.dart';
 import '../../util/input_stream.dart';
-import '../../util/input_stream_memory.dart';
+import '../../util/input_memory_stream.dart';
 import 'inflate.dart';
 import 'zlib_decoder_base.dart';
 
@@ -18,7 +18,7 @@ class _ZLibDecoder extends ZLibDecoderBase {
 
   @override
   Uint8List decodeBytes(Uint8List data, {bool verify = false}) =>
-      decodeStream(InputStreamMemory(data, byteOrder: ByteOrder.bigEndian),
+      decodeStream(InputMemoryStream(data, byteOrder: ByteOrder.bigEndian),
           verify: verify);
 
   @override

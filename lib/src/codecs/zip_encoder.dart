@@ -6,7 +6,7 @@ import '../archive/archive.dart';
 import '../archive/archive_file.dart';
 import '../archive/compression_type.dart';
 import '../util/crc32.dart';
-import '../util/output_stream_memory.dart';
+import '../util/output_memory_stream.dart';
 import '../util/input_stream.dart';
 import '../util/aes_decrypt.dart';
 import '../util/output_stream.dart';

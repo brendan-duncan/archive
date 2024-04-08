@@ -1,11 +1,14 @@
 import 'dart:math';
 import 'dart:typed_data';
 
-import '../util/abstract_file_handle.dart';
-import '../util/byte_order.dart';
+import 'abstract_file_handle.dart';
+import 'byte_order.dart';
 
+/// Buffered file reader reduces file IO by reading in
+/// buffers of the file so that individual file reads
+/// can be read from the cached buffer.
 class FileBuffer {
-  final int byteOrder;
+  final ByteOrder byteOrder;
   final AbstractFileHandle _file;
   late Uint8List _buffer;
   int _fileSize = 0;
@@ -19,9 +22,12 @@ class FileBuffer {
 
   FileBuffer(
     this._file, {
-    this.byteOrder = LITTLE_ENDIAN,
+    this.byteOrder = ByteOrder.littleEndian,
     int bufferSize = kDefaultBufferSize,
   }) {
+    if (!_file.isOpen) {
+      _file.open();
+    }
     _fileSize = _file.length;
     // Prevent having a buffer smaller than the minimum buffer size
     _bufferSize = max(
@@ -34,6 +40,10 @@ class FileBuffer {
   }
 
   int get length => _fileSize;
+
+  bool get isOpen => _file.isOpen;
+
+  bool open() => _file.open();
 
   Future<void> close() async {
     await _file.close();
@@ -72,7 +82,7 @@ class FileBuffer {
     var p = position - _position;
     final b1 = _buffer[p++];
     final b2 = _buffer[p++];
-    if (byteOrder == BIG_ENDIAN) {
+    if (byteOrder == ByteOrder.bigEndian) {
       return (b1 << 8) | b2;
     }
     return (b2 << 8) | b1;
@@ -89,7 +99,7 @@ class FileBuffer {
     final b1 = _buffer[p++];
     final b2 = _buffer[p++];
     final b3 = _buffer[p++];
-    if (byteOrder == BIG_ENDIAN) {
+    if (byteOrder == ByteOrder.bigEndian) {
       return b3 | (b2 << 8) | (b1 << 16);
     }
     return b1 | (b2 << 8) | (b3 << 16);
@@ -107,7 +117,7 @@ class FileBuffer {
     final b2 = _buffer[p++];
     final b3 = _buffer[p++];
     final b4 = _buffer[p++];
-    if (byteOrder == BIG_ENDIAN) {
+    if (byteOrder == ByteOrder.bigEndian) {
       return (b1 << 24) | (b2 << 16) | (b3 << 8) | b4;
     }
     return (b4 << 24) | (b3 << 16) | (b2 << 8) | b1;
@@ -130,7 +140,7 @@ class FileBuffer {
     final b7 = _buffer[p++];
     final b8 = _buffer[p++];
 
-    if (byteOrder == BIG_ENDIAN) {
+    if (byteOrder == ByteOrder.bigEndian) {
       return (b1 << 56) |
           (b2 << 48) |
           (b3 << 40) |

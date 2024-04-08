@@ -15,6 +15,7 @@ class FileHandle extends AbstractFileHandle {
         _length = 0,
         super(FileMode.read);
 
+  @override
   bool open() {
     if (_file != null) {
       return true;

@@ -11,10 +11,20 @@ class ArchiveDirectory extends ArchiveEntry {
   bool get isFile => false;
 
   @override
-  Future<void> close() async {}
+  Future<void> close() async {
+    final futures = <Future<void>>[];
+    for (final fp in entries) {
+      futures.add(fp.close());
+    }
+    await Future.wait(futures);
+  }
 
   @override
-  void closeSync() {}
+  void closeSync() {
+    for (final fp in entries) {
+      fp.closeSync();
+    }
+  }
 
   /// Add a file to the archive.
   void add(ArchiveEntry entry) {
@@ -49,20 +59,14 @@ class ArchiveDirectory extends ArchiveEntry {
   }
 
   Future<void> clear() async {
-    final futures = <Future<void>>[];
-    for (final fp in entries) {
-      futures.add(fp.close());
-    }
+    await close();
     entries.clear();
     entryMap.clear();
     comment = null;
-    await Future.wait(futures);
   }
 
   void clearSync() {
-    for (final fp in entries) {
-      fp.closeSync();
-    }
+    closeSync();
     entries.clear();
     entryMap.clear();
     comment = null;

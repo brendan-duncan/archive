@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'file_mode.dart';
 
+/// Base class for MemoryFileHandle and FileHandle (dart:io).
 abstract class AbstractFileHandle {
   FileMode openMode;
 
@@ -14,6 +15,8 @@ abstract class AbstractFileHandle {
   int get length;
 
   bool get isOpen;
+
+  bool open() => false;
 
   Future<void> close();
 

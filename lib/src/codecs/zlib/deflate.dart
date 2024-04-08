@@ -3,9 +3,9 @@ import 'dart:typed_data';
 import '../../util/archive_exception.dart';
 import '../../util/crc32.dart';
 import '../../util/input_stream.dart';
-import '../../util/input_stream_memory.dart';
+import '../../util/input_memory_stream.dart';
 import '../../util/output_stream.dart';
-import '../../util/output_stream_memory.dart';
+import '../../util/output_memory_stream.dart';
 
 class DeflateLevel {
   static const none = 0;
@@ -28,14 +28,14 @@ class Deflate {
 
   Deflate(Uint8List bytes,
       {int level = DeflateLevel.defaultCompression, OutputStream? output})
-      : input = InputStreamMemory(bytes),
-        output = output ?? OutputStreamMemory() {
+      : input = InputMemoryStream(bytes),
+        output = output ?? OutputMemoryStream() {
     _init(level);
   }
 
   Deflate.stream(this.input,
       {int level = DeflateLevel.defaultCompression, OutputStream? output})
-      : output = output ?? OutputStreamMemory() {
+      : output = output ?? OutputMemoryStream() {
     _init(level);
   }
 
@@ -62,7 +62,7 @@ class Deflate {
   /// Add more data to be deflated.
   void addBytes(Uint8List bytes,
       {DeflateFlushMode flush = DeflateFlushMode.finish}) {
-    input = InputStreamMemory(bytes);
+    input = InputMemoryStream(bytes);
     _deflate(flush: flush);
   }
 

@@ -18,12 +18,12 @@ void main() {
   
   group('InputStreamFile', () {
     test('length', () async {
-      final fs = InputStreamFile(testPath)..open();
+      final fs = InputFileStream(testPath)..open();
       expect(fs.length, testData.length);
     });
 
     test('readBytes', () async {
-      final input = InputStreamFile(testPath)..open();
+      final input = InputFileStream(testPath)..open();
       expect(input.length, equals(120));
       var same = true;
       var ai = 0;
@@ -42,7 +42,7 @@ void main() {
     });
 
     test('position', () async {
-      final fs = InputStreamFile(testPath, bufferSize: 2)
+      final fs = InputFileStream(testPath, bufferSize: 2)
       ..open()
       ..setPosition(50);
       final bs = fs.readBytes(50);
@@ -54,7 +54,7 @@ void main() {
     });
 
     test('skip', () async {
-      final fs = InputStreamFile(testPath, bufferSize: 2)
+      final fs = InputFileStream(testPath, bufferSize: 2)
       ..open()
       ..skip(50);
       final bs = fs.readBytes(50);
@@ -66,7 +66,7 @@ void main() {
     });
 
     test('rewind', () async {
-      final fs = InputStreamFile(testPath, bufferSize: 2)
+      final fs = InputFileStream(testPath, bufferSize: 2)
       ..open()
       ..skip(50)
       ..rewind(10);
@@ -79,7 +79,7 @@ void main() {
     });
 
     test('peakBytes', () async {
-      final fs = InputStreamFile(testPath, bufferSize: 2)
+      final fs = InputFileStream(testPath, bufferSize: 2)
       ..open();
       final bs = fs.peekBytes(10);
       final b = bs.toUint8List();
@@ -91,9 +91,9 @@ void main() {
     });
 
     test("clone", () async {
-      final input = InputStreamFile(testPath)
+      final input = InputFileStream(testPath)
       ..open();
-      final input2 = InputStreamFile.from(input, position: 6, length: 5);
+      final input2 = InputFileStream.fromFileStream(input, position: 6, length: 5);
       final bs = input2.readBytes(5);
       final b = bs.toUint8List();
       expect(b.length, 5);

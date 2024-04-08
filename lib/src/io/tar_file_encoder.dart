@@ -3,10 +3,10 @@ import 'dart:io';
 import 'package:path/path.dart' as path;
 
 import '../archive/archive_file.dart';
-import '../gzip_encoder.dart';
-import '../tar_encoder.dart';
-import 'input_file_stream.dart';
-import 'output_file_stream.dart';
+import '../codecs/gzip_encoder.dart';
+import '../codecs/tar_encoder.dart';
+import '../util/input_file_stream.dart';
+import '../util/output_file_stream.dart';
 
 class TarFileEncoder {
   late String tarPath;

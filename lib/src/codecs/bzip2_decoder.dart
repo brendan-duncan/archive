@@ -1,13 +1,13 @@
 import 'dart:typed_data';
 
-import 'package:archive/src/util/output_stream_memory.dart';
+import 'package:archive/src/util/output_memory_stream.dart';
 
 import 'bzip2/bzip2.dart';
 import 'bzip2/bz2_bit_reader.dart';
 import '../util/archive_exception.dart';
 import '../util/byte_order.dart';
 import '../util/input_stream.dart';
-import '../util/input_stream_memory.dart';
+import '../util/input_memory_stream.dart';
 import '../util/output_stream.dart';
 
 /// Decompress bzip2 compressed data.

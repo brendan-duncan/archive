@@ -1,9 +1,9 @@
 import 'dart:typed_data';
 
 import '../../util/input_stream.dart';
-import '../../util/input_stream_memory.dart';
+import '../../util/input_memory_stream.dart';
 import '../../util/output_stream.dart';
-import '../../util/output_stream_memory.dart';
+import '../../util/output_memory_stream.dart';
 import '_huffman_table.dart';
 
 class Inflate {
@@ -12,19 +12,19 @@ class Inflate {
   OutputStream output;
 
   Inflate(Uint8List bytes, {int? uncompressedSize})
-      : input = InputStreamMemory(bytes),
-        output = OutputStreamMemory(size: uncompressedSize) {
+      : input = InputMemoryStream(bytes),
+        output = OutputMemoryStream(size: uncompressedSize) {
     inputSet = true;
   }
 
   Inflate.stream(this.input, {OutputStream? output, int? uncompressedSize})
-      : output = output ?? OutputStreamMemory(size: uncompressedSize) {
+      : output = output ?? OutputMemoryStream(size: uncompressedSize) {
     inputSet = true;
   }
 
   void streamInput(Uint8List bytes) {
-    if (inputSet && input is InputStreamMemory) {
-      final i = input as InputStreamMemory..setPosition(_blockPos);
+    if (inputSet && input is InputMemoryStream) {
+      final i = input as InputMemoryStream..setPosition(_blockPos);
       final inputLen = input.length;
       final newLen = inputLen + bytes.length;
 
@@ -32,9 +32,9 @@ class Inflate {
         ..setRange(0, inputLen, i.buffer, i.position)
         ..setRange(inputLen, newLen, bytes, 0);
 
-      input = InputStreamMemory(newBytes);
+      input = InputMemoryStream(newBytes);
     } else {
-      input = InputStreamMemory(bytes);
+      input = InputMemoryStream(bytes);
     }
     inputSet = true;
   }
@@ -42,7 +42,7 @@ class Inflate {
   Uint8List? inflateNext() {
     _bitBuffer = 0;
     _bitBufferLen = 0;
-    if (output is OutputStreamMemory) {
+    if (output is OutputMemoryStream) {
       output.clear();
     }
     if (!inputSet || input.isEOS) {
@@ -50,8 +50,8 @@ class Inflate {
     }
 
     try {
-      if (input is InputStreamMemory) {
-        final i = input as InputStreamMemory;
+      if (input is InputMemoryStream) {
+        final i = input as InputMemoryStream;
         _blockPos = i.position;
       }
       _parseBlock();
@@ -61,7 +61,7 @@ class Inflate {
       return null;
     }
 
-    if (output is OutputStreamMemory) {
+    if (output is OutputMemoryStream) {
       return output.getBytes();
     }
     return null;

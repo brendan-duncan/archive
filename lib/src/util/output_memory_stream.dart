@@ -2,17 +2,17 @@ import 'dart:typed_data';
 
 import 'byte_order.dart';
 import 'input_stream.dart';
-import 'input_stream_memory.dart';
+import 'input_memory_stream.dart';
 import 'output_stream.dart';
 
-class OutputStreamMemory extends OutputStream {
+class OutputMemoryStream extends OutputStream {
   @override
   int length;
   static const defaultBufferSize = 0x8000; // 32k block-size
   Uint8List _buffer;
 
   /// Create a byte buffer for writing.
-  OutputStreamMemory(
+  OutputMemoryStream(
       {int? size = defaultBufferSize,
       ByteOrder byteOrder = ByteOrder.littleEndian})
       : _buffer = Uint8List(size ?? defaultBufferSize),
@@ -66,7 +66,7 @@ class OutputStreamMemory extends OutputStream {
       _expandBuffer((length + stream.length) - _buffer.length);
     }
 
-    if (stream is InputStreamMemory) {
+    if (stream is InputMemoryStream) {
       _buffer.setRange(
           length, length + stream.length, stream.buffer, stream.position);
     } else {

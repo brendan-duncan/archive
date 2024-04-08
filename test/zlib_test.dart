@@ -24,14 +24,14 @@ void main() async {
 
     test('encodeStream', () async {
       {
-        final outStream = OutputStreamFile('$testOutputPath/zlib_stream.zlib')
+        final outStream = OutputFileStream('$testOutputPath/zlib_stream.zlib')
           ..open();
-        final inStream = InputStreamMemory(buffer);
+        final inStream = InputMemoryStream(buffer);
         const ZLibEncoder().encodeStream(inStream, outStream);
       }
 
       {
-        final inStream = InputStreamFile('$testOutputPath/zlib_stream.zlib')
+        final inStream = InputFileStream('$testOutputPath/zlib_stream.zlib')
           ..open();
         final decoded = const ZLibDecoder().decodeStream(inStream);
 

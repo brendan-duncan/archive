@@ -5,9 +5,9 @@ import 'archive_exception.dart';
 import 'byte_order.dart';
 import 'input_stream.dart';
 import 'output_stream.dart';
-import 'input_stream_memory.dart';
+import 'input_memory_stream.dart';
 
-class OutputStreamFile extends OutputStream {
+class OutputFileStream extends OutputStream {
   String path;
   int _length;
   RandomAccessFile? _fp;
@@ -15,7 +15,7 @@ class OutputStreamFile extends OutputStream {
   int _bufferPosition = 0;
   final int _bufferSize;
 
-  OutputStreamFile(this.path,
+  OutputFileStream(this.path,
       {ByteOrder byteOrder = ByteOrder.littleEndian, int? bufferSize})
       : _length = 0,
         _bufferSize = bufferSize ?? 8192,
@@ -121,7 +121,7 @@ class OutputStreamFile extends OutputStream {
       throw ArchiveException('OutputStreamFile is not open');
     }
     final b = _getBuffer();
-    if (stream is InputStreamMemory) {
+    if (stream is InputMemoryStream) {
       final len = stream.length;
 
       if (_bufferPosition + len >= b.length) {

@@ -3,9 +3,9 @@ import 'dart:typed_data';
 import '../util/adler32.dart';
 import '../util/byte_order.dart';
 import '../util/input_stream.dart';
-import '../util/input_stream_memory.dart';
+import '../util/input_memory_stream.dart';
 import '../util/output_stream.dart';
-import '../util/output_stream_memory.dart';
+import '../util/output_memory_stream.dart';
 import 'zlib/deflate.dart';
 
 class ZLibEncoder {
@@ -15,8 +15,8 @@ class ZLibEncoder {
 
   Uint8List encodeBytes(Uint8List bytes,
       {int level = DeflateLevel.defaultCompression}) {
-    final output = OutputStreamMemory(byteOrder: ByteOrder.bigEndian);
-    encodeStream(InputStreamMemory(bytes), output, level: level);
+    final output = OutputMemoryStream(byteOrder: ByteOrder.bigEndian);
+    encodeStream(InputMemoryStream(bytes), output, level: level);
     return output.getBytes();
   }
 

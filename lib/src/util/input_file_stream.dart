@@ -1,24 +1,24 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'archive_exception.dart';
+import 'abstract_file_handle.dart';
+import 'byte_order.dart';
 import 'file_buffer.dart';
 import 'file_handle.dart';
-import '../util/ram_file_handle.dart';
-import '../util/abstract_file_handle.dart';
-import '../util/archive_exception.dart';
-import '../util/byte_order.dart';
-import '../util/input_stream.dart';
+import 'input_stream.dart';
+import 'memory_file_handle.dart';
 
-class InputFileStream extends InputStreamBase {
+/// Stream in data from a file.
+class InputFileStream extends InputStream {
   final FileBuffer _file;
-  final int byteOrder;
   final int _fileOffset;
   late int _fileSize;
   int _position;
 
   InputFileStream.withFileBuffer(
     this._file, {
-    this.byteOrder = LITTLE_ENDIAN,
+    super.byteOrder = ByteOrder.littleEndian,
     int bufferSize = FileBuffer.kDefaultBufferSize,
   })  : _fileOffset = 0,
         _position = 0 {
@@ -27,7 +27,7 @@ class InputFileStream extends InputStreamBase {
 
   InputFileStream.withFileHandle(
     AbstractFileHandle fh, {
-    this.byteOrder = LITTLE_ENDIAN,
+    super.byteOrder = ByteOrder.littleEndian,
     int bufferSize = FileBuffer.kDefaultBufferSize,
   })  : _file = FileBuffer(fh),
         _fileOffset = 0,
@@ -37,35 +37,39 @@ class InputFileStream extends InputStreamBase {
 
   factory InputFileStream(
     String path, {
-    int byteOrder = LITTLE_ENDIAN,
+    ByteOrder byteOrder = ByteOrder.littleEndian,
     int bufferSize = FileBuffer.kDefaultBufferSize,
   }) {
     return InputFileStream.withFileBuffer(
-      FileBuffer(FileHandle(path, openMode: AbstractFileOpenMode.read)),
+      FileBuffer(FileHandle(path)),
       byteOrder: byteOrder,
       bufferSize: bufferSize,
     );
   }
 
-  static Future<InputFileStream> asRamFile(
+  static Future<InputFileStream> asMemoryFile(
     Stream<Uint8List> stream,
     int fileLength, {
-    int byteOrder = LITTLE_ENDIAN,
+    ByteOrder byteOrder = ByteOrder.littleEndian,
     int bufferSize = FileBuffer.kDefaultBufferSize,
   }) async {
     return InputFileStream.withFileBuffer(
-      FileBuffer(await RamFileHandle.fromStream(stream, fileLength)),
+      FileBuffer(await MemoryFileHandle.fromStream(stream, fileLength)),
       byteOrder: byteOrder,
       bufferSize: bufferSize,
     );
   }
 
-  InputFileStream.clone(InputFileStream other, {int? position, int? length})
-      : byteOrder = other.byteOrder,
-        _file = other._file,
+  InputFileStream.fromFileStream(InputFileStream other,
+      {int? position, int? length})
+      : _file = other._file,
         _fileOffset = other._fileOffset + (position ?? 0),
         _fileSize = length ?? other._fileSize,
-        _position = 0;
+        _position = 0,
+        super(byteOrder: other.byteOrder);
+
+  @override
+  bool open() => _file.open();
 
   @override
   Future<void> close() async {
@@ -88,7 +92,7 @@ class InputFileStream extends InputStreamBase {
   int get position => _position;
 
   @override
-  set position(int v) {
+  void setPosition(int v) {
     if (v < _position) {
       rewind(_position - v);
     } else if (v > _position) {
@@ -120,15 +124,9 @@ class InputFileStream extends InputStreamBase {
   }
 
   @override
-  InputStreamBase subset([int? position, int? length]) {
-    return InputFileStream.clone(this, position: position, length: length);
-  }
-
-  /// Read [count] bytes from an [offset] of the current read position, without
-  /// moving the read position.
-  @override
-  InputStreamBase peekBytes(int count, [int offset = 0]) {
-    return subset(_position + offset, count);
+  InputStream subset({int? position, int? length}) {
+    return InputFileStream.fromFileStream(this,
+        position: position, length: length);
   }
 
   @override
@@ -186,15 +184,15 @@ class InputFileStream extends InputStreamBase {
   }
 
   @override
-  InputStreamBase readBytes(int count) {
+  InputStream readBytes(int count) {
     if (isEOS) {
-      return InputFileStream.clone(this, length: 0);
+      return InputFileStream.fromFileStream(this, length: 0);
     }
     if ((_position + count) > _fileSize) {
       count = _fileSize - _position;
     }
-    final bytes =
-        InputFileStream.clone(this, position: _position, length: count);
+    final bytes = InputFileStream.fromFileStream(this,
+        position: _position, length: count);
     _position += bytes.length;
     return bytes;
   }

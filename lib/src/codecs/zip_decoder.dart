@@ -7,7 +7,7 @@ import '../archive/archive_file.dart';
 import '../util/archive_exception.dart';
 import '../util/crc32.dart';
 import '../util/input_stream.dart';
-import '../util/input_stream_memory.dart';
+import '../util/input_memory_stream.dart';
 import 'zip/zip_directory.dart';
 //import 'zip/zip_file.dart';
 
@@ -17,7 +17,7 @@ class ZipDecoder {
 
   Archive decodeBytes(Uint8List data,
           {bool verify = false, String? password}) =>
-      decodeStream(InputStreamMemory(data), verify: verify, password: password);
+      decodeStream(InputMemoryStream(data), verify: verify, password: password);
 
   Archive decodeStream(
     InputStream input, {

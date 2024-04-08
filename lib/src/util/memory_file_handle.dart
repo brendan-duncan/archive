@@ -4,38 +4,38 @@ import 'dart:typed_data';
 import 'abstract_file_handle.dart';
 import 'file_mode.dart';
 
-class RamFileHandle extends AbstractFileHandle {
+class MemoryFileHandle extends AbstractFileHandle {
   // ignore: deprecated_member_use_from_same_package
   final RamFileData _ramFileData;
   int _readPosition = 0;
   int _writePosition = 0;
 
-  RamFileHandle._(FileMode openMode, this._ramFileData) : super(openMode);
+  MemoryFileHandle._(FileMode openMode, this._ramFileData) : super(openMode);
 
   /// Creates a writeable RamFileHandle
-  factory RamFileHandle.asWritableRamBuffer({
+  factory MemoryFileHandle.asWritableRamBuffer({
     @Deprecated('Visible for testing only') int subListSize = 1024 * 1024,
   }) {
     // ignore: deprecated_member_use_from_same_package
-    return RamFileHandle._(
+    return MemoryFileHandle._(
       FileMode.write,
       RamFileData.outputBuffer(subListSize: subListSize),
     );
   }
 
   /// Creates a read-only RamFileHandle from a RamFileData
-  factory RamFileHandle.fromRamFileData(RamFileData ramFileData) {
+  factory MemoryFileHandle.fromRamFileData(RamFileData ramFileData) {
     // ignore: deprecated_member_use_from_same_package
-    return RamFileHandle._(FileMode.read, ramFileData);
+    return MemoryFileHandle._(FileMode.read, ramFileData);
   }
 
   /// Creates a read-only RamFileHandle from a stream
-  static Future<RamFileHandle> fromStream(
+  static Future<MemoryFileHandle> fromStream(
     Stream<Uint8List> stream,
     int fileLength,
   ) async {
     // ignore: deprecated_member_use_from_same_package
-    return RamFileHandle.fromRamFileData(
+    return MemoryFileHandle.fromRamFileData(
       await RamFileData.fromStream(stream, fileLength),
     );
   }
