@@ -9,7 +9,9 @@ abstract class FileContent {
 
   void write(OutputStream output);
 
-  void close();
+  Future<void> close();
+
+  void closeSync();
 
   Uint8List readBytes() {
     final stream = getStream();
@@ -31,7 +33,10 @@ class FileContentMemory extends FileContent {
   void write(OutputStream output) => output.writeBytes(bytes);
 
   @override
-  void close() {}
+  Future<void> close() async {}
+
+  @override
+  void closeSync() {}
 }
 
 class FileContentStream extends FileContent {
@@ -46,5 +51,8 @@ class FileContentStream extends FileContent {
   void write(OutputStream output) => output.writeStream(stream);
 
   @override
-  void close() => stream.close();
+  Future<void> close() async => stream.close();
+
+  @override
+  void closeSync() => stream.closeSync();
 }

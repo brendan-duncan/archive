@@ -43,8 +43,16 @@ class InputStreamFile extends InputStream {
   }
 
   @override
-  void close() {
-    _file.close();
+  Future<void> close() async {
+    await _file.close();
+    _fileSize = 0;
+    _position = 0;
+    _buffer = null;
+  }
+
+  @override
+  void closeSync() async {
+    _file.closeSync();
     _fileSize = 0;
     _position = 0;
     _buffer = null;

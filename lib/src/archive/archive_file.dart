@@ -63,7 +63,7 @@ class ArchiveFile extends ArchiveEntry {
     _content?.write(output);
 
     if (freeMemory && _content != null) {
-      _content!.close();
+      _content!.closeSync();
       _content = null;
     }
   }
@@ -72,6 +72,7 @@ class ArchiveFile extends ArchiveEntry {
   FileContent? get rawContent => _rawContent;
 
   /// Get the content of the file, decompressing on demand as necessary.
+  @override
   InputStream? getContent() {
     if (_content == null) {
       decompress();
@@ -89,19 +90,28 @@ class ArchiveFile extends ArchiveEntry {
   }
 
   @override
-  void close() {
-    //final futures = <Future<void>>[];
+  Future<void> close() async {
+    final futures = <Future<void>>[];
     if (_content != null) {
-      _content!.close();
-      //futures.add(_content!.close());
+      futures.add(_content!.close());
     }
     if (_rawContent != null) {
-      _rawContent!.close();
-      //futures.add(_rawContent!.close());
+      futures.add(_rawContent!.close());
     }
     _content = null;
     _rawContent = null;
-    //Future.wait(futures);
+    await Future.wait(futures);
+  }
+
+  @override closeSync() {
+    if (_content != null) {
+      _content!.closeSync();
+    }
+    if (_rawContent != null) {
+      _rawContent!.closeSync();
+    }
+    _content = null;
+    _rawContent = null;
   }
 
   /// If the file data is compressed, decompress it.

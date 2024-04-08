@@ -1,3 +1,5 @@
+import '../util/input_stream.dart';
+
 abstract class ArchiveEntry extends Iterable<ArchiveEntry> {
   String name;
   int mode;
@@ -28,7 +30,9 @@ abstract class ArchiveEntry extends Iterable<ArchiveEntry> {
   String get fullPathName =>
       parent != null ? '${parent!.fullPathName}/$name' : name;
 
-  void close();
+  Future<void> close();
+
+  void closeSync();
 
   @override
   ArchiveEntry get first => this;
@@ -53,4 +57,6 @@ abstract class ArchiveEntry extends Iterable<ArchiveEntry> {
 
   @override
   String toString() => fullPathName;
+
+  InputStream? getContent() => null;
 }

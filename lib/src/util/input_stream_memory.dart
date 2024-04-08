@@ -71,7 +71,12 @@ class InputStreamMemory extends InputStream {
   bool open() => true;
 
   @override
-  void close() {
+  Future<void> close() async {
+    _position = 0;
+  }
+
+  @override
+  void closeSync() {
     _position = 0;
   }
 

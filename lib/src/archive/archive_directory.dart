@@ -11,10 +11,13 @@ class ArchiveDirectory extends ArchiveEntry {
   bool get isFile => false;
 
   @override
-  void close() {}
+  Future<void> close() async {}
+
+  @override
+  void closeSync() {}
 
   /// Add a file to the archive.
-  void addEntry(ArchiveEntry entry) {
+  void add(ArchiveEntry entry) {
     // Adding a file with the same path as one that's already in the archive
     // will replace the previous file.
     final index = entryMap[entry.name];
@@ -45,16 +48,24 @@ class ArchiveDirectory extends ArchiveEntry {
     return dir;
   }
 
-  void clear() {
-    //final futures = <Future<void>>[];
+  Future<void> clear() async {
+    final futures = <Future<void>>[];
     for (final fp in entries) {
-      fp.close();
-      //futures.add(fp.close());
+      futures.add(fp.close());
     }
     entries.clear();
     entryMap.clear();
     comment = null;
-    //Future.wait(futures);
+    await Future.wait(futures);
+  }
+
+  void clearSync() {
+    for (final fp in entries) {
+      fp.closeSync();
+    }
+    entries.clear();
+    entryMap.clear();
+    comment = null;
   }
 
   /// The number of files in the archive.

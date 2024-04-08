@@ -75,9 +75,9 @@ class ZipDecoder {
                 compression: zf.compressionMethod);
 
         if (dir != null) {
-          dir.addEntry(entry);
+          dir.add(entry);
         } else {
-          archive.addEntry(entry);
+          archive.add(entry);
         }
       }
 

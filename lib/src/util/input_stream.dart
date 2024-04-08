@@ -23,7 +23,10 @@ abstract class InputStream {
   bool open();
 
   /// Asynchronously closes the input stream.
-  void close();
+  Future<void> close();
+
+  /// Synchronously closes the input stream.
+  void closeSync();
 
   /// Reset to the beginning of the stream.
   void reset();

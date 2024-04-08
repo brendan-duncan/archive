@@ -31,7 +31,17 @@ class OutputStreamFile extends OutputStream {
   }
 
   @override
-  void close() {
+  Future<void> close() async {
+    if (_fp == null) {
+      return;
+    }
+    flush();
+    await _fp?.close();
+    _fp = null;
+  }
+
+  @override
+  void closeSync() {
     if (_fp == null) {
       return;
     }

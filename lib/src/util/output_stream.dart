@@ -13,7 +13,9 @@ abstract class OutputStream {
 
   void open() {}
 
-  void close() {}
+  Future<void> close() async {}
+
+  void closeSync() {}
 
   bool get isOpen => true;
 

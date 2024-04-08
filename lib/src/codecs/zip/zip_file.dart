@@ -287,7 +287,12 @@ class ZipFile extends FileContent {
   }
 
   @override
-  void close() {
+  Future<void> close() async {
+    _content = null;
+  }
+
+  @override
+  void closeSync() {
     _content = null;
   }
 
