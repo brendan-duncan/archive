@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'util/_file_content.dart';
@@ -67,10 +68,10 @@ class ArchiveFile {
         size = (_content as Uint8List).length;
       }
     } else if (content is String) {
-      _content = content.codeUnits;
+      _content = utf8.encode(content);
       _rawContent = InputStream(_content);
       if (size <= 0) {
-        size = content.codeUnits.length + 1;
+        size = (_content as Uint8List).length + 1;
       }
     } else if (content is List<int>) {
       // Legacy
@@ -88,7 +89,7 @@ class ArchiveFile {
   ArchiveFile.string(this.name, String content,
       [this._compressionType = STORE]) {
     size = content.length;
-    _content = Uint8List.fromList(content.codeUnits);
+    _content = utf8.encode(content);
     _rawContent = InputStream(_content);
   }
 
