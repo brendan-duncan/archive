@@ -2,14 +2,11 @@
 int shiftDown64(int value) {
   if (value & 0x8000000000000000 == 0) {
     return value >> 8;
-  } else {
-    return (value & 0x7fffffffffffffff) >> 8 | 0x0080000000000000;
   }
+  return (value & 0x7fffffffffffffff) >> 8 | 0x0080000000000000;
 }
 
-bool isCrc64Supported_() {
-  return true;
-}
+bool isCrc64Supported_() => true;
 
 /// Get the CRC-64 checksum of the given array. You can append bytes to an
 /// already computed crc by specifying the previous [crc] value.
@@ -22,7 +19,7 @@ int getCrc64_(List<int> array, [int crc = 0]) {
 }
 
 // Precomputed CRC table for faster calculations.
-const List<int> _crc64_table = [
+const _crc64_table = <int>[
   0x0000000000000000,
   0xb32e4cbe03a75f6f,
   0xf4843657a840a05b,

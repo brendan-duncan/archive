@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'abstract_file_handle.dart';
+import 'file_mode.dart';
 
 class RamFileHandle extends AbstractFileHandle {
   // ignore: deprecated_member_use_from_same_package
@@ -9,7 +10,7 @@ class RamFileHandle extends AbstractFileHandle {
   int _readPosition = 0;
   int _writePosition = 0;
 
-  RamFileHandle._(AbstractFileOpenMode openMode, this._ramFileData) : super(openMode);
+  RamFileHandle._(FileMode openMode, this._ramFileData) : super(openMode);
 
   /// Creates a writeable RamFileHandle
   factory RamFileHandle.asWritableRamBuffer({
@@ -17,7 +18,7 @@ class RamFileHandle extends AbstractFileHandle {
   }) {
     // ignore: deprecated_member_use_from_same_package
     return RamFileHandle._(
-      AbstractFileOpenMode.write,
+      FileMode.write,
       RamFileData.outputBuffer(subListSize: subListSize),
     );
   }
@@ -25,7 +26,7 @@ class RamFileHandle extends AbstractFileHandle {
   /// Creates a read-only RamFileHandle from a RamFileData
   factory RamFileHandle.fromRamFileData(RamFileData ramFileData) {
     // ignore: deprecated_member_use_from_same_package
-    return RamFileHandle._(AbstractFileOpenMode.read, ramFileData);
+    return RamFileHandle._(FileMode.read, ramFileData);
   }
 
   /// Creates a read-only RamFileHandle from a stream

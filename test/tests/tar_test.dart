@@ -107,7 +107,7 @@ var tarTests = [
         'ModTime': 1350244992,
         'ChangeTime': 1350244992,
         'AccessTime': 1350244992,
-        'Typeflag': TarFile.TYPE_NORMAL_FILE,
+        'Typeflag': TarFile.typeNormalFile,
       },
       {
         'Name': 'a/b',
@@ -136,7 +136,7 @@ var tarTests = [
         'Gid': 0,
         'Size': 14,
         'ModTime': 1365454838,
-        'Typeflag': TarFile.TYPE_NORMAL_FILE,
+        'Typeflag': TarFile.typeNormalFile,
         'Linkname': '',
         'Uname': 'eyefi',
         'Gname': 'eyefi',

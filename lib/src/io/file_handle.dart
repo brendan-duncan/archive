@@ -9,11 +9,11 @@ class FileHandle extends AbstractFileHandle {
   int _position;
   late int _length;
 
-  FileHandle.fromFile(File fp, {
-    AbstractFileOpenMode openMode = AbstractFileOpenMode.read })
-      : _position = 0
-      , _path = ""
-      , super(openMode) {
+  FileHandle.fromFile(File fp,
+      {AbstractFileOpenMode openMode = AbstractFileOpenMode.read})
+      : _position = 0,
+        _path = "",
+        super(openMode) {
     final FileMode fileOpenMode;
     switch (openMode) {
       case AbstractFileOpenMode.read:
@@ -28,16 +28,18 @@ class FileHandle extends AbstractFileHandle {
   }
 
   FileHandle.from(RandomAccessFile fp)
-      : _position = 0
-      , _path = ""
-      , super(AbstractFileOpenMode.read) {
+      : _position = 0,
+        _path = "",
+        super(AbstractFileOpenMode.read) {
     _file = fp;
     _length = fp.lengthSync();
   }
 
-  FileHandle(this._path, {
+  FileHandle(
+    this._path, {
     AbstractFileOpenMode openMode = AbstractFileOpenMode.read,
-  }) : _position = 0, super(openMode) {
+  })  : _position = 0,
+        super(openMode) {
     if (openMode == AbstractFileOpenMode.write) {
       File(_path).createSync(recursive: true);
     }
@@ -121,7 +123,7 @@ class FileHandle extends AbstractFileHandle {
       _open();
     }
     final int size;
-    if (end == null){
+    if (end == null) {
       size = buffer.length;
     } else {
       size = end - start;

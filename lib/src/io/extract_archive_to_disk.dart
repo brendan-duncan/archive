@@ -2,9 +2,9 @@ import 'dart:io';
 
 import 'package:path/path.dart' as path;
 
-import '../archive.dart';
-import '../archive_file.dart';
-import '../bzip2_decoder.dart';
+import '../archive/archive.dart';
+import '../archive/archive_file.dart';
+import '../codecs/bzip2_decoder.dart';
 import '../gzip_decoder.dart';
 import '../tar_decoder.dart';
 import '../xz_decoder.dart';

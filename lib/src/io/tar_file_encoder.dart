@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:path/path.dart' as path;
 
-import '../archive_file.dart';
+import '../archive/archive_file.dart';
 import '../gzip_encoder.dart';
 import '../tar_encoder.dart';
 import 'input_file_stream.dart';

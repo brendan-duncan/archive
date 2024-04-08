@@ -5,7 +5,7 @@ description: >-
   such as zip, tar, bzip2, gzip, and zlib.
 repository: https://github.com/brendan-duncan/archive
 environment:
-  sdk: '>=2.12.0 <4.0.0'
+  sdk: '>=2.17.0 <4.0.0'
 
 dependencies:
   crypto: ^3.0.3

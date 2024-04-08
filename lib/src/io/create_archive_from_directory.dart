@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'package:path/path.dart' as path;
-import '../archive.dart';
-import '../archive_file.dart';
+import '../archive/archive.dart';
+import '../archive/archive_file.dart';
 import 'input_file_stream.dart';
 
 Archive createArchiveFromDirectory(Directory dir,

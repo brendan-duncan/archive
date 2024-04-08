@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+
 import 'archive_exception.dart';
 import 'byte_order.dart';
 
@@ -8,10 +9,12 @@ class MemPtr {
   List<int> buffer;
   int offset;
   int _length;
-  int byteOrder;
+  ByteOrder byteOrder;
 
   MemPtr(List<int> other,
-      [this.offset = 0, this._length = -1, this.byteOrder = LITTLE_ENDIAN])
+      [this.offset = 0,
+      this._length = -1,
+      this.byteOrder = ByteOrder.littleEndian])
       : buffer = other {
     if (_length < 0 || _length > buffer.length) {
       _length = buffer.length;
@@ -102,7 +105,7 @@ class MemPtr {
   int readUint16() {
     final b1 = buffer[offset++] & 0xff;
     final b2 = buffer[offset++] & 0xff;
-    if (byteOrder == BIG_ENDIAN) {
+    if (byteOrder == ByteOrder.bigEndian) {
       return (b1 << 8) | b2;
     }
     return (b2 << 8) | b1;
@@ -113,7 +116,7 @@ class MemPtr {
     final b1 = buffer[offset++] & 0xff;
     final b2 = buffer[offset++] & 0xff;
     final b3 = buffer[offset++] & 0xff;
-    if (byteOrder == BIG_ENDIAN) {
+    if (byteOrder == ByteOrder.bigEndian) {
       return b3 | (b2 << 8) | (b1 << 16);
     }
     return b1 | (b2 << 8) | (b3 << 16);
@@ -125,7 +128,7 @@ class MemPtr {
     final b2 = buffer[offset++] & 0xff;
     final b3 = buffer[offset++] & 0xff;
     final b4 = buffer[offset++] & 0xff;
-    if (byteOrder == BIG_ENDIAN) {
+    if (byteOrder == ByteOrder.bigEndian) {
       return (b1 << 24) | (b2 << 16) | (b3 << 8) | b4;
     }
     return (b4 << 24) | (b3 << 16) | (b2 << 8) | b1;
