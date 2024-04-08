@@ -20,9 +20,9 @@ void main() {
   req.onLoadEnd.listen((e) {
     if (req.status == 200) {
       // Convert the text to binary byte list.
-      final bytes = Uint8List.view(req.response as ByteBuffer);
-      final archive = ZipDecoder().decodeBytes(bytes, verify: true);
-      print('NUMBER OF FILES ${archive.numberOfFiles()}');
+      //final bytes = Uint8List.view(req.response as ByteBuffer);
+      //final archive = ZipDecoder().decodeBytes(bytes, verify: true);
+      //print('NUMBER OF FILES ${archive.numberOfFiles()}');
     }
   });
   req.send('');

@@ -5,7 +5,7 @@ import '../util/output_stream.dart';
 import 'zlib/inflate.dart';
 
 /// Decompress data with the gzip format decoder.
-class GZipDecoder {
+/*class GZipDecoder {
   static const int SIGNATURE = 0x8b1f;
   static const int DEFLATE = 8;
   static const int FLAG_TEXT = 0x01;
@@ -123,4 +123,4 @@ class GZipDecoder {
       input.readUint16();
     }
   }
-}
+}*/

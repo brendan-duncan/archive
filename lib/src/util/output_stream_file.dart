@@ -1,7 +1,10 @@
 import 'dart:io';
 import 'dart:typed_data';
 
-import '../../archive.dart';
+import 'archive_exception.dart';
+import 'byte_order.dart';
+import 'input_stream.dart';
+import 'output_stream.dart';
 import 'input_stream_memory.dart';
 
 class OutputStreamFile extends OutputStream {

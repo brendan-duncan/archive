@@ -8,7 +8,7 @@ import '../util/output_stream.dart';
 
 /// Compress data using the BZip2 format.
 /// Derived from libbzip2 (http://www.bzip.org).
-class BZip2Encoder {
+/*class BZip2Encoder {
   List<int> encode(List<int> data) {
     input = InputStreamMemory(data, byteOrder: ByteOrder.bigEndian);
     final output = OutputStreamMemory(byteOrder: ByteOrder.bigEndian);
@@ -2037,4 +2037,4 @@ class BZip2Encoder {
   static const int _bzLesserICost = 0;
   static const int _bzGreaterICost = 15;
   static const int _bzMaxSelectors = (2 + (900000 ~/ _bzGSize));
-}
+}*/

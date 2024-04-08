@@ -4,7 +4,7 @@ import 'package:archive/archive.dart';
 import 'package:test/test.dart';
 import 'package:path/path.dart' as p;
 
-import 'test_utils.dart';
+import 'tests/test_utils.dart';
 
 void main() {
   test('decode', () {

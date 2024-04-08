@@ -9,7 +9,7 @@ import '../util/input_stream_memory.dart';
 final paxRecordRegexp = RegExp(r"(\d+) (\w+)=(.*)");
 
 /// Decode a tar formatted buffer into an [Archive] object.
-class TarDecoder {
+/*class TarDecoder {
   List<TarFile> files = [];
 
   Archive decodeBytes(List<int> data,
@@ -102,4 +102,4 @@ class TarDecoder {
 
     return archive;
   }
-}
+}*/

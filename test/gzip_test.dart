@@ -4,7 +4,7 @@ import 'package:archive/archive.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
-import 'test_utils.dart';
+import 'tests/test_utils.dart';
 
 void main() {
   group('gzip', () {

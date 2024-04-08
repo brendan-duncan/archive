@@ -1,11 +1,11 @@
 import 'dart:typed_data';
-import '../tar/tar_file.dart';
 import '../util/output_stream.dart';
 import '../archive/archive.dart';
 import '../archive/archive_file.dart';
+import 'tar/tar_file.dart';
 
 /// Encode an [Archive] object into a tar formatted buffer.
-class TarEncoder {
+/*class TarEncoder {
   List<int> encode(Archive archive, {OutputStreamBase? output}) {
     final outputStream = output ?? OutputStream();
     start(outputStream);
@@ -74,4 +74,4 @@ class TarEncoder {
   }
 
   dynamic _outputStream;
-}
+}*/

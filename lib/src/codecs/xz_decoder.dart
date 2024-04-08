@@ -2,18 +2,17 @@ import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
 
-import 'util/archive_exception.dart';
-import 'util/crc32.dart';
-import 'util/crc64.dart';
-import 'util/input_stream.dart';
-
+import '../util/archive_exception.dart';
+import '../util/crc32.dart';
+import '../util/crc64.dart';
+import '../util/input_stream.dart';
 import 'lzma/lzma_decoder.dart';
 
 // The XZ specification can be found at
 // https://tukaani.org/xz/xz-file-format.txt.
 
 /// Decompress data with the xz format decoder.
-class XZDecoder {
+/*class XZDecoder {
   List<int> decodeBytes(List<int> data, {bool verify = false}) {
     return decodeBuffer(InputStream(data), verify: verify);
   }
@@ -410,4 +409,4 @@ class _XZBlockSize {
   final int uncompressedLength;
 
   const _XZBlockSize(this.unpaddedLength, this.uncompressedLength);
-}
+}*/

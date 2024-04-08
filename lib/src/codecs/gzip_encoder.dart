@@ -3,7 +3,7 @@ import '../util/output_stream_memory.dart';
 import 'zlib/deflate.dart';
 import '../util/input_stream.dart';
 
-class GZipEncoder {
+/*class GZipEncoder {
   static const int signature = 0x8b1f;
   static const int _deflate = 8;
   /*static const int FLAG_TEXT = 0x01;
@@ -111,4 +111,4 @@ class GZipEncoder {
     }
     return null;
   }
-}
+}*/

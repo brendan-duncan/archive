@@ -2,10 +2,11 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'dart:math';
 
-import 'package:archive/src/archive/compression_type.dart';
-import 'package:archive/src/util/output_stream_memory.dart';
-
+import '../archive/archive.dart';
+import '../archive/archive_file.dart';
+import '../archive/compression_type.dart';
 import '../util/crc32.dart';
+import '../util/output_stream_memory.dart';
 import '../util/input_stream.dart';
 import '../util/aes_decrypt.dart';
 import '../util/output_stream.dart';
@@ -13,10 +14,8 @@ import 'zip/zip_directory.dart';
 import 'zip/zip_file.dart';
 import 'zip/zip_file_header.dart';
 import 'zlib/deflate.dart';
-import '../archive/archive.dart';
-import '../archive/archive_file.dart';
 
-class _ZipFileData {
+/*class _ZipFileData {
   late String name;
   int time = 0;
   int date = 0;
@@ -509,4 +508,4 @@ class ZipEncoder {
   static const int _osMSDos = 0;
   static const int _osUnix = 3;
   static const int _osMacintosh = 7;
-}
+}*/

@@ -12,7 +12,7 @@ enum XZCheck { none, crc32, crc64, sha256 }
 
 /// Compress data using the xz format encoder.
 /// This encoder only currently supports uncompressed data.
-class XZEncoder {
+/*class XZEncoder {
   List<int> encode(List<int> data, {XZCheck check = XZCheck.crc64}) {
     var flags = 0;
     switch (check) {
@@ -263,4 +263,4 @@ class _XZBlockSize {
   final int uncompressedLength;
 
   const _XZBlockSize(this.unpaddedLength, this.uncompressedLength);
-}
+}*/
