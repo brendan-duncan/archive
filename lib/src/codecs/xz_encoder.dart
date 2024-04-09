@@ -1,3 +1,4 @@
+import 'dart:typed_data';
 import 'package:crypto/crypto.dart';
 
 import '../util/crc32.dart';
@@ -12,8 +13,8 @@ enum XZCheck { none, crc32, crc64, sha256 }
 
 /// Compress data using the xz format encoder.
 /// This encoder only currently supports uncompressed data.
-/*class XZEncoder {
-  List<int> encode(List<int> data, {XZCheck check = XZCheck.crc64}) {
+class XZEncoder {
+  Uint8List encode(List<int> data, {XZCheck check = XZCheck.crc64}) {
     var flags = 0;
     switch (check) {
       case XZCheck.none:
@@ -29,10 +30,10 @@ enum XZCheck { none, crc32, crc64, sha256 }
         break;
     }
 
-    final output = OutputStreamMemory();
+    final output = OutputMemoryStream();
     _writeStreamHeader(output, flags: flags);
 
-    var records = <_XZBlockSize>[];
+    final records = <_XZBlockSize>[];
     if (data.isNotEmpty) {
       var compressedLength = _writeBlock(output, data, streamFlags: flags);
       records.add(_XZBlockSize(compressedLength, data.length));
@@ -52,13 +53,13 @@ enum XZCheck { none, crc32, crc64, sha256 }
     // '\xfd7zXZ\x00'
     output.writeBytes([253, 55, 122, 88, 90, 0]);
 
-    var header = OutputStreamMemory();
+    var header = OutputMemoryStream();
     header.writeByte(0); // Unused flags.
     header.writeByte(flags);
 
     var headerBytes = header.getBytes();
     output.writeBytes(headerBytes);
-    output.writeUint32(getCrc32(headerBytes));
+    output.writeUint32(getCrc32List(headerBytes));
   }
 
   // Writes [data] to [output] in XZ block format.
@@ -67,13 +68,13 @@ enum XZCheck { none, crc32, crc64, sha256 }
       bool hasCompressedLength = false,
       bool hasUncompressedLength = false}) {
     // Covert data into LZMA2 format.
-    final lzma2 = OutputStreamMemory();
+    final lzma2 = OutputMemoryStream();
     _writeLZMA2UncompressedData(lzma2, data);
     _writeLZMA2EndMarker(lzma2);
     final compressedLength = lzma2.length;
 
     // Optionally write the compressed and uncompressed lengths.
-    var blockLengths = OutputStreamMemory();
+    var blockLengths = OutputMemoryStream();
     if (hasCompressedLength) {
       _writeMultibyteInteger(blockLengths, compressedLength);
     }
@@ -101,7 +102,7 @@ enum XZCheck { none, crc32, crc64, sha256 }
     if (hasUncompressedLength) {
       flags |= 0x80;
     }
-    var header = OutputStreamMemory();
+    final header = OutputMemoryStream();
     header.writeByte((headerLength ~/ 4) - 1);
     header.writeByte(flags);
     header.writeBytes(blockLengths.getBytes());
@@ -114,7 +115,7 @@ enum XZCheck { none, crc32, crc64, sha256 }
     var headerBytes = header.getBytes();
     var blockStart = output.length;
     output.writeBytes(headerBytes);
-    output.writeUint32(getCrc32(headerBytes));
+    output.writeUint32(getCrc32List(headerBytes));
 
     // Write block data.
     output.writeBytes(lzma2.getBytes());
@@ -126,10 +127,10 @@ enum XZCheck { none, crc32, crc64, sha256 }
       case 0x00: // none
         break;
       case 0x01: // CRC32
-        output.writeUint32(getCrc32(data));
+        output.writeUint32(getCrc32List(data));
         break;
       case 0x04: // CRC64
-        output.writeUint64(getCrc64(data));
+        output.writeUint64(getCrc64List(data));
         break;
       case 0x0a: // SHA-256
         output.writeBytes(sha256.convert(data).bytes);
@@ -146,7 +147,7 @@ enum XZCheck { none, crc32, crc64, sha256 }
     final id = 0x21;
     final propertiesLength = 1;
 
-    var filter = OutputStreamMemory();
+    var filter = OutputMemoryStream();
     _writeMultibyteInteger(filter, id);
     _writeMultibyteInteger(filter, propertiesLength);
     filter.writeByte(_getDictionarySizeValue(dictionarySize));
@@ -176,7 +177,7 @@ enum XZCheck { none, crc32, crc64, sha256 }
   // Write the XZ stream index for [records] to [output].
   void _writeStreamIndex(OutputStream output,
       {required List<_XZBlockSize> records}) {
-    var index = OutputStreamMemory();
+    var index = OutputMemoryStream();
 
     // Index indicator.
     index.writeByte(0);
@@ -189,19 +190,19 @@ enum XZCheck { none, crc32, crc64, sha256 }
 
     var indexBytes = index.getBytes();
     output.writeBytes(indexBytes);
-    output.writeUint32(getCrc32(indexBytes));
+    output.writeUint32(getCrc32List(indexBytes));
   }
 
   // Write an XZ stream footer to [output].
   void _writeStreamFooter(OutputStream output,
       {required int indexSize, required int flags}) {
-    var footer = OutputStreamMemory();
+    var footer = OutputMemoryStream();
     footer.writeUint32((indexSize ~/ 4) - 1);
     footer.writeByte(0); // Unused flags.
     footer.writeByte(flags);
 
     var footerBytes = footer.getBytes();
-    output.writeUint32(getCrc32(footerBytes));
+    output.writeUint32(getCrc32List(footerBytes));
     output.writeBytes(footerBytes);
 
     // 'YZ'
@@ -263,4 +264,4 @@ class _XZBlockSize {
   final int uncompressedLength;
 
   const _XZBlockSize(this.unpaddedLength, this.uncompressedLength);
-}*/
+}

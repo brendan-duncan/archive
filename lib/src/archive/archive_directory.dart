@@ -58,6 +58,7 @@ class ArchiveDirectory extends ArchiveEntry {
     return dir;
   }
 
+  @override
   Future<void> clear() async {
     await close();
     entries.clear();
@@ -65,6 +66,7 @@ class ArchiveDirectory extends ArchiveEntry {
     comment = null;
   }
 
+  @override
   void clearSync() {
     closeSync();
     entries.clear();

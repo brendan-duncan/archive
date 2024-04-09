@@ -6,18 +6,19 @@ import '../util/archive_exception.dart';
 import '../util/crc32.dart';
 import '../util/crc64.dart';
 import '../util/input_stream.dart';
+import '../util/input_memory_stream.dart';
 import 'lzma/lzma_decoder.dart';
 
 // The XZ specification can be found at
 // https://tukaani.org/xz/xz-file-format.txt.
 
 /// Decompress data with the xz format decoder.
-/*class XZDecoder {
-  List<int> decodeBytes(List<int> data, {bool verify = false}) {
-    return decodeBuffer(InputStream(data), verify: verify);
+class XZDecoder {
+  Uint8List decodeBytes(Uint8List data, {bool verify = false}) {
+    return decodeStream(InputMemoryStream(data), verify: verify);
   }
 
-  List<int> decodeBuffer(InputStreamBase input, {bool verify = false}) {
+  Uint8List decodeStream(InputStream input, {bool verify = false}) {
     var decoder = _XZStreamDecoder(verify: verify);
     return decoder.decode(input);
   }
@@ -43,7 +44,7 @@ class _XZStreamDecoder {
   _XZStreamDecoder({this.verify = false});
 
   // Decode this stream and return the uncompressed data.
-  List<int> decode(InputStreamBase input) {
+  Uint8List decode(InputStream input) {
     _readStreamHeader(input);
 
     while (true) {
@@ -61,7 +62,7 @@ class _XZStreamDecoder {
   }
 
   // Reads an XZ steam header from [input].
-  void _readStreamHeader(InputStreamBase input) {
+  void _readStreamHeader(InputStream input) {
     final magic = input.readBytes(6).toUint8List();
     final magicIsValid = magic[0] == 253 &&
         magic[1] == 55 /* '7' */ &&
@@ -81,13 +82,13 @@ class _XZStreamDecoder {
     header.reset();
 
     final crc = input.readUint32();
-    if (getCrc32(header.toUint8List()) != crc) {
+    if (getCrc32List(header.toUint8List()) != crc) {
       throw ArchiveException('Invalid stream header CRC checksum');
     }
   }
 
   // Reads a data block from [input].
-  void _readBlock(InputStreamBase input, int headerLength) {
+  void _readBlock(InputStream input, int headerLength) {
     final blockStart = input.position;
     final header = input.readBytes(headerLength - 4);
 
@@ -140,7 +141,7 @@ class _XZStreamDecoder {
     header.reset();
 
     final crc = input.readUint32();
-    if (getCrc32(header.toUint8List()) != crc) {
+    if (getCrc32List(header.toUint8List()) != crc) {
       throw ArchiveException('Invalid block CRC checksum');
     }
 
@@ -176,7 +177,7 @@ class _XZStreamDecoder {
       case 0x1: // CRC32
         final expectedCrc = input.readUint32();
         if (verify) {
-          final actualCrc = getCrc32(data.toBytes().sublist(startDataLength));
+          final actualCrc = getCrc32List(data.toBytes().sublist(startDataLength));
           if (actualCrc != expectedCrc) {
             throw ArchiveException('CRC32 check failed');
           }
@@ -192,7 +193,7 @@ class _XZStreamDecoder {
       case 0x4: // CRC64
         final expectedCrc = input.readUint64();
         if (verify && isCrc64Supported()) {
-          final actualCrc = getCrc64(data.toBytes().sublist(startDataLength));
+          final actualCrc = getCrc64List(data.toBytes().sublist(startDataLength));
           if (actualCrc != expectedCrc) {
             throw ArchiveException('CRC64 check failed');
           }
@@ -249,7 +250,7 @@ class _XZStreamDecoder {
   }
 
   // Reads LZMA2 data from [input].
-  void _readLZMA2(InputStreamBase input, int dictionarySize) {
+  void _readLZMA2(InputStream input, int dictionarySize) {
     while (true) {
       final control = input.readByte();
       // Control values:
@@ -310,7 +311,7 @@ class _XZStreamDecoder {
 
   // Reads an XZ stream index from [input].
   // Returns the length of the index in bytes.
-  int _readStreamIndex(InputStreamBase input) {
+  int _readStreamIndex(InputStream input) {
     final startPosition = input.position;
     input.skip(1); // Skip index indicator
     final nRecords = _readMultibyteInteger(input);
@@ -336,7 +337,7 @@ class _XZStreamDecoder {
     final indexData = input.readBytes(indexLength);
 
     final crc = input.readUint32();
-    if (getCrc32(indexData.toUint8List()) != crc) {
+    if (getCrc32List(indexData.toUint8List()) != crc) {
       throw ArchiveException('Invalid stream index CRC checksum');
     }
 
@@ -345,7 +346,7 @@ class _XZStreamDecoder {
 
   // Reads an XZ stream footer from [input] and check the index size matches
   // [indexSize].
-  void _readStreamFooter(InputStreamBase input, int indexSize) {
+  void _readStreamFooter(InputStream input, int indexSize) {
     final crc = input.readUint32();
     final footer = input.readBytes(6);
     final backwardSize = (footer.readUint32() + 1) * 4;
@@ -361,7 +362,7 @@ class _XZStreamDecoder {
     }
     footer.reset();
 
-    if (getCrc32(footer.toUint8List()) != crc) {
+    if (getCrc32List(footer.toUint8List()) != crc) {
       throw ArchiveException('Invalid stream footer CRC checksum');
     }
 
@@ -372,7 +373,7 @@ class _XZStreamDecoder {
   }
 
   // Reads a multibyte integer from [input].
-  int _readMultibyteInteger(InputStreamBase input) {
+  int _readMultibyteInteger(InputStream input) {
     var value = 0;
     var shift = 0;
     while (true) {
@@ -388,7 +389,7 @@ class _XZStreamDecoder {
   // Reads padding from [input] until the read position is aligned to a 4 byte
   // boundary. The padding bytes are confirmed to be zeros.
   // Returns he number of padding bytes.
-  int _readPadding(InputStreamBase input) {
+  int _readPadding(InputStream input) {
     var count = 0;
     while (input.position % 4 != 0) {
       if (input.readByte() != 0) {
@@ -409,4 +410,4 @@ class _XZBlockSize {
   final int uncompressedLength;
 
   const _XZBlockSize(this.unpaddedLength, this.uncompressedLength);
-}*/
+}

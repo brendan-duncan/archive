@@ -91,7 +91,7 @@ class OutputFileStream extends OutputStream {
 
   /// Write a set of bytes to the end of the buffer.
   @override
-  void writeBytes(Uint8List bytes, {int? length}) {
+  void writeBytes(List<int> bytes, {int? length}) {
     if (!isOpen) {
       throw ArchiveException('OutputStreamFile is not open');
     }

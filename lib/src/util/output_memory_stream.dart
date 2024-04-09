@@ -50,7 +50,7 @@ class OutputMemoryStream extends OutputStream {
 
   /// Write a set of bytes to the end of the buffer.
   @override
-  void writeBytes(Uint8List bytes, {int? length}) {
+  void writeBytes(List<int> bytes, {int? length}) {
     length ??= bytes.length;
 
     while (this.length + length > _buffer.length) {
