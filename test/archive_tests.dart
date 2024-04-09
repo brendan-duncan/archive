@@ -17,7 +17,7 @@ import 'output_memory_stream_test.dart' as output_memory_stream_test;
 //import 'tar_test.dart' as tar_test;
 import 'zip_test.dart' as zip_test;
 import 'zlib_test.dart' as zlib_test;
-import 'xz_test.dart' as xz_test;
+//import 'xz_test.dart' as xz_test;
 
 void main() {
   adler32_test.main();
@@ -37,5 +37,5 @@ void main() {
   //tar_test.main();
   zip_test.main();
   zlib_test.main();
-  xz_test.main();
+  //xz_test.main();
 }

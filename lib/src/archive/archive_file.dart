@@ -22,9 +22,8 @@ class ArchiveFile extends ArchiveEntry {
 
   int get unixPermissions => mode & 0x1ff;
 
-  factory ArchiveFile.list(String name, List<int> content) =>
-    ArchiveFile.bytes(name,
-        content is Uint8List ? content : Uint8List.fromList(content));
+  factory ArchiveFile.list(String name, List<int> content) => ArchiveFile.bytes(
+      name, content is Uint8List ? content : Uint8List.fromList(content));
 
   ArchiveFile.bytes(String name, Uint8List content)
       : super(name: name, mode: 0x1a4) {
@@ -55,7 +54,7 @@ class ArchiveFile extends ArchiveEntry {
   }
 
   ArchiveFile.symlink(String name, String symbolicLink)
-    : super(name: name, mode: 0x1a4) {
+      : super(name: name, mode: 0x1a4) {
     this.symbolicLink = symbolicLink;
   }
 

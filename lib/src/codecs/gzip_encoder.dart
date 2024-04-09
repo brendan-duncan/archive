@@ -7,13 +7,15 @@ import '../util/output_memory_stream.dart';
 import 'zlib/deflate.dart';
 import 'zlib/gzip_flag.dart';
 
-
 class GZipEncoder {
-  Uint8List encodeBytes(Uint8List data, {int? level, OutputStream? output}) {
+  Uint8List encodeBytes(Uint8List data,
+      {int level = DeflateLevel.defaultCompression, OutputStream? output}) {
     return encodeStream(InputMemoryStream(data), level: level, output: output);
   }
 
-  Uint8List encodeStream(InputStream data, {int? level, OutputStream? output}) {
+  Uint8List encodeStream(InputStream data,
+      {int level = DeflateLevel.defaultCompression, OutputStream? output}) {
+    final dataLength = data.length;
     OutputStream outputStream = output ?? OutputMemoryStream();
 
     // The GZip format has the following structure:
@@ -70,12 +72,13 @@ class GZipEncoder {
     outputStream.writeByte(extraFlags);
     outputStream.writeByte(osType);
 
-    final deflate = Deflate.stream(data, level: level ?? 0,
-        output: outputStream);
+    final deflate =
+        Deflate.stream(data, level: level ?? 0, output: outputStream);
+    deflate.deflate();
 
     outputStream.writeUint32(deflate.crc32);
 
-    outputStream.writeUint32(data.length);
+    outputStream.writeUint32(dataLength);
 
     outputStream.flush();
 

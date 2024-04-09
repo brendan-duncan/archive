@@ -24,7 +24,8 @@ class GZipDecoder {
     _readHeader(input);
 
     // Inflate
-    final inflate = Inflate.stream(input)..inflate();
+    final inflate = Inflate.stream(input);
+    inflate.inflate();
     final buffer = inflate.getBytes();
 
     if (verify) {

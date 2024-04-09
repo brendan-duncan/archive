@@ -5,7 +5,7 @@ import 'dart:typed_data';
 import 'package:archive/src/util/memory_file_handle.dart';
 import 'package:test/test.dart';
 
-import 'test_utils.dart';
+import '_test_util.dart';
 
 const int _sourceListMinSize = 1;
 const int _sourceListMaxSize = 10;

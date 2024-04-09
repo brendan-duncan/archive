@@ -2,7 +2,6 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:archive/archive.dart';
-import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
 import '_test_util.dart';
@@ -60,7 +59,7 @@ void main() {
       final bBytes = b.readAsBytesSync();
 
       final compressed = GZipEncoder().encodeBytes(bBytes);
-      final f = File(p.join(testOutputPath, '/cat.jpg.gz'));
+      final f = File('$testOutputPath/cat.jpg.gz');
       f.createSync(recursive: true);
       f.writeAsBytesSync(compressed);
     });

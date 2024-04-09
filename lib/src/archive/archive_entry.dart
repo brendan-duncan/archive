@@ -33,7 +33,7 @@ abstract class ArchiveEntry extends Iterable<ArchiveEntry> {
   String get fullPathName =>
       parent != null ? '${parent!.fullPathName}/$name' : name;
 
-    Future<void> close();
+  Future<void> close();
 
   void closeSync();
 

@@ -177,7 +177,8 @@ class _XZStreamDecoder {
       case 0x1: // CRC32
         final expectedCrc = input.readUint32();
         if (verify) {
-          final actualCrc = getCrc32List(data.toBytes().sublist(startDataLength));
+          final actualCrc =
+              getCrc32List(data.toBytes().sublist(startDataLength));
           if (actualCrc != expectedCrc) {
             throw ArchiveException('CRC32 check failed');
           }
@@ -193,7 +194,8 @@ class _XZStreamDecoder {
       case 0x4: // CRC64
         final expectedCrc = input.readUint64();
         if (verify && isCrc64Supported()) {
-          final actualCrc = getCrc64List(data.toBytes().sublist(startDataLength));
+          final actualCrc =
+              getCrc64List(data.toBytes().sublist(startDataLength));
           if (actualCrc != expectedCrc) {
             throw ArchiveException('CRC64 check failed');
           }
