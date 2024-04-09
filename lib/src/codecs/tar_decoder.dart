@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import '../archive/archive.dart';
 import '../archive/archive_file.dart';
@@ -9,12 +10,12 @@ import '../util/input_memory_stream.dart';
 final paxRecordRegexp = RegExp(r"(\d+) (\w+)=(.*)");
 
 /// Decode a tar formatted buffer into an [Archive] object.
-/*class TarDecoder {
+class TarDecoder {
   List<TarFile> files = [];
 
-  Archive decodeBytes(List<int> data,
+  Archive decodeBytes(Uint8List data,
       {bool verify = false, bool storeData = true}) {
-    return decodeBuffer(InputStreamMemory(data),
+    return decodeBuffer(InputMemoryStream(data),
         verify: verify, storeData: storeData);
   }
 
@@ -84,22 +85,22 @@ final paxRecordRegexp = RegExp(r"(\d+) (\w+)=(.*)");
       }
       files.add(tf);
 
-      final file = ArchiveFile(tf.filename, tf.fileSize, tf.rawContent);
+      final file = ArchiveFile.stream(tf.filename, tf.fileSize, tf.rawContent!);
 
       file.mode = tf.mode;
       file.ownerId = tf.ownerId;
       file.groupId = tf.groupId;
       file.lastModTime = tf.lastModTime;
       file.isFile = tf.isFile;
-      file.isSymbolicLink = tf.typeFlag == TarFileType.symbolicLink;
+      //file.isSymbolicLink = tf.typeFlag == TarFileType.symbolicLink;
 
       if (tf.nameOfLinkedFile != null) {
-        file.nameOfLinkedFile = tf.nameOfLinkedFile!;
+        file.symbolicLink = tf.nameOfLinkedFile!;
       }
 
-      archive.addFile(file);
+      archive.add(file);
     }
 
     return archive;
   }
-}*/
+}

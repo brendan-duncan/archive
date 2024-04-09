@@ -14,8 +14,6 @@ class ArchiveFile extends ArchiveEntry {
   /// The uncompressed size of the file
   int size = 0;
 
-  /// If this is a symbolic link, this is the path to the file its linked to.
-  String? linkPath;
   FileContent? _rawContent;
   FileContent? _content;
   CompressionType compression = CompressionType.none;
@@ -23,6 +21,10 @@ class ArchiveFile extends ArchiveEntry {
   bool isFile = true;
 
   int get unixPermissions => mode & 0x1ff;
+
+  factory ArchiveFile.list(String name, List<int> content) =>
+    ArchiveFile.bytes(name,
+        content is Uint8List ? content : Uint8List.fromList(content));
 
   ArchiveFile.bytes(String name, Uint8List content)
       : super(name: name, mode: 0x1a4) {
@@ -50,6 +52,11 @@ class ArchiveFile extends ArchiveEntry {
       {this.compression = CompressionType.none})
       : super(name: name, mode: 0x1a4) {
     _rawContent = file;
+  }
+
+  ArchiveFile.symlink(String name, String symbolicLink)
+    : super(name: name, mode: 0x1a4) {
+    this.symbolicLink = symbolicLink;
   }
 
   void writeContent(OutputStream output, {bool freeMemory = true}) {

@@ -1,36 +1,20 @@
+import 'dart:typed_data';
+
+import '../util/input_stream.dart';
+import '../util/input_memory_stream.dart';
 import '../util/output_stream.dart';
 import '../util/output_memory_stream.dart';
 import 'zlib/deflate.dart';
-import '../util/input_stream.dart';
+import 'zlib/gzip_flag.dart';
 
-/*class GZipEncoder {
-  static const int signature = 0x8b1f;
-  static const int _deflate = 8;
-  /*static const int FLAG_TEXT = 0x01;
-  static const int FLAG_HCRC = 0x02;
-  static const int FLAG_EXTRA = 0x04;
-  static const int FLAG_NAME = 0x08;
-  static const int FLAG_COMMENT = 0x10;
 
-  // enum OperatingSystem
-  static const int OS_FAT = 0;
-  static const int OS_AMIGA = 1;
-  static const int OS_VMS = 2;
-  static const int OS_UNIX = 3;
-  static const int OS_VM_CMS = 4;
-  static const int OS_ATARI_TOS = 5;
-  static const int OS_HPFS = 6;
-  static const int OS_MACINTOSH = 7;
-  static const int OS_Z_SYSTEM = 8;
-  static const int OS_CP_M = 9;
-  static const int OS_TOPS_20 = 10;
-  static const int OS_NTFS = 11;
-  static const int OS_QDOS = 12;
-  static const int OS_ACORN_RISCOS = 13;*/
-  static const int _osUnknown = 255;
+class GZipEncoder {
+  Uint8List encodeBytes(Uint8List data, {int? level, OutputStream? output}) {
+    return encodeStream(InputMemoryStream(data), level: level, output: output);
+  }
 
-  List<int>? encode(dynamic data, {int? level, dynamic output}) {
-    dynamic outputStream = output ?? OutputStreamMemory();
+  Uint8List encodeStream(InputStream data, {int? level, OutputStream? output}) {
+    OutputStream outputStream = output ?? OutputMemoryStream();
 
     // The GZip format has the following structure:
     // Offset   Length   Contents
@@ -73,42 +57,28 @@ import '../util/input_stream.dart';
     //        4 bytes  crc32
     //        4 bytes  uncompressed input size modulo 2^32
 
-    outputStream.writeUint16(signature);
-    outputStream.writeByte(_deflate);
+    outputStream.writeUint16(GZipFlag.signature);
+    outputStream.writeByte(GZipFlag.deflate);
 
-    var flags = 0;
-    var fileModTime = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-    var extraFlags = 0;
-    var osType = _osUnknown;
+    final flags = 0;
+    final fileModTime = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    final extraFlags = 0;
+    final osType = GZipFlag.osUnknown;
 
     outputStream.writeByte(flags);
     outputStream.writeUint32(fileModTime);
     outputStream.writeByte(extraFlags);
     outputStream.writeByte(osType);
 
-    Deflate deflate;
-    if (data is List<int>) {
-      deflate = Deflate(data, level: level, output: outputStream);
-    } else {
-      deflate = Deflate.buffer(data as InputStream,
-          level: level, output: outputStream);
-    }
-
-    if (outputStream is! OutputStream) {
-      deflate.finish();
-    }
+    final deflate = Deflate.stream(data, level: level ?? 0,
+        output: outputStream);
 
     outputStream.writeUint32(deflate.crc32);
 
     outputStream.writeUint32(data.length);
 
-    if (outputStream is OutputStream) {
-      outputStream.flush();
-    }
+    outputStream.flush();
 
-    if (outputStream is OutputStream) {
-      return outputStream.getBytes();
-    }
-    return null;
+    return outputStream.getBytes();
   }
-}*/
+}

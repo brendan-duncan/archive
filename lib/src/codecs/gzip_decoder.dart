@@ -1,45 +1,40 @@
+import 'dart:typed_data';
+
 import '../util/archive_exception.dart';
 import '../util/crc32.dart';
 import '../util/input_stream.dart';
+import '../util/input_memory_stream.dart';
 import '../util/output_stream.dart';
 import 'zlib/inflate.dart';
+import 'zlib/gzip_flag.dart';
 
 /// Decompress data with the gzip format decoder.
-/*class GZipDecoder {
-  static const int SIGNATURE = 0x8b1f;
-  static const int DEFLATE = 8;
-  static const int FLAG_TEXT = 0x01;
-  static const int FLAG_HCRC = 0x02;
-  static const int FLAG_EXTRA = 0x04;
-  static const int FLAG_NAME = 0x08;
-  static const int FLAG_COMMENT = 0x10;
-
-  List<int> decodeBytes(List<int> data, {bool verify = false}) {
-    return decodeBuffer(InputStreamMemory(data), verify: verify);
+class GZipDecoder {
+  List<int> decodeBytes(Uint8List data, {bool verify = false}) {
+    return decodeBuffer(InputMemoryStream(data), verify: verify);
   }
 
-  void decodeStream(InputStream input, dynamic output) {
+  void decodeStream(InputStream input, OutputStream output) {
     _readHeader(input);
-    Inflate.stream(input, output);
-    if (output is OutputStream) {
-      output.flush();
-    }
+    Inflate.stream(input, output: output);
+    output.flush();
   }
 
-  List<int> decodeBuffer(InputStream input, {bool verify = false}) {
+  Uint8List decodeBuffer(InputStream input, {bool verify = false}) {
     _readHeader(input);
 
     // Inflate
-    final buffer = Inflate.buffer(input).getBytes();
+    final inflate = Inflate.stream(input)..inflate();
+    final buffer = inflate.getBytes();
 
     if (verify) {
-      var crc = input.readUint32();
-      var computedCrc = getCrc32(buffer);
+      final crc = input.readUint32();
+      final computedCrc = getCrc32List(buffer);
       if (crc != computedCrc) {
         throw ArchiveException('Invalid CRC checksum');
       }
 
-      var size = input.readUint32();
+      final size = input.readUint32();
       if (size != buffer.length) {
         throw ArchiveException('Size of decompressed file not correct');
       }
@@ -91,13 +86,13 @@ import 'zlib/inflate.dart';
     //        4 bytes  uncompressed input size modulo 2^32
 
     final signature = input.readUint16();
-    if (signature != SIGNATURE) {
+    if (signature != GZipFlag.signature) {
       throw ArchiveException('Invalid GZip Signature');
     }
 
     final compressionMethod = input.readByte();
-    if (compressionMethod != DEFLATE) {
-      throw ArchiveException('Invalid GZip Compression Methos');
+    if (compressionMethod != GZipFlag.deflate) {
+      throw ArchiveException('Invalid GZip Compression Method');
     }
 
     final flags = input.readByte();
@@ -105,22 +100,22 @@ import 'zlib/inflate.dart';
     /*int extraFlags =*/ input.readByte();
     /*int osType =*/ input.readByte();
 
-    if (flags & FLAG_EXTRA != 0) {
+    if (flags & GZipFlag.extra != 0) {
       final t = input.readUint16();
       input.readBytes(t);
     }
 
-    if (flags & FLAG_NAME != 0) {
+    if (flags & GZipFlag.name != 0) {
       input.readString();
     }
 
-    if (flags & FLAG_COMMENT != 0) {
+    if (flags & GZipFlag.comment != 0) {
       input.readString();
     }
 
     // just throw away for now
-    if (flags & FLAG_HCRC != 0) {
+    if (flags & GZipFlag.hcrc != 0) {
       input.readUint16();
     }
   }
-}*/
+}

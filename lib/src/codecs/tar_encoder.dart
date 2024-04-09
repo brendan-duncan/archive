@@ -1,62 +1,66 @@
 import 'dart:typed_data';
+
 import '../util/output_stream.dart';
 import '../archive/archive.dart';
+import '../archive/archive_entry.dart';
 import '../archive/archive_file.dart';
+import '../util/output_memory_stream.dart';
 import 'tar/tar_file.dart';
 
 /// Encode an [Archive] object into a tar formatted buffer.
-/*class TarEncoder {
-  List<int> encode(Archive archive, {OutputStreamBase? output}) {
-    final outputStream = output ?? OutputStream();
+class TarEncoder {
+  Uint8List encode(Archive archive, {OutputStream? output}) {
+    final outputStream = output ?? OutputMemoryStream();
     start(outputStream);
 
-    for (final file in archive.files) {
+    for (final file in archive) {
       add(file);
     }
 
     finish();
 
-    if (outputStream is OutputStream) {
-      return outputStream.getBytes();
-    }
-    return [];
+    return outputStream.getBytes();
   }
 
   void start([dynamic outputStream]) {
-    _outputStream = outputStream ?? OutputStream();
+    _outputStream = outputStream ?? OutputMemoryStream();
   }
 
-  void add(ArchiveFile file) {
+  void add(ArchiveEntry entry) {
     if (_outputStream == null) {
       return;
     }
 
     // GNU tar files store extra long file names in a separate file
-    if (file.name.length > 100) {
+    if (entry.name.length > 100) {
       final ts = TarFile();
       ts.filename = '././@LongLink';
-      ts.fileSize = file.name.length;
+      ts.fileSize = entry.name.length;
       ts.mode = 0;
       ts.ownerId = 0;
       ts.groupId = 0;
       ts.lastModTime = 0;
-      ts.content = file.name.codeUnits;
+      ts.content = entry.name.codeUnits;
       ts.write(_outputStream);
     }
 
     final ts = TarFile();
-    ts.filename = file.name;
-    ts.fileSize = file.size;
-    ts.mode = file.mode;
-    ts.ownerId = file.ownerId;
-    ts.groupId = file.groupId;
-    ts.lastModTime = file.lastModTime;
-    ts.content = file.content;
-    if (file.isSymbolicLink) {
-      ts.typeFlag = TarFile.TYPE_SYMBOLIC_LINK;
-      ts.nameOfLinkedFile = file.nameOfLinkedFile;
-    } else if (!file.isFile) {
-      ts.typeFlag = TarFile.TYPE_DIRECTORY;
+    ts.filename = entry.name;
+    ts.mode = entry.mode;
+    ts.ownerId = entry.ownerId;
+    ts.groupId = entry.groupId;
+    ts.lastModTime = entry.lastModTime;
+    if (!entry.isFile) {
+      ts.typeFlag = TarFileType.directory;
+    } else {
+      final file = entry as ArchiveFile;
+      if (file.symbolicLink != null) {
+        ts.typeFlag = TarFileType.symbolicLink;
+        ts.nameOfLinkedFile = file.symbolicLink;
+      } else {
+        ts.fileSize = file.size;
+        ts.content = file.getContent();
+      }
     }
     ts.write(_outputStream);
   }
@@ -74,4 +78,4 @@ import 'tar/tar_file.dart';
   }
 
   dynamic _outputStream;
-}*/
+}

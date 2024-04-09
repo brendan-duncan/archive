@@ -1,10 +1,11 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:archive/archive.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 import 'package:http/http.dart' as http;
 
-import 'tests/test_utils.dart';
+import '_test_util.dart';
 
 var tarTests = [
   {
@@ -107,7 +108,7 @@ var tarTests = [
         'ModTime': 1350244992,
         'ChangeTime': 1350244992,
         'AccessTime': 1350244992,
-        'Typeflag': TarFile.typeNormalFile,
+        'Typeflag': TarFileType.normalFile,
       },
       {
         'Name': 'a/b',
@@ -120,7 +121,7 @@ var tarTests = [
         'ModTime': 1350266320,
         'ChangeTime': 1350266320,
         'AccessTime': 1350266320,
-        'Typeflag': TarFile.TYPE_SYMBOLIC_LINK,
+        'Typeflag': TarFileType.symbolicLink,
         'Linkname':
             '123456789101112131415161718192021222324252627282930313233343536373839404142434445464748495051525354555657585960616263646566676869707172737475767778798081828384858687888990919293949596979899100',
       },
@@ -136,7 +137,7 @@ var tarTests = [
         'Gid': 0,
         'Size': 14,
         'ModTime': 1365454838,
-        'Typeflag': TarFile.typeNormalFile,
+        'Typeflag': TarFileType.normalFile,
         'Linkname': '',
         'Uname': 'eyefi',
         'Gname': 'eyefi',
@@ -149,11 +150,11 @@ var tarTests = [
 
 void main() {
   final tar = TarDecoder();
-  final tarEncoder = TarEncoder();
+  //final tarEncoder = TarEncoder();
 
   test('tar invalid archive', () {
     try {
-      TarDecoder().decodeBytes([1, 2, 3]);
+      TarDecoder().decodeBytes(Uint8List.fromList([1, 2, 3]));
       assert(false);
     } catch (e) {
       // pass
@@ -162,36 +163,34 @@ void main() {
 
   test('tar file', () {
     final tar = TarEncoder()
-        .encode(Archive()..addFile(ArchiveFile('file.txt', 1, [100])));
-    File(p.join(testDirPath, 'out/tar_encoded.tar'))
+        .encode(Archive()..add(ArchiveFile.list('file.txt', [100])));
+    File(p.join(testOutputPath, '/tar_encoded.tar'))
       ..createSync(recursive: true)
       ..writeAsBytesSync(tar);
   });
 
   test('tar file with symlink', () {
-    ArchiveFile symlink = ArchiveFile('file.txt', 1, List<int>.empty())
-      ..isSymbolicLink = true
-      ..nameOfLinkedFile = 'file2.txt';
-    final tar = TarEncoder().encode(Archive()..addFile(symlink));
-    File(p.join(testDirPath, 'out/tar_encoded.tar'))
+    ArchiveFile symlink = ArchiveFile.symlink('file.txt', 'file2.txt');
+    final tar = TarEncoder().encode(Archive()..add(symlink));
+    File(p.join(testOutputPath, '/tar_encoded.tar'))
       ..createSync(recursive: true)
       ..writeAsBytesSync(tar);
     final archive = TarDecoder().decodeBytes(tar);
-    expect(archive.files[0].isSymbolicLink, true);
+    expect(archive[0].isSymbolicLink, true);
   });
 
   test('long file name', () {
-    final file = File(p.join(testDirPath, 'res/tar/x.tar'));
+    final file = File('test/_data/tar/x.tar');
     final bytes = file.readAsBytesSync();
     final archive = tar.decodeBytes(bytes, verify: true);
 
-    expect(archive.numberOfFiles(), equals(1));
+    expect(archive.length, equals(1));
     var x = '';
     for (var i = 0; i < 150; ++i) {
       x += 'x';
     }
     x += '.txt';
-    expect(archive.files[0].name, equals(x));
+    expect(archive[0].name, equals(x));
   });
 
   test('long file name not null terminated', () async {
@@ -200,42 +199,42 @@ void main() {
     final tarBytes = GZipDecoder().decodeBytes(bytes, verify: true);
     final archive = tar.decodeBytes(tarBytes, verify: true);
 
-    expect(archive.numberOfFiles(), equals(129));
+    expect(archive.length, equals(129));
     expect(
-        archive.files[13].name,
+        archive[13].name,
         equals(
             'android/src/main/java/io/flutter/plugins/firebase/messaging/FlutterFirebaseMessagingBackgroundExecutor.java'));
   });
 
   test('symlink', () {
-    var file = File(p.join(testDirPath, 'res/tar/symlink_tar.tar'));
+    var file = File('test/_data/tar/symlink_tar.tar');
     List<int> bytes = file.readAsBytesSync();
     final archive = tar.decodeBytes(bytes, verify: true);
-    expect(archive.numberOfFiles(), equals(4));
-    expect(archive.files[1].isSymbolicLink, equals(true));
-    expect(archive.files[1].nameOfLinkedFile, equals('b/b.txt'));
+    expect(archive.length, equals(4));
+    expect(archive[1].isSymbolicLink, equals(true));
+    expect(archive[1].symbolicLink, equals('b/b.txt'));
   });
 
   test('decode test2.tar', () {
-    var file = File(p.join(testDirPath, 'res/test2.tar'));
+    var file = File('test/_data/test2.tar');
     List<int> bytes = file.readAsBytesSync();
     final archive = tar.decodeBytes(bytes, verify: true);
 
     final expectedFiles = <File>[];
-    listDir(expectedFiles, Directory(p.join(testDirPath, 'res/test2')));
+    listDir(expectedFiles, Directory('test/_data/test2'));
 
     expect(archive.length, equals(4));
   });
 
   test('decode test2.tar.gz', () {
-    var file = File(p.join(testDirPath, 'res/test2.tar.gz'));
+    var file = File('test/_data/test2.tar.gz');
     List<int> bytes = file.readAsBytesSync();
 
     bytes = GZipDecoder().decodeBytes(bytes, verify: true);
     final archive = tar.decodeBytes(bytes, verify: true);
 
     final expectedFiles = <File>[];
-    listDir(expectedFiles, Directory(p.join(testDirPath, 'res/test2')));
+    listDir(expectedFiles, Directory('test/_data/test2'));
 
     expect(archive.length, equals(4));
   });
@@ -243,14 +242,14 @@ void main() {
   test('decode/encode', () {
     final aBytes = aTxt.codeUnits;
 
-    var b = File(p.join(testDirPath, 'res/cat.jpg'));
+    var b = File('test/_data/cat.jpg');
     List<int> bBytes = b.readAsBytesSync();
 
-    var file = File(p.join(testDirPath, 'res/test.tar'));
+    var file = File('test/_data/test.tar');
     List<int> bytes = file.readAsBytesSync();
 
     final archive = tar.decodeBytes(bytes, verify: true);
-    expect(archive.numberOfFiles(), equals(2));
+    expect(archive.length, equals(2));
 
     var tFile = archive.fileName(0);
     expect(tFile, equals('a.txt'));
@@ -269,7 +268,7 @@ void main() {
 
     // Test round-trip
     final archive2 = tar.decodeBytes(encoded, verify: true);
-    expect(archive2.numberOfFiles(), equals(2));
+    expect(archive2.length, equals(2));
 
     tFile = archive2.fileName(0);
     expect(tFile, equals('a.txt'));
