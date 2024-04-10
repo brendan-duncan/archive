@@ -35,6 +35,10 @@ const _compressionTypes = <int, CompressionType>{
 
 class ZipFile extends FileContent {
   static const int zipSignature = 0x04034b50;
+  static const int zipCompressionStore = 0;
+  static const int zipCompressionDeflate = 8;
+  static const int zipCompressionBZip2 = 12;
+  static const int zipCompressionAexEncryption = 99;
 
   int version = 0;
   int flags = 0;
@@ -263,14 +267,14 @@ class ZipFile extends FileContent {
     final dataBytes = input.readBytes(input.length - 10);
     final bytes = dataBytes.toUint8List();
 
-    final key = _deriveKey(_password!, salt);
+    final key = deriveKey(_password!, salt);
 
     AesDecrypt(key).decryptCrt(bytes);
 
     return InputMemoryStream(bytes);
   }
 
-  static Uint8List _deriveKey(String password, Uint8List salt,
+  static Uint8List deriveKey(String password, Uint8List salt,
       {int derivedKeyLength = 32}) {
     if (password.isEmpty) {
       return Uint8List(0);

@@ -16,10 +16,9 @@ class OutputFileStream extends OutputStream {
   final int _bufferSize;
 
   OutputFileStream(this.path,
-      {ByteOrder byteOrder = ByteOrder.littleEndian, int? bufferSize})
+      {super.byteOrder = ByteOrder.littleEndian, int? bufferSize})
       : _length = 0,
-        _bufferSize = bufferSize ?? 8192,
-        super(byteOrder: byteOrder);
+        _bufferSize = bufferSize ?? 8192;
 
   @override
   int get length => _length;

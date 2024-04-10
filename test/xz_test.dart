@@ -10,12 +10,12 @@ import '_test_util.dart';
 void main() {
   group('xz', () {
     test('good-1-lzma2-1.xz', () {
-      var file = File(p.join(testDirPath, '_data/xz/good-1-lzma2-1.xz'));
+      var file = File(p.join('test/_data/xz/good-1-lzma2-1.xz'));
       final compressed = file.readAsBytesSync();
       final data = XZDecoder().decodeBytes(compressed);
 
       final expected =
-          File(p.join(testDirPath, '_data/xz/expected/good-1-lzma2-1'))
+          File(p.join('test/_data/xz/expected/good-1-lzma2-1'))
               .readAsBytesSync();
 
       expect(data.length, equals(expected.length));
@@ -25,7 +25,7 @@ void main() {
     });
 
     test('decode empty', () {
-      var file = File(p.join(testDirPath, '_data/xz/empty.xz'));
+      var file = File(p.join('test/_data/xz/empty.xz'));
       final compressed = file.readAsBytesSync();
 
       var data = XZDecoder().decodeBytes(compressed);
@@ -34,7 +34,7 @@ void main() {
 
     test('decode hello', () {
       // hello.xz has no LZMA compression due to its simplicity.
-      var file = File(p.join(testDirPath, '_data/xz/hello.xz'));
+      var file = File(p.join('test/_data/xz/hello.xz'));
       final compressed = file.readAsBytesSync();
 
       var data = XZDecoder().decodeBytes(compressed);
@@ -43,7 +43,7 @@ void main() {
 
     test('decode crc32', () {
       // Uses a CRC-32 checksum.
-      var file = File(p.join(testDirPath, '_data/xz/crc32.xz'));
+      var file = File(p.join('test/_data/xz/crc32.xz'));
       final compressed = file.readAsBytesSync();
 
       var data = XZDecoder().decodeBytes(compressed, verify: true);
@@ -52,7 +52,7 @@ void main() {
 
     test('decode crc64', () {
       // Uses a CRC-64 checksum.
-      var file = File(p.join(testDirPath, '_data/xz/crc64.xz'));
+      var file = File(p.join('test/_data/xz/crc64.xz'));
       final compressed = file.readAsBytesSync();
 
       var data = XZDecoder().decodeBytes(compressed, verify: true);
@@ -61,7 +61,7 @@ void main() {
 
     test('decode sha256', () {
       // Uses a SHA-256 checksum.
-      var file = File(p.join(testDirPath, '_data/xz/sha256.xz'));
+      var file = File(p.join('test/_data/xz/sha256.xz'));
       final compressed = file.readAsBytesSync();
 
       var data = XZDecoder().decodeBytes(compressed, verify: true);
@@ -70,7 +70,7 @@ void main() {
 
     test('decode nocheck', () {
       // Uses no checksum
-      var file = File(p.join(testDirPath, '_data/xz/nocheck.xz'));
+      var file = File(p.join('test/_data/xz/nocheck.xz'));
       final compressed = file.readAsBytesSync();
 
       var data = XZDecoder().decodeBytes(compressed, verify: true);
@@ -79,7 +79,7 @@ void main() {
 
     test('decode hello repeated', () {
       // Simple file with a small amount of compression due to repeated data.
-      var file = File(p.join(testDirPath, '_data/xz/hello-hello-hello.xz'));
+      var file = File(p.join('test/_data/xz/hello-hello-hello.xz'));
       final compressed = file.readAsBytesSync();
 
       var data = XZDecoder().decodeBytes(compressed);
@@ -87,10 +87,10 @@ void main() {
     });
 
     test('decode cat.jpg', () {
-      var file = File(p.join(testDirPath, '_data/xz/cat.jpg.xz'));
+      var file = File(p.join('test/_data/xz/cat.jpg.xz'));
       final compressed = file.readAsBytesSync();
 
-      var b = File(p.join(testDirPath, '_data/cat.jpg'));
+      var b = File(p.join('test/_data/cat.jpg'));
       final bBytes = b.readAsBytesSync();
 
       var data = XZDecoder().decodeBytes(compressed);
@@ -98,7 +98,7 @@ void main() {
     });
 
     test('encode empty', () {
-      var file = File(p.join(testDirPath, '_data/xz/empty.xz'));
+      var file = File(p.join('test/_data/xz/empty.xz'));
       final expected = file.readAsBytesSync();
 
       var data = XZEncoder().encode([]);
@@ -107,7 +107,7 @@ void main() {
 
     test('encode hello', () {
       // hello.xz has no LZMA compression due to its simplicity.
-      var file = File(p.join(testDirPath, '_data/xz/hello.xz'));
+      var file = File(p.join('test/_data/xz/hello.xz'));
       final expected = file.readAsBytesSync();
 
       var data = XZEncoder().encode(utf8.encode('hello\n'));
@@ -116,7 +116,7 @@ void main() {
 
     test('encode crc32', () {
       // Uses a CRC-32 checksum.
-      var file = File(p.join(testDirPath, '_data/xz/crc32.xz'));
+      var file = File(p.join('test/_data/xz/crc32.xz'));
       final expected = file.readAsBytesSync();
 
       var data =
@@ -126,7 +126,7 @@ void main() {
 
     test('encode crc64', () {
       // Uses a CRC-64 checksum.
-      var file = File(p.join(testDirPath, '_data/xz/crc64.xz'));
+      var file = File(p.join('test/_data/xz/crc64.xz'));
       final expected = file.readAsBytesSync();
 
       var data =
@@ -136,7 +136,7 @@ void main() {
 
     test('encode sha256', () {
       // Uses a SHA-256 checksum.
-      var file = File(p.join(testDirPath, '_data/xz/sha256.xz'));
+      var file = File(p.join('test/_data/xz/sha256.xz'));
       final expected = file.readAsBytesSync();
 
       var data =
@@ -146,7 +146,7 @@ void main() {
 
     test('encode nocheck', () {
       // Uses no checksum
-      var file = File(p.join(testDirPath, '_data/xz/nocheck.xz'));
+      var file = File(p.join('test/_data/xz/nocheck.xz'));
       final expected = file.readAsBytesSync();
 
       var data =

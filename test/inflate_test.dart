@@ -4,16 +4,16 @@ import 'dart:convert';
 import 'package:archive/archive.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
-import 'test_utils.dart';
+//import '_test_util.dart';
 
 void main() {
-  final buffer = List<int>.filled(0xfffff, 0);
+  final buffer = Uint8List(0xfffff);
   for (var i = 0; i < buffer.length; ++i) {
     buffer[i] = i % 256;
   }
 
   test('error', () {
-    var file = File(p.join(testDirPath, 'res/inflate/data.bin'));
+    var file = File(p.join('test/_data/inflate/data.bin'));
     var data = file.readAsBytesSync();
     final inflatedDataBytes = Inflate(data).getBytes();
     final inflatedDataString = utf8.decode(inflatedDataBytes);
@@ -22,15 +22,15 @@ void main() {
 
   test('stream/NO_COMPRESSION', () {
     // compress the buffer (assumption: deflate works correctly).
-    final deflated = Deflate(buffer, level: Deflate.NO_COMPRESSION).getBytes();
+    final deflated = Deflate(buffer, level: DeflateLevel.none).getBytes();
 
     // re-cast the deflated bytes as a Uint8List (which is it's native type).
     // Do this so we can use use Uint8List.view to section off chunks of the
     // data to test streamed inflation.
-    final deflatedBytes = deflated as Uint8List;
+    final deflatedBytes = deflated;
 
     // Create a stream inflator.
-    final inflate = Inflate.stream();
+    final inflate = Inflate.stream(null);
 
     var bi = 0;
 
@@ -67,7 +67,7 @@ void main() {
 }
 
 // Note: only 148 bytes consumed
-List<int> gitInflateInput = const <int>[
+final gitInflateInput = Uint8List.fromList(<int>[
   120, 156, 157, 203, 81, 10, 2, 33, 16, 0, 208, 127, 79, //
   225, 5, 138, 209, 209, 84, 136, 40, 250, 232, 28, 227, 104, 187, 11, 153, 49,
   184, 219, 245, 139, 142, 208, 255, 123, 67, 106, 213, 209, 39, 196, 152, 44,
@@ -159,9 +159,9 @@ List<int> gitInflateInput = const <int>[
   124, 21, 4, 174, 2, 120, 156, 51, 52, 48, 48, 51, 49, 81, 40, 72, 76, 206,
   142,
   79, 203, 204, 73, 141, 47, 73, 45, 46, 209
-];
+]);
 
-List<int> gitExpectedOutput = const <int>[
+final gitExpectedOutput = Uint8List.fromList(<int>[
   116, 114, 101, 101, 32, 56, 53, 57, 51, 51, 56, 57, //
   50, 99, 100, 49, 49, 52, 97, 98, 99, 48, 99, 50, 97, 52, 98, 55, 98, 51, 97,
   50,
@@ -182,4 +182,4 @@ List<int> gitExpectedOutput = const <int>[
   62, 32, 49, 51, 56, 51, 56, 53, 48, 57, 50, 52, 32, 45, 48, 56, 48, 48, 10,
   10,
   67, 111, 109, 109, 105, 116, 32, 53, 10
-];
+]);

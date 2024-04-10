@@ -7,7 +7,7 @@ import 'byte_order.dart';
 import 'file_buffer.dart';
 import 'file_handle.dart';
 import 'input_stream.dart';
-import 'memory_file_handle.dart';
+import 'ram_file_handle.dart';
 
 /// Stream in data from a file.
 class InputFileStream extends InputStream {
@@ -54,7 +54,7 @@ class InputFileStream extends InputStream {
     int bufferSize = FileBuffer.kDefaultBufferSize,
   }) async {
     return InputFileStream.withFileBuffer(
-      FileBuffer(await MemoryFileHandle.fromStream(stream, fileLength)),
+      FileBuffer(await RamFileHandle.fromStream(stream, fileLength)),
       byteOrder: byteOrder,
       bufferSize: bufferSize,
     );

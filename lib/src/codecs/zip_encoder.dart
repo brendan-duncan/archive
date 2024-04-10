@@ -5,17 +5,18 @@ import 'dart:math';
 import '../archive/archive.dart';
 import '../archive/archive_file.dart';
 import '../archive/compression_type.dart';
+import '../util/aes.dart';
 import '../util/crc32.dart';
 import '../util/output_memory_stream.dart';
 import '../util/input_stream.dart';
-import '../util/aes_decrypt.dart';
+import '../util/input_memory_stream.dart';
 import '../util/output_stream.dart';
 import 'zip/zip_directory.dart';
 import 'zip/zip_file.dart';
 import 'zip/zip_file_header.dart';
 import 'zlib/deflate.dart';
 
-/*class _ZipFileData {
+class _ZipFileData {
   late String name;
   int time = 0;
   int date = 0;
@@ -85,11 +86,13 @@ class ZipEncoder {
       OutputStream? output,
       DateTime? modified,
       bool autoClose = true}) {
-    output ??= OutputStreamMemory();
+    output ??= OutputMemoryStream();
 
     startEncode(output, level: level, modified: modified);
     for (final file in archive) {
-      addFile(file, autoClose: autoClose);
+      if (file.isFile) {
+        addFile(file as ArchiveFile, autoClose: autoClose);
+      }
     }
     endEncode(comment: archive.comment);
 
@@ -103,29 +106,27 @@ class ZipEncoder {
   }
 
   int getFileCrc32(ArchiveFile file) {
-    if (file.content == null) {
+    final content = file.getContent();
+    if (content == null) {
       return 0;
     }
-    if (file.content is InputStream) {
-      final s = file.content as InputStream;
-      s.reset();
-      var crc32 = 0;
-      var size = s.length;
-      Uint8List? bytes;
-      const chunkSize = 1024 * 1024;
-      while (size > chunkSize) {
-        bytes = s.readBytes(chunkSize).toUint8List(bytes);
-        crc32 = getCrc32(bytes, crc32);
-        size -= chunkSize;
-      }
-      if (size > 0) {
-        bytes = s.readBytes(size).toUint8List(bytes);
-        crc32 = getCrc32(bytes, crc32);
-      }
-      file.content.reset();
-      return crc32;
+    final s = content;
+    s.reset();
+    var crc32 = 0;
+    var size = s.length;
+    Uint8List? bytes;
+    const chunkSize = 1024 * 1024;
+    while (size > chunkSize) {
+      bytes = s.readBytes(chunkSize).toUint8List();
+      crc32 = getCrc32List(bytes, crc32);
+      size -= chunkSize;
     }
-    return getCrc32(file.content as List<int>);
+    if (size > 0) {
+      bytes = s.readBytes(size).toUint8List();
+      crc32 = getCrc32List(bytes, crc32);
+    }
+    content.reset();
+    return crc32;
   }
 
   // https://stackoverflow.com/questions/62708273/how-unique-is-the-salt-produced-by-this-function
@@ -143,7 +144,7 @@ class ZipEncoder {
 
     final keySize = 32;
 
-    var derivedKey =
+    final derivedKey =
         ZipFile.deriveKey(password!, salt, derivedKeyLength: keySize);
     final keyData = Uint8List.fromList(derivedKey.sublist(0, keySize));
     final hmacKeyData =
@@ -151,7 +152,7 @@ class ZipEncoder {
 
     _pwdVer = derivedKey.sublist(keySize * 2, keySize * 2 + 2);
 
-    Aes aes = Aes(keyData, hmacKeyData, keySize, encrypt: true);
+    final aes = Aes(keyData, hmacKeyData, keySize, encrypt: true);
     aes.processData(data, 0, data.length);
     _mac = aes.mac;
     return data;
@@ -177,25 +178,23 @@ class ZipEncoder {
 
     // If the user want's to store the file without compressing it,
     // make sure it's decompressed.
-    if (!file.compress) {
+    /*if (!file.compress) {
       if (file.isCompressed) {
         file.decompress();
       }
 
-      compressedData = (file.content is InputStreamBase)
-          ? file.content as InputStreamBase
-          : InputStream(file.content);
+      compressedData = file.getContent();
 
       if (file.crc32 != null) {
         crc32 = file.crc32!;
       } else {
         crc32 = getFileCrc32(file);
       }
-    } else if (file.isCompressed &&
+    } else*/ if (file.isCompressed &&
         file.compression == CompressionType.deflate) {
       // If the file is already compressed, no sense in uncompressing it and
       // compressing it again, just pass along the already compressed data.
-      compressedData = file.rawContent;
+      compressedData = file.rawContent?.getStream();
 
       if (file.crc32 != null) {
         crc32 = file.crc32!;
@@ -206,12 +205,10 @@ class ZipEncoder {
       // Otherwise we need to compress it now.
       crc32 = getFileCrc32(file);
 
-      dynamic bytes = file.content;
-      if (bytes is InputStreamBase) {
-        bytes = bytes.toUint8List();
-      }
-      bytes = Deflate(bytes as List<int>, level: _data.level).getBytes();
-      compressedData = InputStream(bytes);
+      final content = file.getContent();
+      var bytes = content!.toUint8List();
+      bytes = Deflate(bytes, level: _data.level ?? 6).getBytes();
+      compressedData = InputMemoryStream(bytes);
     }
 
     final encodedFilename = filenameEncoding.encode(file.name);
@@ -236,7 +233,7 @@ class ZipEncoder {
       final encryptedBytes =
           _encryptCompressedData(compressedData.toUint8List(), salt);
 
-      compressedData = InputStream(encryptedBytes);
+      compressedData = InputMemoryStream(encryptedBytes);
     }
 
     final dataLen = (compressedData?.length ?? 0) +
@@ -253,7 +250,7 @@ class ZipEncoder {
     fileData.compressedSize = dataLen;
     fileData.compressedData = compressedData;
     fileData.uncompressedSize = file.size;
-    fileData.compress = file.compress;
+    fileData.compress = true;
     fileData.comment = file.comment;
     fileData.position = _output!.length;
 
@@ -269,13 +266,13 @@ class ZipEncoder {
   void endEncode({String? comment = ''}) {
     // Write Central Directory and End Of Central Directory
     _writeCentralDirectory(_data.files, comment, _output!);
-    if (_output is OutputStreamBase) {
+    if (_output is OutputStream) {
       _output!.flush();
     }
   }
 
   List<int> _getZip64ExtraData(_ZipFileData fileData) {
-    final out = OutputStream();
+    final out = OutputMemoryStream();
     // zip64 ID
     out.writeByte(0x01);
     out.writeByte(0x00);
@@ -291,7 +288,7 @@ class ZipEncoder {
 
   List<int> _getAexExtraData(_ZipFileData fileData) {
     // https://www.winzip.com/en/support/aes-encryption/#zip-format
-    final out = OutputStream();
+    final out = OutputMemoryStream();
 
     final compressionMethod = fileData.compress
         ? ZipFile.zipCompressionDeflate
@@ -307,18 +304,22 @@ class ZipEncoder {
     return out.getBytes();
   }
 
-  void _writeFile(_ZipFileData fileData, OutputStreamBase output,
+  void _writeFile(_ZipFileData fileData, OutputStream output,
       {Uint8List? salt}) {
     var filename = fileData.name;
 
-    output.writeUint32(ZipFile.zipFileSignature);
+    output.writeUint32(ZipFile.zipSignature);
 
     final needsZip64 = fileData.compressedSize > 0xFFFFFFFF ||
         fileData.uncompressedSize > 0xFFFFFFFF;
 
     var flags = 0;
-    if (filenameEncoding.name == "utf-8") flags |= languageEncodingBitUtf8;
-    if (password != null) flags |= fileEncryptionBit;
+    if (filenameEncoding.name == "utf-8") {
+      flags |= languageEncodingBitUtf8;
+    }
+    if (password != null) {
+      flags |= fileEncryptionBit;
+    }
 
     final compressionMethod = password != null
         ? ZipFile.zipCompressionAexEncryption
@@ -333,8 +334,12 @@ class ZipEncoder {
         needsZip64 ? 0xFFFFFFFF : fileData.uncompressedSize;
 
     final extra = <int>[];
-    if (needsZip64) extra.addAll(_getZip64ExtraData(fileData));
-    if (password != null) extra.addAll(_getAexExtraData(fileData));
+    if (needsZip64) {
+      extra.addAll(_getZip64ExtraData(fileData));
+    }
+    if (password != null) {
+      extra.addAll(_getAexExtraData(fileData));
+    }
 
     final compressedData = fileData.compressedData;
 
@@ -361,7 +366,7 @@ class ZipEncoder {
 
     if (compressedData != null) {
       // local file data
-      output.writeInputStream(compressedData);
+      output.writeStream(compressedData);
     }
 
     if (password != null && _mac != null) {
@@ -370,7 +375,7 @@ class ZipEncoder {
   }
 
   List<int> _getZip64CfhData(_ZipFileData fileData) {
-    final out = OutputStream();
+    final out = OutputMemoryStream();
     // zip64 ID
     out.writeByte(0x01);
     out.writeByte(0x00);
@@ -386,7 +391,7 @@ class ZipEncoder {
   }
 
   void _writeCentralDirectory(
-      List<_ZipFileData> files, String? comment, OutputStreamBase output) {
+      List<_ZipFileData> files, String? comment, OutputStream output) {
     comment ??= '';
     final encodedComment = filenameEncoding.encode(comment);
 
@@ -424,8 +429,12 @@ class ZipEncoder {
       final localHeaderOffset = needsZip64 ? 0xFFFFFFFF : fileData.position;
 
       var extraField = <int>[];
-      if (needsZip64) extraField.addAll(_getZip64CfhData(fileData));
-      if (password != null) extraField.addAll(_getAexExtraData(fileData));
+      if (needsZip64) {
+        extraField.addAll(_getZip64CfhData(fileData));
+      }
+      if (password != null) {
+        extraField.addAll(_getAexExtraData(fileData));
+      }
 
       final fileComment = fileData.comment ?? '';
 
@@ -489,7 +498,7 @@ class ZipEncoder {
     }
 
     // End of Central Directory
-    output.writeUint32(ZipDirectory.eocdLocatorSignature);
+    output.writeUint32(ZipDirectory.eocdSignature);
     output.writeUint16(numberOfThisDisk);
     output.writeUint16(
         needsZip64 ? 0xffff : diskWithTheStartOfTheCentralDirectory);
@@ -506,6 +515,4 @@ class ZipEncoder {
 
   // enum OS
   static const int _osMSDos = 0;
-  static const int _osUnix = 3;
-  static const int _osMacintosh = 7;
-}*/
+}

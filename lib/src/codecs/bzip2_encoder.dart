@@ -4,14 +4,15 @@ import 'bzip2/bz2_bit_writer.dart';
 import '../util/archive_exception.dart';
 import '../util/byte_order.dart';
 import '../util/input_stream.dart';
-import '../util/output_stream.dart';
+import '../util/input_memory_stream.dart';
+import '../util/output_memory_stream.dart';
 
 /// Compress data using the BZip2 format.
 /// Derived from libbzip2 (http://www.bzip.org).
-/*class BZip2Encoder {
-  List<int> encode(List<int> data) {
-    input = InputStreamMemory(data, byteOrder: ByteOrder.bigEndian);
-    final output = OutputStreamMemory(byteOrder: ByteOrder.bigEndian);
+class BZip2Encoder {
+  Uint8List encode(Uint8List data) {
+    input = InputMemoryStream(data, byteOrder: ByteOrder.bigEndian);
+    final output = OutputMemoryStream(byteOrder: ByteOrder.bigEndian);
 
     bw = Bz2BitWriter(output);
 
@@ -2037,4 +2038,4 @@ import '../util/output_stream.dart';
   static const int _bzLesserICost = 0;
   static const int _bzGreaterICost = 15;
   static const int _bzMaxSelectors = (2 + (900000 ~/ _bzGSize));
-}*/
+}

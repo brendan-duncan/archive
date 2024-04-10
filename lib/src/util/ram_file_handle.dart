@@ -2,40 +2,37 @@ import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'abstract_file_handle.dart';
-import 'file_mode.dart';
+import 'file_access.dart';
 
-class MemoryFileHandle extends AbstractFileHandle {
-  // ignore: deprecated_member_use_from_same_package
+class RamFileHandle extends AbstractFileHandle {
   final RamFileData _ramFileData;
   int _readPosition = 0;
   int _writePosition = 0;
 
-  MemoryFileHandle._(FileMode openMode, this._ramFileData) : super(openMode);
+  RamFileHandle._(super.openMode, this._ramFileData);
 
   /// Creates a writeable RamFileHandle
-  factory MemoryFileHandle.asWritableRamBuffer({
-    @Deprecated('Visible for testing only') int subListSize = 1024 * 1024,
-  }) {
+  factory RamFileHandle.asWritableRamBuffer() {
     // ignore: deprecated_member_use_from_same_package
-    return MemoryFileHandle._(
-      FileMode.write,
-      RamFileData.outputBuffer(subListSize: subListSize),
+    return RamFileHandle._(
+      FileAccess.write,
+      RamFileData.outputBuffer(),
     );
   }
 
   /// Creates a read-only RamFileHandle from a RamFileData
-  factory MemoryFileHandle.fromRamFileData(RamFileData ramFileData) {
+  factory RamFileHandle.fromRamFileData(RamFileData ramFileData) {
     // ignore: deprecated_member_use_from_same_package
-    return MemoryFileHandle._(FileMode.read, ramFileData);
+    return RamFileHandle._(FileAccess.read, ramFileData);
   }
 
   /// Creates a read-only RamFileHandle from a stream
-  static Future<MemoryFileHandle> fromStream(
+  static Future<RamFileHandle> fromStream(
     Stream<Uint8List> stream,
     int fileLength,
   ) async {
     // ignore: deprecated_member_use_from_same_package
-    return MemoryFileHandle.fromRamFileData(
+    return RamFileHandle.fromRamFileData(
       await RamFileData.fromStream(stream, fileLength),
     );
   }
@@ -98,9 +95,6 @@ class RamFileData {
   int get length => _length;
   final bool _readOnly;
 
-  @Deprecated('Visible for testing only')
-  List<List<int>> get content => _content;
-
   RamFileData.outputBuffer({
     int subListSize = 1024 * 1024,
   })  : _content = <List<int>>[],
@@ -114,9 +108,7 @@ class RamFileData {
 
   static Future<RamFileData> fromStream(
     Stream<List<int>> source,
-    int fileLength, {
-    @Deprecated('Visible for testing only') int? subListMaxSize,
-  }) async {
+    int fileLength) async {
     final List<List<int>> list = <List<int>>[];
     int? usedSubListSize;
     bool listSizeChanged = false;
@@ -147,11 +139,6 @@ class RamFileData {
 
   void clear() {
     _content.clear();
-  }
-
-  @Deprecated('Visible for testing only')
-  List<int> readAsBytes() {
-    return _content.expand<int>((List<int> x) => x).toList();
   }
 
   int readIntoSync(Uint8List buffer, int start, int? end) {

@@ -1,1 +1,0 @@
-enum FileMode { read, write }

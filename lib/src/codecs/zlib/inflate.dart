@@ -7,36 +7,35 @@ import '../../util/output_memory_stream.dart';
 import '_huffman_table.dart';
 
 class Inflate {
-  late InputStream input;
-  bool inputSet = false;
+  InputStream? input;
   OutputStream output;
 
-  Inflate(Uint8List bytes, {int? uncompressedSize})
+  Inflate(Uint8List bytes, {OutputStream? output, int? uncompressedSize})
       : input = InputMemoryStream(bytes),
-        output = OutputMemoryStream(size: uncompressedSize) {
-    inputSet = true;
+        output = output ?? OutputMemoryStream(size: uncompressedSize) {
+    inflate();
   }
 
   Inflate.stream(this.input, {OutputStream? output, int? uncompressedSize})
       : output = output ?? OutputMemoryStream(size: uncompressedSize) {
-    inputSet = true;
+    inflate();
   }
 
   void streamInput(Uint8List bytes) {
-    if (inputSet && input is InputMemoryStream) {
-      final i = input as InputMemoryStream..setPosition(_blockPos);
-      final inputLen = input.length;
+    if (input != null) {
+      input!.setPosition(_blockPos);
+      final inputLen = input!.length;
       final newLen = inputLen + bytes.length;
 
+      final inputBytes = input!.toUint8List();
       final newBytes = Uint8List(newLen)
-        ..setRange(0, inputLen, i.buffer, i.position)
+        ..setRange(0, inputLen, inputBytes, 0)
         ..setRange(inputLen, newLen, bytes, 0);
 
       input = InputMemoryStream(newBytes);
     } else {
       input = InputMemoryStream(bytes);
     }
-    inputSet = true;
   }
 
   Uint8List? inflateNext() {
@@ -45,7 +44,7 @@ class Inflate {
     if (output is OutputMemoryStream) {
       output.clear();
     }
-    if (!inputSet || input.isEOS) {
+    if (input == null || input!.isEOS) {
       return null;
     }
 
@@ -73,11 +72,11 @@ class Inflate {
   void inflate() {
     _bitBuffer = 0;
     _bitBufferLen = 0;
-    if (!inputSet) {
+    if (input == null) {
       return;
     }
 
-    while (!input.isEOS) {
+    while (!input!.isEOS) {
       if (!_parseBlock()) {
         break;
       }
@@ -87,7 +86,7 @@ class Inflate {
   /// Parse deflated block.  Returns true if there is more to read, false
   /// if we're done.
   bool _parseBlock() {
-    if (input.isEOS) {
+    if (input!.isEOS) {
       return false;
     }
 
@@ -131,12 +130,12 @@ class Inflate {
 
     // not enough buffer
     while (_bitBufferLen < length) {
-      if (input.isEOS) {
+      if (input!.isEOS) {
         return -1;
       }
 
       // input byte
-      final octet = input.readByte();
+      final octet = input!.readByte();
 
       // concat octet
       _bitBuffer |= octet << _bitBufferLen;
@@ -158,11 +157,11 @@ class Inflate {
 
     // Not enough buffer
     while (_bitBufferLen < maxCodeLength) {
-      if (input.isEOS) {
+      if (input!.isEOS) {
         return -1;
       }
 
-      final octet = input.readByte();
+      final octet = input!.readByte();
 
       _bitBuffer |= octet << _bitBufferLen;
       _bitBufferLen += 8;
@@ -192,11 +191,11 @@ class Inflate {
     }
 
     // check size
-    if (len > input.length) {
+    if (len > input!.length) {
       return -1;
     }
 
-    output.writeStream(input.readBytes(len));
+    output.writeStream(input!.readBytes(len));
     return 0;
   }
 
@@ -312,7 +311,7 @@ class Inflate {
 
     while (_bitBufferLen >= 8) {
       _bitBufferLen -= 8;
-      input.rewind();
+      input!.rewind();
     }
 
     return 0;

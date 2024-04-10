@@ -1,7 +1,5 @@
 import 'dart:typed_data';
 
-import 'package:archive/src/util/output_memory_stream.dart';
-
 import 'bzip2/bzip2.dart';
 import 'bzip2/bz2_bit_reader.dart';
 import '../util/archive_exception.dart';
@@ -9,12 +7,13 @@ import '../util/byte_order.dart';
 import '../util/input_stream.dart';
 import '../util/input_memory_stream.dart';
 import '../util/output_stream.dart';
+import '../util/output_memory_stream.dart';
 
 /// Decompress bzip2 compressed data.
 /// Derived from libbzip2 (http://www.bzip.org).
-/*class BZip2Decoder {
-  List<int> decodeBytes(List<int> data, {bool verify = false}) {
-    return decodeBuffer(InputStreamMemory(data, byteOrder: ByteOrder.bigEndian),
+class BZip2Decoder {
+  Uint8List decodeBytes(Uint8List data, {bool verify = false}) {
+    return decodeBuffer(InputMemoryStream(data, byteOrder: ByteOrder.bigEndian),
         verify: verify);
   }
 
@@ -77,9 +76,9 @@ import '../util/output_stream.dart';
     }
   }
 
-  List<int> decodeBuffer(InputStream input,
+  Uint8List decodeBuffer(InputStream input,
       {bool verify = false, OutputStream? output}) {
-    output ??= OutputStreamMemory();
+    output ??= OutputMemoryStream();
     final br = Bz2BitReader(input);
 
     _groupPos = 0;
@@ -1402,4 +1401,4 @@ import '../util/output_stream.dart';
     936,
     638
   ];
-}*/
+}

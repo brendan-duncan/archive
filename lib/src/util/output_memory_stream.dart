@@ -14,10 +14,9 @@ class OutputMemoryStream extends OutputStream {
   /// Create a byte buffer for writing.
   OutputMemoryStream(
       {int? size = defaultBufferSize,
-      ByteOrder byteOrder = ByteOrder.littleEndian})
+      super.byteOrder = ByteOrder.littleEndian})
       : _buffer = Uint8List(size ?? defaultBufferSize),
-        length = 0,
-        super(byteOrder: byteOrder);
+        length = 0;
 
   @override
   void flush() {}

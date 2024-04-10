@@ -4,11 +4,11 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:archive/archive_io.dart';
+import 'package:archive/archive.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
-import 'test_utils.dart';
+import '_test_util.dart';
 
 Uint8List? fileData;
 
@@ -60,7 +60,7 @@ Future<InputFileStream> _buildRamIfs(String path, [int? bufferSize]) async {
       },
     ),
   );
-  final MemoryFileHandle fileHandle = await MemoryFileHandle.fromStream(fileStream, fileLength);
+  final RamFileHandle fileHandle = await RamFileHandle.fromStream(fileStream, fileLength);
   if (bufferSize == null) {
     return InputFileStream.withFileBuffer(FileBuffer(fileHandle));
   } else {
@@ -73,7 +73,7 @@ Future<OutputFileStream> _buildFileOFS(String path) async {
 }
 
 Future<OutputFileStream> _buildRamOfs(String path) async {
-  return OutputFileStream.toRamFile(MemoryFileHandle.asWritableRamBuffer());
+  return OutputFileStream.toMemoryFile(RamFileHandle.asWritableRamBuffer());
 }
 
 void _testInputFileStream(
@@ -100,18 +100,18 @@ void _testInputOutputFileStream(
 }
 
 void main() {
-  final testPath = p.join(testDirPath, 'out/test_123.bin');
+  final testPath = p.join(testOutputPath, 'test_123.bin');
   final testData = Uint8List(120);
   for (var i = 0; i < testData.length; ++i) {
     testData[i] = i;
   }
 
   // Add an empty directory to test2
-  Directory('$testDirPath/res/test2/empty').createSync(recursive: true);
+  Directory('test/_data/test2/empty').createSync(recursive: true);
 
   final testFile = File(testPath);
   testFile.createSync(recursive: true);
-  testFile.openSync(mode: FileMode.write);
+  testFile.openSync(mode: FileAccess.write);
   testFile.writeAsBytesSync(testData);
 
   test('FileHandle', () async {
@@ -249,8 +249,8 @@ void main() {
   });
 
   test('InputFileStream/OutputFileStream (files)', () {
-    var input = InputFileStream(p.join(testDirPath, 'res/cat.jpg'));
-    var output = OutputFileStream(p.join(testDirPath, 'out/cat2.jpg'));
+    var input = InputFileStream(p.join('test/_data/cat.jpg'));
+    var output = OutputFileStream(p.join(testOutputPath, 'cat2.jpg'));
     var offset = 0;
     var inputLength = input.length;
     while (!input.isEOS) {
@@ -265,8 +265,8 @@ void main() {
     input.closeSync();
     output.closeSync();
 
-    final aBytes = File(p.join(testDirPath, 'res/cat.jpg')).readAsBytesSync();
-    final bBytes = File(p.join(testDirPath, 'out/cat2.jpg')).readAsBytesSync();
+    final aBytes = File(p.join('test/_data/cat.jpg')).readAsBytesSync();
+    final bBytes = File(p.join(testOutputPath, 'cat2.jpg')).readAsBytesSync();
 
     expect(aBytes.length, equals(bBytes.length));
     var same = true;
@@ -277,9 +277,9 @@ void main() {
   });
 
   test('InputFileStream/OutputFileStream (ram)', () {
-    var input = InputFileStream(p.join(testDirPath, 'res/cat.jpg'));
-    final MemoryFileHandle rfh = MemoryFileHandle.asWritableRamBuffer();
-    var output = OutputFileStream.toRamFile(rfh);
+    var input = InputFileStream(p.join('test/_data/cat.jpg'));
+    final RamFileHandle rfh = RamFileHandle.asWritableRamBuffer();
+    var output = OutputFileStream.toMemoryFile(rfh);
     var offset = 0;
     var inputLength = input.length;
     while (!input.isEOS) {
@@ -294,7 +294,7 @@ void main() {
     input.closeSync();
     output.closeSync();
 
-    final aBytes = File(p.join(testDirPath, 'res/cat.jpg')).readAsBytesSync();
+    final aBytes = File(p.join('test/_data/cat.jpg')).readAsBytesSync();
     final bBytes = Uint8List(rfh.length);
     rfh.readInto(bBytes);
 
@@ -320,13 +320,13 @@ void main() {
     ];
     final fileNameToFileContent = <String, Uint8List>{};
     for (final fileName in testFiles) {
-      fileNameToFileContent[fileName] = File(p.join(testDirPath, 'res/cat.jpg')).readAsBytesSync();
+      fileNameToFileContent[fileName] = File(p.join('test/_data/cat.jpg')).readAsBytesSync();
     }
     final RamFileData ramFileData = RamFileData.outputBuffer();
     final zipEncoder = ZipFileEncoder()
       ..createWithBuffer(
         OutputFileStream.toRamFile(
-          MemoryFileHandle.fromRamFileData(ramFileData),
+          RamFileHandle.fromRamFileData(ramFileData),
         ),
       );
     for (final fileEntry in fileNameToFileContent.entries) {
@@ -341,7 +341,7 @@ void main() {
     final Archive archive = ZipDecoder().decodeBuffer(
       InputFileStream.withFileBuffer(
         FileBuffer(
-          MemoryFileHandle.fromRamFileData(readRamFileData),
+          RamFileHandle.fromRamFileData(readRamFileData),
         ),
       ),
     );
@@ -368,7 +368,7 @@ void main() {
 
   _testInputFileStream('stream tar decode', (ifsConstructor) async {
     // Decode a tar from disk to memory
-    final stream = await ifsConstructor(p.join(testDirPath, 'res/test2.tar'));
+    final stream = await ifsConstructor(p.join('test/_data/test2.tar'));
     final tarArchive = TarDecoder();
     tarArchive.decodeBuffer(stream);
 
@@ -391,7 +391,7 @@ void main() {
 
   _testInputFileStream('stream zip decode', (ifsConstructor) async {
     // Decode a tar from disk to memory
-    final stream = await ifsConstructor(p.join(testDirPath, 'res/test.zip'));
+    final stream = await ifsConstructor(p.join('test/_data/test.zip'));
     final zip = ZipDecoder().decodeBuffer(stream);
 
     expect(zip.files.length, equals(2));
@@ -417,8 +417,8 @@ void main() {
     ifsConstructor,
     ofsConstructor,
   ) async {
-    final input = await ifsConstructor(p.join(testDirPath, 'res/cat.jpg'));
-    final output = await ofsConstructor(p.join(testDirPath, 'out/cat.jpg.gz'));
+    final input = await ifsConstructor(p.join('test/_data/cat.jpg'));
+    final output = await ofsConstructor(p.join(testOutputPath, 'cat.jpg.gz'));
 
     final encoder = GZipEncoder();
     encoder.encode(input, output: output);
@@ -429,8 +429,8 @@ void main() {
     ifsConstructor,
     ofsConstructor,
   ) async {
-    final input = await ifsConstructor(p.join(testDirPath, 'out/cat.jpg.gz'));
-    final output = await ofsConstructor(p.join(testDirPath, 'out/cat.jpg'));
+    final input = await ifsConstructor(p.join(testOutputPath, 'cat.jpg.gz'));
+    final output = await ofsConstructor(p.join(testOutputPath, 'cat.jpg'));
 
     GZipDecoder().decodeStream(input, output);
     await output.close();
@@ -446,8 +446,8 @@ void main() {
     await encoder.addDirectory(Directory('$testDirPath/res/test2'));
     await encoder.close();
 
-    final input = await ifsConstructor(p.join(testDirPath, 'out/example2.tar'));
-    final output = await ofsConstructor(p.join(testDirPath, 'out/example2.tgz'));
+    final input = await ifsConstructor(p.join(testOutputPath, 'example2.tar'));
+    final output = await ofsConstructor(p.join(testOutputPath, 'example2.tgz'));
     GZipEncoder().encode(input, output: output);
     await input.close();
     await output.close();
@@ -490,7 +490,7 @@ void main() {
 
     final bytes = encoder.encode(archive)!;
     File('$testDirPath/out/test2_.zip')
-      ..openSync(mode: FileMode.write)
+      ..openSync(mode: FileAccess.write)
       ..writeAsBytesSync(bytes);
 
     final zipDecoder = ZipDecoder();
@@ -499,14 +499,14 @@ void main() {
   });
 
   _testInputFileStream('file close', (ifsConstructor) async {
-    final testPath = p.join(testDirPath, 'out/test2.bin');
+    final testPath = p.join(testOutputPath, 'test2.bin');
     final testData = Uint8List(120);
     for (var i = 0; i < testData.length; ++i) {
       testData[i] = i;
     }
     final testFile = File(testPath);
     testFile.createSync(recursive: true);
-    final fp = testFile.openSync(mode: FileMode.write);
+    final fp = testFile.openSync(mode: FileAccess.write);
     fp.writeFromSync(testData);
     fp.closeSync();
 
@@ -646,7 +646,7 @@ void main() {
       'zipDirectory throws a FormatException when filename is within dir',
       () {
         final encoder = ZipFileEncoder();
-        final invalidFilename = p.join(testDirPath, 'res/test2.zip');
+        final invalidFilename = p.join('test/_data/test2.zip');
 
         expect(
           () => encoder.zipDirectory(
@@ -675,7 +675,7 @@ void main() {
       'zipDirectoryAsync throws a FormatException when filename is within dir',
       () async {
         final encoder = ZipFileEncoder();
-        final invalidFilename = p.join(testDirPath, 'res/test2.zip');
+        final invalidFilename = p.join('test/_data/test2.zip');
 
         await expectLater(
           () => encoder.zipDirectoryAsync(

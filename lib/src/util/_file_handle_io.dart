@@ -2,7 +2,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'abstract_file_handle.dart';
-import 'file_mode.dart';
+import 'file_access.dart';
 
 class FileHandle extends AbstractFileHandle {
   final String _path;
@@ -13,7 +13,7 @@ class FileHandle extends AbstractFileHandle {
   FileHandle(this._path)
       : _position = 0,
         _length = 0,
-        super(FileMode.read);
+        super(FileAccess.read);
 
   @override
   bool open() {

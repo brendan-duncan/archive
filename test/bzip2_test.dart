@@ -4,19 +4,17 @@ import 'package:archive/archive.dart';
 import 'package:test/test.dart';
 import 'package:path/path.dart' as p;
 
-import 'tests/test_utils.dart';
-
 void main() {
   test('decode', () {
-    List<int> orig =
-        io.File(p.join(testDirPath, 'res/bzip2/test.bz2')).readAsBytesSync();
+    final orig =
+        io.File(p.join('test/_data/bzip2/test.bz2')).readAsBytesSync();
 
     BZip2Decoder().decodeBytes(orig, verify: true);
   });
 
   test('encode', () {
-    List<int> file =
-        io.File(p.join(testDirPath, 'res/cat.jpg')).readAsBytesSync();
+    final file =
+        io.File(p.join('test/_data/cat.jpg')).readAsBytesSync();
 
     final compressed = BZip2Encoder().encode(file);
 

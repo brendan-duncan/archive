@@ -1,0 +1,1 @@
+enum FileAccess { read, write }

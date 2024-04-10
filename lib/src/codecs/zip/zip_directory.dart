@@ -4,7 +4,7 @@ import 'zip_file_header.dart';
 
 class ZipDirectory {
   // End of Central Directory Record
-  static const signature = 0x06054b50;
+  static const eocdSignature = 0x06054b50;
   static const zip64EocdLocatorSignature = 0x07064b50;
   static const zip64EocdLocatorSize = 20;
   static const zip64EocdSignature = 0x06064b50;
@@ -24,7 +24,7 @@ class ZipDirectory {
     filePosition = _findSignature(input);
     input.setPosition(filePosition);
     final sig = input.readUint32();
-    if (sig != signature) {
+    if (sig != eocdSignature) {
       throw ArchiveException('Could not find End of Central Directory Record');
     }
     numberOfThisDisk = input.readUint16();
@@ -142,7 +142,7 @@ class ZipDirectory {
     for (var ip = length - 5; ip >= 0; --ip) {
       input.setPosition(ip);
       final sig = input.readUint32();
-      if (sig == signature) {
+      if (sig == eocdSignature) {
         input.setPosition(pos);
         return ip;
       }
