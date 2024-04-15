@@ -52,7 +52,7 @@ class ZLibEncoder {
 
     input.setPosition(startPos);
 
-    Deflate.stream(input, level: level, output: output).deflate();
+    Deflate.stream(input, level: level, output: output);
 
     output
       ..writeUint32(adler32)

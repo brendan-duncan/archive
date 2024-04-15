@@ -1,4 +1,7 @@
+import 'dart:typed_data';
+
 import '../../util/input_stream.dart';
+import '../../util/input_memory_stream.dart';
 import 'zip_file.dart';
 
 class ZipFileHeader {
@@ -17,7 +20,7 @@ class ZipFileHeader {
   int externalFileAttributes = 0;
   int localHeaderOffset = 0;
   String filename = '';
-  List<int> extraField = [];
+  Uint8List? extraField;
   String fileComment = '';
   ZipFile? file;
 
@@ -44,48 +47,51 @@ class ZipFileHeader {
     }
 
     if (extraLen > 0) {
-      final extra = input.readBytes(extraLen);
-      extraField = extra.toUint8List();
-      // Rewind to start of the extra fields to read field by field.
-      extra.rewind(extraLen);
+      final extraBytes = input.readBytes(extraLen);
+      extraField = extraBytes.toUint8List();
 
-      final id = extra.readUint16();
-      var size = extra.readUint16();
-      if (id == 1) {
-        // Zip64 extended information
-        // The following is the layout of the zip64 extended
-        // information "extra" block. If one of the size or
-        // offset fields in the Local or Central directory
-        // record is too small to hold the required data,
-        // a Zip64 extended information record is created.
-        // The order of the fields in the zip64 extended
-        // information record is fixed, but the fields MUST
-        // only appear if the corresponding Local or Central
-        // directory record field is set to 0xFFFF or 0xFFFFFFFF.
-        // Original
-        // Size       8 bytes    Original uncompressed file size
-        // Compressed
-        // Size       8 bytes    Size of compressed data
-        // Relative Header
-        // Offset     8 bytes    Offset of local header record
-        // Disk Start
-        // Number     4 bytes    Number of the disk on which
-        // this file starts
-        if (size >= 8 && uncompressedSize == 0xffffffff) {
-          uncompressedSize = extra.readUint64();
-          size -= 8;
-        }
-        if (size >= 8 && compressedSize == 0xffffffff) {
-          compressedSize = extra.readUint64();
-          size -= 8;
-        }
-        if (size >= 8 && localHeaderOffset == 0xffffffff) {
-          localHeaderOffset = extra.readUint64();
-          size -= 8;
-        }
-        if (size >= 4 && diskNumberStart == 0xffff) {
-          diskNumberStart = extra.readUint32();
-          size -= 4;
+      final extra = InputMemoryStream(extraField!);
+      while (!extra.isEOS) {
+        final id = extra.readUint16();
+        var size = extra.readUint16();
+        final extraBytes = extra.readBytes(size);
+
+        if (id == 1) {
+          // Zip64 extended information
+          // The following is the layout of the zip64 extended
+          // information "extra" block. If one of the size or
+          // offset fields in the Local or Central directory
+          // record is too small to hold the required data,
+          // a Zip64 extended information record is created.
+          // The order of the fields in the zip64 extended
+          // information record is fixed, but the fields MUST
+          // only appear if the corresponding Local or Central
+          // directory record field is set to 0xFFFF or 0xFFFFFFFF.
+          // Original
+          // Size       8 bytes    Original uncompressed file size
+          // Compressed
+          // Size       8 bytes    Size of compressed data
+          // Relative Header
+          // Offset     8 bytes    Offset of local header record
+          // Disk Start
+          // Number     4 bytes    Number of the disk on which
+          // this file starts
+          if (size >= 8 && uncompressedSize == 0xffffffff) {
+            uncompressedSize = extraBytes.readUint64();
+            size -= 8;
+          }
+          if (size >= 8 && compressedSize == 0xffffffff) {
+            compressedSize = extraBytes.readUint64();
+            size -= 8;
+          }
+          if (size >= 8 && localHeaderOffset == 0xffffffff) {
+            localHeaderOffset = extraBytes.readUint64();
+            size -= 8;
+          }
+          if (size >= 4 && diskNumberStart == 0xffff) {
+            diskNumberStart = extraBytes.readUint32();
+            size -= 4;
+          }
         }
       }
     }

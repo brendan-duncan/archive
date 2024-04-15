@@ -107,8 +107,7 @@ class RamFileData {
   }
 
   static Future<RamFileData> fromStream(
-    Stream<List<int>> source,
-    int fileLength) async {
+      Stream<List<int>> source, int fileLength) async {
     final List<List<int>> list = <List<int>>[];
     int? usedSubListSize;
     bool listSizeChanged = false;
@@ -139,6 +138,14 @@ class RamFileData {
 
   void clear() {
     _content.clear();
+  }
+
+  @Deprecated('Visible for testing only')
+  List<List<int>> get content => _content;
+
+  @Deprecated('Visible for testing only')
+  List<int> readAsBytes() {
+    return _content.expand<int>((List<int> x) => x).toList();
   }
 
   int readIntoSync(Uint8List buffer, int start, int? end) {

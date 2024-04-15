@@ -1,5 +1,6 @@
 import '../util/archive_exception.dart';
 import 'archive_entry.dart';
+import 'archive_file.dart';
 
 class ArchiveDirectory extends ArchiveEntry {
   final entries = <ArchiveEntry>[];
@@ -104,4 +105,33 @@ class ArchiveDirectory extends ArchiveEntry {
 
   @override
   Iterator<ArchiveEntry> get iterator => entries.iterator;
+
+  List<ArchiveEntry> getAllEntries([List<ArchiveEntry>? files]) {
+    files ??= <ArchiveEntry>[];
+
+    for (final e in entries) {
+      if (e is ArchiveFile) {
+        files.add(e);
+      } else if (e is ArchiveDirectory) {
+        files.add(e);
+        e.getAllEntries(files);
+      }
+    }
+
+    return files;
+  }
+
+  List<ArchiveFile> getAllFiles([List<ArchiveFile>? files]) {
+    files ??= <ArchiveFile>[];
+
+    for (final e in entries) {
+      if (e is ArchiveFile) {
+        files.add(e);
+      } else if (e is ArchiveDirectory) {
+        e.getAllFiles(files);
+      }
+    }
+
+    return files;
+  }
 }

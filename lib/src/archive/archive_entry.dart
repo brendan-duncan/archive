@@ -57,6 +57,9 @@ abstract class ArchiveEntry extends Iterable<ArchiveEntry> {
   @override
   int get length => 1;
 
+  /// The uncompressed size, if it's a file
+  int get size => 0;
+
   ArchiveEntry operator [](int index) => this;
 
   @override

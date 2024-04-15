@@ -81,7 +81,7 @@ class ZipEncoder {
   static const int languageEncodingBitUtf8 = 2048;
   static const int _aesEncryptionExtraHeaderId = 0x9901;
 
-  List<int>? encode(Archive archive,
+  Uint8List encode(Archive archive,
       {int level = DeflateLevel.bestSpeed,
       OutputStream? output,
       DateTime? modified,
@@ -114,15 +114,14 @@ class ZipEncoder {
     s.reset();
     var crc32 = 0;
     var size = s.length;
-    Uint8List? bytes;
     const chunkSize = 1024 * 1024;
     while (size > chunkSize) {
-      bytes = s.readBytes(chunkSize).toUint8List();
+      final bytes = s.readBytes(chunkSize).toUint8List();
       crc32 = getCrc32List(bytes, crc32);
       size -= chunkSize;
     }
     if (size > 0) {
-      bytes = s.readBytes(size).toUint8List();
+      final bytes = s.readBytes(size).toUint8List();
       crc32 = getCrc32List(bytes, crc32);
     }
     content.reset();
@@ -190,8 +189,8 @@ class ZipEncoder {
       } else {
         crc32 = getFileCrc32(file);
       }
-    } else*/ if (file.isCompressed &&
-        file.compression == CompressionType.deflate) {
+    } else*/
+    if (file.isCompressed && file.compression == CompressionType.deflate) {
       // If the file is already compressed, no sense in uncompressing it and
       // compressing it again, just pass along the already compressed data.
       compressedData = file.rawContent?.getStream();

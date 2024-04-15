@@ -12,6 +12,7 @@ import 'compression_type.dart';
 /// A file contained in an Archive.
 class ArchiveFile extends ArchiveEntry {
   /// The uncompressed size of the file
+  @override
   int size = 0;
 
   FileContent? _rawContent;
@@ -31,6 +32,10 @@ class ArchiveFile extends ArchiveEntry {
     _rawContent = FileContentMemory(content);
     size = content.length;
   }
+
+  factory ArchiveFile.typedData(String name, TypedData data) =>
+      ArchiveFile.bytes(name,
+          Uint8List.view(data.buffer, data.offsetInBytes, data.lengthInBytes));
 
   ArchiveFile.string(String name, String content)
       : super(name: name, mode: 0x1a4) {
@@ -145,7 +150,6 @@ class ArchiveFile extends ArchiveEntry {
           _content = _rawContent;
         }
       }
-      compression = CompressionType.none;
     }
   }
 

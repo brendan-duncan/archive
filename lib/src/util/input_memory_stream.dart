@@ -16,10 +16,9 @@ class InputMemoryStream extends InputStream {
       {super.byteOrder = ByteOrder.littleEndian, int? offset, int? length})
       : _position = 0 {
     offset ??= 0;
-    length ??= bytes.buffer.lengthInBytes - offset;
-    final requestedLength = bytes.offsetInBytes + offset + length;
-    if (requestedLength > bytes.buffer.lengthInBytes) {
-      length = bytes.buffer.lengthInBytes - (bytes.offsetInBytes + offset);
+    length ??= bytes.length - offset;
+    if ((offset + length) > bytes.length) {
+      length = bytes.length - offset;
     }
     buffer = Uint8List.view(bytes.buffer, bytes.offsetInBytes + offset, length);
     _length = buffer.length;

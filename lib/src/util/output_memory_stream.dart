@@ -13,8 +13,7 @@ class OutputMemoryStream extends OutputStream {
 
   /// Create a byte buffer for writing.
   OutputMemoryStream(
-      {int? size = defaultBufferSize,
-      super.byteOrder = ByteOrder.littleEndian})
+      {int? size = defaultBufferSize, super.byteOrder = ByteOrder.littleEndian})
       : _buffer = Uint8List(size ?? defaultBufferSize),
         length = 0;
 
@@ -29,7 +28,7 @@ class OutputMemoryStream extends OutputStream {
   /// Clear the buffer.
   @override
   void clear() {
-    _buffer.length = defaultBufferSize;
+    _buffer = Uint8List(defaultBufferSize);
     length = 0;
   }
 

@@ -24,9 +24,6 @@ void main() {
     // compress the buffer (assumption: deflate works correctly).
     final deflated = Deflate(buffer, level: DeflateLevel.none).getBytes();
 
-    // re-cast the deflated bytes as a Uint8List (which is it's native type).
-    // Do this so we can use use Uint8List.view to section off chunks of the
-    // data to test streamed inflation.
     final deflatedBytes = deflated;
 
     // Create a stream inflator.
@@ -36,7 +33,7 @@ void main() {
 
     // The section of the input buffer we're currently streaming.
     var streamOffset = 0;
-    var streamSize = 1049;
+    final streamSize = 1049;
     // Continue while we haven't streamed all of the data yet.
     while (streamOffset < deflatedBytes.length) {
       // Create a view of the input data for the bytes we're currently

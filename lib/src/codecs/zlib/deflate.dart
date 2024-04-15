@@ -27,16 +27,22 @@ class Deflate {
   int? _status;
 
   Deflate(Uint8List bytes,
-      {int level = DeflateLevel.defaultCompression, OutputStream? output})
+      {int level = DeflateLevel.defaultCompression,
+      OutputStream? output,
+      DeflateFlushMode flush = DeflateFlushMode.finish})
       : input = InputMemoryStream(bytes),
         output = output ?? OutputMemoryStream() {
     _init(level);
+    _deflate(flush: flush);
   }
 
   Deflate.stream(this.input,
-      {int level = DeflateLevel.defaultCompression, OutputStream? output})
+      {int level = DeflateLevel.defaultCompression,
+      OutputStream? output,
+      DeflateFlushMode flush = DeflateFlushMode.finish})
       : output = output ?? OutputMemoryStream() {
     _init(level);
+    _deflate(flush: flush);
   }
 
   int deflate({DeflateFlushMode flush = DeflateFlushMode.finish}) =>

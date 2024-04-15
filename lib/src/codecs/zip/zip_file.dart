@@ -1,9 +1,10 @@
 import 'dart:typed_data';
 
+import 'package:archive/archive.dart';
 import "package:pointycastle/export.dart";
 
 import '../../archive/compression_type.dart';
-import '../../util/aes_decrypt.dart';
+import '../../util/aes.dart';
 import '../../util/archive_exception.dart';
 import '../../util/crc32.dart';
 import '../../util/file_content.dart';
@@ -49,12 +50,12 @@ class ZipFile extends FileContent {
   int compressedSize = 0;
   int uncompressedSize = 0;
   String filename = '';
-  late Uint8List extraField;
+  Uint8List? extraField;
   ZipFileHeader? header;
 
   // Content of the file. If compressionMethod is not STORE, then it is
   // still compressed.
-  late InputStream _rawContent;
+  InputStream? _rawContent;
   Uint8List? _content;
   int? _computedCrc32;
   ZipEncryptionMode _encryptionType = ZipEncryptionMode.none;
@@ -85,6 +86,11 @@ class ZipFile extends FileContent {
     filename = input.readString(size: fnLen);
     extraField = input.readBytes(exLen).toUint8List();
 
+    // Use the compressedSize and uncompressedSize from the CFD header.
+    // For Zip64, the sizes in the local header will be 0xFFFFFFFF.
+    compressedSize = header?.compressedSize ?? compressedSize;
+    uncompressedSize = header?.uncompressedSize ?? uncompressedSize;
+
     _encryptionType = (flags & 0x1) != 0
         ? ZipEncryptionMode.zipCrypto
         : ZipEncryptionMode.none;
@@ -95,27 +101,31 @@ class ZipFile extends FileContent {
     _rawContent = input.readBytes(header!.compressedSize);
 
     if (_encryptionType != ZipEncryptionMode.none && exLen > 2) {
-      final extra = InputMemoryStream(extraField);
-      final id = extra.readUint16();
-      if (id == ZipAesHeader.signature) {
-        extra.readUint16(); // dataSize = 7
-        final vendorVersion = extra.readUint16();
-        final vendorId = extra.readString(size: 2);
-        final encryptionStrength = extra.readByte();
-        final compressionMethod = extra.readUint16();
+      final extra = InputMemoryStream(extraField!);
+      while (!extra.isEOS) {
+        final id = extra.readUint16();
+        if (id == ZipAesHeader.signature) {
+          extra.readUint16(); // dataSize = 7
+          final vendorVersion = extra.readUint16();
+          final vendorId = extra.readString(size: 2);
+          final encryptionStrength = extra.readByte();
+          final compressionMethod = extra.readUint16();
 
-        _encryptionType = ZipEncryptionMode.aes;
-        _aesHeader = ZipAesHeader(
-            vendorVersion, vendorId, encryptionStrength, compressionMethod);
+          _encryptionType = ZipEncryptionMode.aes;
+          _aesHeader = ZipAesHeader(
+              vendorVersion, vendorId, encryptionStrength, compressionMethod);
 
-        // compressionMethod in the file header will be 99 for aes encrypted
-        // files. The compressionMethod value in the AES extraField stores the
-        // actual compressionMethod.
-        this.compressionMethod =
-            _compressionTypes[_aesHeader!.compressionMethod] ??
-                CompressionType.none;
+          // compressionMethod in the file header will be 99 for aes encrypted
+          // files. The compressionMethod value in the AES extraField stores the
+          // actual compressionMethod.
+          this.compressionMethod =
+              _compressionTypes[_aesHeader!.compressionMethod] ??
+                  CompressionType.none;
+        }
       }
-    } else if (_encryptionType == ZipEncryptionMode.zipCrypto &&
+    }
+
+    if (_encryptionType == ZipEncryptionMode.zipCrypto &&
         password != null) {
       _initKeys(password);
     }
@@ -149,55 +159,74 @@ class ZipFile extends FileContent {
 
   @override
   void decompress(OutputStream output) {
+    if (_rawContent == null) {
+      return;
+    }
+
     if (_encryptionType != ZipEncryptionMode.none) {
-      if (_rawContent.length <= 0) {
-        _content = _rawContent.toUint8List();
+      if (_rawContent!.length <= 0) {
+        _content = _rawContent!.toUint8List();
         _encryptionType = ZipEncryptionMode.none;
       } else {
         if (_encryptionType == ZipEncryptionMode.zipCrypto) {
-          _rawContent = _decodeZipCrypto(_rawContent);
+          _rawContent = _decodeZipCrypto(_rawContent!);
         } else if (_encryptionType == ZipEncryptionMode.aes) {
-          _rawContent = _decodeAes(_rawContent);
+          _rawContent = _decodeAes(_rawContent!);
         }
         _encryptionType = ZipEncryptionMode.none;
       }
     }
 
+    final savePos = _rawContent!.position;
     Inflate.stream(_rawContent,
-            uncompressedSize: uncompressedSize, output: output)
-        .inflate();
+        uncompressedSize: uncompressedSize, output: output);
+    _rawContent!.setPosition(savePos);
   }
 
   /// Get the decompressed content from the file. The file isn't decompressed
   /// until it is requested.
   @override
   InputStream getStream() {
+    if (_rawContent == null) {
+      return InputMemoryStream(Uint8List(0));
+    }
     if (_content == null) {
       if (_encryptionType != ZipEncryptionMode.none) {
-        if (_rawContent.length <= 0) {
-          _content = _rawContent.toUint8List();
+        if (_rawContent!.length <= 0) {
+          _content = _rawContent!.toUint8List();
           _encryptionType = ZipEncryptionMode.none;
         } else {
           if (_encryptionType == ZipEncryptionMode.zipCrypto) {
-            _rawContent = _decodeZipCrypto(_rawContent);
+            _rawContent = _decodeZipCrypto(_rawContent!);
           } else if (_encryptionType == ZipEncryptionMode.aes) {
-            _rawContent = _decodeAes(_rawContent);
+            _rawContent = _decodeAes(_rawContent!);
           }
           _encryptionType = ZipEncryptionMode.none;
         }
       }
 
       if (compressionMethod == CompressionType.deflate) {
+        final savePos = _rawContent!.position;
         final decompress =
-            Inflate.stream(_rawContent, uncompressedSize: uncompressedSize)
-              ..inflate();
+        Inflate.stream(_rawContent, uncompressedSize: uncompressedSize);
         _content = decompress.getBytes();
+        _rawContent!.setPosition(savePos);
+        compressionMethod = CompressionType.none;
+      } else if (compressionMethod == CompressionType.bzip2) {
+        final output = OutputMemoryStream();
+        final savePos = _rawContent!.position;
+        BZip2Decoder().decodeStream(_rawContent!, output);
+        _content = output.getBytes();
+        _rawContent!.setPosition(savePos);
         compressionMethod = CompressionType.none;
       } else {
-        _content = _rawContent.toUint8List();
+        _content = _rawContent!.toUint8List();
       }
     }
 
+    if (_content == null) {
+      return InputMemoryStream(Uint8List(0));
+    }
     return InputMemoryStream(_content!);
   }
 
@@ -205,7 +234,10 @@ class ZipFile extends FileContent {
     if (_content != null) {
       return _content!;
     }
-    return _rawContent.toUint8List();
+    if (_rawContent == null) {
+      return Uint8List(0);
+    }
+    return _rawContent!.toUint8List();
   }
 
   @override
@@ -238,10 +270,14 @@ class ZipFile extends FileContent {
   }
 
   InputStream _decodeZipCrypto(InputStream input) {
-    for (var i = 0; i < 12; ++i) {
-      _decodeByte(_rawContent.readByte());
+    if (_rawContent == null) {
+      return InputMemoryStream(Uint8List(0));
     }
-    final bytes = _rawContent.toUint8List();
+
+    for (var i = 0; i < 12; ++i) {
+      _decodeByte(_rawContent!.readByte());
+    }
+    final bytes = _rawContent!.toUint8List();
     for (var i = 0; i < bytes.length; ++i) {
       final temp = bytes[i] ^ _decryptByte();
       _updateKeys(temp);
@@ -252,25 +288,41 @@ class ZipFile extends FileContent {
 
   InputStream _decodeAes(InputStream input) {
     Uint8List salt;
+    int keySize = 16;
     if (_aesHeader!.encryptionStrength == 1) {
       // 128-bit
       salt = input.readBytes(8).toUint8List();
-    } else if (_aesHeader!.encryptionStrength == 1) {
+      keySize = 16;
+    } else if (_aesHeader!.encryptionStrength == 2) {
       // 192-bit
       salt = input.readBytes(12).toUint8List();
+      keySize = 24;
     } else {
       // 256-bit
       salt = input.readBytes(16).toUint8List();
+      keySize = 32;
     }
 
-    //int verification = input.readUint16();
+    final verify = input.readBytes(2).toUint8List();
     final dataBytes = input.readBytes(input.length - 10);
+    final dataMac = input.readBytes(10);
     final bytes = dataBytes.toUint8List();
 
-    final key = deriveKey(_password!, salt);
+    final derivedKey = deriveKey(_password!, salt, derivedKeyLength: keySize);
+    final keyData = Uint8List.fromList(derivedKey.sublist(0, keySize));
+    final hmacKeyData =
+    Uint8List.fromList(derivedKey.sublist(keySize, keySize * 2));
+    // var authCode = deriveKey.sublist(keySize, keySize*2);
+    final pwdCheck = derivedKey.sublist(keySize * 2, keySize * 2 + 2);
+    if (!Uint8ListEquality.equals(pwdCheck, verify)) {
+      throw Exception('password error');
+    }
 
-    AesDecrypt(key).decryptCrt(bytes);
-
+    final aes = Aes(keyData, hmacKeyData, keySize);
+    aes.processData(bytes, 0, bytes.length);
+    if (!Uint8ListEquality.equals(dataMac.toUint8List(), aes.mac)) {
+      throw Exception('macs don\'t match');
+    }
     return InputMemoryStream(bytes);
   }
 
@@ -279,14 +331,12 @@ class ZipFile extends FileContent {
     if (password.isEmpty) {
       return Uint8List(0);
     }
-
     final passwordBytes = Uint8List.fromList(password.codeUnits);
-
     const iterationCount = 1000;
-    final params = Pbkdf2Parameters(salt, iterationCount, derivedKeyLength);
-    final keyDerivator = PBKDF2KeyDerivator(HMac(SHA256Digest(), 64))
-      ..init(params);
-
+    final totalSize = (derivedKeyLength * 2) + 2;
+    final params = Pbkdf2Parameters(salt, iterationCount, totalSize);
+    final keyDerivator = PBKDF2KeyDerivator(HMac(SHA1Digest(), 64));
+    keyDerivator.init(params);
     return keyDerivator.process(passwordBytes);
   }
 
