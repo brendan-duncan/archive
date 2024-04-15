@@ -85,9 +85,22 @@ class ArchiveDirectory extends ArchiveEntry {
 
   /// Find a file with the given [name] in the archive. If the file isn't found,
   /// null will be returned.
-  ArchiveEntry? find(String name) {
+  ArchiveEntry? find(String name, { bool recursive = false }) {
     final index = entryMap[name];
-    return index != null ? entries[index] : null;
+    if (index != null) {
+      return entries[index];
+    }
+    if (recursive) {
+      for (final e in entries) {
+        if (e is ArchiveDirectory) {
+          final x = e.find(name);
+          if (x != null) {
+            return x;
+          }
+        }
+      }
+    }
+    return null;
   }
 
   @override
