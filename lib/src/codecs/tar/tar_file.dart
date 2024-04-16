@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:archive/src/util/output_memory_stream.dart';
 
 import '../../util/archive_exception.dart';
+import '../../util/file_content.dart';
 import '../../util/input_stream.dart';
 import '../../util/output_stream.dart';
 
@@ -67,7 +68,7 @@ class TarFile {
   int deviceMinorNumber = 0; // 8 bytes
   String filenamePrefix = ''; // 155 bytes
   InputStream? _rawContent;
-  dynamic _content;
+  FileContent? _content;
 
   TarFile();
 
@@ -123,25 +124,25 @@ class TarFile {
 
   InputStream? get rawContent => _rawContent;
 
-  dynamic get content {
-    _content ??= _rawContent!.toUint8List();
+  FileContent? get content {
+    if (_rawContent == null) {
+      return null;
+    }
+    _content ??= FileContentMemory(_rawContent!.toUint8List());
     return _content;
   }
 
-  List<int> get contentBytes => content as List<int>;
+  Uint8List? get contentBytes => content?.readBytes();
 
-  set content(dynamic data) => _content = data;
+  set contentBytes(Uint8List? data) =>
+      data == null ? _content = null : _content = FileContentMemory(data);
 
-  int get size => _content != null
-      ? _content.length as int
-      : _rawContent != null
-          ? _rawContent!.length
-          : 0;
+  int get size => fileSize;
 
   @override
   String toString() => '[$filename, $mode, $fileSize]';
 
-  void write(dynamic output) {
+  void write(OutputStream output) {
     fileSize = size;
 
     // The name, linkname, magic, uname, and gname are null-terminated
@@ -191,12 +192,10 @@ class TarFile {
 
     output.writeBytes(header.getBytes());
 
-    if (_content is List<int>) {
-      output.writeBytes(_content);
-    } else if (_content is InputStream) {
-      output.writeInputStream(_content);
+    if (_content != null) {
+      output.writeStream(_content!.getStream());
     } else if (_rawContent != null) {
-      output.writeInputStream(_rawContent);
+      output.writeStream(_rawContent!);
     }
 
     if (isFile && fileSize > 0) {

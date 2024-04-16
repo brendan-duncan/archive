@@ -125,8 +125,7 @@ class ZipFile extends FileContent {
       }
     }
 
-    if (_encryptionType == ZipEncryptionMode.zipCrypto &&
-        password != null) {
+    if (_encryptionType == ZipEncryptionMode.zipCrypto && password != null) {
       _initKeys(password);
     }
 
@@ -208,7 +207,7 @@ class ZipFile extends FileContent {
       if (compressionMethod == CompressionType.deflate) {
         final savePos = _rawContent!.position;
         final decompress =
-        Inflate.stream(_rawContent, uncompressedSize: uncompressedSize);
+            Inflate.stream(_rawContent, uncompressedSize: uncompressedSize);
         _content = decompress.getBytes();
         _rawContent!.setPosition(savePos);
         compressionMethod = CompressionType.none;
@@ -311,7 +310,7 @@ class ZipFile extends FileContent {
     final derivedKey = deriveKey(_password!, salt, derivedKeyLength: keySize);
     final keyData = Uint8List.fromList(derivedKey.sublist(0, keySize));
     final hmacKeyData =
-    Uint8List.fromList(derivedKey.sublist(keySize, keySize * 2));
+        Uint8List.fromList(derivedKey.sublist(keySize, keySize * 2));
     // var authCode = deriveKey.sublist(keySize, keySize*2);
     final pwdCheck = derivedKey.sublist(keySize * 2, keySize * 2 + 2);
     if (!Uint8ListEquality.equals(pwdCheck, verify)) {

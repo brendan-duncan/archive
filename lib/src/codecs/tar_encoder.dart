@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:typed_data';
 
 import '../util/output_stream.dart';
@@ -22,7 +23,7 @@ class TarEncoder {
     return outputStream.getBytes();
   }
 
-  void start([dynamic outputStream]) {
+  void start([OutputStream? outputStream]) {
     _outputStream = outputStream ?? OutputMemoryStream();
   }
 
@@ -40,8 +41,8 @@ class TarEncoder {
       ts.ownerId = 0;
       ts.groupId = 0;
       ts.lastModTime = 0;
-      ts.content = entry.name.codeUnits;
-      ts.write(_outputStream);
+      ts.contentBytes = utf8.encode(entry.name);
+      ts.write(_outputStream!);
     }
 
     final ts = TarFile();
@@ -59,10 +60,10 @@ class TarEncoder {
         ts.nameOfLinkedFile = file.symbolicLink;
       } else {
         ts.fileSize = file.size;
-        ts.content = file.getContent();
+        ts.contentBytes = file.getContent()?.toUint8List();
       }
     }
-    ts.write(_outputStream);
+    ts.write(_outputStream!);
   }
 
   void finish() {
@@ -72,10 +73,10 @@ class TarEncoder {
     // At the end of the archive file there are two 512-byte blocks filled
     // with binary zeros as an end-of-file marker.
     final eof = Uint8List(1024);
-    _outputStream.writeBytes(eof);
-    _outputStream.flush();
+    _outputStream!.writeBytes(eof);
+    _outputStream!.flush();
     _outputStream = null;
   }
 
-  dynamic _outputStream;
+  OutputStream? _outputStream;
 }
