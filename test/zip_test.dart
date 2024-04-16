@@ -488,7 +488,13 @@ void main() {
     await extractArchiveToDisk(archive, '$testOutputPath/android-javadoc');
   });
 
-  /*test('decode many files (100k)', () async {
+  test('symlink', () async {
+    final stream = InputMemoryStream(File('test/_data/zip/symlink.zip').readAsBytesSync());
+    final archive = ZipDecoder().decodeStream(stream);
+    expect(archive[0].isSymbolicLink, equals(true));
+  });
+
+  test('decode many files (100k)', () async {
     final fp = InputFileStream(
       p.join('test/_data/test_100k_files.zip'),
       bufferSize: 1024 * 1024,
@@ -521,7 +527,7 @@ void main() {
       );
       nextEntryIndex++;
     }
-  });*/
+  });
 
   for (final Z in zipTests) {
     final z = Z as Map<String, dynamic>;
@@ -558,12 +564,12 @@ void main() {
           expect(zipFile!.verifyCrc32(), equals(hdr['VerifyChecksum']));
         }
         if (hdr.containsKey('isFile')) {
-          expect(archive.find(zipFile!.filename, recursive: true)?.isFile, hdr['isFile']);
+          expect(archive.find(zipFile!.filename)?.isFile, hdr['isFile']);
         }
         if (hdr.containsKey('isSymbolicLink')) {
-          expect(archive.find(zipFile!.filename, recursive: true)?.isSymbolicLink,
+          expect(archive.find(zipFile!.filename)?.isSymbolicLink,
               hdr['isSymbolicLink']);
-          expect(archive.find(zipFile.filename, recursive: true)?.symbolicLink,
+          expect(archive.find(zipFile.filename)?.symbolicLink,
               utf8.decode(hdr['Content'] as List<int>));
         }
       }

@@ -1,3 +1,4 @@
+import 'package:path/path.dart' as p;
 import '../util/archive_exception.dart';
 import 'archive_entry.dart';
 import 'archive_file.dart';
@@ -85,20 +86,23 @@ class ArchiveDirectory extends ArchiveEntry {
 
   /// Find a file with the given [name] in the archive. If the file isn't found,
   /// null will be returned.
-  ArchiveEntry? find(String name, { bool recursive = false }) {
-    final index = entryMap[name];
-    if (index != null) {
-      return entries[index];
-    }
-    if (recursive) {
-      for (final e in entries) {
-        if (e is ArchiveDirectory) {
-          final x = e.find(name);
-          if (x != null) {
-            return x;
-          }
-        }
+  ArchiveEntry? find(String path) {
+    final pathTk = p.split(path);
+    var dir = this;
+    for (var i = 0; i < pathTk.length; ++i) {
+      final name = pathTk[i];
+      final index = dir.entryMap[name];
+      if (index == null) {
+        return null;
       }
+      final x = entries[index];
+      if (i == pathTk.length - 1) {
+        return x;
+      }
+      if (x is! ArchiveDirectory) {
+        return null;
+      }
+      dir = x;
     }
     return null;
   }

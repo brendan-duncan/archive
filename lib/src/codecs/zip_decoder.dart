@@ -88,11 +88,11 @@ class ZipDecoder {
       if (zfh.versionMadeBy >> 8 == 3) {
         final fileType = entry.mode & 0xf000;
         if (fileType == 0xa000) {
-          if (entry is ArchiveFile) {
-            final bytes = entry.readBytes();
-            if (bytes != null) {
-              entry.symbolicLink = utf8.decode(bytes);
-            }
+          final f = ArchiveFile.file(filename, zf.uncompressedSize, zf,
+              compression: zf.compressionMethod);
+          final bytes = f.readBytes();
+          if (bytes != null) {
+            entry.symbolicLink = utf8.decode(bytes);
           }
         }
       }
