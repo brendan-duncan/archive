@@ -92,6 +92,9 @@ class InputFileStream extends InputStream {
   int get position => _position;
 
   @override
+  set position(int v) => setPosition(v);
+
+  @override
   void setPosition(int v) {
     if (v < _position) {
       rewind(_position - v);

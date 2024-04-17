@@ -75,7 +75,7 @@ Future<OutputFileStream> _buildFileOFS(String path) async {
 }
 
 Future<OutputFileStream> _buildRamOfs(String path) async {
-  return OutputFileStream.toMemoryFile(RamFileHandle.asWritableRamBuffer());
+  return OutputFileStream.toRamFile(RamFileHandle.asWritableRamBuffer());
 }
 
 void _testInputFileStream(
@@ -117,7 +117,7 @@ void main() {
 
   final testFile = File(testPath);
   testFile.createSync(recursive: true);
-  testFile.openSync(mode: FileAccess.write);
+  testFile.openSync(mode: FileMode.write);
   testFile.writeAsBytesSync(testData);
 
   test('FileHandle', () async {});
@@ -243,7 +243,8 @@ void main() {
 
     _testInputFileStream("clone", (ifsConstructor) async {
       final input = await ifsConstructor(testPath);
-      final input2 = InputFileStream.clone(input, position: 6, length: 5);
+      final input2 =
+          InputFileStream.fromFileStream(input, position: 6, length: 5);
       final bs = input2.readBytes(5);
       final b = bs.toUint8List();
       expect(b.length, 5);
@@ -265,7 +266,7 @@ void main() {
         expect(bytes.length, equals(remaining));
       }
       offset += bytes.length;
-      output.writeInputStream(bytes);
+      output.writeStream(bytes);
     }
     input.closeSync();
     output.closeSync();
@@ -284,7 +285,7 @@ void main() {
   test('InputFileStream/OutputFileStream (ram)', () {
     var input = InputFileStream(p.join('test/_data/cat.jpg'));
     final RamFileHandle rfh = RamFileHandle.asWritableRamBuffer();
-    var output = OutputFileStream.toMemoryFile(rfh);
+    var output = OutputFileStream.toRamFile(rfh);
     var offset = 0;
     var inputLength = input.length;
     while (!input.isEOS) {
@@ -294,7 +295,7 @@ void main() {
         expect(bytes.length, equals(remaining));
       }
       offset += bytes.length;
-      output.writeInputStream(bytes);
+      output.writeStream(bytes);
     }
     input.closeSync();
     output.closeSync();
@@ -338,37 +339,37 @@ void main() {
     for (final fileEntry in fileNameToFileContent.entries) {
       final name = fileEntry.key;
       final content = fileEntry.value;
-      zipEncoder.addArchiveFile(ArchiveFile(name, content.length, content));
+      zipEncoder.addArchiveFile(ArchiveFile.bytes(name, content));
     }
     zipEncoder.closeSync();
     final Uint8List zippedBytes = Uint8List(ramFileData.length);
     ramFileData.readIntoSync(zippedBytes, 0, zippedBytes.length);
     final RamFileData readRamFileData = RamFileData.fromBytes(zippedBytes);
-    final Archive archive = ZipDecoder().decodeBuffer(
+    final Archive archive = ZipDecoder().decodeStream(
       InputFileStream.withFileBuffer(
         FileBuffer(
           RamFileHandle.fromRamFileData(readRamFileData),
         ),
       ),
     );
-    expect(archive.files.length, fileNameToFileContent.length);
-    for (int i = 0; i < archive.files.length; i++) {
-      final file = archive.files[i];
+    expect(archive.length, fileNameToFileContent.length);
+    for (int i = 0; i < archive.length; i++) {
+      final file = archive[i];
       final Uint8List? fileContent = fileNameToFileContent[file.name];
       expect(fileContent != null, true,
           reason: 'File content was null for "${file.name}"');
-      compareBytes(file.content as List<int>, fileContent as List<int>);
+      compareBytes(file.getContent()!.toUint8List(), fileContent!);
     }
   });
 
   test('empty file', () async {
     final encoder = ZipFileEncoder();
-    encoder.create('$testDirPath/out/testEmpty.zip');
-    await encoder.addFile(File('$testDirPath/res/emptyfile.txt'));
+    encoder.create('$testOutputPath/testEmpty.zip');
+    await encoder.addFile(File('test/_data/emptyfile.txt'));
     encoder.closeSync();
 
     final zipDecoder = ZipDecoder();
-    final f = File('$testDirPath/out/testEmpty.zip');
+    final f = File('$testOutputPath/testEmpty.zip');
     final archive = zipDecoder.decodeBytes(f.readAsBytesSync(), verify: true);
     expect(archive.length, equals(1));
   });
@@ -385,7 +386,7 @@ void main() {
       }
       final filename = file.filename;
       try {
-        final f = File('$testDirPath/out/$filename');
+        final f = File('$testOutputPath/$filename');
         f.parent.createSync(recursive: true);
         f.writeAsBytesSync(file.content as List<int>);
       } catch (e) {
@@ -399,23 +400,23 @@ void main() {
   _testInputFileStream('stream zip decode', (ifsConstructor) async {
     // Decode a tar from disk to memory
     final stream = await ifsConstructor(p.join('test/_data/test.zip'));
-    final zip = ZipDecoder().decodeBuffer(stream);
+    final zip = ZipDecoder().decodeStream(stream);
 
-    expect(zip.files.length, equals(2));
-    expect(zip.files[0].name, equals("a.txt"));
-    expect(zip.files[1].name, equals("cat.jpg"));
-    expect(zip.files[1].content.length, equals(51662));
+    expect(zip.length, equals(2));
+    expect(zip[0].name, equals("a.txt"));
+    expect(zip[1].name, equals("cat.jpg"));
+    expect(zip[1].size, equals(51662));
   });
 
   test('stream tar encode', () async {
     // Encode a directory from disk to disk, no memory
     final encoder = TarFileEncoder();
-    encoder.open('$testDirPath/out/test3.tar');
-    await encoder.addDirectory(Directory('$testDirPath/res/test2'));
+    encoder.open('$testOutputPath/test3.tar');
+    await encoder.addDirectory(Directory('test/_data/test2'));
     await encoder.close();
 
     final tarDecoder = TarDecoder();
-    final f = File('$testDirPath/out/test3.tar');
+    final f = File('$testOutputPath/test3.tar');
     final archive = tarDecoder.decodeBytes(f.readAsBytesSync(), verify: true);
     expect(archive.length, equals(4));
   });
@@ -428,7 +429,7 @@ void main() {
     final output = await ofsConstructor(p.join(testOutputPath, 'cat.jpg.gz'));
 
     final encoder = GZipEncoder();
-    encoder.encode(input, output: output);
+    encoder.encodeStream(input, output: output);
     await output.close();
   });
 
@@ -449,13 +450,13 @@ void main() {
   ) async {
     // Encode a directory from disk to disk, no memory
     final encoder = TarFileEncoder();
-    encoder.create('$testDirPath/out/example2.tar');
-    await encoder.addDirectory(Directory('$testDirPath/res/test2'));
+    encoder.create('$testOutputPath/example2.tar');
+    await encoder.addDirectory(Directory('test/_data/test2'));
     await encoder.close();
 
     final input = await ifsConstructor(p.join(testOutputPath, 'example2.tar'));
     final output = await ofsConstructor(p.join(testOutputPath, 'example2.tgz'));
-    GZipEncoder().encode(input, output: output);
+    GZipEncoder().encodeStream(input, output: output);
     await input.close();
     await output.close();
   });
@@ -463,21 +464,21 @@ void main() {
   test('TarFileEncoder tgz', () async {
     // Encode a directory from disk to disk, no memory
     final encoder = TarFileEncoder();
-    await encoder.tarDirectory(Directory('$testDirPath/res/test2'),
-        filename: '$testDirPath/out/example2.tgz', compression: 1);
+    await encoder.tarDirectory(Directory('test/_data/test2'),
+        filename: '$testOutputPath/example2.tgz', compression: 1);
     await encoder.close();
   });
 
   test('stream zip encode', () async {
     final encoder = ZipFileEncoder();
-    encoder.create('$testDirPath/out/example2.zip');
-    await encoder.addDirectory(Directory('$testDirPath/res/test2'));
-    await encoder.addFile(File('$testDirPath/res/cat.jpg'));
-    await encoder.addFile(File('$testDirPath/res/tarurls.txt'));
+    encoder.create('$testOutputPath/example2.zip');
+    await encoder.addDirectory(Directory('test/_data/test2'));
+    await encoder.addFile(File('test/_data/cat.jpg'));
+    await encoder.addFile(File('test/_data/tarurls.txt'));
     encoder.closeSync();
 
     final zipDecoder = ZipDecoder();
-    final f = File('$testDirPath/out/example2.zip');
+    final f = File('$testOutputPath/example2.zip');
     final archive = zipDecoder.decodeBytes(f.readAsBytesSync(), verify: true);
     expect(archive.length, equals(6));
   });
@@ -485,19 +486,19 @@ void main() {
   test('decode_empty_directory', () {
     final zip = ZipDecoder();
     final archive =
-        zip.decodeBytes(File('$testDirPath/res/test2.zip').readAsBytesSync());
+        zip.decodeBytes(File('test/_data/test2.zip').readAsBytesSync());
     expect(archive.length, 4);
   });
 
   test('create_archive_from_directory', () {
-    final dir = Directory('$testDirPath/res/test2');
+    final dir = Directory('test/_data/test2');
     final archive = createArchiveFromDirectory(dir);
     expect(archive.length, equals(4));
     final encoder = ZipEncoder();
 
-    final bytes = encoder.encode(archive)!;
-    File('$testDirPath/out/test2_.zip')
-      ..openSync(mode: FileAccess.write)
+    final bytes = encoder.encode(archive);
+    File('$testOutputPath/test2_.zip')
+      ..openSync(mode: FileMode.write)
       ..writeAsBytesSync(bytes);
 
     final zipDecoder = ZipDecoder();
@@ -513,7 +514,7 @@ void main() {
     }
     final testFile = File(testPath);
     testFile.createSync(recursive: true);
-    final fp = testFile.openSync(mode: FileAccess.write);
+    final fp = testFile.openSync(mode: FileMode.write);
     fp.writeFromSync(testData);
     fp.closeSync();
 
@@ -525,8 +526,8 @@ void main() {
   });
 
   test('extractFileToDisk tar', () async {
-    final inPath = '$testDirPath/res/test2.tar';
-    final outPath = '$testDirPath/out/extractFileToDisk_tar';
+    final inPath = 'test/_data/test2.tar';
+    final outPath = '$testOutputPath/extractFileToDisk_tar';
     final dir = Directory(outPath);
     if (dir.existsSync()) {
       dir.deleteSync(recursive: true);
@@ -538,8 +539,8 @@ void main() {
   });
 
   test('extractFileToDisk tar.gz', () async {
-    final inPath = '$testDirPath/res/test2.tar.gz';
-    final outPath = '$testDirPath/out/extractFileToDisk_tgz';
+    final inPath = 'test/_data/test2.tar.gz';
+    final outPath = '$testOutputPath/extractFileToDisk_tgz';
     final dir = Directory(outPath);
     if (dir.existsSync()) {
       dir.deleteSync(recursive: true);
@@ -551,8 +552,8 @@ void main() {
   });
 
   test('extractFileToDisk tar.tbz', () async {
-    final inPath = '$testDirPath/res/test2.tar.bz2';
-    final outPath = '$testDirPath/out/extractFileToDisk_tbz';
+    final inPath = 'test/_data/test2.tar.bz2';
+    final outPath = '$testOutputPath/extractFileToDisk_tbz';
     final dir = Directory(outPath);
     if (dir.existsSync()) {
       dir.deleteSync(recursive: true);
@@ -564,8 +565,8 @@ void main() {
   });
 
   test('extractFileToDisk zip', () async {
-    final inPath = '$testDirPath/res/test.zip';
-    final outPath = '$testDirPath/out/extractFileToDisk_zip';
+    final inPath = 'test/_data/test.zip';
+    final outPath = '$testOutputPath/extractFileToDisk_zip';
     final dir = Directory(outPath);
     if (dir.existsSync()) {
       dir.deleteSync(recursive: true);
@@ -577,8 +578,8 @@ void main() {
   });
 
   test('extractFileToDisk zip bzip2', () async {
-    final inPath = '$testDirPath/res/zip/zip_bzip2.zip';
-    final outPath = '$testDirPath/out/extractFileToDisk_zip_bzip2';
+    final inPath = 'test/_data/zip/zip_bzip2.zip';
+    final outPath = '$testOutputPath/extractFileToDisk_zip_bzip2';
     final dir = Directory(outPath);
     if (dir.existsSync()) {
       dir.deleteSync(recursive: true);
@@ -590,48 +591,42 @@ void main() {
   });
 
   test('extractArchiveToDisk symlink', () async {
-    final f1 = ArchiveFile('test', 3, 'foo'.codeUnits);
-    final f2 = ArchiveFile('link', 0, null);
-    f2.isSymbolicLink = true;
-    f2.nameOfLinkedFile = './../test.tar';
+    final f1 = ArchiveFile.string('test', 'foo');
+    final f2 = ArchiveFile.symlink('link', './../test.tar');
     final a = Archive();
-    a.addFile(f1);
-    a.addFile(f2);
+    a.add(f1);
+    a.add(f2);
     await extractArchiveToDisk(
-        a, '$testDirPath/out/extractArchiveToDisk_symlink');
+        a, '$testOutputPath/extractArchiveToDisk_symlink');
   });
 
   test('extractArchiveToDiskSync symlink', () {
-    final f1 = ArchiveFile('test', 3, 'foo'.codeUnits);
-    final f2 = ArchiveFile('link', 0, null);
-    f2.isSymbolicLink = true;
-    f2.nameOfLinkedFile = './../test.tar';
+    final f1 = ArchiveFile.string('test', 'foo');
+    final f2 = ArchiveFile.symlink('link', './../test.tar');
     final a = Archive();
-    a.addFile(f1);
-    a.addFile(f2);
-    extractArchiveToDiskSync(
-        a, '$testDirPath/out/extractArchiveToDisk_symlink');
+    a.add(f1);
+    a.add(f2);
+    extractArchiveToDiskSync(a, '$testOutputPath/extractArchiveToDisk_symlink');
   });
 
   test('FileHandle', () async {
-    final fp = File('$testDirPath/res/zip/zip_bzip2.zip');
-    final fh = FileHandle.fromFile(fp);
+    final fh = FileHandle('test/_data/zip/zip_bzip2.zip');
     final fs = InputFileStream.withFileHandle(fh);
     expect(fs.readByte(), equals(80));
   });
 
   test('zip directory', () async {
-    final tmpPath = '$testDirPath/out/test_zip_dir';
+    final tmpPath = '$testOutputPath/test_zip_dir';
 
     generateDataDirectory(tmpPath, fileSize: 1024, numFiles: 5);
 
-    final inPath = '$testDirPath/out/test_zip_dir_2.zip';
-    final outPath = '$testDirPath/out/test_zip_dir_2';
+    final inPath = '$testOutputPath/test_zip_dir_2.zip';
+    final outPath = '$testOutputPath/test_zip_dir_2';
 
     var count = 0;
     final encoder = ZipFileEncoder();
-    await encoder.zipDirectoryAsync(Directory(tmpPath),
-        level: 0, filename: inPath, onProgress: (double x) {
+    await encoder.zipDirectory(Directory(tmpPath), level: 0, filename: inPath,
+        onProgress: (double x) {
       count++;
     });
 
@@ -645,12 +640,12 @@ void main() {
 
     final srcFiles = Directory(tmpPath).listSync(recursive: true);
     final dstFiles =
-        Directory('$testDirPath/out/test_zip_dir_2').listSync(recursive: true);
+        Directory('$testOutputPath/test_zip_dir_2').listSync(recursive: true);
     expect(dstFiles.length, equals(srcFiles.length));
     //encoder.close();
   });
 
-  group('$ZipFileEncoder', () {
+  group('$ZipFileEncoder', () async {
     test(
       'zipDirectory throws a FormatException when filename is within dir',
       () {
@@ -659,7 +654,7 @@ void main() {
 
         expect(
           () => encoder.zipDirectory(
-            Directory(testDirPath),
+            Directory('test'),
             filename: invalidFilename,
           ),
           throwsA(
@@ -687,7 +682,7 @@ void main() {
         final invalidFilename = p.join('test/_data/test2.zip');
 
         await expectLater(
-          () => encoder.zipDirectoryAsync(
+          () => encoder.zipDirectory(
             Directory('test/_data'),
             filename: invalidFilename,
           ),

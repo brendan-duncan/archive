@@ -1,6 +1,5 @@
 import 'dart:typed_data';
 
-import 'package:archive/archive.dart';
 import "package:pointycastle/export.dart";
 
 import '../../archive/compression_type.dart';
@@ -11,6 +10,8 @@ import '../../util/file_content.dart';
 import '../../util/input_stream.dart';
 import '../../util/input_memory_stream.dart';
 import '../../util/output_stream.dart';
+import '../../util/output_memory_stream.dart';
+import '../bzip2_decoder.dart';
 import '../zlib/inflate.dart';
 import 'zip_file_header.dart';
 

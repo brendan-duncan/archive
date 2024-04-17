@@ -14,12 +14,12 @@ class TarFileEncoder {
   late OutputFileStream _output;
   late TarEncoder _encoder;
 
-  static const int STORE = 0;
-  static const int GZIP = 1;
+  static const int store = 0;
+  static const int gzip = 1;
 
   Future<void> tarDirectory(
     Directory dir, {
-    int compression = STORE,
+    int compression = store,
     String? filename,
     bool followLinks = true,
     int? level,
@@ -29,7 +29,7 @@ class TarFileEncoder {
     final tgzPath = filename ?? '$dirPath.tar.gz';
 
     Directory tempDir;
-    if (compression == GZIP) {
+    if (compression == gzip) {
       tempDir = Directory.systemTemp.createTempSync('dart_archive');
       tarPath = '${tempDir.path}/temp.tar';
     }
@@ -39,7 +39,7 @@ class TarFileEncoder {
     await addDirectory(Directory(dirPath), followLinks: followLinks);
     await close();
 
-    if (compression == GZIP) {
+    if (compression == gzip) {
       final input = InputFileStream(tarPath);
       final output = OutputFileStream(tgzPath);
       GZipEncoder().encodeStream(input, output: output, level: level ?? 6);

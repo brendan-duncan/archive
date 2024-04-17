@@ -47,6 +47,9 @@ class InputMemoryStream extends InputStream {
   @override
   int get position => _position;
 
+  @override
+  set position(int v) => setPosition(v);
+
   /// How many bytes are left in the stream.
   @override
   int get length => buffer.length - _position;

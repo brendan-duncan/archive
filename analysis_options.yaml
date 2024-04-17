@@ -6,18 +6,18 @@ analyzer:
     strict-inference: true
     strict-raw-types: true
   errors:
-    constant_identifier_names: ignore
-    non_constant_identifier_names: ignore
+    constant_identifier_names: error
+    non_constant_identifier_names: error
     unused_element: error
     unused_field: error
     unused_local_variable: error
   exclude:
-    - test/tests/res/**
-    - test/tests/out/**
+    - test/_data/**
+    - _out/**
 
 linter:
   rules:
-    - avoid_print
-    - camel_case_types
-    - unawaited_futures
-    - discarded_futures
+    avoid_print: true
+    camel_case_types: true
+    discarded_futures: true
+    unawaited_futures: true

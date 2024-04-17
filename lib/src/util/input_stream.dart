@@ -2,7 +2,6 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'archive_exception.dart';
 import 'byte_order.dart';
 
 abstract class InputStream {
@@ -11,6 +10,9 @@ abstract class InputStream {
 
   /// The current read position relative to the start of the buffer.
   int get position;
+
+  /// Set the current read position relative to the start of the buffer.
+  set position(int v);
 
   /// How many bytes are left in the stream.
   int get length;

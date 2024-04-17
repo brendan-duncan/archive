@@ -30,7 +30,7 @@ void listTarFiles(String path) {
   tarArchive.decodeBuffer(tarInput, storeData: false);
 
   print('${tarArchive.files.length} file(s)');
-  for (var f in tarArchive.files) {
+  for (final f in tarArchive.files) {
     print('  $f');
   }
 }
@@ -85,7 +85,7 @@ Future<void> createTarFile(String dirPath) async {
 
   // Encode a directory from disk to disk, no memory
   final encoder = TarFileEncoder();
-  await encoder.tarDirectory(dir, compression: TarFileEncoder.GZIP);
+  await encoder.tarDirectory(dir, compression: TarFileEncoder.gzip);
 }
 
 void _fail(String message) {

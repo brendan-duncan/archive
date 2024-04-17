@@ -72,8 +72,7 @@ class GZipEncoder {
     outputStream.writeByte(extraFlags);
     outputStream.writeByte(osType);
 
-    final deflate =
-        Deflate.stream(data, level: level ?? 0, output: outputStream);
+    final deflate = Deflate.stream(data, level: level, output: outputStream);
 
     outputStream.writeUint32(deflate.crc32);
 

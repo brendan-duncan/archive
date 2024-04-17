@@ -1,88 +1,102 @@
-import 'dart:io';
 import 'dart:typed_data';
 
-import 'archive_exception.dart';
+import 'abstract_file_handle.dart';
 import 'byte_order.dart';
+import 'file_access.dart';
+import 'file_handle.dart';
 import 'input_stream.dart';
 import 'output_stream.dart';
-import 'input_memory_stream.dart';
+import 'ram_file_handle.dart';
 
 class OutputFileStream extends OutputStream {
-  String path;
   int _length;
-  RandomAccessFile? _fp;
-  Uint8List? _buffer;
-  int _bufferPosition = 0;
-  final int _bufferSize;
+  final AbstractFileHandle _fileHandle;
+  final Uint8List _buffer;
+  int _bufferPosition;
+  bool _isOpen;
 
-  OutputFileStream(this.path,
-      {super.byteOrder = ByteOrder.littleEndian, int? bufferSize})
-      : _length = 0,
-        _bufferSize = bufferSize ?? 8192;
+  static const int kDefaultBufferSize = 1024 * 1024; // 1MB
+
+  OutputFileStream.withFileHandle(
+    this._fileHandle, {
+    super.byteOrder = ByteOrder.littleEndian,
+    int? bufferSize,
+  })  : _length = 0,
+        _buffer = Uint8List(bufferSize == null
+            ? kDefaultBufferSize
+            : bufferSize < 1
+                ? 1
+                : bufferSize),
+        _bufferPosition = 0,
+        _isOpen = true;
+
+  factory OutputFileStream(
+    String path, {
+    ByteOrder byteOrder = ByteOrder.littleEndian,
+    int? bufferSize,
+  }) {
+    return OutputFileStream.withFileHandle(
+      FileHandle(path, mode: FileAccess.write),
+      byteOrder: byteOrder,
+      bufferSize: bufferSize,
+    );
+  }
+
+  factory OutputFileStream.toRamFile(
+    RamFileHandle ramFileHandle, {
+    ByteOrder byteOrder = ByteOrder.littleEndian,
+    int? bufferSize,
+  }) {
+    return OutputFileStream.withFileHandle(
+      ramFileHandle,
+      byteOrder: byteOrder,
+      bufferSize: bufferSize,
+    );
+  }
 
   @override
   int get length => _length;
 
   @override
-  void open() {
-    final file = File(path)..createSync(recursive: true);
-    _fp = file.openSync(mode: FileMode.write);
-  }
-
-  @override
-  Future<void> close() async {
-    if (_fp == null) {
-      return;
-    }
-    flush();
-    await _fp?.close();
-    _fp = null;
-  }
-
-  @override
-  void closeSync() {
-    if (_fp == null) {
-      return;
-    }
-    flush();
-    _fp?.closeSync();
-    _fp = null;
-  }
-
-  @override
-  bool get isOpen => _fp != null;
-
-  @override
-  void clear() {
-    _length = 0;
-    _fp?.setPositionSync(0);
-  }
-
-  @override
   void flush() {
-    if (_bufferPosition > 0 && _buffer != null) {
-      _fp?.writeFromSync(_buffer!, 0, _bufferPosition);
+    if (_bufferPosition > 0) {
+      if (_isOpen) {
+        _fileHandle.writeFromSync(_buffer, 0, _bufferPosition);
+      }
       _bufferPosition = 0;
     }
   }
 
-  Uint8List _getBuffer() {
-    if (_buffer != null) {
-      return _buffer!;
+  @override
+  Future<void> clear() async {
+    await close();
+  }
+
+  @override
+  Future<void> close() async {
+    if (!_isOpen) {
+      return;
     }
-    _buffer = Uint8List(_bufferSize);
-    return _buffer!;
+    flush();
+    _isOpen = false;
+    await _fileHandle.close();
+  }
+
+  @override
+  void closeSync() {
+    if (!_isOpen) {
+      return;
+    }
+    flush();
+    _isOpen = false;
+    _fileHandle.closeSync();
   }
 
   /// Write a byte to the end of the buffer.
   @override
   void writeByte(int value) {
-    if (!isOpen) {
-      throw ArchiveException('OutputStreamFile is not open');
-    }
-    final b = _getBuffer();
-    b[_bufferPosition++] = value;
-    if (_bufferPosition == b.length) {
+    _buffer[_bufferPosition++] = value;
+    if (_bufferPosition == _buffer.length) {
       flush();
     }
     _length++;
@@ -91,17 +105,13 @@ class OutputFileStream extends OutputStream {
   /// Write a set of bytes to the end of the buffer.
   @override
   void writeBytes(List<int> bytes, {int? length}) {
-    if (!isOpen) {
-      throw ArchiveException('OutputStreamFile is not open');
-    }
-    final b = _getBuffer();
     length ??= bytes.length;
-    if (_bufferPosition + length >= b.length) {
+    if (_bufferPosition + length >= _buffer.length) {
       flush();
 
-      if (_bufferPosition + length < b.length) {
-        for (var i = 0, j = _bufferPosition; i < length; ++i, ++j) {
-          b[j] = bytes[i];
+      if (_bufferPosition + length < _buffer.length) {
+        for (int i = 0, j = _bufferPosition; i < length; ++i, ++j) {
+          _buffer[j] = bytes[i];
         }
         _bufferPosition += length;
         _length += length;
@@ -110,56 +120,90 @@ class OutputFileStream extends OutputStream {
     }
 
     flush();
-    _fp!.writeFromSync(bytes, 0, length);
+    _fileHandle.writeFromSync(bytes, 0, length);
     _length += length;
   }
 
   @override
   void writeStream(InputStream stream) {
-    if (!isOpen) {
-      throw ArchiveException('OutputStreamFile is not open');
+    var size = stream.length;
+    const chunkSize = 1024 * 1024;
+    Uint8List? bytes;
+    while (size > chunkSize) {
+      bytes = stream.readBytes(chunkSize).toUint8List();
+      writeBytes(bytes);
+      size -= chunkSize;
     }
-    final b = _getBuffer();
-    if (stream is InputMemoryStream) {
-      final len = stream.length;
-
-      if (_bufferPosition + len >= b.length) {
-        flush();
-
-        if (_bufferPosition + len < b.length) {
-          for (var i = 0, j = _bufferPosition, k = stream.position;
-              i < len;
-              ++i, ++j, ++k) {
-            b[j] = stream.buffer[k];
-          }
-          _bufferPosition += len;
-          _length += len;
-          return;
-        }
-      }
-
-      if (_bufferPosition > 0) {
-        flush();
-      }
-      _fp!.writeFromSync(
-          stream.buffer, stream.position, stream.position + stream.length);
-      _length += stream.length;
-    } else {
-      final bytes = stream.toUint8List();
+    if (size > 0) {
+      bytes = stream.readBytes(size).toUint8List();
       writeBytes(bytes);
     }
   }
 
+  /// Write a 16-bit word to the end of the buffer.
+  @override
+  void writeUint16(int value) {
+    if (byteOrder == ByteOrder.bigEndian) {
+      writeByte((value >> 8) & 0xff);
+      writeByte((value) & 0xff);
+      return;
+    }
+    writeByte((value) & 0xff);
+    writeByte((value >> 8) & 0xff);
+  }
+
+  /// Write a 32-bit word to the end of the buffer.
+  @override
+  void writeUint32(int value) {
+    if (byteOrder == ByteOrder.bigEndian) {
+      writeByte((value >> 24) & 0xff);
+      writeByte((value >> 16) & 0xff);
+      writeByte((value >> 8) & 0xff);
+      writeByte((value) & 0xff);
+      return;
+    }
+    writeByte((value) & 0xff);
+    writeByte((value >> 8) & 0xff);
+    writeByte((value >> 16) & 0xff);
+    writeByte((value >> 24) & 0xff);
+  }
+
+  /// Write a 64-bit word to the end of the buffer.
+  @override
+  void writeUint64(int value) {
+    var topBit = 0x00;
+    if (value & 0x8000000000000000 != 0) {
+      topBit = 0x80;
+      value ^= 0x8000000000000000;
+    }
+    if (byteOrder == ByteOrder.bigEndian) {
+      writeByte(topBit | ((value >> 56) & 0xff));
+      writeByte((value >> 48) & 0xff);
+      writeByte((value >> 40) & 0xff);
+      writeByte((value >> 32) & 0xff);
+      writeByte((value >> 24) & 0xff);
+      writeByte((value >> 16) & 0xff);
+      writeByte((value >> 8) & 0xff);
+      writeByte((value) & 0xff);
+      return;
+    }
+    writeByte((value) & 0xff);
+    writeByte((value >> 8) & 0xff);
+    writeByte((value >> 16) & 0xff);
+    writeByte((value >> 24) & 0xff);
+    writeByte((value >> 32) & 0xff);
+    writeByte((value >> 40) & 0xff);
+    writeByte((value >> 48) & 0xff);
+    writeByte(topBit | ((value >> 56) & 0xff));
+  }
+
   @override
   Uint8List subset(int start, {int? end}) {
-    if (!isOpen) {
-      throw ArchiveException('OutputStreamFile is not open');
-    }
     if (_bufferPosition > 0) {
       flush();
     }
-    final fp = _fp!;
-    final pos = fp.positionSync();
+
+    final pos = _fileHandle.position;
     if (start < 0) {
       start = pos + start;
     }
@@ -169,12 +213,11 @@ class OutputFileStream extends OutputStream {
     } else if (end < 0) {
       end = pos + end;
     }
-    length = end - start;
+    length = (end - start);
+    _fileHandle.position = start;
     final buffer = Uint8List(length);
-    fp
-      ..setPositionSync(start)
-      ..readIntoSync(buffer)
-      ..setPositionSync(pos);
+    _fileHandle.readInto(buffer);
+    _fileHandle.position = pos;
     return buffer;
   }
 }
