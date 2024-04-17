@@ -18,7 +18,9 @@ abstract class FileContent {
     return stream.toUint8List();
   }
 
-  void decompress(OutputStream output) {}
+  void decompress(OutputStream output) {
+    output.writeStream(getStream());
+  }
 }
 
 class FileContentMemory extends FileContent {

@@ -12,7 +12,7 @@ Future<void> main() async {
   for (final file in archive) {
     final filename = file.name;
     if (file.isFile) {
-      final data = file.content as List<int>;
+      final data = file.getContent()!.toUint8List();
       File('out/$filename')
         ..createSync(recursive: true)
         ..writeAsBytesSync(data);
@@ -31,7 +31,7 @@ Future<void> main() async {
 
   // Zip a directory to out.zip using the zipDirectory convenience method
   var encoder = ZipFileEncoder();
-  await encoder.zipDirectoryAsync(Directory('out'), filename: 'out.zip');
+  await encoder.zipDirectory(Directory('out'), filename: 'out.zip');
 
   // Manually create a zip of a directory and individual files.
   encoder.create('out2.zip');

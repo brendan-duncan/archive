@@ -4,19 +4,15 @@ import 'package:archive/archive_io.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
-import 'package:archive/src/tar/tar_command.dart' as tar_command;
-
-import 'test_utils.dart';
-
 void main() {
   test('bin/tar.dart list test2.tar.gz', () {
     // Test that 'tar --list' does not throw.
-    tar_command.listFiles(p.join(testDirPath, 'res/test2.tar.gz'));
+    listTarFiles(p.join('test/_data/test2.tar.gz'));
   });
 
   test('bin/tar.dart list test2.tar.gz2', () {
     // Test that 'tar --list' does not throw.
-    tar_command.listFiles(p.join(testDirPath, 'res/test2.tar.bz2'));
+    listTarFiles(p.join('test/_data/test2.tar.bz2'));
   });
 
   test('tar extract', () {
@@ -25,7 +21,7 @@ void main() {
     try {
       //print(dir.path);
 
-      final inputPath = p.join(testDirPath, 'res/test2.tar.gz');
+      final inputPath = p.join('test/_data/test2.tar.gz');
 
       {
         final tempDir = Directory.systemTemp.createTempSync('dart_archive');
@@ -35,8 +31,7 @@ void main() {
         GZipDecoder().decodeStream(input, output);
 
         final aBytes = File(tarPath).readAsBytesSync();
-        final bBytes =
-            File(p.join(testDirPath, 'res/test2.tar')).readAsBytesSync();
+        final bBytes = File(p.join('test/_data/test2.tar')).readAsBytesSync();
 
         expect(aBytes.length, equals(bBytes.length));
         var same = true;
@@ -51,8 +46,7 @@ void main() {
         tempDir.deleteSync(recursive: true);
       }
 
-      tar_command.extractFiles(
-          p.join(testDirPath, 'res/test2.tar.gz'), dir.path);
+      extractTarFiles(p.join('test/_data/test2.tar.gz'), dir.path);
       expect(dir.listSync(recursive: true).length, 4);
     } finally {
       dir.deleteSync(recursive: true);

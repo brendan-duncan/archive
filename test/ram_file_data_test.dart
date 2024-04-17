@@ -21,7 +21,8 @@ Stream<List<int>> _buildIntListStream(
   int sourceListsMaxSize,
 ) async* {
   for (int i = 0; i < sourceListsData.length;) {
-    final int lengthToRead = math.min(sourceListsMaxSize, sourceListsData.length - i);
+    final int lengthToRead =
+        math.min(sourceListsMaxSize, sourceListsData.length - i);
     if (lengthToRead < 1) {
       return;
     }
@@ -44,7 +45,9 @@ Future<void> _testRamFileDataBuilder({
     sourceListsData.length,
   );
   expect(data.readAsBytes(), Uint8List.fromList(sourceListsData));
-  for (int readIntoSyncSize = _readIntoSyncMinSize; readIntoSyncSize <= _readSyncIntoMaxSize; readIntoSyncSize++) {
+  for (int readIntoSyncSize = _readIntoSyncMinSize;
+      readIntoSyncSize <= _readSyncIntoMaxSize;
+      readIntoSyncSize++) {
     final Uint8List readBuffer = Uint8List(readIntoSyncSize);
     for (int i = 0; i < sourceListsData.length; i++) {
       final int start = i;
@@ -54,7 +57,8 @@ Future<void> _testRamFileDataBuilder({
       expect(
         readLength,
         actualEnd - start,
-        reason: 'readLength had the wrong value when calling readIntoSync($readBuffer, $start, $end)\n'
+        reason:
+            'readLength had the wrong value when calling readIntoSync($readBuffer, $start, $end)\n'
             'Value of data.content: ${data.content}',
       );
       expect(
@@ -171,11 +175,44 @@ void main() {
       for (var i = 0; i < testData.length; ++i) {
         testData[i] = i;
       }
-      final List<int> possibleBufferSizes = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 20, 30, 40, 50];
-      final List<int> possibleSubListSizes = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 20, 30, 40, 50, 100, 200];
+      final List<int> possibleBufferSizes = [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        20,
+        30,
+        40,
+        50
+      ];
+      final List<int> possibleSubListSizes = [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        20,
+        30,
+        40,
+        50,
+        100,
+        200
+      ];
       for (int subListSize in possibleSubListSizes) {
         for (int bufferSize in possibleBufferSizes) {
-          final ramFileData = RamFileData.outputBuffer(subListSize: subListSize);
+          final ramFileData =
+              RamFileData.outputBuffer(subListSize: subListSize);
           final ramFileHandle = RamFileHandle.fromRamFileData(ramFileData);
           for (int i = 0; i < testData.length; i += bufferSize) {
             final buffer = Uint8List(bufferSize);
@@ -185,7 +222,8 @@ void main() {
             if (writtenLength <= 0) {
               break;
             }
-            buffer.setRange(0, writtenLength, testData.getRange(absStartIndex, absEndIndex));
+            buffer.setRange(0, writtenLength,
+                testData.getRange(absStartIndex, absEndIndex));
             ramFileHandle.writeFromSync(buffer, 0, writtenLength);
           }
           final outputData1 = Uint8List(ramFileData.length);

@@ -6,15 +6,13 @@ import 'package:path/path.dart' as p;
 
 void main() {
   test('decode', () {
-    final orig =
-        io.File(p.join('test/_data/bzip2/test.bz2')).readAsBytesSync();
+    final orig = io.File(p.join('test/_data/bzip2/test.bz2')).readAsBytesSync();
 
     BZip2Decoder().decodeBytes(orig, verify: true);
   });
 
   test('encode', () {
-    final file =
-        io.File(p.join('test/_data/cat.jpg')).readAsBytesSync();
+    final file = io.File(p.join('test/_data/cat.jpg')).readAsBytesSync();
 
     final compressed = BZip2Encoder().encode(file);
 

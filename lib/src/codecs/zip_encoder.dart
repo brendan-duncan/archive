@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'dart:math';
 
 import '../archive/archive.dart';
+import '../archive/archive_entry.dart';
 import '../archive/archive_file.dart';
 import '../archive/compression_type.dart';
 import '../util/aes.dart';
@@ -91,7 +92,7 @@ class ZipEncoder {
     startEncode(output, level: level, modified: modified);
     for (final file in archive) {
       if (file.isFile) {
-        addFile(file as ArchiveFile, autoClose: autoClose);
+        add(file as ArchiveFile, autoClose: autoClose);
       }
     }
     endEncode(comment: archive.comment);
@@ -157,20 +158,20 @@ class ZipEncoder {
     return data;
   }
 
-  void addFile(ArchiveFile file, {bool autoClose = true}) {
+  void add(ArchiveEntry entry, {bool autoClose = true}) {
     final fileData = _ZipFileData();
     _data.files.add(fileData);
 
-    final lastModMS = file.lastModTime * 1000;
+    final lastModMS = entry.lastModTime * 1000;
     final lastModTime = DateTime.fromMillisecondsSinceEpoch(lastModMS);
 
-    fileData.name = file.name;
+    fileData.name = entry.name;
     // If the archive modification time was overwritten, use that, otherwise
     // use the lastModTime from the file.
     fileData.time = _data.time ?? _getTime(lastModTime)!;
     fileData.date = _data.date ?? _getDate(lastModTime)!;
-    fileData.mode = file.mode;
-    fileData.isFile = file.isFile;
+    fileData.mode = entry.mode;
+    fileData.isFile = entry.isFile;
 
     InputStream? compressedData;
     int crc32 = 0;
@@ -190,29 +191,33 @@ class ZipEncoder {
         crc32 = getFileCrc32(file);
       }
     } else*/
-    if (file.isCompressed && file.compression == CompressionType.deflate) {
-      // If the file is already compressed, no sense in uncompressing it and
-      // compressing it again, just pass along the already compressed data.
-      compressedData = file.rawContent?.getStream();
 
-      if (file.crc32 != null) {
-        crc32 = file.crc32!;
+    if (entry is ArchiveFile) {
+      final file = entry;
+      if (file.isCompressed && file.compression == CompressionType.deflate) {
+        // If the file is already compressed, no sense in uncompressing it and
+        // compressing it again, just pass along the already compressed data.
+        compressedData = file.rawContent?.getStream();
+
+        if (file.crc32 != null) {
+          crc32 = file.crc32!;
+        } else {
+          crc32 = getFileCrc32(file);
+        }
       } else {
+        // Otherwise we need to compress it now.
         crc32 = getFileCrc32(file);
-      }
-    } else if (file.isFile) {
-      // Otherwise we need to compress it now.
-      crc32 = getFileCrc32(file);
 
-      final content = file.getContent();
-      var bytes = content!.toUint8List();
-      bytes = Deflate(bytes, level: _data.level ?? 6).getBytes();
-      compressedData = InputMemoryStream(bytes);
+        final content = file.getContent();
+        var bytes = content!.toUint8List();
+        bytes = Deflate(bytes, level: _data.level ?? 6).getBytes();
+        compressedData = InputMemoryStream(bytes);
+      }
     }
 
-    final encodedFilename = filenameEncoding.encode(file.name);
+    final encodedFilename = filenameEncoding.encode(entry.name);
     final comment =
-        file.comment != null ? filenameEncoding.encode(file.comment!) : null;
+        entry.comment != null ? filenameEncoding.encode(entry.comment!) : null;
 
     Uint8List? salt;
 
@@ -248,9 +253,9 @@ class ZipEncoder {
     fileData.crc32 = crc32;
     fileData.compressedSize = dataLen;
     fileData.compressedData = compressedData;
-    fileData.uncompressedSize = file.size;
+    fileData.uncompressedSize = entry.size;
     fileData.compress = true;
-    fileData.comment = file.comment;
+    fileData.comment = entry.comment;
     fileData.position = _output!.length;
 
     _writeFile(fileData, _output!, salt: salt);
@@ -258,7 +263,7 @@ class ZipEncoder {
     fileData.compressedData = null;
 
     if (autoClose) {
-      file.closeSync();
+      entry.closeSync();
     }
   }
 

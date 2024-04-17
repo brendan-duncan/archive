@@ -23,7 +23,7 @@ bool isWithinOutputPath(String outputDir, String filePath) {
 bool _isValidSymLink(String outputPath, ArchiveFile file) {
   final filePath =
       path.dirname(path.join(outputPath, path.normalize(file.name)));
-  final linkPath = path.normalize(file.nameOfLinkedFile);
+  final linkPath = path.normalize(file.symbolicLink ?? "");
   if (path.isAbsolute(linkPath)) {
     // Don't allow decoding of files outside of the output path.
     return false;
@@ -65,16 +65,16 @@ Future<void> _extractArchiveEntryToDisk(
   if (file.isSymbolicLink) {
     final link = Link(filePath);
     await link.create(
-      path.normalize(file.nameOfLinkedFile),
+      path.normalize(file.symbolicLink ?? ""),
       recursive: true,
     );
   } else {
     final output = File(filePath);
     final f = await output.create(recursive: true);
     final fp = await f.open(mode: FileMode.write);
-    final bytes = file.content as List<int>;
+    final bytes = file.getContent()!.toUint8List();
     final fp2 = await fp.writeFrom(bytes);
-    file.clear();
+    await file.clear();
     await fp2.close();
   }
 }
@@ -85,7 +85,8 @@ Future<void> extractArchiveToDisk(
   int? bufferSize,
 }) async {
   _prepareOutDir(outputPath);
-  for (final file in archive.files) {
+  final files = archive.getAllFiles();
+  for (final file in files) {
     final filePath = _prepareArchiveFilePath(file, outputPath);
     if (filePath != null) {
       await _extractArchiveEntryToDisk(file, filePath);
@@ -100,7 +101,7 @@ void _extractArchiveEntryToDiskSync(
 }) {
   if (file.isSymbolicLink) {
     final link = Link(filePath);
-    link.createSync(path.normalize(file.nameOfLinkedFile), recursive: true);
+    link.createSync(path.normalize(file.symbolicLink ?? ""), recursive: true);
   } else {
     final output = OutputFileStream(filePath, bufferSize: bufferSize);
     try {
@@ -118,7 +119,8 @@ void extractArchiveToDiskSync(
   int? bufferSize,
 }) {
   _prepareOutDir(outputPath);
-  for (final file in archive.files) {
+  final files = archive.getAllFiles();
+  for (final file in files) {
     final filePath = _prepareArchiveFilePath(file, outputPath);
     if (filePath != null) {
       _extractArchiveEntryToDiskSync(file, filePath, bufferSize: bufferSize);
@@ -133,7 +135,8 @@ Future<void> extractArchiveToDiskAsync(Archive archive, String outputPath,
   if (!outDir.existsSync()) {
     outDir.createSync(recursive: true);
   }
-  for (final file in archive.files) {
+  final files = archive.getAllFiles();
+  for (final file in files) {
     final filePath = path.join(outputPath, path.normalize(file.name));
 
     if ((!file.isFile && !file.isSymbolicLink) ||
@@ -150,21 +153,22 @@ Future<void> extractArchiveToDiskAsync(Archive archive, String outputPath,
     if (asyncWrite) {
       if (file.isSymbolicLink) {
         final link = Link(filePath);
-        await link.create(path.normalize(file.nameOfLinkedFile),
+        await link.create(path.normalize(file.symbolicLink ?? ""),
             recursive: true);
       } else {
         final output = File(filePath);
         final f = await output.create(recursive: true);
         final fp = await f.open(mode: FileMode.write);
-        final bytes = file.content as List<int>;
+        final bytes = file.getContent()!.toUint8List();
         await fp.writeFrom(bytes);
-        file.clear();
+        await file.clear();
         futures.add(fp.close());
       }
     } else {
       if (file.isSymbolicLink) {
         final link = Link(filePath);
-        link.createSync(path.normalize(file.nameOfLinkedFile), recursive: true);
+        link.createSync(path.normalize(file.symbolicLink ?? ""),
+            recursive: true);
       } else {
         final output = OutputFileStream(filePath, bufferSize: bufferSize);
         try {
@@ -209,7 +213,7 @@ Future<void> extractFileToDisk(String inputPath, String outputPath,
     archivePath = path.join(tempDir.path, 'temp.tar');
     final input = InputFileStream(inputPath);
     final output = OutputFileStream(archivePath, bufferSize: bufferSize);
-    output.writeBytes(XZDecoder().decodeBuffer(input));
+    output.writeBytes(XZDecoder().decodeStream(input));
     futures.add(input.close());
     futures.add(output.close());
   }
@@ -219,7 +223,7 @@ Future<void> extractFileToDisk(String inputPath, String outputPath,
     futures.clear();
   }
 
-  InputStreamBase? toClose;
+  InputStream? toClose;
 
   Archive archive;
   if (archivePath.endsWith('tar')) {
@@ -228,14 +232,15 @@ Future<void> extractFileToDisk(String inputPath, String outputPath,
     toClose = input;
   } else if (archivePath.endsWith('zip')) {
     final input = InputFileStream(archivePath);
-    archive = ZipDecoder().decodeBuffer(input, password: password);
+    archive = ZipDecoder().decodeStream(input, password: password);
     toClose = input;
   } else {
     throw ArgumentError.value(inputPath, 'inputPath',
         'Must end tar.gz, tgz, tar.bz2, tbz, tar.xz, txz, tar or zip.');
   }
 
-  for (final file in archive.files) {
+  final files = archive.getAllFiles();
+  for (final file in files) {
     final filePath = path.join(outputPath, path.normalize(file.name));
     if (!isWithinOutputPath(outputPath, filePath)) {
       continue;
@@ -255,21 +260,22 @@ Future<void> extractFileToDisk(String inputPath, String outputPath,
     if (asyncWrite) {
       if (file.isSymbolicLink) {
         final link = Link(filePath);
-        await link.create(path.normalize(file.nameOfLinkedFile),
+        await link.create(path.normalize(file.symbolicLink ?? ""),
             recursive: true);
       } else {
         final output = File(filePath);
         final f = await output.create(recursive: true);
         final fp = await f.open(mode: FileMode.write);
-        final bytes = file.content as List<int>;
+        final bytes = file.getContent()!.toUint8List();
         await fp.writeFrom(bytes);
-        file.clear();
+        await file.clear();
         futures.add(fp.close());
       }
     } else {
       if (file.isSymbolicLink) {
         final link = Link(filePath);
-        link.createSync(path.normalize(file.nameOfLinkedFile), recursive: true);
+        link.createSync(path.normalize(file.symbolicLink ?? ""),
+            recursive: true);
       } else {
         final output = OutputFileStream(filePath, bufferSize: bufferSize);
         try {

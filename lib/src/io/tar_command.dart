@@ -1,12 +1,14 @@
 // ignore_for_file: avoid_print
 
-/*import 'dart:io';
+import 'dart:io';
 import 'package:archive/archive_io.dart';
 
 /// Print the entries in the given tar file.
-void listFiles(String path) {
+void listTarFiles(String path) {
   final file = File(path);
-  if (!file.existsSync()) fail('$path does not exist');
+  if (!file.existsSync()) {
+    _fail('$path does not exist');
+  }
 
   final input = InputFileStream(path);
   final dir = Directory.systemTemp.createTempSync('foo');
@@ -34,7 +36,7 @@ void listFiles(String path) {
 }
 
 /// Extract the entries in the given tar file to a directory.
-Directory extractFiles(String inputPath, String outputPath) {
+Directory extractTarFiles(String inputPath, String outputPath) {
   Directory? tempDir;
   var tarPath = inputPath;
 
@@ -56,11 +58,8 @@ Directory extractFiles(String inputPath, String outputPath) {
   final input = InputFileStream(tarPath);
   final tarArchive = TarDecoder().decodeBuffer(input);
 
-  for (final file in tarArchive.files) {
-    if (!file.isFile) {
-      continue;
-    }
-
+  final files = tarArchive.getAllFiles();
+  for (final file in files) {
     final filePath = '$outputPath${Platform.pathSeparator}${file.name}';
     final output = OutputFileStream(filePath);
     file.writeContent(output);
@@ -80,14 +79,16 @@ Directory extractFiles(String inputPath, String outputPath) {
 
 Future<void> createTarFile(String dirPath) async {
   final dir = Directory(dirPath);
-  if (!dir.existsSync()) fail('$dirPath does not exist');
+  if (!dir.existsSync()) {
+    _fail('$dirPath does not exist');
+  }
 
   // Encode a directory from disk to disk, no memory
   final encoder = TarFileEncoder();
   await encoder.tarDirectory(dir, compression: TarFileEncoder.GZIP);
 }
 
-void fail(String message) {
+void _fail(String message) {
   print(message);
   exit(1);
-}*/
+}

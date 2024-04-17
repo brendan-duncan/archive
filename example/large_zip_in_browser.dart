@@ -65,13 +65,13 @@ Future<List<_FileData>> _readZipContentFromStream(
   _FileStreamData streamData,
 ) async {
   // Create a RamFileData containing the entire file data in RAM
-  final RamFileData inputRamFileData = await RamFileData.fromStream(
+  final inputRamFileData = await RamFileData.fromStream(
     streamData.stream,
     streamData.length,
   );
 
   // Create an Archive that will read from the RamFileData
-  final Archive archive = ZipDecoder().decodeBuffer(
+  final archive = ZipDecoder().decodeStream(
     InputFileStream.withFileBuffer(
       FileBuffer(
         RamFileHandle.fromRamFileData(inputRamFileData),
@@ -80,9 +80,11 @@ Future<List<_FileData>> _readZipContentFromStream(
   );
 
   // Going through every archive file and storing it as a _FileData instance
-  final List<_FileData> extractedFilesData = [];
-  for (final ArchiveFile file in archive.files) {
-    extractedFilesData.add(_FileData(file.name, file.content as Uint8List));
+  final extractedFilesData = <_FileData>[];
+  final files = archive.getAllFiles();
+  for (final file in files) {
+    extractedFilesData.add(_FileData(file.name,
+        file.getContent()!.toUint8List());
   }
 
   return extractedFilesData;
@@ -90,10 +92,10 @@ Future<List<_FileData>> _readZipContentFromStream(
 
 RamFileData _writeFilesDataAsZipRamData(List<_FileData> fileDataList) {
   // Create a RamFileData that will store the output
-  final RamFileData outputRamFileData = RamFileData.outputBuffer();
+  final outputRamFileData = RamFileData.outputBuffer();
 
   // Create a ZipFileEncoder that will write into the RamFileData
-  final ZipFileEncoder zipEncoder = ZipFileEncoder()
+  final zipEncoder = ZipFileEncoder()
     ..createWithBuffer(
       OutputFileStream.toRamFile(
         RamFileHandle.fromRamFileData(outputRamFileData),
@@ -102,9 +104,8 @@ RamFileData _writeFilesDataAsZipRamData(List<_FileData> fileDataList) {
 
   // Write all files into the ZipFileEncoder
   for (final _FileData fileData in fileDataList) {
-    zipEncoder.addArchiveFile(ArchiveFile(
+    zipEncoder.addArchiveFile(ArchiveFile.bytes(
       fileData.fileName,
-      fileData.fileBytes.length,
       fileData.fileBytes,
     ));
   }
@@ -119,9 +120,9 @@ RamFileData _writeFilesDataAsZipRamData(List<_FileData> fileDataList) {
 /// the data. This method only works if the size of the data to download is
 /// lower than 2GB.
 Future<void> _saveRamFileDataToDiskRegular(RamFileData ramFileData) async {
-  final Uint8List fileBytes = Uint8List(ramFileData.length);
+  final fileBytes = Uint8List(ramFileData.length);
   ramFileData.readIntoSync(fileBytes, 0, fileBytes.length);
-  final String dataUrl = html.Url.createObjectUrlFromBlob(html.Blob(
+  final dataUrl = html.Url.createObjectUrlFromBlob(html.Blob(
     <dynamic>[fileBytes],
     'application/zip',
   ));
@@ -178,14 +179,14 @@ class _ExperimentalFileSaver {
     String methodName, [
     List<dynamic>? params,
   ]) async {
-    final Completer<T> completer = Completer<T>();
-    final js.JsObject promiseObj = calledObj.callMethod(
+    final completer = Completer<T>();
+    final promiseObj = calledObj.callMethod(
       methodName,
       <dynamic>[
         if (params != null) ...params,
       ],
     ) as js.JsObject;
-    final js.JsObject thenObj = promiseObj.callMethod(
+    final thenObj = promiseObj.callMethod(
       'then',
       <dynamic>[
         (
@@ -230,10 +231,10 @@ class _ExperimentalFileSaver {
       fileSystemFileHandle,
       'createWritable',
     );
-    const int defaultBufferSize = 1024 * 1024;
+    const defaultBufferSize = 1024 * 1024;
     Uint8List? buffer;
     for (int i = 0; i < ramFileData.length; i += defaultBufferSize) {
-      final int bufferSize = math.min(
+      final bufferSize = math.min(
         defaultBufferSize,
         ramFileData.length - i,
       );

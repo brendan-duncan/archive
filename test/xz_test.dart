@@ -14,9 +14,8 @@ void main() {
       final compressed = file.readAsBytesSync();
       final data = XZDecoder().decodeBytes(compressed);
 
-      final expected =
-          File(p.join('test/_data/xz/expected/good-1-lzma2-1'))
-              .readAsBytesSync();
+      final expected = File(p.join('test/_data/xz/expected/good-1-lzma2-1'))
+          .readAsBytesSync();
 
       expect(data.length, equals(expected.length));
       for (var i = 0; i < data.length; ++i) {

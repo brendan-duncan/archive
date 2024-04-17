@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:path/path.dart' as path;
 
+import '../archive/archive_directory.dart';
 import '../archive/archive_file.dart';
 import '../codecs/gzip_encoder.dart';
 import '../codecs/tar_encoder.dart';
@@ -41,7 +42,7 @@ class TarFileEncoder {
     if (compression == GZIP) {
       final input = InputFileStream(tarPath);
       final output = OutputFileStream(tgzPath);
-      GZipEncoder().encode(input, output: output, level: level);
+      GZipEncoder().encodeStream(input, output: output, level: level ?? 6);
       await input.close();
       await File(tarPath).delete();
     }
@@ -66,9 +67,8 @@ class TarFileEncoder {
       if (file is Directory) {
         var filename = path.relative(file.path, from: dir.path);
         filename = includeDirName ? '$dirName/$filename' : filename;
-        final af = ArchiveFile('$filename/', 0, null);
+        final af = ArchiveDirectory('$filename/');
         af.mode = file.statSync().mode;
-        af.isFile = false;
         _encoder.add(af);
       } else if (file is File) {
         final dirName = path.basename(dir.path);

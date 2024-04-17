@@ -17,7 +17,7 @@ class ArchiveFile extends ArchiveEntry {
 
   FileContent? _rawContent;
   FileContent? _content;
-  CompressionType compression = CompressionType.none;
+  CompressionType compression = CompressionType.deflate;
   @override
   bool isFile = true;
 
@@ -46,14 +46,14 @@ class ArchiveFile extends ArchiveEntry {
   }
 
   ArchiveFile.stream(String name, this.size, InputStream stream,
-      {this.compression = CompressionType.none})
+      {this.compression = CompressionType.deflate})
       : super(name: name, mode: 0x1a4) {
     size = stream.length;
     _rawContent = FileContentStream(stream);
   }
 
   ArchiveFile.file(String name, this.size, FileContent file,
-      {this.compression = CompressionType.none})
+      {this.compression = CompressionType.deflate})
       : super(name: name, mode: 0x1a4) {
     _rawContent = file;
   }
@@ -134,25 +134,24 @@ class ArchiveFile extends ArchiveEntry {
 
   /// If the file data is compressed, decompress it.
   void decompress([OutputStream? output]) {
-    if (_content == null && _rawContent != null) {
-      if (compression != CompressionType.none) {
-        if (output != null) {
-          _rawContent!.decompress(output);
-        } else {
-          final rawStream = _rawContent!.getStream();
-          final bytes = rawStream.toUint8List();
-          _content = FileContentMemory(bytes);
-        }
+    if (_content != null) {
+      if (output != null) {
+        output.writeStream(_content!.getStream());
+      }
+      return;
+    }
+
+    if (_rawContent != null) {
+      if (output != null) {
+        _rawContent!.decompress(output);
       } else {
-        if (output != null) {
-          output.writeStream(_rawContent!.getStream());
-        } else {
-          _content = _rawContent;
-        }
+        final rawStream = _rawContent!.getStream();
+        final bytes = rawStream.toUint8List();
+        _content = FileContentMemory(bytes);
       }
     }
   }
 
   /// Is the data stored by this file currently compressed?
-  bool get isCompressed => compression != CompressionType.none;
+  bool get isCompressed => _content == null && _rawContent != null;
 }

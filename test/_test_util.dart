@@ -23,7 +23,8 @@ void compareBytes(List<int> actual, List<int> expected) {
   expect(actual.length, equals(expected.length));
   final len = actual.length;
   for (var i = 0; i < len; ++i) {
-    expect(actual[i], equals(expected[i]), reason: 'Wrong value for Byte at index $i');
+    expect(actual[i], equals(expected[i]),
+        reason: 'Wrong value for Byte at index $i');
   }
 }
 

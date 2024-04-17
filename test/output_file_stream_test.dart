@@ -8,10 +8,8 @@ import '_test_util.dart';
 void main() {
   group('OutputFileStream', () {
     test('InputFileStream/OutputFileStream', () async {
-      final input = InputFileStream('test/_data/folder.zip')
-      ..open();
-      final output = OutputFileStream('$testOutputPath/folder.zip')
-      ..open();
+      final input = InputFileStream('test/_data/folder.zip')..open();
+      final output = OutputFileStream('$testOutputPath/folder.zip')..open();
 
       while (!input.isEOS) {
         final bytes = input.readBytes(50);
@@ -32,10 +30,8 @@ void main() {
 
     test('InputMemoryStream/OutputFileStream', () async {
       final bytes = List<int>.generate(256, (index) => index);
-      final input = InputMemoryStream.fromList(bytes)
-      ..open();
-      final output = OutputFileStream('$testOutputPath/test.bin')
-      ..open();
+      final input = InputMemoryStream.fromList(bytes)..open();
+      final output = OutputFileStream('$testOutputPath/test.bin')..open();
 
       while (!input.isEOS) {
         final bytes = input.readBytes(50);
@@ -54,10 +50,8 @@ void main() {
     });
 
     test('InputFileStream/OutputMemoryStream', () async {
-      final input = InputFileStream('test/_data/folder.zip')
-      ..open();
-      final output = OutputMemoryStream()
-      ..open();
+      final input = InputFileStream('test/_data/folder.zip')..open();
+      final output = OutputMemoryStream()..open();
 
       while (!input.isEOS) {
         final bytes = input.readBytes(50);

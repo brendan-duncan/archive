@@ -13,9 +13,9 @@ void main() {
   }
   const testPath = '$testOutputPath/test_123.bin';
   File(testPath)
-  ..createSync(recursive:true)
-  ..writeAsBytesSync(testData);
-  
+    ..createSync(recursive: true)
+    ..writeAsBytesSync(testData);
+
   group('InputStreamFile', () {
     test('length', () async {
       final fs = InputFileStream(testPath)..open();
@@ -43,8 +43,8 @@ void main() {
 
     test('position', () async {
       final fs = InputFileStream(testPath, bufferSize: 2)
-      ..open()
-      ..setPosition(50);
+        ..open()
+        ..setPosition(50);
       final bs = fs.readBytes(50);
       final b = bs.toUint8List();
       expect(b.length, 50);
@@ -55,8 +55,8 @@ void main() {
 
     test('skip', () async {
       final fs = InputFileStream(testPath, bufferSize: 2)
-      ..open()
-      ..skip(50);
+        ..open()
+        ..skip(50);
       final bs = fs.readBytes(50);
       final b = bs.toUint8List();
       expect(b.length, 50);
@@ -67,9 +67,9 @@ void main() {
 
     test('rewind', () async {
       final fs = InputFileStream(testPath, bufferSize: 2)
-      ..open()
-      ..skip(50)
-      ..rewind(10);
+        ..open()
+        ..skip(50)
+        ..rewind(10);
       final bs = fs.readBytes(50);
       final b = bs.toUint8List();
       expect(b.length, 50);
@@ -79,8 +79,7 @@ void main() {
     });
 
     test('peakBytes', () async {
-      final fs = InputFileStream(testPath, bufferSize: 2)
-      ..open();
+      final fs = InputFileStream(testPath, bufferSize: 2)..open();
       final bs = fs.peekBytes(10);
       final b = bs.toUint8List();
       expect(fs.position, 0);
@@ -91,9 +90,9 @@ void main() {
     });
 
     test("clone", () async {
-      final input = InputFileStream(testPath)
-      ..open();
-      final input2 = InputFileStream.fromFileStream(input, position: 6, length: 5);
+      final input = InputFileStream(testPath)..open();
+      final input2 =
+          InputFileStream.fromFileStream(input, position: 6, length: 5);
       final bs = input2.readBytes(5);
       final b = bs.toUint8List();
       expect(b.length, 5);

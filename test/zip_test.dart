@@ -11,13 +11,11 @@ Future<void> extractArchiveToDisk(ArchiveDirectory archive, String root) async {
   for (final e in archive) {
     final path = '$root/${e.fullPathName}';
     if (e is ArchiveDirectory) {
-      await Directory(path)
-          .create(recursive: true);
+      await Directory(path).create(recursive: true);
       await extractArchiveToDisk(e, root);
     } else {
       final f = e as ArchiveFile;
-      final output = OutputFileStream(path)
-        ..open();
+      final output = OutputFileStream(path)..open();
       f.writeContent(output);
       final bytes = f.readBytes();
       expect(bytes, isNotNull);
@@ -261,7 +259,7 @@ void main() {
     final encoder = ZipEncoder();
     final decoder = ZipDecoder();
 
-    var encodedBytes = encoder.encode(archive)!;
+    var encodedBytes = encoder.encode(archive);
 
     final archiveDecoded = decoder.decodeBytes(encodedBytes);
 
@@ -271,8 +269,8 @@ void main() {
   });
 
   test('zip64', () {
-    var bytes = File(p.join('test/_data/zip/zip64_archive.zip'))
-        .readAsBytesSync();
+    var bytes =
+        File(p.join('test/_data/zip/zip64_archive.zip')).readAsBytesSync();
     final archive = ZipDecoder().decodeBytes(bytes, verify: false);
     expect(archive.length, equals(3));
     expect(archive[0].size, equals(3136));
@@ -287,7 +285,7 @@ void main() {
     archive.add(ArchiveFile.string('string', 'hello'));
     final zipData = ZipEncoder().encode(archive);
 
-    final archive2 = ZipDecoder().decodeBytes(zipData!);
+    final archive2 = ZipDecoder().decodeBytes(zipData);
     expect(archive2.length, equals(archive.length));
   });
 
@@ -323,7 +321,7 @@ void main() {
     archive.add(afile);
 
     var zipData = ZipEncoder()
-        .encode(archive, modified: DateTime.utc(2010, DateTime.january, 1))!;
+        .encode(archive, modified: DateTime.utc(2010, DateTime.january, 1));
 
     File(p.join(testOutputPath, 'uncompressed.zip'))
       ..createSync(recursive: true)
@@ -427,7 +425,7 @@ void main() {
     final afile = ArchiveFile.bytes(name, bytes);
     archive.add(afile);
 
-    final zipData = ZipEncoder(password: 'abc123').encode(archive)!;
+    final zipData = ZipEncoder(password: 'abc123').encode(archive);
 
     File(p.join(testOutputPath, 'zip_password.zip'))
       ..createSync(recursive: true)
@@ -465,7 +463,7 @@ void main() {
     }
 
     // Encode the archive we just decoded
-    final zipped = ZipEncoder().encode(archive)!;
+    final zipped = ZipEncoder().encode(archive);
 
     final f = File(p.join(testOutputPath, 'test.zip'));
     f.createSync(recursive: true);
@@ -482,14 +480,15 @@ void main() {
   });
 
   test('decode', () async {
-    final archive = ZipDecoder().decodeStream(
-        InputMemoryStream(File('test/_data/zip/android-javadoc.zip').readAsBytesSync()));
+    final archive = ZipDecoder().decodeStream(InputMemoryStream(
+        File('test/_data/zip/android-javadoc.zip').readAsBytesSync()));
 
     await extractArchiveToDisk(archive, '$testOutputPath/android-javadoc');
   });
 
   test('symlink', () async {
-    final stream = InputMemoryStream(File('test/_data/zip/symlink.zip').readAsBytesSync());
+    final stream =
+        InputMemoryStream(File('test/_data/zip/symlink.zip').readAsBytesSync());
     final archive = ZipDecoder().decodeStream(stream);
     expect(archive[0].isSymbolicLink, equals(true));
   });

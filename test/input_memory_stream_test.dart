@@ -96,8 +96,8 @@ void main() {
       expect(input.readUint16(), equals(0xbbaa));
 
       // Big endian
-      final i2 = InputMemoryStream.fromList(
-          data, byteOrder: ByteOrder.bigEndian);
+      final i2 =
+          InputMemoryStream.fromList(data, byteOrder: ByteOrder.bigEndian);
       expect(i2.readUint16(), equals(0xaabb));
     });
 
@@ -108,8 +108,8 @@ void main() {
       expect(input.readUint24(), equals(0xccbbaa));
 
       // Big endian
-      final i2 = InputMemoryStream.fromList(
-          data, byteOrder: ByteOrder.bigEndian);
+      final i2 =
+          InputMemoryStream.fromList(data, byteOrder: ByteOrder.bigEndian);
       expect(i2.readUint24(), equals(0xaabbcc));
     });
 
@@ -120,8 +120,8 @@ void main() {
       expect(input.readUint32(), equals(0xddccbbaa));
 
       // Big endian
-      final i2 = InputMemoryStream.fromList(
-          data, byteOrder: ByteOrder.bigEndian);
+      final i2 =
+          InputMemoryStream.fromList(data, byteOrder: ByteOrder.bigEndian);
       expect(i2.readUint32(), equals(0xaabbccdd));
     });
 
@@ -132,8 +132,8 @@ void main() {
       expect(input.readUint64(), equals(0xddeeffeeddccbbaa));
 
       // Big endian
-      final i2 = InputMemoryStream.fromList(
-          data, byteOrder: ByteOrder.bigEndian);
+      final i2 =
+          InputMemoryStream.fromList(data, byteOrder: ByteOrder.bigEndian);
       expect(i2.readUint64(), equals(0xaabbccddeeffeedd));
     });
   });
