@@ -9,7 +9,7 @@ import '_test_util.dart';
 
 var tarTests = [
   {
-    'file': 'res/tar/gnu.tar',
+    'file': '_data/tar/gnu.tar',
     'headers': [
       {
         'Name': 'small.txt',
@@ -40,7 +40,7 @@ var tarTests = [
     ],
   },
   {
-    'file': 'res/tar/star.tar',
+    'file': '_data/tar/star.tar',
     'headers': [
       {
         'Name': 'small.txt',
@@ -71,7 +71,7 @@ var tarTests = [
     ],
   },
   {
-    'file': 'res/tar/v7.tar',
+    'file': '_data/tar/v7.tar',
     'headers': [
       {
         'Name': 'small.txt',
@@ -94,7 +94,7 @@ var tarTests = [
     ],
   },
   {
-    'file': 'res/tar/pax.tar',
+    'file': '_data/tar/pax.tar',
     'headers': [
       {
         'Name':
@@ -128,7 +128,7 @@ var tarTests = [
     ],
   },
   {
-    'file': 'res/tar/nil-uid.tar',
+    'file': '_data/tar/nil-uid.tar',
     'headers': [
       {
         'Name': 'P1050238.JPG.log',

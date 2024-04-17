@@ -155,7 +155,8 @@ abstract class InputStream {
         }
         codes.add(c);
       }
-      throw ArchiveException('EOF reached without finding string terminator');
+      //throw ArchiveException('EOF reached without finding string terminator');
+      return codesToString(codes);
     }
 
     final s = readBytes(size);
