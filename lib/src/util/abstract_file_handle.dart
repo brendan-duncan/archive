@@ -4,9 +4,7 @@ import 'file_access.dart';
 
 /// Base class for MemoryFileHandle and FileHandle (dart:io).
 abstract class AbstractFileHandle {
-  FileAccess openMode;
-
-  AbstractFileHandle(this.openMode);
+  AbstractFileHandle({FileAccess mode = FileAccess.read});
 
   int get position;
 
@@ -16,7 +14,7 @@ abstract class AbstractFileHandle {
 
   bool get isOpen;
 
-  bool open() => false;
+  bool open({FileAccess mode = FileAccess.read}) => false;
 
   Future<void> close();
 

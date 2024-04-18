@@ -13,7 +13,6 @@ class OutputFileStream extends OutputStream {
   final AbstractFileHandle _fileHandle;
   final Uint8List _buffer;
   int _bufferPosition;
-  bool _isOpen;
 
   static const int kDefaultBufferSize = 1024 * 1024; // 1MB
 
@@ -27,8 +26,7 @@ class OutputFileStream extends OutputStream {
             : bufferSize < 1
                 ? 1
                 : bufferSize),
-        _bufferPosition = 0,
-        _isOpen = true;
+        _bufferPosition = 0;
 
   factory OutputFileStream(
     String path, {
@@ -55,12 +53,15 @@ class OutputFileStream extends OutputStream {
   }
 
   @override
+  bool get isOpen => _fileHandle.isOpen;
+
+  @override
   int get length => _length;
 
   @override
   void flush() {
     if (_bufferPosition > 0) {
-      if (_isOpen) {
+      if (isOpen) {
         _fileHandle.writeFromSync(_buffer, 0, _bufferPosition);
       }
       _bufferPosition = 0;
@@ -74,21 +75,19 @@ class OutputFileStream extends OutputStream {
 
   @override
   Future<void> close() async {
-    if (!_isOpen) {
+    if (!isOpen) {
       return;
     }
     flush();
-    _isOpen = false;
     await _fileHandle.close();
   }
 
   @override
   void closeSync() {
-    if (!_isOpen) {
+    if (!isOpen) {
       return;
     }
     flush();
-    _isOpen = false;
     _fileHandle.closeSync();
   }
 

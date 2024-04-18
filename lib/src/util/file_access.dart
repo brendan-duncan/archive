@@ -1,1 +1,1 @@
-enum FileAccess { read, write }
+enum FileAccess { closed, read, write }

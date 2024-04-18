@@ -10,17 +10,26 @@ class FileHandle extends AbstractFileHandle {
   int _position;
   int _length;
 
-  FileHandle(this._path)
+  FileHandle(this._path, {FileAccess mode = FileAccess.read})
       : _position = 0,
         _length = 0,
-        super(FileAccess.read);
+        super() {
+    if (mode != FileAccess.closed) {
+      open(mode: mode);
+    }
+  }
 
   @override
-  bool open() {
+  bool open({FileAccess mode = FileAccess.read}) {
     if (_file != null) {
       return true;
     }
-    _file = File(_path).openSync();
+    if (mode == FileAccess.closed) {
+      return false;
+    }
+    final fileMode = mode == FileAccess.read ? FileMode.read :
+        FileMode.write;
+    _file = File(_path).openSync(mode: fileMode);
     _length = _file?.lengthSync() ?? 0;
     _position = 0;
     return _file != null;
@@ -79,5 +88,17 @@ class FileHandle extends AbstractFileHandle {
   }
 
   @override
-  void writeFromSync(List<int> buffer, [int start = 0, int? end]) {}
+  void writeFromSync(List<int> buffer, [int start = 0, int? end]) {
+    if (_file == null) {
+      open();
+    }
+    final int size;
+    if (end == null){
+      size = buffer.length;
+    } else {
+      size = end - start;
+    }
+    _file!.writeFromSync(buffer, start, end);
+    _position += size;
+  }
 }

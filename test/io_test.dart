@@ -645,10 +645,10 @@ void main() {
     //encoder.close();
   });
 
-  group('$ZipFileEncoder', () async {
+  group('$ZipFileEncoder', () {
     test(
       'zipDirectory throws a FormatException when filename is within dir',
-      () {
+      () async {
         final encoder = ZipFileEncoder();
         final invalidFilename = p.join('test/_data/test2.zip');
 
