@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:archive/archive.dart';
+
 import '../archive/archive.dart';
 import '../archive/archive_file.dart';
 import 'tar/tar_file.dart';
@@ -57,9 +59,9 @@ class TarDecoder {
             .split('\n')
             .where((s) => paxRecordRegexp.hasMatch(s))
             .forEach((record) {
-          var match = paxRecordRegexp.firstMatch(record)!;
-          var keyword = match.group(2);
-          var value = match.group(3)!;
+          final match = paxRecordRegexp.firstMatch(record)!;
+          final keyword = match.group(2);
+          final value = match.group(3)!;
           switch (keyword) {
             case 'path':
               nextName = value;
@@ -85,20 +87,29 @@ class TarDecoder {
       }
       files.add(tf);
 
-      final file = ArchiveFile.stream(tf.filename, tf.rawContent!);
-
-      file.mode = tf.mode;
-      file.ownerId = tf.ownerId;
-      file.groupId = tf.groupId;
-      file.lastModTime = tf.lastModTime;
-      file.isFile = tf.isFile;
-      //file.isSymbolicLink = tf.typeFlag == TarFileType.symbolicLink;
-
-      if (tf.nameOfLinkedFile != null) {
-        file.symbolicLink = tf.nameOfLinkedFile!;
+      if (tf.isFile) {
+        final file = storeData
+            ? ArchiveFile.stream(tf.filename, tf.rawContent!)
+            : ArchiveFile.noData(tf.filename);
+        file.mode = tf.mode;
+        file.ownerId = tf.ownerId;
+        file.groupId = tf.groupId;
+        file.lastModTime = tf.lastModTime;
+        if (tf.nameOfLinkedFile != null) {
+          file.symbolicLink = tf.nameOfLinkedFile!;
+        }
+        archive.add(file);
+      } else {
+        final file = ArchiveDirectory(tf.filename);
+        file.mode = tf.mode;
+        file.ownerId = tf.ownerId;
+        file.groupId = tf.groupId;
+        file.lastModTime = tf.lastModTime;
+        if (tf.nameOfLinkedFile != null) {
+          file.symbolicLink = tf.nameOfLinkedFile!;
+        }
+        archive.add(file);
       }
-
-      archive.add(file);
     }
 
     return archive;

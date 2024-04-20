@@ -53,7 +53,6 @@ export 'src/util/file_access.dart';
 export 'src/util/input_stream.dart';
 export 'src/util/input_file_stream.dart';
 export 'src/util/input_memory_stream.dart';
-export 'src/util/mem_ptr.dart';
 export 'src/util/output_stream.dart';
 export 'src/util/output_file_stream.dart';
 export 'src/util/output_memory_stream.dart';

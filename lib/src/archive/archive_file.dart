@@ -61,6 +61,8 @@ class ArchiveFile extends ArchiveEntry {
     this.symbolicLink = symbolicLink;
   }
 
+  ArchiveFile.noData(String name) : super(name: name, mode: 0x1a4);
+
   void writeContent(OutputStream output, {bool freeMemory = true}) {
     if (_content == null) {
       if (_rawContent == null) {

@@ -7,12 +7,12 @@ import 'package:test/test.dart';
 void main() {
   test('bin/tar.dart list test2.tar.gz', () {
     // Test that 'tar --list' does not throw.
-    listTarFiles(p.join('test/_data/test2.tar.gz'));
+    listTarFiles('test/_data/test2.tar.gz');
   });
 
   test('bin/tar.dart list test2.tar.gz2', () {
     // Test that 'tar --list' does not throw.
-    listTarFiles(p.join('test/_data/test2.tar.bz2'));
+    listTarFiles('test/_data/test2.tar.bz2');
   });
 
   test('tar extract', () {
