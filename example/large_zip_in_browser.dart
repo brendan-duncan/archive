@@ -96,7 +96,7 @@ RamFileData _writeFilesDataAsZipRamData(List<_FileData> fileDataList) {
 
   // Create a ZipFileEncoder that will write into the RamFileData
   final zipEncoder = ZipFileEncoder()
-    ..createWithBuffer(
+    ..createWithStream(
       OutputFileStream.toRamFile(
         RamFileHandle.fromRamFileData(outputRamFileData),
       ),

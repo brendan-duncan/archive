@@ -21,6 +21,8 @@ abstract class FileContent {
   void decompress(OutputStream output) {
     output.writeStream(getStream());
   }
+
+  bool get isCompressed => false;
 }
 
 class FileContentMemory extends FileContent {

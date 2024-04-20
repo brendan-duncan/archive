@@ -15,7 +15,7 @@ abstract class ArchiveEntry extends Iterable<ArchiveEntry> {
   /// the path to what it's linking to. This should be an archive relative path.
   String? symbolicLink;
 
-  bool get isSymbolicLink => symbolicLink != null;
+  bool get isSymbolicLink => symbolicLink?.isNotEmpty ?? false;
 
   /// The crc32 checksum of the uncompressed content.
   int? crc32;

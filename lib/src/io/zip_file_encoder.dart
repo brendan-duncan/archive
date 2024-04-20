@@ -81,11 +81,11 @@ class ZipFileEncoder {
   void open(String zipPath) => create(zipPath);
 
   void create(String zipPath, {int? level, DateTime? modified}) {
-    createWithBuffer(OutputFileStream(zipPath),
+    createWithStream(OutputFileStream(zipPath),
         level: level, modified: modified);
   }
 
-  void createWithBuffer(
+  void createWithStream(
     OutputFileStream outputFileStream, {
     int? level,
     DateTime? modified,
@@ -111,10 +111,10 @@ class ZipFileEncoder {
       if (file is Directory) {
         var filename = path.relative(file.path, from: dir.path);
         filename = includeDirName ? '$dirName/$filename' : filename;
-        final af = ArchiveDirectory('$filename/');
-        af.mode = file.statSync().mode;
-        af.lastModTime =
-            file.statSync().modified.millisecondsSinceEpoch ~/ 1000;
+        final af = ArchiveDirectory(filename);
+        final stat = file.statSync();
+        af.mode = stat.mode;
+        af.lastModTime = stat.modified.millisecondsSinceEpoch ~/ 1000;
         _encoder.add(af);
       } else if (file is File) {
         final dirName = path.basename(dir.path);
@@ -129,8 +129,8 @@ class ZipFileEncoder {
 
   Future<void> addFile(File file, [String? filename, int? level = gzip]) async {
     final fileStream = InputFileStream(file.path);
-    final archiveFile = ArchiveFile.stream(
-        filename ?? path.basename(file.path), file.lengthSync(), fileStream);
+    final archiveFile =
+        ArchiveFile.stream(filename ?? path.basename(file.path), fileStream);
 
     if (level == store) {
       archiveFile.compression = CompressionType.none;

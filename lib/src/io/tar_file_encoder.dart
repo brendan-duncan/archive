@@ -83,8 +83,8 @@ class TarFileEncoder {
 
   Future<void> addFile(File file, [String? filename]) async {
     final fileStream = InputFileStream(file.path);
-    final f = ArchiveFile.stream(
-        filename ?? path.basename(file.path), file.lengthSync(), fileStream);
+    final f =
+        ArchiveFile.stream(filename ?? path.basename(file.path), fileStream);
     f.lastModTime = file.lastModifiedSync().millisecondsSinceEpoch ~/ 1000;
     f.mode = file.statSync().mode;
     _encoder.add(f);

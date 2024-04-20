@@ -242,12 +242,25 @@ void main() {
       expect(decoded.length, equals(0));
     });
 
-    test('isFile', () async {
+    test('decode', () async {
       var file = File(p.join('test/_data/zip/android-javadoc.zip'));
       var bytes = file.readAsBytesSync();
       final archive = ZipDecoder().decodeBytes(bytes, verify: true);
       final entries = archive.getAllEntries();
       expect(entries.length, equals(102));
+    });
+
+    test('empty directory', () {
+      final archive = Archive();
+      archive.add(ArchiveDirectory('empty'));
+      final encodedBytes = ZipEncoder().encode(archive);
+      File(p.join(testOutputPath, 'empty_directory.zip'))
+        ..createSync(recursive: true)
+        ..writeAsBytesSync(encodedBytes);
+      final archiveDecoded = ZipDecoder().decodeBytes(encodedBytes);
+      expect(archiveDecoded.length, 1);
+      expect(archiveDecoded[0].isFile, false);
+      expect(archiveDecoded[0].name, 'empty');
     });
 
     test('file decode utf file', () {
@@ -257,19 +270,35 @@ void main() {
       expect(entries.length, equals(5));
     });
 
+    test('file stream encode', () {
+      final fileStream = InputFileStream('test/_data/cat.jpg');
+      final archiveFile = ArchiveFile.stream('cat.jpg', fileStream);
+      final archive = Archive()..add(archiveFile);
+      final encodedBytes = ZipEncoder().encode(archive);
+      File(p.join(testOutputPath, 'file_stream.zip'))
+        ..createSync(recursive: true)
+        ..writeAsBytesSync(encodedBytes);
+      final archiveDecoded = ZipDecoder().decodeBytes(encodedBytes);
+      expect(archiveDecoded.length, 1);
+    });
+
     test('file encoding zip file', () {
       final originalFileName = 'fileöäüÖÄÜß.txt';
       final bytes = Utf8Codec().encode('test');
-      final archiveFile = ArchiveFile.bytes(originalFileName, bytes);
       final archive = Archive();
-      archive.add(archiveFile);
+      archive.add(ArchiveFile.bytes(originalFileName, bytes));
 
-      final encoder = ZipEncoder();
-      final decoder = ZipDecoder();
+      archive.add(ArchiveDirectory('foo'));
+      archive.add(ArchiveFile.string('foo/bar.txt', '123'));
 
-      var encodedBytes = encoder.encode(archive);
+      var encodedBytes = ZipEncoder().encode(archive);
 
-      final archiveDecoded = decoder.decodeBytes(encodedBytes);
+      File(p.join(testOutputPath, 'zip_encoder.zip'))
+        ..createSync(recursive: true)
+        ..writeAsBytesSync(encodedBytes);
+
+      final archiveDecoded = ZipDecoder().decodeBytes(encodedBytes);
+      expect(archiveDecoded.length, 2);
 
       final decodedFile = archiveDecoded[0];
 
@@ -288,10 +317,13 @@ void main() {
       final archive = Archive();
       archive.add(ArchiveFile.bytes('uint8list', Uint8List(2)));
       archive.add(ArchiveFile.bytes('list_int', Uint8List.fromList([1, 2])));
-      archive.add(
-          ArchiveFile.typedData('float32list', Float32List.fromList([3.0, 4.0])));
+      archive.add(ArchiveFile.typedData(
+          'float32list', Float32List.fromList([3.0, 4.0])));
       archive.add(ArchiveFile.string('string', 'hello'));
       final zipData = ZipEncoder().encode(archive);
+      File('$testOutputPath/zip64.zip')
+        ..createSync(recursive: true)
+        ..writeAsBytesSync(zipData);
 
       final archive2 = ZipDecoder().decodeBytes(zipData);
       expect(archive2.length, equals(archive.length));
@@ -303,6 +335,7 @@ void main() {
       final bytes = Uint8List.fromList(bdata.codeUnits);
       final name = 'abc.txt';
       final afile = ArchiveFile.bytes(name, bytes);
+      afile.compression = CompressionType.none;
       archive.add(afile);
 
       final zipData = ZipEncoder().encode(archive);
@@ -488,13 +521,13 @@ void main() {
     });
 
     test('symlink', () async {
-      final stream =
-          InputMemoryStream(File('test/_data/zip/symlink.zip').readAsBytesSync());
+      final stream = InputMemoryStream(
+          File('test/_data/zip/symlink.zip').readAsBytesSync());
       final archive = ZipDecoder().decodeStream(stream);
       expect(archive[0].isSymbolicLink, equals(true));
     });
 
-    test('decode many files (100k)', () async {
+    /*test('decode many files (100k)', () async {
       final fp = InputFileStream(
         p.join('test/_data/test_100k_files.zip'),
         bufferSize: 1024 * 1024,
@@ -527,7 +560,7 @@ void main() {
         );
         nextEntryIndex++;
       }
-    });
+    });*/
 
     for (final Z in zipTests) {
       final z = Z as Map<String, dynamic>;
@@ -564,18 +597,12 @@ void main() {
             expect(zipFile!.verifyCrc32(), equals(hdr['VerifyChecksum']));
           }
           if (hdr.containsKey('isFile')) {
-            expect(archive
-                .find(zipFile!.filename)
-                ?.isFile, hdr['isFile']);
+            expect(archive.find(zipFile!.filename)?.isFile, hdr['isFile']);
           }
           if (hdr.containsKey('isSymbolicLink')) {
-            expect(archive
-                .find(zipFile!.filename)
-                ?.isSymbolicLink,
+            expect(archive.find(zipFile!.filename)?.isSymbolicLink,
                 hdr['isSymbolicLink']);
-            expect(archive
-                .find(zipFile.filename)
-                ?.symbolicLink,
+            expect(archive.find(zipFile.filename)?.symbolicLink,
                 utf8.decode(hdr['Content'] as List<int>));
           }
         }

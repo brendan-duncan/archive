@@ -5,7 +5,6 @@ import 'dart:math';
 import '../archive/archive.dart';
 import '../archive/archive_entry.dart';
 import '../archive/archive_file.dart';
-import '../archive/compression_type.dart';
 import '../util/aes.dart';
 import '../util/crc32.dart';
 import '../util/output_memory_stream.dart';
@@ -91,9 +90,7 @@ class ZipEncoder {
 
     startEncode(output, level: level, modified: modified);
     for (final file in archive) {
-      if (file.isFile) {
-        add(file as ArchiveFile, autoClose: autoClose);
-      }
+      add(file, autoClose: autoClose);
     }
     endEncode(comment: archive.comment);
 
@@ -166,6 +163,11 @@ class ZipEncoder {
     final lastModTime = DateTime.fromMillisecondsSinceEpoch(lastModMS);
 
     fileData.name = entry.name;
+    if (!entry.isFile &&
+        !fileData.name.endsWith('/') &&
+        !fileData.name.endsWith('\\')) {
+      fileData.name += '/';
+    }
     // If the archive modification time was overwritten, use that, otherwise
     // use the lastModTime from the file.
     fileData.time = _data.time ?? _getTime(lastModTime)!;
@@ -194,7 +196,7 @@ class ZipEncoder {
 
     if (entry is ArchiveFile) {
       final file = entry;
-      if (file.isCompressed && file.compression == CompressionType.deflate) {
+      if (file.isCompressed) {
         // If the file is already compressed, no sense in uncompressing it and
         // compressing it again, just pass along the already compressed data.
         compressedData = file.rawContent?.getStream();
@@ -270,7 +272,7 @@ class ZipEncoder {
   void endEncode({String? comment = ''}) {
     // Write Central Directory and End Of Central Directory
     _writeCentralDirectory(_data.files, comment, _output!);
-    if (_output is OutputStream) {
+    if (_output != null) {
       _output!.flush();
     }
   }
@@ -412,7 +414,9 @@ class ZipEncoder {
       final versionMadeBy = (os << 8) | version;
       final versionNeededToExtract = version;
       var generalPurposeBitFlag = languageEncodingBitUtf8;
-      if (password != null) generalPurposeBitFlag |= fileEncryptionBit;
+      if (password != null) {
+        generalPurposeBitFlag |= fileEncryptionBit;
+      }
       final compressionMethod = password != null
           ? ZipFile.zipCompressionAexEncryption
           : fileData.compress
@@ -428,7 +432,7 @@ class ZipEncoder {
       final internalFileAttributes = 0;
       final externalFileAttributes = fileData.mode << 16;
       /*if (!fileData.isFile) {
-        externalFileAttributes |= 0x4000; // ?
+        externalFileAttributes |= 0x4000;
       }*/
       final localHeaderOffset = needsZip64 ? 0xFFFFFFFF : fileData.position;
 

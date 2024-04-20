@@ -27,9 +27,12 @@ class FileHandle extends AbstractFileHandle {
     if (mode == FileAccess.closed) {
       return false;
     }
-    final fileMode = mode == FileAccess.read ? FileMode.read :
-        FileMode.write;
-    _file = File(_path).openSync(mode: fileMode);
+    final fileMode = mode == FileAccess.read ? FileMode.read : FileMode.write;
+    final fp = File(path);
+    if (mode == FileAccess.write) {
+      fp.createSync(recursive: true);
+    }
+    _file = fp.openSync(mode: fileMode);
     _length = _file?.lengthSync() ?? 0;
     _position = 0;
     return _file != null;
@@ -93,7 +96,7 @@ class FileHandle extends AbstractFileHandle {
       open();
     }
     final int size;
-    if (end == null){
+    if (end == null) {
       size = buffer.length;
     } else {
       size = end - start;

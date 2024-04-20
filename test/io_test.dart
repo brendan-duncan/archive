@@ -331,7 +331,7 @@ void main() {
     }
     final RamFileData ramFileData = RamFileData.outputBuffer();
     final zipEncoder = ZipFileEncoder()
-      ..createWithBuffer(
+      ..createWithStream(
         OutputFileStream.toRamFile(
           RamFileHandle.fromRamFileData(ramFileData),
         ),
@@ -480,14 +480,16 @@ void main() {
     final zipDecoder = ZipDecoder();
     final f = File('$testOutputPath/example2.zip');
     final archive = zipDecoder.decodeBytes(f.readAsBytesSync(), verify: true);
-    expect(archive.length, equals(6));
+    final entries = archive.getAllEntries();
+    expect(entries.length, equals(7));
   });
 
   test('decode_empty_directory', () {
     final zip = ZipDecoder();
     final archive =
         zip.decodeBytes(File('test/_data/test2.zip').readAsBytesSync());
-    expect(archive.length, 4);
+    final entries = archive.getAllEntries();
+    expect(entries.length, 5);
   });
 
   test('create_archive_from_directory', () {
@@ -503,7 +505,8 @@ void main() {
 
     final zipDecoder = ZipDecoder();
     final archive2 = zipDecoder.decodeBytes(bytes, verify: true);
-    expect(archive2.length, equals(4));
+    final entries = archive2.getAllEntries();
+    expect(entries.length, equals(5));
   });
 
   _testInputFileStream('file close', (ifsConstructor) async {

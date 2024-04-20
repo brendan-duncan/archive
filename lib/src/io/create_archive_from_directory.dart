@@ -26,7 +26,7 @@ Archive createArchiveFromDirectory(Directory dir,
       filename = includeDirName ? ('$dirName/$filename') : filename;
 
       final fileStream = InputFileStream(file.path);
-      final af = ArchiveFile.stream(filename, file.lengthSync(), fileStream);
+      final af = ArchiveFile.stream(filename, fileStream);
       af.lastModTime = file.lastModifiedSync().millisecondsSinceEpoch ~/ 1000;
       af.mode = file.statSync().mode;
 

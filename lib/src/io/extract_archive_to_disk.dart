@@ -274,8 +274,8 @@ Future<void> extractFileToDisk(String inputPath, String outputPath,
     } else {
       if (file.isSymbolicLink) {
         final link = Link(filePath);
-        link.createSync(path.normalize(file.symbolicLink ?? ""),
-            recursive: true);
+        final p = path.normalize(file.symbolicLink ?? "");
+        link.createSync(p, recursive: true);
       } else {
         final output = OutputFileStream(filePath, bufferSize: bufferSize);
         try {

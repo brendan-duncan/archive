@@ -1,8 +1,6 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
-//import '../codecs/zlib/inflate.dart';
-//import '../codecs/zlib/inflate_buffer.dart';
 import '../util/file_content.dart';
 import '../util/input_stream.dart';
 import '../util/output_stream.dart';
@@ -45,7 +43,7 @@ class ArchiveFile extends ArchiveEntry {
     _rawContent = FileContentMemory(bytes);
   }
 
-  ArchiveFile.stream(String name, this.size, InputStream stream,
+  ArchiveFile.stream(String name, InputStream stream,
       {this.compression = CompressionType.deflate})
       : super(name: name, mode: 0x1a4) {
     size = stream.length;
@@ -153,5 +151,6 @@ class ArchiveFile extends ArchiveEntry {
   }
 
   /// Is the data stored by this file currently compressed?
-  bool get isCompressed => _content == null && _rawContent != null;
+  bool get isCompressed =>
+      _content == null && _rawContent != null && _rawContent!.isCompressed;
 }
