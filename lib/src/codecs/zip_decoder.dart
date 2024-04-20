@@ -9,7 +9,6 @@ import '../util/crc32.dart';
 import '../util/input_stream.dart';
 import '../util/input_memory_stream.dart';
 import 'zip/zip_directory.dart';
-//import 'zip/zip_file.dart';
 
 /// Decode a zip formatted buffer into an [Archive] object.
 class ZipDecoder {
@@ -33,7 +32,6 @@ class ZipDecoder {
 
       // The attributes are stored in base 8
       final mode = zfh.externalFileAttributes;
-      //final compress = zf.compressionMethod != ZipFile.store;
 
       if (verify) {
         final stream = zf.getStream();
@@ -99,7 +97,6 @@ class ZipDecoder {
 
       entry
         ..crc32 = zf.crc32
-        //file.compress = compress;
         ..lastModTime = zf.lastModFileDate << 16 | zf.lastModFileTime;
     }
 

@@ -211,6 +211,13 @@ final zipTests = <dynamic>[
 
 void main() {
   group('zip', () {
+    test('empty', () async {
+      final archive = Archive();
+      final encoded = ZipEncoder().encode(archive);
+      final decoded = ZipDecoder().decodeBytes(encoded);
+      expect(decoded.length, equals(0));
+    });
+
     test('decode', () async {
       final archive = ZipDecoder().decodeStream(InputMemoryStream(
           File('test/_data/zip/android-javadoc.zip').readAsBytesSync()));
@@ -224,13 +231,6 @@ void main() {
       final archive = ZipDecoder().decodeStream(input);
       await extractArchiveToDisk(archive,
           '$testOutputPath/zip_decode_file_stream');
-    });
-
-    test('empty', () async {
-      final archive = Archive();
-      final encoded = ZipEncoder().encode(archive);
-      final decoded = ZipDecoder().decodeBytes(encoded);
-      expect(decoded.length, equals(0));
     });
 
     test('decode', () async {

@@ -133,18 +133,32 @@ class ZipDirectory {
   }
 
   int _findSignature(InputStream input) {
-    final pos = input.position;
-    final length = input.length;
-
     // The directory and archive contents are written to the end of the zip
     // file. We need to search from the end to find these structures,
     // starting with the 'End of central directory' record (EOCD).
-    for (var ip = length - 5; ip >= 0; --ip) {
-      input.setPosition(ip);
-      final sig = input.readUint32();
-      if (sig == eocdSignature) {
-        input.setPosition(pos);
-        return ip;
+    // Because InputFileStream buffering is designed around forward
+    // reading and not reverse reading like here, move the read position
+    // back by chunks and then read those chunks of bytes, to avoid
+    // thrashing the buffer updates.
+    final pos = input.position;
+    final length = input.length - 4;
+    const bufferSize = 1024;
+    final chunkSize = length < bufferSize ? length : bufferSize;
+    var sp = length - chunkSize;
+    final ep = sp + chunkSize;
+    while (sp >= 0) {
+      for (var ip = sp; ip < ep; ip++) {
+        input.setPosition(ip);
+        final sig = input.readUint32();
+        if (sig == eocdSignature) {
+          input.setPosition(pos);
+          return ip;
+        }
+      }
+      if (sp > 0 && sp < chunkSize) {
+        sp = 0;
+      } else {
+        sp -= chunkSize;
       }
     }
     throw ArchiveException('Could not find End of Central Directory Record');
