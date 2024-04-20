@@ -7,23 +7,6 @@ import 'package:test/test.dart';
 
 import '_test_util.dart';
 
-Future<void> extractArchiveToDisk(ArchiveDirectory archive, String root) async {
-  for (final e in archive) {
-    final path = '$root/${e.fullPathName}';
-    if (e is ArchiveDirectory) {
-      await Directory(path).create(recursive: true);
-      await extractArchiveToDisk(e, root);
-    } else {
-      final f = e as ArchiveFile;
-      final output = OutputFileStream(path);
-      f.writeContent(output);
-      final bytes = f.readBytes();
-      expect(bytes, isNotNull);
-      expect(bytes!.length, greaterThan(0));
-    }
-  }
-}
-
 final zipTests = <dynamic>[
   {
     'Name': 'test/_data/zip/test.zip',
@@ -233,6 +216,14 @@ void main() {
           File('test/_data/zip/android-javadoc.zip').readAsBytesSync()));
 
       await extractArchiveToDisk(archive, '$testOutputPath/android-javadoc');
+    });
+
+    test('decode file stream', () async {
+      final input = InputFileStream('test/_data/zip/android-javadoc.zip',
+          bufferSize: 32*1024);
+      final archive = ZipDecoder().decodeStream(input);
+      await extractArchiveToDisk(archive,
+          '$testOutputPath/zip_decode_file_stream');
     });
 
     test('empty', () async {

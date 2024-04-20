@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:path/path.dart' as path;
 
 import '../archive/archive.dart';
+import '../archive/archive_entry.dart';
 import '../archive/archive_file.dart';
 import '../codecs/bzip2_decoder.dart';
 import '../codecs/gzip_decoder.dart';
@@ -20,7 +21,7 @@ bool isWithinOutputPath(String outputDir, String filePath) {
       path.canonicalize(outputDir), path.canonicalize(filePath));
 }
 
-bool _isValidSymLink(String outputPath, ArchiveFile file) {
+bool _isValidSymLink(String outputPath, ArchiveEntry file) {
   final filePath =
       path.dirname(path.join(outputPath, path.normalize(file.name)));
   final linkPath = path.normalize(file.symbolicLink ?? "");
@@ -60,40 +61,6 @@ String? _prepareArchiveFilePath(ArchiveFile archiveFile, String outputPath) {
   return filePath;
 }
 
-Future<void> _extractArchiveEntryToDisk(
-    ArchiveFile file, String filePath) async {
-  if (file.isSymbolicLink) {
-    final link = Link(filePath);
-    await link.create(
-      path.normalize(file.symbolicLink ?? ""),
-      recursive: true,
-    );
-  } else {
-    final output = File(filePath);
-    final f = await output.create(recursive: true);
-    final fp = await f.open(mode: FileMode.write);
-    final bytes = file.getContent()!.toUint8List();
-    final fp2 = await fp.writeFrom(bytes);
-    await file.clear();
-    await fp2.close();
-  }
-}
-
-Future<void> extractArchiveToDisk(
-  Archive archive,
-  String outputPath, {
-  int? bufferSize,
-}) async {
-  _prepareOutDir(outputPath);
-  final files = archive.getAllFiles();
-  for (final file in files) {
-    final filePath = _prepareArchiveFilePath(file, outputPath);
-    if (filePath != null) {
-      await _extractArchiveEntryToDisk(file, filePath);
-    }
-  }
-}
-
 void _extractArchiveEntryToDiskSync(
   ArchiveFile file,
   String filePath, {
@@ -128,58 +95,72 @@ void extractArchiveToDiskSync(
   }
 }
 
-Future<void> extractArchiveToDiskAsync(Archive archive, String outputPath,
+Future<void> extractArchiveToDisk(Archive archive, String outputPath,
     {bool asyncWrite = false, int? bufferSize}) async {
   final futures = <Future<void>>[];
   final outDir = Directory(outputPath);
   if (!outDir.existsSync()) {
     outDir.createSync(recursive: true);
   }
-  final files = archive.getAllFiles();
-  for (final file in files) {
-    final filePath = path.join(outputPath, path.normalize(file.name));
+  final entries = archive.getAllEntries();
+  for (final entry in entries) {
+    final filePath = path.join(outputPath, path.normalize(entry.name));
 
-    if ((!file.isFile && !file.isSymbolicLink) ||
+    if ((!entry.isFile && !entry.isSymbolicLink) ||
         !isWithinOutputPath(outputPath, filePath)) {
       continue;
     }
 
-    if (file.isSymbolicLink) {
-      if (!_isValidSymLink(outputPath, file)) {
+    if (entry.isSymbolicLink) {
+      if (!_isValidSymLink(outputPath, entry)) {
         continue;
       }
+
+      if (asyncWrite) {
+        final link = Link(filePath);
+        await link.create(path.normalize(entry.symbolicLink ?? ""),
+            recursive: true);
+      } else {
+        final link = Link(filePath);
+        link.createSync(path.normalize(entry.symbolicLink ?? ""),
+            recursive: true);
+      }
+      continue;
     }
 
-    if (asyncWrite) {
-      if (file.isSymbolicLink) {
-        final link = Link(filePath);
-        await link.create(path.normalize(file.symbolicLink ?? ""),
-            recursive: true);
+
+    if (!entry.isFile) {
+      if (asyncWrite) {
+        await Directory(filePath).create(recursive: true);
       } else {
-        final output = File(filePath);
-        final f = await output.create(recursive: true);
-        final fp = await f.open(mode: FileMode.write);
-        final bytes = file.getContent()!.toUint8List();
-        await fp.writeFrom(bytes);
-        await file.clear();
-        futures.add(fp.close());
+        Directory(filePath).createSync(recursive: true);
       }
-    } else {
-      if (file.isSymbolicLink) {
-        final link = Link(filePath);
-        link.createSync(path.normalize(file.symbolicLink ?? ""),
-            recursive: true);
-      } else {
-        final output = OutputFileStream(filePath, bufferSize: bufferSize);
-        try {
-          file.writeContent(output);
-        } catch (err) {
-          //
-        }
-        await output.close();
-      }
+      continue;
     }
-  }
+
+    ArchiveFile file = entry as ArchiveFile;
+
+    /*if (asyncWrite) {
+      final output = File(filePath);
+      final f = await output.create(recursive: true);
+      final fp = await f.open(mode: FileMode.write);
+      final bytes = file.getContent()!.toUint8List();
+      await fp.writeFrom(bytes);
+      await file.clear();
+      futures.add(fp.close());
+    } else {*/
+      bufferSize ??= OutputFileStream.kDefaultBufferSize;
+      final fileSize = file.size;
+      final fileBufferSize = fileSize < bufferSize ? fileSize : bufferSize;
+      final output = OutputFileStream(filePath, bufferSize: fileBufferSize);
+      try {
+        file.writeContent(output);
+      } catch (err) {
+        //
+      }
+      await output.close();
+    }
+  //}
   if (futures.isNotEmpty) {
     await Future.wait(futures);
     futures.clear();

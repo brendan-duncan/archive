@@ -18,8 +18,7 @@ class InputFileStream extends InputStream {
 
   InputFileStream.withFileBuffer(
     this._file, {
-    super.byteOrder = ByteOrder.littleEndian,
-    int bufferSize = FileBuffer.kDefaultBufferSize,
+    super.byteOrder = ByteOrder.littleEndian
   })  : _fileOffset = 0,
         _position = 0 {
     _fileSize = _file.length;
@@ -27,8 +26,7 @@ class InputFileStream extends InputStream {
 
   InputFileStream.withFileHandle(
     AbstractFileHandle fh, {
-    super.byteOrder = ByteOrder.littleEndian,
-    int bufferSize = FileBuffer.kDefaultBufferSize,
+    super.byteOrder = ByteOrder.littleEndian
   })  : _file = FileBuffer(fh),
         _fileOffset = 0,
         _position = 0 {
@@ -41,22 +39,19 @@ class InputFileStream extends InputStream {
     int bufferSize = FileBuffer.kDefaultBufferSize,
   }) {
     return InputFileStream.withFileBuffer(
-      FileBuffer(FileHandle(path)),
-      byteOrder: byteOrder,
-      bufferSize: bufferSize,
+      FileBuffer(FileHandle(path), bufferSize: bufferSize),
+      byteOrder: byteOrder
     );
   }
 
   static Future<InputFileStream> asMemoryFile(
     Stream<Uint8List> stream,
     int fileLength, {
-    ByteOrder byteOrder = ByteOrder.littleEndian,
-    int bufferSize = FileBuffer.kDefaultBufferSize,
+    ByteOrder byteOrder = ByteOrder.littleEndian
   }) async {
     return InputFileStream.withFileBuffer(
       FileBuffer(await RamFileHandle.fromStream(stream, fileLength)),
-      byteOrder: byteOrder,
-      bufferSize: bufferSize,
+      byteOrder: byteOrder
     );
   }
 
