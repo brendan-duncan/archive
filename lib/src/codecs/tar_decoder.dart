@@ -1,9 +1,8 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:archive/archive.dart';
-
 import '../archive/archive.dart';
+import '../archive/archive_directory.dart';
 import '../archive/archive_file.dart';
 import 'tar/tar_file.dart';
 import '../util/input_stream.dart';
