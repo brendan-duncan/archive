@@ -226,14 +226,14 @@ class TarFile {
   }
 
   String _parseString(InputStream input, int numBytes) {
+    final codes = input.readBytes(numBytes).toUint8List();
+    final r = codes.indexOf(0);
+    final s = codes.sublist(0, r < 0 ? null : r);
     try {
-      final codes = input.readBytes(numBytes).toUint8List();
-      final r = codes.indexOf(0);
-      final s = codes.sublist(0, r < 0 ? null : r);
-      final str = String.fromCharCodes(s).trim();
-      return str;
+      return utf8.decode(s).trim();
     } catch (e) {
-      throw ArchiveException('Invalid Archive');
+      return String.fromCharCodes(s);
+      //throw ArchiveException('Invalid Archive');
     }
   }
 
