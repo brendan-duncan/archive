@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import '../archive/archive.dart';
 import '../archive/archive_directory.dart';
+import '../archive/archive_entry.dart';
 import '../archive/archive_file.dart';
 import 'tar/tar_file.dart';
 import '../util/input_stream.dart';
@@ -15,13 +16,13 @@ class TarDecoder {
   List<TarFile> files = [];
 
   Archive decodeBytes(Uint8List data,
-      {bool verify = false, bool storeData = true}) {
+      {bool verify = false, bool storeData = true, ArchiveCallback? callback}) {
     return decodeBuffer(InputMemoryStream(data),
-        verify: verify, storeData: storeData);
+        verify: verify, storeData: storeData, callback: callback);
   }
 
   Archive decodeBuffer(InputStream input,
-      {bool verify = false, bool storeData = true}) {
+      {bool verify = false, bool storeData = true, ArchiveCallback? callback}) {
     final archive = Archive();
     files.clear();
 
@@ -98,6 +99,9 @@ class TarDecoder {
           file.symbolicLink = tf.nameOfLinkedFile!;
         }
         archive.add(file);
+        if (callback != null) {
+          callback(file);
+        }
       } else {
         final file = ArchiveDirectory(tf.filename);
         file.mode = tf.mode;
@@ -108,6 +112,9 @@ class TarDecoder {
           file.symbolicLink = tf.nameOfLinkedFile!;
         }
         archive.add(file);
+        if (callback != null) {
+          callback(file);
+        }
       }
     }
 

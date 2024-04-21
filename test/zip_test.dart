@@ -218,11 +218,20 @@ void main() async {
       expect(decoded.length, equals(0));
     });
 
-    test('decode', () async {
+    test('decode encode', () async {
       final archive = ZipDecoder().decodeStream(InputMemoryStream(
-          File('test/_data/zip/android-javadoc.zip').readAsBytesSync()));
+          File('test/_data/test2.zip').readAsBytesSync()));
 
-      await extractArchiveToDisk(archive, '$testOutputPath/android-javadoc');
+      final zipBytes = ZipEncoder().encode(archive);
+
+      final archive2 = ZipDecoder().decodeBytes(zipBytes);
+
+      final entries1 = archive.getAllEntries();
+      final size1 = entries1.length;
+      final entries2 = archive2.getAllEntries();
+      final size2 = entries2.length;
+
+      expect(size1, size2);
     });
 
     test('decode file stream', () async {

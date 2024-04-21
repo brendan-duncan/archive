@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'dart:math';
 
+import 'package:archive/archive.dart';
+
 import '../archive/archive.dart';
 import '../archive/archive_entry.dart';
 import '../archive/archive_file.dart';
@@ -85,12 +87,13 @@ class ZipEncoder {
       {int level = DeflateLevel.bestSpeed,
       OutputStream? output,
       DateTime? modified,
-      bool autoClose = true}) {
+      bool autoClose = true,
+      ArchiveCallback? callback}) {
     output ??= OutputMemoryStream();
 
     startEncode(output, level: level, modified: modified);
     for (final file in archive) {
-      add(file, autoClose: autoClose);
+      add(file, autoClose: autoClose, callback: callback);
     }
     endEncode(comment: archive.comment);
 
@@ -155,14 +158,19 @@ class ZipEncoder {
     return data;
   }
 
-  void add(ArchiveEntry entry, {bool autoClose = true}) {
+  void add(ArchiveEntry entry,
+      {bool autoClose = true, ArchiveCallback? callback}) {
     final fileData = _ZipFileData();
     _data.files.add(fileData);
+
+    if (callback != null) {
+      callback(entry);
+    }
 
     final lastModMS = entry.lastModTime * 1000;
     final lastModTime = DateTime.fromMillisecondsSinceEpoch(lastModMS);
 
-    fileData.name = entry.name;
+    fileData.name = entry.fullPathName;
     if (!entry.isFile &&
         !fileData.name.endsWith('/') &&
         !fileData.name.endsWith('\\')) {
@@ -263,6 +271,12 @@ class ZipEncoder {
     _writeFile(fileData, _output!, salt: salt);
 
     fileData.compressedData = null;
+
+    if (entry is ArchiveDirectory) {
+      for (final file in entry) {
+        add(file, autoClose: autoClose, callback: callback);
+      }
+    }
 
     if (autoClose) {
       entry.closeSync();

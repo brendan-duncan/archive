@@ -1,5 +1,7 @@
 import '../util/input_stream.dart';
 
+typedef ArchiveCallback = void Function(ArchiveEntry entry);
+
 /// Either an ArchiveFile or an ArchiveDirectory
 abstract class ArchiveEntry extends Iterable<ArchiveEntry> {
   String name;

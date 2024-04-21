@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import '../archive/archive.dart';
 import '../archive/archive_directory.dart';
+import '../archive/archive_entry.dart';
 import '../archive/archive_file.dart';
 import '../util/archive_exception.dart';
 import '../util/crc32.dart';
@@ -15,14 +16,12 @@ class ZipDecoder {
   late ZipDirectory directory;
 
   Archive decodeBytes(Uint8List data,
-          {bool verify = false, String? password}) =>
-      decodeStream(InputMemoryStream(data), verify: verify, password: password);
+          {bool verify = false, String? password, ArchiveCallback? callback}) =>
+      decodeStream(InputMemoryStream(data),
+          verify: verify, password: password, callback: callback);
 
-  Archive decodeStream(
-    InputStream input, {
-    bool verify = false,
-    String? password,
-  }) {
+  Archive decodeStream(InputStream input,
+      {bool verify = false, String? password, ArchiveCallback? callback}) {
     directory = ZipDirectory();
     directory.read(input, password: password);
 
@@ -98,6 +97,10 @@ class ZipDecoder {
       entry
         ..crc32 = zf.crc32
         ..lastModTime = zf.lastModFileDate << 16 | zf.lastModFileTime;
+
+      if (callback != null) {
+        callback(entry);
+      }
     }
 
     return archive;
