@@ -30,8 +30,9 @@ abstract class ArchiveEntry extends Iterable<ArchiveEntry> {
   bool get isFile;
   bool get isDirectory => !isFile;
 
-  String get fullPathName =>
-      parent != null ? '${parent!.fullPathName}/$name' : name;
+  String get fullPathName => parent != null && parent!.fullPathName.isNotEmpty
+      ? '${parent!.fullPathName}/$name'
+      : name;
 
   Future<void> close();
 

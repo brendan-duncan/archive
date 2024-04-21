@@ -11,7 +11,7 @@ void main() {
   for (var i = 0; i < testData.length; ++i) {
     testData[i] = i;
   }
-  const testPath = '$testOutputPath/test_123.bin';
+  final testPath = '$testOutputPath/test_123.bin';
   File(testPath)
     ..createSync(recursive: true)
     ..writeAsBytesSync(testData);

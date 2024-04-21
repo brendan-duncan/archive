@@ -26,6 +26,16 @@ And the following encoders:
 
 ---
 
+## 4.0 Update
+
+The Archive library was originally written when the web was the primary use of Dart. File IO was less of a concern
+and the design was around having everything in memory. As other uses of Dart came about, such as Flutter, a lot
+of File IO operations were added to the library, but not in a very clean way.
+
+I've decided it's time to take a major version change as an opportunity to make a number of breaking changes that
+allow me to clean up the library, and really focus on File IO and reducing memory usage as a primary focus.
+
+
 ## Usage
 
 There are two versions of the Archive library:

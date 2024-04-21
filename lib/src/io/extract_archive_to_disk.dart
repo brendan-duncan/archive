@@ -96,7 +96,7 @@ void extractArchiveToDiskSync(
 }
 
 Future<void> extractArchiveToDisk(Archive archive, String outputPath,
-    {bool asyncWrite = false, int? bufferSize}) async {
+    {bool asyncWrite = true, int? bufferSize}) async {
   final futures = <Future<void>>[];
   final outDir = Directory(outputPath);
   if (!outDir.existsSync()) {
@@ -104,7 +104,7 @@ Future<void> extractArchiveToDisk(Archive archive, String outputPath,
   }
   final entries = archive.getAllEntries();
   for (final entry in entries) {
-    final filePath = path.join(outputPath, path.normalize(entry.name));
+    final filePath = path.normalize(path.join(outputPath, entry.fullPathName));
 
     if ((!entry.isFile && !entry.isSymbolicLink) ||
         !isWithinOutputPath(outputPath, filePath)) {
@@ -128,7 +128,6 @@ Future<void> extractArchiveToDisk(Archive archive, String outputPath,
       continue;
     }
 
-
     if (!entry.isFile) {
       if (asyncWrite) {
         await Directory(filePath).create(recursive: true);
@@ -149,17 +148,17 @@ Future<void> extractArchiveToDisk(Archive archive, String outputPath,
       await file.clear();
       futures.add(fp.close());
     } else {*/
-      bufferSize ??= OutputFileStream.kDefaultBufferSize;
-      final fileSize = file.size;
-      final fileBufferSize = fileSize < bufferSize ? fileSize : bufferSize;
-      final output = OutputFileStream(filePath, bufferSize: fileBufferSize);
-      try {
-        file.writeContent(output);
-      } catch (err) {
-        //
-      }
-      await output.close();
+    bufferSize ??= OutputFileStream.kDefaultBufferSize;
+    final fileSize = file.size;
+    final fileBufferSize = fileSize < bufferSize ? fileSize : bufferSize;
+    final output = OutputFileStream(filePath, bufferSize: fileBufferSize);
+    try {
+      file.writeContent(output);
+    } catch (err) {
+      //
     }
+    await output.close();
+  }
   //}
   if (futures.isNotEmpty) {
     await Future.wait(futures);

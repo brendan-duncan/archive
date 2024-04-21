@@ -2,8 +2,8 @@ import 'dart:io';
 
 import 'package:test/test.dart';
 
-//final testOutputPath = '${Directory.systemTemp.createTempSync().path}/out';
-const testOutputPath = './_out';
+final testOutputPath = '${Directory.systemTemp.createTempSync().path}';
+//const testOutputPath = './_out';
 
 const aTxt = '''this is a test
 of the

@@ -209,7 +209,7 @@ final zipTests = <dynamic>[
   },
 ];
 
-void main() {
+void main() async {
   group('zip', () {
     test('empty', () async {
       final archive = Archive();
