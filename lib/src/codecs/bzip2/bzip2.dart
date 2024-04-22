@@ -1,9 +1,9 @@
 import 'dart:typed_data';
 
 class BZip2 {
-  static final emptyUint8List = Uint8List(0).asUnmodifiableView();
-  static final emptyUint32List = Uint32List(0).asUnmodifiableView();
-  static final emptyInt32List = Int32List(0).asUnmodifiableView();
+  static final emptyUint8List = Uint8List(0);
+  static final emptyUint32List = Uint32List(0);
+  static final emptyInt32List = Int32List(0);
 
   static int initialCrc = 0xffffffff;
 
