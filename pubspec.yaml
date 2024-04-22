@@ -1,5 +1,5 @@
 name: archive
-version: 3.4.10
+version: 3.4.11
 description: >-
   Provides encoders and decoders for various archive and compression formats
   such as zip, tar, bzip2, gzip, and zlib.
@@ -10,7 +10,7 @@ environment:
 dependencies:
   crypto: ^3.0.3
   path: ^1.8.0
-  pointycastle: ^3.7.3
+  pointycastle: ^3.9.0
 
 dev_dependencies:
   http: ^1.1.0
