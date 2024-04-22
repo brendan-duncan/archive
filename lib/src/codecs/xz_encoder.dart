@@ -59,7 +59,7 @@ class XZEncoder {
 
     var headerBytes = header.getBytes();
     output.writeBytes(headerBytes);
-    output.writeUint32(getCrc32List(headerBytes));
+    output.writeUint32(getCrc32(headerBytes));
   }
 
   // Writes [data] to [output] in XZ block format.
@@ -115,7 +115,7 @@ class XZEncoder {
     var headerBytes = header.getBytes();
     var blockStart = output.length;
     output.writeBytes(headerBytes);
-    output.writeUint32(getCrc32List(headerBytes));
+    output.writeUint32(getCrc32(headerBytes));
 
     // Write block data.
     output.writeBytes(lzma2.getBytes());
@@ -127,10 +127,10 @@ class XZEncoder {
       case 0x00: // none
         break;
       case 0x01: // CRC32
-        output.writeUint32(getCrc32List(data));
+        output.writeUint32(getCrc32(data));
         break;
       case 0x04: // CRC64
-        output.writeUint64(getCrc64List(data));
+        output.writeUint64(getCrc64(data));
         break;
       case 0x0a: // SHA-256
         output.writeBytes(sha256.convert(data).bytes);
@@ -190,7 +190,7 @@ class XZEncoder {
 
     var indexBytes = index.getBytes();
     output.writeBytes(indexBytes);
-    output.writeUint32(getCrc32List(indexBytes));
+    output.writeUint32(getCrc32(indexBytes));
   }
 
   // Write an XZ stream footer to [output].
@@ -202,7 +202,7 @@ class XZEncoder {
     footer.writeByte(flags);
 
     var footerBytes = footer.getBytes();
-    output.writeUint32(getCrc32List(footerBytes));
+    output.writeUint32(getCrc32(footerBytes));
     output.writeBytes(footerBytes);
 
     // 'YZ'

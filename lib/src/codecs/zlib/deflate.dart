@@ -1215,7 +1215,7 @@ class Deflate {
     }
     buf.setRange(start, start + len, bytes);
     total += len;
-    crc32 = getCrc32List(bytes, crc32);
+    crc32 = getCrc32(bytes, crc32);
 
     return len;
   }

@@ -82,7 +82,7 @@ class _XZStreamDecoder {
     header.reset();
 
     final crc = input.readUint32();
-    if (getCrc32List(header.toUint8List()) != crc) {
+    if (getCrc32(header.toUint8List()) != crc) {
       throw ArchiveException('Invalid stream header CRC checksum');
     }
   }
@@ -141,7 +141,7 @@ class _XZStreamDecoder {
     header.reset();
 
     final crc = input.readUint32();
-    if (getCrc32List(header.toUint8List()) != crc) {
+    if (getCrc32(header.toUint8List()) != crc) {
       throw ArchiveException('Invalid block CRC checksum');
     }
 
@@ -177,8 +177,7 @@ class _XZStreamDecoder {
       case 0x1: // CRC32
         final expectedCrc = input.readUint32();
         if (verify) {
-          final actualCrc =
-              getCrc32List(data.toBytes().sublist(startDataLength));
+          final actualCrc = getCrc32(data.toBytes().sublist(startDataLength));
           if (actualCrc != expectedCrc) {
             throw ArchiveException('CRC32 check failed');
           }
@@ -194,8 +193,7 @@ class _XZStreamDecoder {
       case 0x4: // CRC64
         final expectedCrc = input.readUint64();
         if (verify && isCrc64Supported()) {
-          final actualCrc =
-              getCrc64List(data.toBytes().sublist(startDataLength));
+          final actualCrc = getCrc64(data.toBytes().sublist(startDataLength));
           if (actualCrc != expectedCrc) {
             throw ArchiveException('CRC64 check failed');
           }
@@ -339,7 +337,7 @@ class _XZStreamDecoder {
     final indexData = input.readBytes(indexLength);
 
     final crc = input.readUint32();
-    if (getCrc32List(indexData.toUint8List()) != crc) {
+    if (getCrc32(indexData.toUint8List()) != crc) {
       throw ArchiveException('Invalid stream index CRC checksum');
     }
 
@@ -364,7 +362,7 @@ class _XZStreamDecoder {
     }
     footer.reset();
 
-    if (getCrc32List(footer.toUint8List()) != crc) {
+    if (getCrc32(footer.toUint8List()) != crc) {
       throw ArchiveException('Invalid stream footer CRC checksum');
     }
 

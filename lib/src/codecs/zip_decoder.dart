@@ -34,7 +34,7 @@ class ZipDecoder {
 
       if (verify) {
         final stream = zf.getStream();
-        final computedCrc = getCrc32List(stream.toUint8List());
+        final computedCrc = getCrc32(stream.toUint8List());
         if (computedCrc != zf.crc32) {
           throw ArchiveException('Invalid CRC for file in archive.');
         }

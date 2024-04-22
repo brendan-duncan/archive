@@ -156,7 +156,7 @@ class ZipFile extends FileContent {
   /// stored in the zip.
   bool verifyCrc32() {
     final contentStream = getStream();
-    _computedCrc32 ??= getCrc32List(contentStream.toUint8List());
+    _computedCrc32 ??= getCrc32(contentStream.toUint8List());
     return _computedCrc32 == crc32;
   }
 

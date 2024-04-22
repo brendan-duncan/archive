@@ -28,7 +28,7 @@ class GZipDecoder {
 
     if (verify) {
       final crc = input.readUint32();
-      final computedCrc = getCrc32List(buffer);
+      final computedCrc = getCrc32(buffer);
       if (crc != computedCrc) {
         throw ArchiveException('Invalid CRC checksum');
       }

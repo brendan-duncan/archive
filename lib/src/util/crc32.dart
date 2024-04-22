@@ -6,7 +6,7 @@ int getCrc32Byte(int crc, int b) => _crc32Table[(crc ^ b) & 0xff] ^ (crc >> 8);
 
 /// Get the CRC-32 checksum of the given array. You can append bytes to an
 /// already computed crc by specifying the previous [crc] value.
-int getCrc32List(List<int> array, [int crc = 0]) {
+int getCrc32(List<int> array, [int crc = 0]) {
   var len = array.length;
   crc = crc ^ 0xffffffff;
   var ip = 0;
@@ -49,7 +49,7 @@ class Crc32 extends crypto.Hash {
       _Crc32Sink(sink);
 
   void add(List<int> data) {
-    _hash = getCrc32List(data, _hash);
+    _hash = getCrc32(data, _hash);
   }
 
   List<int> close() => [
@@ -74,7 +74,7 @@ class _Crc32Sink extends ByteConversionSinkBase {
   @override
   void add(List<int> data) {
     if (_isClosed) throw StateError('Hash.add() called after close().');
-    _hash = getCrc32List(data, _hash);
+    _hash = getCrc32(data, _hash);
   }
 
   @override

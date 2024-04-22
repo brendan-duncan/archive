@@ -117,12 +117,12 @@ class ZipEncoder {
     const chunkSize = 1024 * 1024;
     while (size > chunkSize) {
       final bytes = s.readBytes(chunkSize).toUint8List();
-      crc32 = getCrc32List(bytes, crc32);
+      crc32 = getCrc32(bytes, crc32);
       size -= chunkSize;
     }
     if (size > 0) {
       final bytes = s.readBytes(size).toUint8List();
-      crc32 = getCrc32List(bytes, crc32);
+      crc32 = getCrc32(bytes, crc32);
     }
     content.reset();
     return crc32;
