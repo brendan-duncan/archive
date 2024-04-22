@@ -50,8 +50,10 @@ class InputFileStream extends InputStream {
   }
 
   InputFileStream.fromFileStream(InputFileStream other,
-      {int? position, int? length})
-      : _file = other._file,
+      {int? position, int? length, int? bufferSize})
+      : _file = bufferSize != null
+            ? new FileBuffer.from(other._file, bufferSize: bufferSize)
+            : other._file,
         _fileOffset = other._fileOffset + (position ?? 0),
         _fileSize = length ?? other._fileSize,
         _position = 0,
@@ -116,9 +118,9 @@ class InputFileStream extends InputStream {
   }
 
   @override
-  InputStream subset({int? position, int? length}) {
+  InputStream subset({int? position, int? length, int? bufferSize}) {
     return InputFileStream.fromFileStream(this,
-        position: position, length: length);
+        position: position, length: length, bufferSize: bufferSize);
   }
 
   @override

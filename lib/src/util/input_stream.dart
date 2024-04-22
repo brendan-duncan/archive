@@ -51,7 +51,7 @@ abstract class InputStream {
   /// to the start of the buffer. If [position] is not specified, the current
   /// read position is used. If [length] is not specified, the remainder of this
   /// stream is used.
-  InputStream subset({int? position, int? length});
+  InputStream subset({int? position, int? length, int? bufferSize});
 
   /// Read a single byte.
   int readByte();

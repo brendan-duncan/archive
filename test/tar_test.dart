@@ -161,8 +161,7 @@ void main() {
 
     test('file', () {
       final tar = TarEncoder()
-          .encode(Archive()
-        ..add(ArchiveFile.list('file.txt', [100])));
+          .encode(Archive()..add(ArchiveFile.list('file.txt', [100])));
       File(p.join(testOutputPath, 'tar_encoded.tar'))
         ..createSync(recursive: true)
         ..writeAsBytesSync(tar);
@@ -170,8 +169,7 @@ void main() {
 
     test('file with symlink', () {
       ArchiveFile symlink = ArchiveFile.symlink('file.txt', 'file2.txt');
-      final tar = TarEncoder().encode(Archive()
-        ..add(symlink));
+      final tar = TarEncoder().encode(Archive()..add(symlink));
       File(p.join(testOutputPath, 'tar_encoded.tar'))
         ..createSync(recursive: true)
         ..writeAsBytesSync(tar);

@@ -2,9 +2,8 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'dart:math';
 
-import 'package:archive/archive.dart';
-
 import '../archive/archive.dart';
+import '../archive/archive_directory.dart';
 import '../archive/archive_entry.dart';
 import '../archive/archive_file.dart';
 import '../util/aes.dart';

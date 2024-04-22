@@ -42,8 +42,9 @@ class ZipDirectory {
     _readZip64Data(input);
 
     final dirContent = input.subset(
-        position: centralDirectoryOffset, length: centralDirectorySize);
-
+        position: centralDirectoryOffset,
+        length: centralDirectorySize,
+        bufferSize: 1024);
     while (!dirContent.isEOS) {
       final fileSig = dirContent.readUint32();
       if (fileSig != ZipFileHeader.signature) {

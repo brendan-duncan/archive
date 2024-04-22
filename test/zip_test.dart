@@ -219,8 +219,8 @@ void main() async {
     });
 
     test('decode encode', () async {
-      final archive = ZipDecoder().decodeStream(InputMemoryStream(
-          File('test/_data/test2.zip').readAsBytesSync()));
+      final archive = ZipDecoder().decodeStream(
+          InputMemoryStream(File('test/_data/test2.zip').readAsBytesSync()));
 
       final zipBytes = ZipEncoder().encode(archive);
 
@@ -236,10 +236,10 @@ void main() async {
 
     test('decode file stream', () async {
       final input = InputFileStream('test/_data/zip/android-javadoc.zip',
-          bufferSize: 32*1024);
+          bufferSize: 32 * 1024);
       final archive = ZipDecoder().decodeStream(input);
-      await extractArchiveToDisk(archive,
-          '$testOutputPath/zip_decode_file_stream');
+      await extractArchiveToDisk(
+          archive, '$testOutputPath/zip_decode_file_stream');
     });
 
     test('decode', () async {
@@ -527,7 +527,7 @@ void main() async {
       expect(archive[0].isSymbolicLink, equals(true));
     });
 
-    /*test('decode many files (100k)', () async {
+    test('decode many files (100k)', () async {
       final fp = InputFileStream(
         p.join('test/_data/test_100k_files.zip'),
         bufferSize: 1024 * 1024,
@@ -560,7 +560,7 @@ void main() async {
         );
         nextEntryIndex++;
       }
-    });*/
+    });
 
     for (final Z in zipTests) {
       final z = Z as Map<String, dynamic>;

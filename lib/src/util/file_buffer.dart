@@ -39,6 +39,15 @@ class FileBuffer {
     _readBuffer(0, _fileSize);
   }
 
+  FileBuffer.from(FileBuffer other, {int? bufferSize})
+      : this.byteOrder = other.byteOrder,
+        this._file = other._file {
+    this._bufferSize = bufferSize ?? other._bufferSize;
+    this._position = other._position;
+    this._fileSize = other._fileSize;
+    _buffer = Uint8List(_bufferSize);
+  }
+
   int get length => _fileSize;
 
   bool get isOpen => _file.isOpen;

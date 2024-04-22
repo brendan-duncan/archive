@@ -105,7 +105,7 @@ class InputMemoryStream extends InputStream {
   /// read position is used. If [length] is not specified, the remainder of this
   /// stream is used.
   @override
-  InputStream subset({int? position, int? length}) {
+  InputStream subset({int? position, int? length, int? bufferSize}) {
     position ??= _position;
     length ??= _length - position;
     return InputMemoryStream(buffer,

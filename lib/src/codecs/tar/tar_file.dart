@@ -3,7 +3,6 @@ import 'dart:typed_data';
 
 import 'package:archive/src/util/output_memory_stream.dart';
 
-import '../../util/archive_exception.dart';
 import '../../util/file_content.dart';
 import '../../util/input_stream.dart';
 import '../../util/output_stream.dart';
