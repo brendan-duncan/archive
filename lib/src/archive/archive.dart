@@ -1,3 +1,4 @@
+import 'package:path/path.dart' as p;
 import '../util/archive_exception.dart';
 import 'archive_directory.dart';
 
@@ -22,7 +23,7 @@ class Archive extends ArchiveDirectory {
 
   @override
   ArchiveDirectory? getOrCreateDirectory(String name) {
-    final pathTk = name.split('/');
+    final pathTk = p.split(name);
     if (pathTk.last.isEmpty) {
       pathTk.removeLast();
     }

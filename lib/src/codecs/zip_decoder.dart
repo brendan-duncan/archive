@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:path/path.dart' as p;
+
 import '../archive/archive.dart';
 import '../archive/archive_directory.dart';
 import '../archive/archive_entry.dart';
@@ -57,7 +59,7 @@ class ZipDecoder {
 
       final dir = archive.getOrCreateDirectory(zf.filename);
 
-      final pathTk = zf.filename.split('/');
+      final pathTk = p.split(zf.filename);
       if (pathTk.last.isEmpty) {
         pathTk.removeLast();
       }
