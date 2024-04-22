@@ -91,6 +91,7 @@ class ArchiveFile extends ArchiveEntry {
     return _content?.getStream();
   }
 
+  /// Get the decompressed bytes of the file.
   Uint8List? readBytes() {
     final stream = getContent();
     return stream?.toUint8List();

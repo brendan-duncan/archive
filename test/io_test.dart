@@ -358,7 +358,7 @@ void main() {
       final Uint8List? fileContent = fileNameToFileContent[file.name];
       expect(fileContent != null, true,
           reason: 'File content was null for "${file.name}"');
-      compareBytes(file.getContent()!.toUint8List(), fileContent!);
+      compareBytes(file.readBytes()!, fileContent!);
     }
   });
 

@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import '../util/input_stream.dart';
 
 typedef ArchiveCallback = void Function(ArchiveEntry entry);
@@ -72,4 +74,6 @@ abstract class ArchiveEntry extends Iterable<ArchiveEntry> {
   String toString() => fullPathName;
 
   InputStream? getContent() => null;
+
+  Uint8List? readBytes() => null;
 }

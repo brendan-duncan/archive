@@ -232,7 +232,7 @@ class TarFile {
     try {
       return utf8.decode(s).trim();
     } catch (e) {
-      return String.fromCharCodes(s);
+      return String.fromCharCodes(s).trim();
       //throw ArchiveException('Invalid Archive');
     }
   }

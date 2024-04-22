@@ -346,7 +346,7 @@ void main() async {
 
       final arc = ZipDecoder().decodeBytes(zipData, verify: true);
       expect(arc.length, equals(1));
-      final arcData = arc[0].getContent()!.toUint8List();
+      final arcData = arc[0].readBytes()!;
       expect(arcData.length, equals(bytes.length));
       for (var i = 0; i < arcData.length; ++i) {
         expect(arcData[i], equals(bytes[i]));
@@ -370,7 +370,7 @@ void main() async {
 
       var arc = ZipDecoder().decodeBytes(zipData, verify: true);
       expect(arc.length, equals(1));
-      var arcData = arc[0].getContent()!.toUint8List();
+      var arcData = arc[0].readBytes()!;
       expect(arcData.length, equals(bdata.length));
       for (var i = 0; i < arcData.length; ++i) {
         expect(arcData[i], equals(bdata.codeUnits[i]));
@@ -389,7 +389,7 @@ void main() async {
       for (var i = 0; i < archive.length; ++i) {
         var file = File(p.join('test/_data/zip/${archive[i].name}'));
         var bytes = file.readAsBytesSync();
-        var content = archive[i].getContent()!.toUint8List();
+        var content = archive[i].readBytes()!;
         expect(bytes.length, equals(content.length));
         bool diff = false;
         for (int i = 0; i < bytes.length; ++i) {
@@ -411,7 +411,7 @@ void main() async {
       for (var i = 0; i < archive.length; ++i) {
         final file = File(p.join('test/_data/zip/${archive[i].name}'));
         final bytes = file.readAsBytesSync();
-        final content = archive[i].getContent()!.toUint8List();
+        final content = archive[i].readBytes()!;
         expect(content.length, equals(bytes.length));
         bool diff = false;
         for (int i = 0; i < bytes.length; ++i) {
@@ -436,7 +436,7 @@ void main() async {
       expect(archive.length, equals(1));
 
       for (var i = 0; i < archive.length; ++i) {
-        final zBytes = archive[i].getContent()!.toUint8List();
+        final zBytes = archive[i].readBytes()!;
         if (archive[i].name == 'hello.txt') {
           compareBytes(zBytes, bBytes);
         } else {
@@ -474,7 +474,7 @@ void main() async {
 
       final arc = ZipDecoder().decodeBytes(zipData, password: 'abc123');
       expect(arc.length, equals(1));
-      final arcData = arc[0].getContent()!.toUint8List();
+      final arcData = arc[0].readBytes()!;
       expect(arcData.length, equals(bdata.length));
       for (var i = 0; i < arcData.length; ++i) {
         expect(arcData[i], equals(bdata.codeUnits[i]));
@@ -493,7 +493,7 @@ void main() async {
       final aBytes = aTxt.codeUnits;
 
       for (var i = 0; i < archive.length; ++i) {
-        final zBytes = archive[i].getContent()!.toUint8List();
+        final zBytes = archive[i].readBytes()!;
         if (archive[i].name == 'a.txt') {
           compareBytes(zBytes, aBytes);
         } else if (archive[i].name == 'cat.jpg') {

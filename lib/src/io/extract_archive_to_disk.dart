@@ -143,7 +143,7 @@ Future<void> extractArchiveToDisk(Archive archive, String outputPath,
       final output = File(filePath);
       final f = await output.create(recursive: true);
       final fp = await f.open(mode: FileMode.write);
-      final bytes = file.getContent()!.toUint8List();
+      final bytes = file.readBytes()!;
       await fp.writeFrom(bytes);
       await file.clear();
       futures.add(fp.close());
@@ -246,7 +246,7 @@ Future<void> extractFileToDisk(String inputPath, String outputPath,
         final output = File(filePath);
         final f = await output.create(recursive: true);
         final fp = await f.open(mode: FileMode.write);
-        final bytes = file.getContent()!.toUint8List();
+        final bytes = file.readBytes()!;
         await fp.writeFrom(bytes);
         await file.clear();
         futures.add(fp.close());

@@ -12,7 +12,7 @@ Future<void> main() async {
   for (final file in archive) {
     final filename = file.name;
     if (file.isFile) {
-      final data = file.getContent()!.toUint8List();
+      final data = file.readBytes()!;
       File('out/$filename')
         ..createSync(recursive: true)
         ..writeAsBytesSync(data);
