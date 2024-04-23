@@ -8,7 +8,7 @@ import 'zlib/deflate.dart';
 import 'zlib/gzip_flag.dart';
 
 class GZipEncoder {
-  Uint8List encode(Uint8List data,
+  Uint8List encodeBytes(Uint8List data,
       {int level = DeflateLevel.defaultCompression, OutputStream? output}) {
     return encodeStream(InputMemoryStream(data), level: level, output: output);
   }

@@ -14,7 +14,7 @@ enum XZCheck { none, crc32, crc64, sha256 }
 /// Compress data using the xz format encoder.
 /// This encoder only currently supports uncompressed data.
 class XZEncoder {
-  Uint8List encode(Uint8List data, {XZCheck check = XZCheck.crc64}) {
+  Uint8List encodeBytes(Uint8List data, {XZCheck check = XZCheck.crc64}) {
     var flags = 0;
     switch (check) {
       case XZCheck.none:

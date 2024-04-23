@@ -7,7 +7,7 @@ import 'zlib/zlib_decoder.dart';
 class ZLibDecoder {
   const ZLibDecoder();
 
-  Uint8List decode(Uint8List data, {bool verify = false}) =>
+  Uint8List decodeBytes(Uint8List data, {bool verify = false}) =>
       platformZLibDecoder.decodeBytes(data, verify: verify);
 
   Uint8List decodeStream(InputStream input, {bool verify = false}) =>

@@ -10,7 +10,7 @@ import '../util/output_memory_stream.dart';
 /// Compress data using the BZip2 format.
 /// Derived from libbzip2 (http://www.bzip.org).
 class BZip2Encoder {
-  Uint8List encode(Uint8List data) {
+  Uint8List encodeBytes(Uint8List data) {
     input = InputMemoryStream(data, byteOrder: ByteOrder.bigEndian);
     final output = OutputMemoryStream(byteOrder: ByteOrder.bigEndian);
 

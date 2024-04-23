@@ -15,7 +15,7 @@ final paxRecordRegexp = RegExp(r"(\d+) (\w+)=(.*)");
 class TarDecoder {
   List<TarFile> files = [];
 
-  Archive decode(Uint8List data,
+  Archive decodeBytes(Uint8List data,
       {bool verify = false, bool storeData = true, ArchiveCallback? callback}) {
     return decodeStream(InputMemoryStream(data),
         verify: verify, storeData: storeData, callback: callback);
