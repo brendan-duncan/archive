@@ -13,9 +13,8 @@ void main() async {
 
   group('ZLib', () {
     test('encode/decode', () async {
-      final compressed = const ZLibEncoder().encodeBytes(buffer);
-      final decompressed =
-          const ZLibDecoder().decodeBytes(compressed, verify: true);
+      final compressed = const ZLibEncoder().encode(buffer);
+      final decompressed = const ZLibDecoder().decode(compressed, verify: true);
       expect(decompressed.length, equals(buffer.length));
       for (var i = 0; i < buffer.length; ++i) {
         expect(decompressed[i], equals(buffer[i]));

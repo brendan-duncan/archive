@@ -15,13 +15,13 @@ final paxRecordRegexp = RegExp(r"(\d+) (\w+)=(.*)");
 class TarDecoder {
   List<TarFile> files = [];
 
-  Archive decodeBytes(Uint8List data,
+  Archive decode(Uint8List data,
       {bool verify = false, bool storeData = true, ArchiveCallback? callback}) {
-    return decodeBuffer(InputMemoryStream(data),
+    return decodeStream(InputMemoryStream(data),
         verify: verify, storeData: storeData, callback: callback);
   }
 
-  Archive decodeBuffer(InputStream input,
+  Archive decodeStream(InputStream input,
       {bool verify = false, bool storeData = true, ArchiveCallback? callback}) {
     final archive = Archive();
     files.clear();

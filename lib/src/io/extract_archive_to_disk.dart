@@ -185,7 +185,7 @@ Future<void> extractFileToDisk(String inputPath, String outputPath,
     archivePath = path.join(tempDir.path, 'temp.tar');
     final input = InputFileStream(inputPath);
     final output = OutputFileStream(archivePath, bufferSize: bufferSize);
-    BZip2Decoder().decodeBuffer(input, output: output);
+    BZip2Decoder().decodeStream(input, output);
     futures.add(input.close());
     futures.add(output.close());
   } else if (inputPath.endsWith('tar.xz') || inputPath.endsWith('txz')) {
@@ -208,7 +208,7 @@ Future<void> extractFileToDisk(String inputPath, String outputPath,
   Archive archive;
   if (archivePath.endsWith('tar')) {
     final input = InputFileStream(archivePath);
-    archive = TarDecoder().decodeBuffer(input);
+    archive = TarDecoder().decodeStream(input);
     toClose = input;
   } else if (archivePath.endsWith('zip')) {
     final input = InputFileStream(archivePath);

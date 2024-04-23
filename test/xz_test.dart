@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:archive/archive.dart';
 import 'package:path/path.dart' as p;
@@ -12,7 +13,7 @@ void main() {
     test('good-1-lzma2-1.xz', () {
       var file = File(p.join('test/_data/xz/good-1-lzma2-1.xz'));
       final compressed = file.readAsBytesSync();
-      final data = XZDecoder().decodeBytes(compressed);
+      final data = XZDecoder().decode(compressed);
 
       final expected = File(p.join('test/_data/xz/expected/good-1-lzma2-1'))
           .readAsBytesSync();
@@ -27,7 +28,7 @@ void main() {
       var file = File(p.join('test/_data/xz/empty.xz'));
       final compressed = file.readAsBytesSync();
 
-      var data = XZDecoder().decodeBytes(compressed);
+      var data = XZDecoder().decode(compressed);
       expect(data, isEmpty);
     });
 
@@ -36,7 +37,7 @@ void main() {
       var file = File(p.join('test/_data/xz/hello.xz'));
       final compressed = file.readAsBytesSync();
 
-      var data = XZDecoder().decodeBytes(compressed);
+      var data = XZDecoder().decode(compressed);
       expect(data, equals(utf8.encode('hello\n')));
     });
 
@@ -45,7 +46,7 @@ void main() {
       var file = File(p.join('test/_data/xz/crc32.xz'));
       final compressed = file.readAsBytesSync();
 
-      var data = XZDecoder().decodeBytes(compressed, verify: true);
+      var data = XZDecoder().decode(compressed, verify: true);
       expect(data, equals(utf8.encode('hello\n')));
     });
 
@@ -54,7 +55,7 @@ void main() {
       var file = File(p.join('test/_data/xz/crc64.xz'));
       final compressed = file.readAsBytesSync();
 
-      var data = XZDecoder().decodeBytes(compressed, verify: true);
+      var data = XZDecoder().decode(compressed, verify: true);
       expect(data, equals(utf8.encode('hello\n')));
     });
 
@@ -63,7 +64,7 @@ void main() {
       var file = File(p.join('test/_data/xz/sha256.xz'));
       final compressed = file.readAsBytesSync();
 
-      var data = XZDecoder().decodeBytes(compressed, verify: true);
+      var data = XZDecoder().decode(compressed, verify: true);
       expect(data, equals(utf8.encode('hello\n')));
     });
 
@@ -72,7 +73,7 @@ void main() {
       var file = File(p.join('test/_data/xz/nocheck.xz'));
       final compressed = file.readAsBytesSync();
 
-      var data = XZDecoder().decodeBytes(compressed, verify: true);
+      var data = XZDecoder().decode(compressed, verify: true);
       expect(data, equals(utf8.encode('hello\n')));
     });
 
@@ -81,7 +82,7 @@ void main() {
       var file = File(p.join('test/_data/xz/hello-hello-hello.xz'));
       final compressed = file.readAsBytesSync();
 
-      var data = XZDecoder().decodeBytes(compressed);
+      var data = XZDecoder().decode(compressed);
       expect(data, equals(utf8.encode('hello hello hello')));
     });
 
@@ -92,7 +93,7 @@ void main() {
       var b = File(p.join('test/_data/cat.jpg'));
       final bBytes = b.readAsBytesSync();
 
-      var data = XZDecoder().decodeBytes(compressed);
+      var data = XZDecoder().decode(compressed);
       compareBytes(data, bBytes);
     });
 
@@ -100,7 +101,7 @@ void main() {
       var file = File(p.join('test/_data/xz/empty.xz'));
       final expected = file.readAsBytesSync();
 
-      var data = XZEncoder().encode([]);
+      var data = XZEncoder().encode(Uint8List(0));
       compareBytes(data, expected);
     });
 

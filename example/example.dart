@@ -6,7 +6,7 @@ Future<void> main() async {
   final bytes = File('test.zip').readAsBytesSync();
 
   // Decode the Zip file
-  final archive = ZipDecoder().decodeBytes(bytes);
+  final archive = ZipDecoder().decode(bytes);
 
   // Extract the contents of the Zip archive to disk.
   for (final file in archive) {

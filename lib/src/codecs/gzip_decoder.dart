@@ -10,8 +10,8 @@ import 'zlib/gzip_flag.dart';
 
 /// Decompress data with the gzip format decoder.
 class GZipDecoder {
-  Uint8List decodeBytes(Uint8List data, {bool verify = false}) {
-    return decodeBuffer(InputMemoryStream(data), verify: verify);
+  Uint8List decode(Uint8List data, {bool verify = false}) {
+    return decodeStreamBytes(InputMemoryStream(data), verify: verify);
   }
 
   void decodeStream(InputStream input, OutputStream output) {
@@ -20,7 +20,7 @@ class GZipDecoder {
     output.flush();
   }
 
-  Uint8List decodeBuffer(InputStream input, {bool verify = false}) {
+  Uint8List decodeStreamBytes(InputStream input, {bool verify = false}) {
     _readHeader(input);
 
     // Inflate

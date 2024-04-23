@@ -27,7 +27,7 @@ void listTarFiles(String path) {
   final tarArchive = TarDecoder();
   // Tell the decoder not to store the actual file data since we don't need
   // it.
-  tarArchive.decodeBuffer(tarInput, storeData: false);
+  tarArchive.decodeStream(tarInput, storeData: false);
 
   print('${tarArchive.files.length} file(s)');
   for (final f in tarArchive.files) {
@@ -56,7 +56,7 @@ Directory extractTarFiles(String inputPath, String outputPath) {
   }
 
   final input = InputFileStream(tarPath);
-  final tarArchive = TarDecoder().decodeBuffer(input);
+  final tarArchive = TarDecoder().decodeStream(input);
 
   final files = tarArchive.getAllFiles();
   for (final file in files) {

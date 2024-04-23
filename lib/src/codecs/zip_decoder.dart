@@ -17,7 +17,7 @@ import 'zip/zip_directory.dart';
 class ZipDecoder {
   late ZipDirectory directory;
 
-  Archive decodeBytes(Uint8List data,
+  Archive decode(Uint8List data,
           {bool verify = false, String? password, ArchiveCallback? callback}) =>
       decodeStream(InputMemoryStream(data),
           verify: verify, password: password, callback: callback);

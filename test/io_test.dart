@@ -370,7 +370,7 @@ void main() {
 
     final zipDecoder = ZipDecoder();
     final f = File('$testOutputPath/testEmpty.zip');
-    final archive = zipDecoder.decodeBytes(f.readAsBytesSync(), verify: true);
+    final archive = zipDecoder.decode(f.readAsBytesSync(), verify: true);
     expect(archive.length, equals(1));
   });
 
@@ -378,7 +378,7 @@ void main() {
     // Decode a tar from disk to memory
     final stream = await ifsConstructor(p.join('test/_data/test2.tar'));
     final tarArchive = TarDecoder();
-    tarArchive.decodeBuffer(stream);
+    tarArchive.decodeStream(stream);
 
     for (final file in tarArchive.files) {
       if (!file.isFile) {
@@ -417,7 +417,7 @@ void main() {
 
     final tarDecoder = TarDecoder();
     final f = File('$testOutputPath/test3.tar');
-    final archive = tarDecoder.decodeBytes(f.readAsBytesSync(), verify: true);
+    final archive = tarDecoder.decode(f.readAsBytesSync(), verify: true);
     expect(archive.length, equals(4));
   });
 
@@ -479,15 +479,14 @@ void main() {
 
     final zipDecoder = ZipDecoder();
     final f = File('$testOutputPath/example2.zip');
-    final archive = zipDecoder.decodeBytes(f.readAsBytesSync(), verify: true);
+    final archive = zipDecoder.decode(f.readAsBytesSync(), verify: true);
     final entries = archive.getAllEntries();
     expect(entries.length, equals(7));
   });
 
   test('decode_empty_directory', () {
     final zip = ZipDecoder();
-    final archive =
-        zip.decodeBytes(File('test/_data/test2.zip').readAsBytesSync());
+    final archive = zip.decode(File('test/_data/test2.zip').readAsBytesSync());
     final entries = archive.getAllEntries();
     expect(entries.length, 5);
   });
@@ -504,7 +503,7 @@ void main() {
       ..writeAsBytesSync(bytes);
 
     final zipDecoder = ZipDecoder();
-    final archive2 = zipDecoder.decodeBytes(bytes, verify: true);
+    final archive2 = zipDecoder.decode(bytes, verify: true);
     final entries = archive2.getAllEntries();
     expect(entries.length, equals(5));
   });

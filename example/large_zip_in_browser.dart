@@ -83,8 +83,7 @@ Future<List<_FileData>> _readZipContentFromStream(
   final extractedFilesData = <_FileData>[];
   final files = archive.getAllFiles();
   for (final file in files) {
-    extractedFilesData
-        .add(_FileData(file.name, file.readBytes()!));
+    extractedFilesData.add(_FileData(file.name, file.readBytes()!));
   }
 
   return extractedFilesData;

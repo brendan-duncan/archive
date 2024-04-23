@@ -12,8 +12,9 @@ import '../util/output_memory_stream.dart';
 /// Decompress bzip2 compressed data.
 /// Derived from libbzip2 (http://www.bzip.org).
 class BZip2Decoder {
-  Uint8List decodeBytes(Uint8List data, {bool verify = false}) {
-    return decodeBuffer(InputMemoryStream(data, byteOrder: ByteOrder.bigEndian),
+  Uint8List decode(Uint8List data, {bool verify = false}) {
+    return decodeStreamBytes(
+        InputMemoryStream(data, byteOrder: ByteOrder.bigEndian),
         verify: verify);
   }
 
@@ -76,7 +77,7 @@ class BZip2Decoder {
     }
   }
 
-  Uint8List decodeBuffer(InputStream input,
+  Uint8List decodeStreamBytes(InputStream input,
       {bool verify = false, OutputStream? output}) {
     output ??= OutputMemoryStream();
     final br = Bz2BitReader(input);
