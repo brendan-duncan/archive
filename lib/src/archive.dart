@@ -1,5 +1,6 @@
-import 'archive_file.dart';
 import 'dart:collection';
+
+import 'archive_file.dart';
 
 /// A collection of files
 class Archive extends IterableBase<ArchiveFile> {
@@ -72,7 +73,7 @@ class Archive extends IterableBase<ArchiveFile> {
   ArchiveFile operator [](int index) => _files[index];
 
   /// Set a file in the archive.
-  void operator[]=(int index, ArchiveFile file) {
+  void operator []=(int index, ArchiveFile file) {
     if (index < 0 || index >= _files.length) {
       return;
     }

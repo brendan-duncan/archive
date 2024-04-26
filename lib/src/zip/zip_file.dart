@@ -1,15 +1,17 @@
+import 'dart:typed_data';
+
+import "package:pointycastle/export.dart";
+
 import '../bzip2_decoder.dart';
+import '../util/_file_content.dart';
 import '../util/aes.dart';
 import '../util/archive_exception.dart';
 import '../util/crc32.dart';
 import '../util/input_stream.dart';
 import '../util/output_stream.dart';
-import '../util/_file_content.dart';
 import '../zlib/inflate.dart';
 import '../zlib/inflate_buffer.dart';
 import 'zip_file_header.dart';
-import 'dart:typed_data';
-import "package:pointycastle/export.dart";
 
 class AesHeader {
   static const signature = 39169;

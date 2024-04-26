@@ -1,10 +1,9 @@
 import 'dart:io';
 
 import 'package:archive/archive_io.dart';
+import 'package:archive/src/tar/tar_command.dart' as tar_command;
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
-
-import 'package:archive/src/tar/tar_command.dart' as tar_command;
 
 import 'test_utils.dart';
 

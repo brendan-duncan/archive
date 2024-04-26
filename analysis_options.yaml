@@ -18,6 +18,9 @@ analyzer:
 linter:
   rules:
     - avoid_print
+    - always_declare_return_types
     - camel_case_types
-    - unawaited_futures
+    - directives_ordering
     - discarded_futures
+    - sort_pub_dependencies
+    - unawaited_futures
