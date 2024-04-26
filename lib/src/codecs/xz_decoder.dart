@@ -5,8 +5,8 @@ import 'package:crypto/crypto.dart';
 import '../util/archive_exception.dart';
 import '../util/crc32.dart';
 import '../util/crc64.dart';
-import '../util/input_stream.dart';
 import '../util/input_memory_stream.dart';
+import '../util/input_stream.dart';
 import 'lzma/lzma_decoder.dart';
 
 // The XZ specification can be found at

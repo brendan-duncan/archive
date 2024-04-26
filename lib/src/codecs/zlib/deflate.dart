@@ -2,10 +2,10 @@ import 'dart:typed_data';
 
 import '../../util/archive_exception.dart';
 import '../../util/crc32.dart';
-import '../../util/input_stream.dart';
 import '../../util/input_memory_stream.dart';
-import '../../util/output_stream.dart';
+import '../../util/input_stream.dart';
 import '../../util/output_memory_stream.dart';
+import '../../util/output_stream.dart';
 
 class DeflateLevel {
   static const none = 0;

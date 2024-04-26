@@ -1,6 +1,6 @@
 import 'dart:convert';
-import 'dart:typed_data';
 import 'dart:math';
+import 'dart:typed_data';
 
 import '../archive/archive.dart';
 import '../archive/archive_directory.dart';
@@ -8,9 +8,9 @@ import '../archive/archive_entry.dart';
 import '../archive/archive_file.dart';
 import '../util/aes.dart';
 import '../util/crc32.dart';
-import '../util/output_memory_stream.dart';
-import '../util/input_stream.dart';
 import '../util/input_memory_stream.dart';
+import '../util/input_stream.dart';
+import '../util/output_memory_stream.dart';
 import '../util/output_stream.dart';
 import 'zip/zip_directory.dart';
 import 'zip/zip_file.dart';

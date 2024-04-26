@@ -1,8 +1,8 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'archive_exception.dart';
 import 'abstract_file_handle.dart';
+import 'archive_exception.dart';
 import 'byte_order.dart';
 import 'file_buffer.dart';
 import 'file_handle.dart';
@@ -70,7 +70,7 @@ class InputFileStream extends InputStream {
   }
 
   @override
-  closeSync() {
+  void closeSync() {
     _file.closeSync();
     _position = 0;
     _fileSize = 0;

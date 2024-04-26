@@ -1,8 +1,8 @@
 import 'dart:typed_data';
 
 import 'byte_order.dart';
-import 'input_stream.dart';
 import 'input_memory_stream.dart';
+import 'input_stream.dart';
 import 'output_stream.dart';
 
 class OutputMemoryStream extends OutputStream {

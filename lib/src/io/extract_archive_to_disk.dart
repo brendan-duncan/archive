@@ -10,8 +10,8 @@ import '../codecs/gzip_decoder.dart';
 import '../codecs/tar_decoder.dart';
 import '../codecs/xz_decoder.dart';
 import '../codecs/zip_decoder.dart';
-import '../util/input_stream.dart';
 import '../util/input_file_stream.dart';
+import '../util/input_stream.dart';
 import '../util/output_file_stream.dart';
 
 /// Ensure filePath is contained in the outputDir folder, to make sure archives

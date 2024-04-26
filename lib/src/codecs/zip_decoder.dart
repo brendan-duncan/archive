@@ -9,8 +9,8 @@ import '../archive/archive_entry.dart';
 import '../archive/archive_file.dart';
 import '../util/archive_exception.dart';
 import '../util/crc32.dart';
-import '../util/input_stream.dart';
 import '../util/input_memory_stream.dart';
+import '../util/input_stream.dart';
 import 'zip/zip_directory.dart';
 
 /// Decode a zip formatted buffer into an [Archive] object.

@@ -1,11 +1,11 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
-import '../util/output_stream.dart';
 import '../archive/archive.dart';
 import '../archive/archive_entry.dart';
 import '../archive/archive_file.dart';
 import '../util/output_memory_stream.dart';
+import '../util/output_stream.dart';
 import 'tar/tar_file.dart';
 
 /// Encode an [Archive] object into a tar formatted buffer.

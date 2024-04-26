@@ -11,13 +11,13 @@ import 'inflate_test.dart' as inflate_test;
 import 'input_file_stream_test.dart' as input_file_stream_test;
 import 'input_memory_stream_test.dart' as input_memory_stream_test;
 import 'io_test.dart' as io_test;
-import 'ram_file_data_test.dart' as ram_file_data_test;
 import 'output_file_stream_test.dart' as output_file_stream_test;
 import 'output_memory_stream_test.dart' as output_memory_stream_test;
+import 'ram_file_data_test.dart' as ram_file_data_test;
 import 'tar_test.dart' as tar_test;
+import 'xz_test.dart' as xz_test;
 import 'zip_test.dart' as zip_test;
 import 'zlib_test.dart' as zlib_test;
-import 'xz_test.dart' as xz_test;
 
 void main() {
   adler32_test.main();

@@ -2,9 +2,9 @@ import 'dart:io';
 
 import 'package:path/path.dart' as path;
 
-import '../archive/compression_type.dart';
 import '../archive/archive_directory.dart';
 import '../archive/archive_file.dart';
+import '../archive/compression_type.dart';
 import '../codecs/zip_encoder.dart';
 import '../util/input_file_stream.dart';
 import '../util/output_file_stream.dart';

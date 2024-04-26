@@ -1,7 +1,7 @@
 import 'dart:typed_data';
 
-import '../../util/input_stream.dart';
 import '../../util/input_memory_stream.dart';
+import '../../util/input_stream.dart';
 import 'zip_file.dart';
 
 class ZipFileHeader {

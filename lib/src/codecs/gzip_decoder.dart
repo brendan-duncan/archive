@@ -1,13 +1,12 @@
 import 'dart:typed_data';
 
-//import '../util/archive_exception.dart';
 import '../util/crc32.dart';
-import '../util/input_stream.dart';
 import '../util/input_memory_stream.dart';
-import '../util/output_stream.dart';
+import '../util/input_stream.dart';
 import '../util/output_memory_stream.dart';
-import 'zlib/inflate.dart';
+import '../util/output_stream.dart';
 import 'zlib/gzip_flag.dart';
+import 'zlib/inflate.dart';
 
 /// Decompress data with the gzip format decoder.
 class GZipDecoder {

@@ -2,10 +2,10 @@ import 'dart:typed_data';
 
 import '../util/adler32.dart';
 import '../util/byte_order.dart';
-import '../util/input_stream.dart';
 import '../util/input_memory_stream.dart';
-import '../util/output_stream.dart';
+import '../util/input_stream.dart';
 import '../util/output_memory_stream.dart';
+import '../util/output_stream.dart';
 import 'zlib/deflate.dart';
 
 class ZLibEncoder {

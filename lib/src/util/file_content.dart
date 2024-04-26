@@ -1,7 +1,7 @@
 import 'dart:typed_data';
 
-import 'input_stream.dart';
 import 'input_memory_stream.dart';
+import 'input_stream.dart';
 import 'output_stream.dart';
 
 abstract class FileContent {

@@ -1,10 +1,9 @@
 import 'dart:typed_data';
 
 import '../../util/adler32.dart';
-//import '../../util/archive_exception.dart';
 import '../../util/byte_order.dart';
-import '../../util/input_stream.dart';
 import '../../util/input_memory_stream.dart';
+import '../../util/input_stream.dart';
 import '../../util/output_memory_stream.dart';
 import 'inflate.dart';
 import 'zlib_decoder_base.dart';

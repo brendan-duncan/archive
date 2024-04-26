@@ -1,7 +1,7 @@
 // ignore_for_file: avoid_print
-
 import 'dart:io';
-import 'package:archive/archive_io.dart';
+
+import '../../archive_io.dart';
 
 /// Print the entries in the given tar file.
 void listTarFiles(String path) {

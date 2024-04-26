@@ -1,7 +1,8 @@
 import 'dart:typed_data';
-import 'zlib_decoder_base.dart';
-import '_zlib_decoder_web.dart';
+
 import '../../util/input_stream.dart';
+import '_zlib_decoder_web.dart';
+import 'zlib_decoder_base.dart';
 
 class ZLibDecoderWeb extends ZLibDecoderBase {
   const ZLibDecoderWeb();

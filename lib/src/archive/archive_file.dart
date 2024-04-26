@@ -112,7 +112,7 @@ class ArchiveFile extends ArchiveEntry {
   }
 
   @override
-  closeSync() {
+  void closeSync() {
     if (_content != null) {
       _content!.closeSync();
     }
