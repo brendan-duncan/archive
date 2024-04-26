@@ -7,9 +7,9 @@ import '../archive_file.dart';
 import '../bzip2_decoder.dart';
 import '../gzip_decoder.dart';
 import '../tar_decoder.dart';
+import '../util/input_stream.dart';
 import '../xz_decoder.dart';
 import '../zip_decoder.dart';
-import '../util/input_stream.dart';
 import 'input_file_stream.dart';
 import 'output_file_stream.dart';
 

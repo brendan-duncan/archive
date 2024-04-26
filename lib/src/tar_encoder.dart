@@ -1,8 +1,9 @@
 import 'dart:typed_data';
-import 'tar/tar_file.dart';
-import 'util/output_stream.dart';
+
 import 'archive.dart';
 import 'archive_file.dart';
+import 'tar/tar_file.dart';
+import 'util/output_stream.dart';
 
 /// Encode an [Archive] object into a tar formatted buffer.
 class TarEncoder {

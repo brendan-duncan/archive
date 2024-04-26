@@ -1,6 +1,7 @@
 import 'dart:typed_data';
-import 'bzip2/bzip2.dart';
+
 import 'bzip2/bz2_bit_writer.dart';
+import 'bzip2/bzip2.dart';
 import 'util/archive_exception.dart';
 import 'util/byte_order.dart';
 import 'util/input_stream.dart';

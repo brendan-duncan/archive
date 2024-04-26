@@ -11,9 +11,9 @@ import 'tests/input_stream_test.dart' as input_stream_test;
 import 'tests/io_test.dart' as io_test;
 import 'tests/output_stream_test.dart' as output_stream_test;
 import 'tests/tar_test.dart' as tar_test;
+import 'tests/xz_test.dart' as xz_test;
 import 'tests/zip_test.dart' as zip_test;
 import 'tests/zlib_test.dart' as zlib_test;
-import 'tests/xz_test.dart' as xz_test;
 
 void main() {
   adler32_test.main();
