@@ -16,6 +16,11 @@ class Inflate {
     inflate();
   }
 
+  factory Inflate.list(List<int> bytes,
+          {OutputStream? output, int? uncompressedSize}) =>
+      Inflate(Uint8List.fromList(bytes),
+          output: output, uncompressedSize: uncompressedSize);
+
   Inflate.stream(this.input, {OutputStream? output, int? uncompressedSize})
       : output = output ?? OutputMemoryStream(size: uncompressedSize) {
     inflate();
@@ -78,7 +83,7 @@ class Inflate {
 
     while (!input!.isEOS) {
       if (!_parseBlock()) {
-        break;
+        return;
       }
     }
   }
@@ -122,7 +127,7 @@ class Inflate {
     return !finalBlock;
   }
 
-  /// Read a number of bits from the input stream.
+  // Read a number of bits from the input stream.
   int _readBits(int length) {
     if (length == 0) {
       return 0;

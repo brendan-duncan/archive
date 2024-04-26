@@ -13,6 +13,16 @@ void main() {
       buffer[i] = i % 256;
     }
 
+    test('multiblock', () async {
+      final compressedData = [
+        ...GZipEncoder().encodeList([1, 2, 3]),
+        ...GZipEncoder().encodeList([4, 5, 6])
+      ];
+      final decodedData =
+          GZipDecoder().decodeList(compressedData, verify: true);
+      compareBytes(decodedData, [1, 2, 3, 4, 5, 6]);
+    });
+
     test('encode/decode', () {
       final compressed = GZipEncoder().encodeBytes(buffer);
       final decompressed = GZipDecoder().decodeBytes(compressed, verify: true);

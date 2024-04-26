@@ -4,7 +4,7 @@ import 'dart:convert';
 import 'package:archive/archive.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
-//import '_test_util.dart';
+import '_test_util.dart';
 
 void main() {
   final buffer = Uint8List(0xfffff);

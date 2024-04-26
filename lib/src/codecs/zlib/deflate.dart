@@ -36,6 +36,13 @@ class Deflate {
     _deflate(flush: flush);
   }
 
+  factory Deflate.list(List<int> bytes,
+          {int level = DeflateLevel.defaultCompression,
+          OutputStream? output,
+          DeflateFlushMode flush = DeflateFlushMode.finish}) =>
+      Deflate(Uint8List.fromList(bytes),
+          level: level, output: output, flush: flush);
+
   Deflate.stream(this.input,
       {int level = DeflateLevel.defaultCompression,
       OutputStream? output,

@@ -12,6 +12,16 @@ void main() async {
   }
 
   group('ZLib', () {
+    test('multiblock', () async {
+      final compressedData = [
+        ...ZLibEncoder().encodeList([1, 2, 3]),
+        ...ZLibEncoder().encodeList([4, 5, 6])
+      ];
+      final decodedData =
+          ZLibDecoderWeb().decodeList(compressedData, verify: true);
+      compareBytes(decodedData, [1, 2, 3, 4, 5, 6]);
+    });
+
     test('encode/decode', () async {
       final compressed = const ZLibEncoder().encodeBytes(buffer);
       final decompressed =

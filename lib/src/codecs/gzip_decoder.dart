@@ -1,10 +1,11 @@
 import 'dart:typed_data';
 
-import '../util/archive_exception.dart';
+//import '../util/archive_exception.dart';
 import '../util/crc32.dart';
 import '../util/input_stream.dart';
 import '../util/input_memory_stream.dart';
 import '../util/output_stream.dart';
+import '../util/output_memory_stream.dart';
 import 'zlib/inflate.dart';
 import 'zlib/gzip_flag.dart';
 
@@ -14,35 +15,71 @@ class GZipDecoder {
     return decodeStreamBytes(InputMemoryStream(data), verify: verify);
   }
 
+  Uint8List decodeList(List<int> data, {bool verify = false}) =>
+      decodeBytes(Uint8List.fromList(data), verify: verify);
+
   void decodeStream(InputStream input, OutputStream output) {
-    _readHeader(input);
-    Inflate.stream(input, output: output);
-    output.flush();
+    while (!input.isEOS) {
+      if (!_readHeader(input)) {
+        break;
+      }
+      Inflate.stream(input, output: output);
+      output.flush();
+    }
   }
 
   Uint8List decodeStreamBytes(InputStream input, {bool verify = false}) {
-    _readHeader(input);
-
-    // Inflate
-    final buffer = Inflate.stream(input).getBytes();
-
-    if (verify) {
-      final crc = input.readUint32();
-      final computedCrc = getCrc32(buffer);
-      if (crc != computedCrc) {
-        throw ArchiveException('Invalid CRC checksum');
+    OutputMemoryStream? output;
+    Uint8List? buffer;
+    while (!input.isEOS) {
+      if (!_readHeader(input)) {
+        break;
       }
 
-      final size = input.readUint32();
-      if (size != buffer.length) {
-        throw ArchiveException('Size of decompressed file not correct');
+      if (buffer != null) {
+        if (output == null) {
+          output = OutputMemoryStream();
+        }
+        output.writeBytes(buffer);
+      }
+
+      // Inflate
+      buffer = Inflate.stream(input).getBytes();
+
+      if (verify) {
+        final crc = input.readUint32();
+        final computedCrc = getCrc32(buffer);
+        if (crc != computedCrc) {
+          buffer = null;
+          break;
+          //throw ArchiveException('Invalid CRC checksum');
+        }
+
+        final size = input.readUint32();
+        if (size != buffer.length) {
+          buffer = null;
+          break;
+          //throw ArchiveException('Size of decompressed file not correct');
+        }
       }
     }
 
-    return buffer;
+    if (buffer != null) {
+      if (output != null) {
+        output.writeBytes(buffer);
+        return output.getBytes();
+      }
+      return buffer;
+    }
+
+    if (output != null) {
+      return output.getBytes();
+    }
+
+    return Uint8List(0);
   }
 
-  void _readHeader(InputStream input) {
+  bool _readHeader(InputStream input) {
     // The GZip format has the following structure:
     // Offset   Length   Contents
     // 0      2 bytes  magic header  0x1f, 0x8b (\037 \213)
@@ -86,12 +123,14 @@ class GZipDecoder {
 
     final signature = input.readUint16();
     if (signature != GZipFlag.signature) {
-      throw ArchiveException('Invalid GZip Signature');
+      return false;
+      //throw ArchiveException('Invalid GZip Signature');
     }
 
     final compressionMethod = input.readByte();
     if (compressionMethod != GZipFlag.deflate) {
-      throw ArchiveException('Invalid GZip Compression Method');
+      return false;
+      //throw ArchiveException('Invalid GZip Compression Method');
     }
 
     final flags = input.readByte();
@@ -116,5 +155,7 @@ class GZipDecoder {
     if (flags & GZipFlag.hcrc != 0) {
       input.readUint16();
     }
+
+    return true;
   }
 }

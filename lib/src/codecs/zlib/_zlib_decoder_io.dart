@@ -15,6 +15,10 @@ class _ZLibDecoder extends ZLibDecoderBase {
       ZLibCodec().decoder.convert(data) as Uint8List;
 
   @override
+  Uint8List decodeList(List<int> data, {bool verify = false}) =>
+      ZLibCodec().decoder.convert(data) as Uint8List;
+
+  @override
   Uint8List decodeStream(InputStream input, {bool verify = false}) =>
       decodeBytes(input.toUint8List(), verify: verify);
 }

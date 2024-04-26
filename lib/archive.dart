@@ -25,6 +25,7 @@ export 'src/codecs/zlib/inflate.dart';
 export 'src/codecs/zlib/inflate_buffer.dart';
 export 'src/codecs/zlib/zlib_decoder_base.dart';
 export 'src/codecs/zlib/zlib_decoder.dart';
+export 'src/codecs/zlib/zlib_decoder_web.dart';
 
 export 'src/codecs/bzip2_decoder.dart';
 export 'src/codecs/bzip2_encoder.dart';
