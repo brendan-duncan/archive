@@ -1,3 +1,10 @@
+## 3.5.0 - April 26, 2024
+
+* Remove dependency to pointycastle package
+* Use utf8 encoding for string data
+* Fixes for encrypted zip encoding
+* Async and sync versions of extractArchiveToDisk
+
 ## 3.4.10 - January 2, 2024
 
 * Fix ZipCrypto decryption
