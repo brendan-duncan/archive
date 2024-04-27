@@ -1,12 +1,11 @@
 import 'dart:typed_data';
 
-import "package:pointycastle/export.dart";
-
 import '../bzip2_decoder.dart';
 import '../util/_file_content.dart';
 import '../util/aes.dart';
 import '../util/archive_exception.dart';
 import '../util/crc32.dart';
+import '../util/encryption.dart';
 import '../util/input_stream.dart';
 import '../util/output_stream.dart';
 import '../zlib/inflate.dart';

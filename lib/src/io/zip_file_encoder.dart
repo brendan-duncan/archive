@@ -110,7 +110,8 @@ class ZipFileEncoder {
   void open(String zipPath) => create(zipPath);
 
   void create(String zipPath, {int? level, DateTime? modified}) {
-    createWithBuffer(OutputFileStream(zipPath), level: level, modified: modified);
+    createWithBuffer(OutputFileStream(zipPath),
+        level: level, modified: modified);
   }
 
   void createWithBuffer(
