@@ -14,11 +14,7 @@ class Pbkdf2Parameters extends CipherParameters {
   Pbkdf2Parameters(this.salt, this.iterationCount, this.desiredKeyLength);
 }
 
-abstract class Algorithm {
-  String get algorithmName;
-}
-
-abstract class KeyDerivator extends Algorithm {
+abstract class KeyDerivator {
   int get keySize;
   void init(CipherParameters params);
   Uint8List process(Uint8List data);
@@ -41,7 +37,7 @@ void arrayCopy(Uint8List? sourceArr, int sourcePos, Uint8List? outArr,
   }
 }
 
-abstract class Mac extends Algorithm {
+abstract class Mac {
   int get macSize;
 
   void reset();
@@ -69,9 +65,6 @@ class PBKDF2KeyDerivator extends BaseKeyDerivator {
   PBKDF2KeyDerivator(this._mac) {
     _state = Uint8List(_mac.macSize);
   }
-
-  @override
-  String get algorithmName => '${_mac.algorithmName}/PBKDF2';
 
   @override
   int get keySize => _params.desiredKeyLength;
@@ -344,16 +337,6 @@ class Register64 {
     _hi32 = shi32 & _mask32;
   }
 
-  void neg() {
-    not();
-    sum(1);
-  }
-
-  void not() {
-    _hi32 = ~_hi32 & _mask32;
-    _lo32 = ~_lo32 & _mask32;
-  }
-
   void and(Register64 y) {
     _hi32 &= y._hi32;
     _lo32 &= y._lo32;
@@ -601,16 +584,12 @@ abstract class MD4FamilyDigest extends BaseDigest {
 
   @override
   void update(Uint8List inp, int inpOff, int len) {
-    int nbytes;
-
-    nbytes = _processUntilNextWord(inp, inpOff, len);
+    int nbytes = _processUntilNextWord(inp, inpOff, len);
     inpOff += nbytes;
     len -= nbytes;
-
     nbytes = _processWholeWords(inp, inpOff, len);
     inpOff += nbytes;
     len -= nbytes;
-
     _processBytes(inp, inpOff, len);
   }
 
@@ -726,7 +705,7 @@ abstract class MD4FamilyDigest extends BaseDigest {
   }
 }
 
-abstract class Digest extends Algorithm {
+abstract class Digest {
   int get digestSize;
   int get byteLength;
   void reset();
@@ -737,14 +716,12 @@ abstract class Digest extends Algorithm {
 }
 
 class SHA1Digest extends MD4FamilyDigest implements Digest {
-  static const _DIGEST_LENGTH = 20;
+  static const _digestLength = 20;
 
   SHA1Digest() : super(Endian.big, 5, 80);
 
   @override
-  final algorithmName = 'SHA-1';
-  @override
-  final digestSize = _DIGEST_LENGTH;
+  final digestSize = _digestLength;
 
   @override
   void resetState() {
@@ -886,9 +863,6 @@ class HMac extends BaseMac {
   }
 
   @override
-  String get algorithmName => '${_digest.algorithmName}/HMAC';
-
-  @override
   int get macSize => _digestSize;
 
   @override
@@ -952,7 +926,7 @@ class HMac extends BaseMac {
   }
 }
 
-abstract class BlockCipher extends Algorithm {
+abstract class BlockCipher {
   int get blockSize;
   void reset();
   void init(bool forEncryption, CipherParameters? params);
@@ -2082,13 +2056,10 @@ class AESEngine extends BaseBlockCipher {
         _S[(x >> 24) & 255] << 24;
   }
 
-  static const _BLOCK_SIZE = 16;
+  static const _blockSize = 16;
 
   @override
-  String get algorithmName => 'AES';
-
-  @override
-  int get blockSize => _BLOCK_SIZE;
+  int get blockSize => _blockSize;
 
   @override
   void reset() {}
@@ -2284,7 +2255,7 @@ class AESEngine extends BaseBlockCipher {
       _decryptBlock(inp, inpOff, out, outOff, _workingKey);
     }
 
-    return _BLOCK_SIZE;
+    return _blockSize;
   }
 
   void _encryptBlock(Uint8List input, int inOff, Uint8List out, int outOff,
