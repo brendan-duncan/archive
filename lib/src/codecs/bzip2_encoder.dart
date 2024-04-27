@@ -4,6 +4,7 @@ import '../util/byte_order.dart';
 import '../util/input_memory_stream.dart';
 import '../util/input_stream.dart';
 import '../util/output_memory_stream.dart';
+import '../util/output_stream.dart';
 import 'bzip2/bz2_bit_writer.dart';
 import 'bzip2/bzip2.dart';
 
@@ -11,9 +12,14 @@ import 'bzip2/bzip2.dart';
 /// Derived from libbzip2 (http://www.bzip.org).
 class BZip2Encoder {
   Uint8List encode(List<int> data) {
-    input = InputMemoryStream(data, byteOrder: ByteOrder.bigEndian);
+    final inputStream = InputMemoryStream(data, byteOrder: ByteOrder.bigEndian);
     final output = OutputMemoryStream(byteOrder: ByteOrder.bigEndian);
+    encodeStream(inputStream, output);
+    return output.getBytes();
+  }
 
+  void encodeStream(InputStream input, OutputStream output) {
+    this.input = input;
     bw = Bz2BitWriter(output);
 
     final blockSize100k = 9;
@@ -63,8 +69,6 @@ class BZip2Encoder {
     bw.writeBytes(BZip2.eosMagic);
     bw.writeUint32(combinedCRC);
     bw.flush();
-
-    return output.getBytes();
   }
 
   int _writeBlock() {

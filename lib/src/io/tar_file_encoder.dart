@@ -42,7 +42,7 @@ class TarFileEncoder {
     if (compression == gzip) {
       final input = InputFileStream(tarPath);
       final output = OutputFileStream(tgzPath);
-      GZipEncoder().encodeStream(input, output: output, level: level ?? 6);
+      GZipEncoder().encodeStream(input, output, level: level ?? 6);
       await input.close();
       await File(tarPath).delete();
     }

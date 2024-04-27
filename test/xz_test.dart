@@ -11,10 +11,9 @@ import '_test_util.dart';
 void main() {
   group('xz', () {
     test('good-1-lzma2-1.xz', () {
-      var file = File(p.join('test/_data/xz/good-1-lzma2-1.xz'));
+      final file = File(p.join('test/_data/xz/good-1-lzma2-1.xz'));
       final compressed = file.readAsBytesSync();
       final data = XZDecoder().decode(compressed);
-
       final expected = File(p.join('test/_data/xz/expected/good-1-lzma2-1'))
           .readAsBytesSync();
 
@@ -25,131 +24,116 @@ void main() {
     });
 
     test('decode empty', () {
-      var file = File(p.join('test/_data/xz/empty.xz'));
+      final file = File(p.join('test/_data/xz/empty.xz'));
       final compressed = file.readAsBytesSync();
-
-      var data = XZDecoder().decode(compressed);
+      final data = XZDecoder().decode(compressed);
       expect(data, isEmpty);
     });
 
     test('decode hello', () {
       // hello.xz has no LZMA compression due to its simplicity.
-      var file = File(p.join('test/_data/xz/hello.xz'));
+      final file = File(p.join('test/_data/xz/hello.xz'));
       final compressed = file.readAsBytesSync();
-
-      var data = XZDecoder().decode(compressed);
+      final data = XZDecoder().decode(compressed);
       expect(data, equals(utf8.encode('hello\n')));
     });
 
     test('decode crc32', () {
       // Uses a CRC-32 checksum.
-      var file = File(p.join('test/_data/xz/crc32.xz'));
+      final file = File(p.join('test/_data/xz/crc32.xz'));
       final compressed = file.readAsBytesSync();
-
-      var data = XZDecoder().decode(compressed, verify: true);
+      final data = XZDecoder().decode(compressed, verify: true);
       expect(data, equals(utf8.encode('hello\n')));
     });
 
     test('decode crc64', () {
       // Uses a CRC-64 checksum.
-      var file = File(p.join('test/_data/xz/crc64.xz'));
+      final file = File(p.join('test/_data/xz/crc64.xz'));
       final compressed = file.readAsBytesSync();
-
-      var data = XZDecoder().decode(compressed, verify: true);
+      final data = XZDecoder().decode(compressed, verify: true);
       expect(data, equals(utf8.encode('hello\n')));
     });
 
     test('decode sha256', () {
       // Uses a SHA-256 checksum.
-      var file = File(p.join('test/_data/xz/sha256.xz'));
+      final file = File(p.join('test/_data/xz/sha256.xz'));
       final compressed = file.readAsBytesSync();
-
-      var data = XZDecoder().decode(compressed, verify: true);
+      final data = XZDecoder().decode(compressed, verify: true);
       expect(data, equals(utf8.encode('hello\n')));
     });
 
     test('decode nocheck', () {
       // Uses no checksum
-      var file = File(p.join('test/_data/xz/nocheck.xz'));
+      final file = File(p.join('test/_data/xz/nocheck.xz'));
       final compressed = file.readAsBytesSync();
-
-      var data = XZDecoder().decode(compressed, verify: true);
+      final data = XZDecoder().decode(compressed, verify: true);
       expect(data, equals(utf8.encode('hello\n')));
     });
 
     test('decode hello repeated', () {
       // Simple file with a small amount of compression due to repeated data.
-      var file = File(p.join('test/_data/xz/hello-hello-hello.xz'));
+      final file = File(p.join('test/_data/xz/hello-hello-hello.xz'));
       final compressed = file.readAsBytesSync();
-
-      var data = XZDecoder().decode(compressed);
+      final data = XZDecoder().decode(compressed);
       expect(data, equals(utf8.encode('hello hello hello')));
     });
 
     test('decode cat.jpg', () {
-      var file = File(p.join('test/_data/xz/cat.jpg.xz'));
+      final file = File(p.join('test/_data/xz/cat.jpg.xz'));
       final compressed = file.readAsBytesSync();
-
-      var b = File(p.join('test/_data/cat.jpg'));
+      final b = File(p.join('test/_data/cat.jpg'));
       final bBytes = b.readAsBytesSync();
-
-      var data = XZDecoder().decode(compressed);
+      final data = XZDecoder().decode(compressed);
       compareBytes(data, bBytes);
     });
 
     test('encode empty', () {
-      var file = File(p.join('test/_data/xz/empty.xz'));
+      final file = File(p.join('test/_data/xz/empty.xz'));
       final expected = file.readAsBytesSync();
-
-      var data = XZEncoder().encode(Uint8List(0));
+      final data = XZEncoder().encode([]);
       compareBytes(data, expected);
     });
 
     test('encode hello', () {
       // hello.xz has no LZMA compression due to its simplicity.
-      var file = File(p.join('test/_data/xz/hello.xz'));
+      final file = File(p.join('test/_data/xz/hello.xz'));
       final expected = file.readAsBytesSync();
-
-      var data = XZEncoder().encode(utf8.encode('hello\n'));
+      final data = XZEncoder().encode(utf8.encode('hello\n'));
       compareBytes(data, expected);
     });
 
     test('encode crc32', () {
       // Uses a CRC-32 checksum.
-      var file = File(p.join('test/_data/xz/crc32.xz'));
+      final file = File(p.join('test/_data/xz/crc32.xz'));
       final expected = file.readAsBytesSync();
-
-      var data =
+      final data =
           XZEncoder().encode(utf8.encode('hello\n'), check: XZCheck.crc32);
       compareBytes(data, expected);
     });
 
     test('encode crc64', () {
       // Uses a CRC-64 checksum.
-      var file = File(p.join('test/_data/xz/crc64.xz'));
+      final file = File(p.join('test/_data/xz/crc64.xz'));
       final expected = file.readAsBytesSync();
-
-      var data =
+      final data =
           XZEncoder().encode(utf8.encode('hello\n'), check: XZCheck.crc64);
       compareBytes(data, expected);
     });
 
     test('encode sha256', () {
       // Uses a SHA-256 checksum.
-      var file = File(p.join('test/_data/xz/sha256.xz'));
+      final file = File(p.join('test/_data/xz/sha256.xz'));
       final expected = file.readAsBytesSync();
-
-      var data =
+      final data =
           XZEncoder().encode(utf8.encode('hello\n'), check: XZCheck.sha256);
       compareBytes(data, expected);
     });
 
     test('encode nocheck', () {
       // Uses no checksum
-      var file = File(p.join('test/_data/xz/nocheck.xz'));
+      final file = File(p.join('test/_data/xz/nocheck.xz'));
       final expected = file.readAsBytesSync();
-
-      var data =
+      final data =
           XZEncoder().encode(utf8.encode('hello\n'), check: XZCheck.none);
       compareBytes(data, expected);
     });

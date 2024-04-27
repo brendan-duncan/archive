@@ -80,62 +80,8 @@ class BZip2Decoder {
   Uint8List decodeStreamBytes(InputStream input,
       {bool verify = false, OutputStream? output}) {
     output ??= OutputMemoryStream();
-    final br = Bz2BitReader(input);
-
-    _groupPos = 0;
-    _groupNo = 0;
-    _gSel = 0;
-    _gMinlen = 0;
-
-    if (br.readByte() != BZip2.bzhSignature[0] ||
-        br.readByte() != BZip2.bzhSignature[1] ||
-        br.readByte() != BZip2.bzhSignature[2]) {
-      throw ArchiveException('Invalid Signature');
-    }
-
-    _blockSize100k = br.readByte() - BZip2.hdr0;
-    if (_blockSize100k < 0 || _blockSize100k > 9) {
-      throw ArchiveException('Invalid BlockSize');
-    }
-
-    _tt = Uint32List(_blockSize100k * 100000);
-
-    var combinedCrc = 0;
-
-    while (true) {
-      final type = _readBlockType(br);
-      if (type == blockCompressed) {
-        var storedBlockCrc = 0;
-        storedBlockCrc = (storedBlockCrc << 8) | br.readByte();
-        storedBlockCrc = (storedBlockCrc << 8) | br.readByte();
-        storedBlockCrc = (storedBlockCrc << 8) | br.readByte();
-        storedBlockCrc = (storedBlockCrc << 8) | br.readByte();
-
-        var blockCrc = _readCompressed(br, output);
-        blockCrc = BZip2.finalizeCrc(blockCrc);
-
-        if (verify && blockCrc != storedBlockCrc) {
-          throw ArchiveException('Invalid block checksum.');
-        }
-        combinedCrc = ((combinedCrc << 1) | (combinedCrc >> 31)) & 0xffffffff;
-        combinedCrc ^= blockCrc;
-      } else if (type == blockEos) {
-        var storedCrc = 0;
-        storedCrc = (storedCrc << 8) | br.readByte();
-        storedCrc = (storedCrc << 8) | br.readByte();
-        storedCrc = (storedCrc << 8) | br.readByte();
-        storedCrc = (storedCrc << 8) | br.readByte();
-
-        if (verify && storedCrc != combinedCrc) {
-          throw ArchiveException(
-              'Invalid combined checksum: $combinedCrc : $storedCrc');
-        }
-
-        output.flush();
-
-        return output.getBytes();
-      }
-    }
+    decodeStream(input, output, verify: verify);
+    return output.getBytes();
   }
 
   int _readBlockType(Bz2BitReader br) {

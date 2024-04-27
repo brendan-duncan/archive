@@ -429,7 +429,7 @@ void main() {
     final output = await ofsConstructor(p.join(testOutputPath, 'cat.jpg.gz'));
 
     final encoder = GZipEncoder();
-    encoder.encodeStream(input, output: output);
+    encoder.encodeStream(input, output);
     await output.close();
   });
 
@@ -456,7 +456,7 @@ void main() {
 
     final input = await ifsConstructor(p.join(testOutputPath, 'example2.tar'));
     final output = await ofsConstructor(p.join(testOutputPath, 'example2.tgz'));
-    GZipEncoder().encodeStream(input, output: output);
+    GZipEncoder().encodeStream(input, output);
     await input.close();
     await output.close();
   });

@@ -9,14 +9,16 @@ import 'zlib/gzip_flag.dart';
 
 class GZipEncoder {
   Uint8List encode(List<int> data,
-      {int level = DeflateLevel.defaultCompression, OutputStream? output}) {
-    return encodeStream(InputMemoryStream(data), level: level, output: output);
+      {int level = DeflateLevel.defaultCompression}) {
+    final output = OutputMemoryStream();
+    encodeStream(InputMemoryStream(data), output, level: level);
+    return output.getBytes();
   }
 
-  Uint8List encodeStream(InputStream data,
-      {int level = DeflateLevel.defaultCompression, OutputStream? output}) {
+  void encodeStream(InputStream data, OutputStream output,
+      {int level = DeflateLevel.defaultCompression}) {
     final dataLength = data.length;
-    OutputStream outputStream = output ?? OutputMemoryStream();
+    OutputStream outputStream = output;
 
     // The GZip format has the following structure:
     // Offset   Length   Contents
@@ -79,7 +81,5 @@ class GZipEncoder {
     outputStream.writeUint32(dataLength);
 
     outputStream.flush();
-
-    return outputStream.getBytes();
   }
 }
