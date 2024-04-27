@@ -9,8 +9,7 @@ class RamFileHandle extends AbstractFileHandle {
   int _readPosition = 0;
   int _writePosition = 0;
 
-  RamFileHandle._(AbstractFileOpenMode openMode, this._ramFileData)
-      : super(openMode);
+  RamFileHandle._(super.openMode, this._ramFileData);
 
   /// Creates a writeable RamFileHandle
   factory RamFileHandle.asWritableRamBuffer({
