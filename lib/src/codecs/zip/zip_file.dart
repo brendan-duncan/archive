@@ -1,11 +1,10 @@
 import 'dart:typed_data';
 
-import "package:pointycastle/export.dart";
-
 import '../../archive/compression_type.dart';
 import '../../util/aes.dart';
 import '../../util/archive_exception.dart';
 import '../../util/crc32.dart';
+import '../../util/encryption.dart';
 import '../../util/file_content.dart';
 import '../../util/input_memory_stream.dart';
 import '../../util/input_stream.dart';
@@ -337,8 +336,10 @@ class ZipFile extends FileContent {
     final passwordBytes = Uint8List.fromList(password.codeUnits);
     const iterationCount = 1000;
     final totalSize = (derivedKeyLength * 2) + 2;
+
     final params = Pbkdf2Parameters(salt, iterationCount, totalSize);
     final keyDerivator = PBKDF2KeyDerivator(HMac(SHA1Digest(), 64));
+
     keyDerivator.init(params);
     return keyDerivator.process(passwordBytes);
   }

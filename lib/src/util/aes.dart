@@ -1,9 +1,5 @@
 import 'dart:typed_data';
-
-import 'package:pointycastle/api.dart';
-import 'package:pointycastle/block/aes.dart';
-import 'package:pointycastle/digests/sha1.dart';
-import 'package:pointycastle/macs/hmac.dart';
+import 'encryption.dart';
 
 class Uint8ListEquality {
   static bool equals(Uint8List mac, Uint8List computedMac) {
