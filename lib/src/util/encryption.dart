@@ -494,47 +494,6 @@ class Register64 {
   int get hashCode => Object.hash(_hi32, _lo32);
 }
 
-class Register64List {
-  final List<Register64> _list;
-
-  Register64List.from(List<List<int>> values)
-      : _list = List<Register64>.generate(
-            values.length, (i) => Register64(values[i][0], values[i][1]));
-
-  Register64List(int length)
-      : _list = List<Register64>.generate(length, (_) => Register64());
-
-  int get length => _list.length;
-
-  Register64 operator [](int index) => _list[index];
-
-  void fillRange(int start, int end, Register64 hiOrLo32OrY, [int? lo32]) {
-    for (var i = start; i < end; i++) {
-      _list[i].set(hiOrLo32OrY, lo32);
-    }
-  }
-
-  void setRange(int start, int end, Register64List list, [int skipCount = 0]) {
-    var length = end - start;
-    for (var i = 0; i < length; i++) {
-      _list[start + i].set(list[skipCount + i]);
-    }
-  }
-
-  @override
-  String toString() {
-    var sb = StringBuffer('(');
-    for (var i = 0; i < _list.length; i++) {
-      if (i > 0) {
-        sb.write(', ');
-      }
-      sb.write(_list[i].toString());
-    }
-    sb.write(')');
-    return sb.toString();
-  }
-}
-
 abstract class MD4FamilyDigest extends BaseDigest {
   final _byteCount = Register64(0);
 
