@@ -82,6 +82,18 @@ class ZipEncoder {
   static const int languageEncodingBitUtf8 = 2048;
   static const int _aesEncryptionExtraHeaderId = 0x9901;
 
+  void encodeStream(Archive archive, OutputStream output,
+      {int level = DeflateLevel.bestSpeed,
+      DateTime? modified,
+      bool autoClose = true,
+      ArchiveCallback? callback}) {
+    startEncode(output, level: level, modified: modified);
+    for (final file in archive) {
+      add(file, autoClose: autoClose, callback: callback);
+    }
+    endEncode(comment: archive.comment);
+  }
+
   Uint8List encode(Archive archive,
       {int level = DeflateLevel.bestSpeed,
       OutputStream? output,
@@ -89,13 +101,11 @@ class ZipEncoder {
       bool autoClose = true,
       ArchiveCallback? callback}) {
     output ??= OutputMemoryStream();
-
-    startEncode(output, level: level, modified: modified);
-    for (final file in archive) {
-      add(file, autoClose: autoClose, callback: callback);
-    }
-    endEncode(comment: archive.comment);
-
+    encodeStream(archive, output,
+        level: level,
+        modified: modified,
+        autoClose: autoClose,
+        callback: callback);
     return output.getBytes();
   }
 

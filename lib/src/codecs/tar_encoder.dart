@@ -10,17 +10,22 @@ import 'tar/tar_file.dart';
 
 /// Encode an [Archive] object into a tar formatted buffer.
 class TarEncoder {
-  Uint8List encode(Archive archive, {OutputStream? output}) {
-    final outputStream = output ?? OutputMemoryStream();
-    start(outputStream);
+  final Encoding filenameEncoding;
 
+  TarEncoder({this.filenameEncoding = const Utf8Codec()});
+
+  void encodeStream(Archive archive, OutputStream output) {
+    start(output);
     for (final file in archive) {
       add(file);
     }
-
     finish();
+  }
 
-    return outputStream.getBytes();
+  Uint8List encode(Archive archive, {OutputStream? output}) {
+    output ??= OutputMemoryStream();
+    encodeStream(archive, output);
+    return output.getBytes();
   }
 
   void start([OutputStream? outputStream]) {

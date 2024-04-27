@@ -12,7 +12,10 @@ final paxRecordRegexp = RegExp(r"(\d+) (\w+)=(.*)");
 
 /// Decode a tar formatted buffer into an [Archive] object.
 class TarDecoder {
+  final Encoding filenameEncoding;
   List<TarFile> files = [];
+
+  TarDecoder({this.filenameEncoding = const Utf8Codec()});
 
   Archive decode(List<int> data,
       {bool verify = false, bool storeData = true, ArchiveCallback? callback}) {
@@ -36,7 +39,8 @@ class TarDecoder {
         break;
       }
 
-      final tf = TarFile.read(input, storeData: storeData);
+      final tf =
+          TarFile.read(input, storeData: storeData, encoding: filenameEncoding);
       // GNU tar puts filenames in files when they exceed tar's native length.
       if (tf.filename == '././@LongLink') {
         nextName = tf.rawContent!.readString();

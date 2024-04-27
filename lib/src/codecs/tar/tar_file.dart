@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:archive/src/util/output_memory_stream.dart';
@@ -71,14 +72,14 @@ class TarFile {
 
   TarFile();
 
-  TarFile.read(InputStream input, {bool storeData = true}) {
+  TarFile.read(InputStream input, {bool storeData = true, Encoding? encoding}) {
     final header = input.readBytes(512);
 
     // The name, linkname, magic, uname, and gname are null-terminated
     // character strings. All other fields are zero-filled octal numbers in
     // ASCII. Each numeric field of width w contains w minus 1 digits, and a
     // null.
-    filename = _parseString(header, 100);
+    filename = _parseString(header, 100, encoding);
     mode = _parseInt(header, 8);
     ownerId = _parseInt(header, 8);
     groupId = _parseInt(header, 8);
@@ -86,7 +87,7 @@ class TarFile {
     lastModTime = _parseInt(header, 12);
     checksum = _parseInt(header, 8);
     typeFlag = _parseString(header, 1);
-    nameOfLinkedFile = _parseString(header, 100);
+    nameOfLinkedFile = _parseString(header, 100, encoding);
 
     ustarIndicator = _parseString(header, 6);
     if (ustarIndicator == 'ustar') {
@@ -141,14 +142,14 @@ class TarFile {
   @override
   String toString() => '[$filename, $mode, $fileSize]';
 
-  void write(OutputStream output) {
+  void write(OutputStream output, {Encoding? filenameEncoder}) {
     fileSize = size;
 
     // The name, linkname, magic, uname, and gname are null-terminated
     // character strings. All other fields are zero-filled octal numbers in
     // ASCII. Each numeric field of width w contains w minus 1 digits, and a null.
     final header = OutputMemoryStream();
-    _writeString(header, filename, 100);
+    _writeString(header, filename, 100, filenameEncoder);
     _writeInt(header, mode, 8);
     _writeInt(header, ownerId, 8);
     _writeInt(header, groupId, 8);
@@ -157,7 +158,7 @@ class TarFile {
     _writeString(header, '        ', 8); // checksum placeholder
     _writeString(header, typeFlag, 1);
     if (nameOfLinkedFile != null) {
-      _writeString(header, nameOfLinkedFile!, 100);
+      _writeString(header, nameOfLinkedFile!, 100, filenameEncoder);
     } else {
       _writeString(header, '', 100);
     }
@@ -224,22 +225,26 @@ class TarFile {
     return x;
   }
 
-  String _parseString(InputStream input, int numBytes) {
+  String _parseString(InputStream input, int numBytes, [Encoding? encoding]) {
     final codes = input.readBytes(numBytes).toUint8List();
     final r = codes.indexOf(0);
     final s = codes.sublist(0, r < 0 ? null : r);
     try {
-      return utf8.decode(s).trim();
+      return encoding != null
+          ? encoding.decode(s).trim()
+          : utf8.decode(s).trim();
     } catch (e) {
       return String.fromCharCodes(s).trim();
       //throw ArchiveException('Invalid Archive');
     }
   }
 
-  void _writeString(OutputStream output, String value, int numBytes) {
+  void _writeString(OutputStream output, String value, int numBytes,
+      [Encoding? encoding]) {
     final codes = Uint8List(numBytes);
-    final end = numBytes < value.length ? numBytes : value.length;
-    codes.setRange(0, end, utf8.encode(value));
+    final stringCodes = encoding?.encode(value) ?? utf8.encode(value);
+    final end = min(stringCodes.length, numBytes);
+    codes.setRange(0, end, stringCodes);
     output.writeBytes(codes);
   }
 
