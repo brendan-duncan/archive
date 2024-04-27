@@ -12,7 +12,7 @@ class InputMemoryStream extends InputStream {
   late int _length;
 
   /// Create a [InputStream] for reading from a Uint8List
-  InputMemoryStream(Uint8List bytes,
+  InputMemoryStream(List<int> bytes,
       {super.byteOrder = ByteOrder.littleEndian, int? offset, int? length})
       : _position = 0 {
     offset ??= 0;
@@ -20,7 +20,10 @@ class InputMemoryStream extends InputStream {
     if ((offset + length) > bytes.length) {
       length = bytes.length - offset;
     }
-    buffer = Uint8List.view(bytes.buffer, bytes.offsetInBytes + offset, length);
+
+    final data = bytes is Uint8List ? bytes : Uint8List.fromList(bytes);
+
+    buffer = Uint8List.view(data.buffer, data.offsetInBytes + offset, length);
     _length = buffer.length;
   }
 

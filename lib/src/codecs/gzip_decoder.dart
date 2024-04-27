@@ -10,12 +10,9 @@ import 'zlib/inflate.dart';
 
 /// Decompress data with the gzip format decoder.
 class GZipDecoder {
-  Uint8List decodeBytes(Uint8List data, {bool verify = false}) {
+  Uint8List decode(List<int> data, {bool verify = false}) {
     return decodeStreamBytes(InputMemoryStream(data), verify: verify);
   }
-
-  Uint8List decodeList(List<int> data, {bool verify = false}) =>
-      decodeBytes(Uint8List.fromList(data), verify: verify);
 
   void decodeStream(InputStream input, OutputStream output) {
     while (!input.isEOS) {

@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:typed_data';
 
 import 'package:path/path.dart' as p;
 
@@ -17,9 +16,9 @@ import 'zip/zip_directory.dart';
 class ZipDecoder {
   late ZipDirectory directory;
 
-  Archive decodeBytes(Uint8List data,
+  Archive decode(List<int> bytes,
           {bool verify = false, String? password, ArchiveCallback? callback}) =>
-      decodeStream(InputMemoryStream(data),
+      decodeStream(InputMemoryStream(bytes),
           verify: verify, password: password, callback: callback);
 
   Archive decodeStream(InputStream input,

@@ -15,17 +15,16 @@ void main() {
 
     test('multiblock', () async {
       final compressedData = [
-        ...GZipEncoder().encodeList([1, 2, 3]),
-        ...GZipEncoder().encodeList([4, 5, 6])
+        ...GZipEncoder().encode([1, 2, 3]),
+        ...GZipEncoder().encode([4, 5, 6])
       ];
-      final decodedData =
-          GZipDecoder().decodeList(compressedData, verify: true);
+      final decodedData = GZipDecoder().decode(compressedData, verify: true);
       compareBytes(decodedData, [1, 2, 3, 4, 5, 6]);
     });
 
     test('encode/decode', () {
-      final compressed = GZipEncoder().encodeBytes(buffer);
-      final decompressed = GZipDecoder().decodeBytes(compressed, verify: true);
+      final compressed = GZipEncoder().encode(buffer);
+      final decompressed = GZipDecoder().decode(compressed, verify: true);
       expect(decompressed.length, equals(buffer.length));
       for (var i = 0; i < buffer.length; ++i) {
         expect(decompressed[i], equals(buffer[i]));
@@ -39,7 +38,7 @@ void main() {
       final file = File('test/_data/cat.jpg.gz');
       final bytes = file.readAsBytesSync();
 
-      final zBytes = GZipDecoder().decodeBytes(bytes, verify: true);
+      final zBytes = GZipDecoder().decode(bytes, verify: true);
       compareBytes(zBytes, bBytes);
     });
 
@@ -50,7 +49,7 @@ void main() {
       final file = File('test/_data/test2.tar.gz');
       final bytes = file.readAsBytesSync();
 
-      final zBytes = GZipDecoder().decodeBytes(bytes, verify: true);
+      final zBytes = GZipDecoder().decode(bytes, verify: true);
       compareBytes(zBytes, bBytes);
     });
 
@@ -60,7 +59,7 @@ void main() {
       final file = File('test/_data/a.txt.gz');
       final bytes = file.readAsBytesSync();
 
-      final zBytes = GZipDecoder().decodeBytes(bytes, verify: true);
+      final zBytes = GZipDecoder().decode(bytes, verify: true);
       compareBytes(zBytes, aBytes);
     });
 
@@ -68,7 +67,7 @@ void main() {
       final b = File('test/_data/cat.jpg');
       final bBytes = b.readAsBytesSync();
 
-      final compressed = GZipEncoder().encodeBytes(bBytes);
+      final compressed = GZipEncoder().encode(bBytes);
       final f = File('$testOutputPath/cat.jpg.gz');
       f.createSync(recursive: true);
       f.writeAsBytesSync(compressed);

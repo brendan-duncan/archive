@@ -6,7 +6,7 @@ Future<void> main() async {
   final bytes = File('test.zip').readAsBytesSync();
 
   // Decode the Zip file
-  final archive = ZipDecoder().decodeBytes(bytes);
+  final archive = ZipDecoder().decode(bytes);
 
   // Extract the contents of the Zip archive to disk.
   for (final file in archive) {
@@ -23,7 +23,7 @@ Future<void> main() async {
 
   // Encode the archive as a BZip2 compressed Tar file.
   final tarData = TarEncoder().encode(archive);
-  final tarBz2 = BZip2Encoder().encodeBytes(tarData);
+  final tarBz2 = BZip2Encoder().encode(tarData);
 
   // Write the compressed tar file to disk.
   final fp = File('test.tbz');

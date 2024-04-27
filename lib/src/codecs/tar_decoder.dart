@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:typed_data';
 
 import '../archive/archive.dart';
 import '../archive/archive_directory.dart';
@@ -15,7 +14,7 @@ final paxRecordRegexp = RegExp(r"(\d+) (\w+)=(.*)");
 class TarDecoder {
   List<TarFile> files = [];
 
-  Archive decodeBytes(Uint8List data,
+  Archive decode(List<int> data,
       {bool verify = false, bool storeData = true, ArchiveCallback? callback}) {
     return decodeStream(InputMemoryStream(data),
         verify: verify, storeData: storeData, callback: callback);

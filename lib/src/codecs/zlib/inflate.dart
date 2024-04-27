@@ -10,23 +10,18 @@ class Inflate {
   InputStream? input;
   OutputStream output;
 
-  Inflate(Uint8List bytes, {OutputStream? output, int? uncompressedSize})
+  Inflate(List<int> bytes, {OutputStream? output, int? uncompressedSize})
       : input = InputMemoryStream(bytes),
         output = output ?? OutputMemoryStream(size: uncompressedSize) {
     inflate();
   }
-
-  factory Inflate.list(List<int> bytes,
-          {OutputStream? output, int? uncompressedSize}) =>
-      Inflate(Uint8List.fromList(bytes),
-          output: output, uncompressedSize: uncompressedSize);
 
   Inflate.stream(this.input, {OutputStream? output, int? uncompressedSize})
       : output = output ?? OutputMemoryStream(size: uncompressedSize) {
     inflate();
   }
 
-  void streamInput(Uint8List bytes) {
+  void streamInput(List<int> bytes) {
     if (input != null) {
       input!.setPosition(_blockPos);
       final inputLen = input!.length;
