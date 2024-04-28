@@ -10,7 +10,6 @@ class ZLibEncoder {
   Uint8List encode(List<int> bytes, {int level = 6}) =>
       platformZLibEncoder.encode(bytes, level: level);
 
-  void encodeStream(InputStream input, OutputStream output,
-      {int level = 6}) =>
-    platformZLibEncoder.encodeStream(input, output, level: level);
+  void encodeStream(InputStream input, OutputStream output, {int level = 6}) =>
+      platformZLibEncoder.encodeStream(input, output, level: level);
 }

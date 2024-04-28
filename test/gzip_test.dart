@@ -13,15 +13,6 @@ void main() {
       buffer[i] = i % 256;
     }
 
-    test('encode/decode', () {
-      final compressed = GZipEncoder().encode(buffer);
-      final decompressed = GZipDecoder().decode(compressed, verify: true);
-      expect(decompressed.length, equals(buffer.length));
-      for (var i = 0; i < buffer.length; ++i) {
-        expect(decompressed[i], equals(buffer[i]));
-      }
-    });
-
     test('multiblock', () async {
       final compressedData = [
         ...GZipEncoder().encode([1, 2, 3]),
@@ -29,6 +20,15 @@ void main() {
       ];
       final decodedData = GZipDecoderWeb().decode(compressedData, verify: true);
       compareBytes(decodedData, [1, 2, 3, 4, 5, 6]);
+    });
+
+    test('encode/decode', () {
+      final compressed = GZipEncoder().encode(buffer);
+      final decompressed = GZipDecoder().decode(compressed, verify: true);
+      expect(decompressed.length, equals(buffer.length));
+      for (var i = 0; i < buffer.length; ++i) {
+        expect(decompressed[i], equals(buffer[i]));
+      }
     });
 
     test('decode res/cat.jpg.gz', () {
