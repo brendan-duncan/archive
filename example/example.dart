@@ -3,21 +3,20 @@ import 'package:archive/archive_io.dart';
 
 Future<void> main() async {
   // Read the Zip file from disk.
-  final bytes = File('test.zip').readAsBytesSync();
+  final input = InputFileStream('test.zip');
 
   // Decode the Zip file
-  final archive = ZipDecoder().decode(bytes);
+  final archive = ZipDecoder().decodeStream(input);
 
   // Extract the contents of the Zip archive to disk.
   for (final file in archive) {
     final filename = file.name;
     if (file.isFile) {
-      final data = file.readBytes()!;
-      File('out/$filename')
-        ..createSync(recursive: true)
-        ..writeAsBytesSync(data);
+      final output = OutputFileStream('out/$filename');
+      output.writeStream(file.getContent()!);
+      await file.close();
     } else {
-      Directory('out/$filename').createSync(recursive: true);
+      await Directory('out/$filename').create(recursive: true);
     }
   }
 
