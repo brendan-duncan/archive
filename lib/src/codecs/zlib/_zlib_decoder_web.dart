@@ -5,8 +5,9 @@ import '../../util/byte_order.dart';
 import '../../util/input_memory_stream.dart';
 import '../../util/input_stream.dart';
 import '../../util/output_memory_stream.dart';
+import '../../util/output_stream.dart';
+import '_zlib_decoder_base.dart';
 import 'inflate.dart';
-import 'zlib_decoder_base.dart';
 
 const platformZLibDecoder = _ZLibDecoder();
 
@@ -17,13 +18,17 @@ class _ZLibDecoder extends ZLibDecoderBase {
   const _ZLibDecoder();
 
   @override
-  Uint8List decode(List<int> data, {bool verify = false}) =>
-      decodeStream(InputMemoryStream(data, byteOrder: ByteOrder.bigEndian),
-          verify: verify);
+  Uint8List decode(List<int> data, {bool verify = false}) {
+    final output = OutputMemoryStream();
+    decodeStream(
+        InputMemoryStream(data, byteOrder: ByteOrder.bigEndian), output,
+        verify: verify);
+    return output.getBytes();
+  }
 
   @override
-  Uint8List decodeStream(InputStream input, {bool verify = false}) {
-    OutputMemoryStream? output;
+  void decodeStream(InputStream input, OutputStream output,
+      {bool verify = false}) {
     Uint8List? buffer;
 
     while (!input.isEOS) {
@@ -72,9 +77,6 @@ class _ZLibDecoder extends ZLibDecoderBase {
       }
 
       if (buffer != null) {
-        if (output == null) {
-          output = OutputMemoryStream();
-        }
         output.writeBytes(buffer);
       }
 
@@ -94,17 +96,7 @@ class _ZLibDecoder extends ZLibDecoderBase {
     }
 
     if (buffer != null) {
-      if (output != null) {
-        output.writeBytes(buffer);
-        return output.getBytes();
-      }
-      return buffer;
+      output.writeBytes(buffer);
     }
-
-    if (output != null) {
-      return output.getBytes();
-    }
-
-    return Uint8List(0);
   }
 }

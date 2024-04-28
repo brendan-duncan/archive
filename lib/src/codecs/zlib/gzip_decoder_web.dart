@@ -2,18 +2,18 @@ import 'dart:typed_data';
 
 import '../../util/input_stream.dart';
 import '../../util/output_stream.dart';
+import '_gzip_decoder_web.dart';
 import '_zlib_decoder_base.dart';
-import '_zlib_decoder_web.dart';
 
-class ZLibDecoderWeb extends ZLibDecoderBase {
-  const ZLibDecoderWeb();
+class GZipDecoderWeb extends ZLibDecoderBase {
+  const GZipDecoderWeb();
 
   @override
   Uint8List decode(List<int> data, {bool verify = false}) =>
-      platformZLibDecoder.decode(data, verify: verify);
+      platformGZipDecoder.decode(data, verify: verify);
 
   @override
   void decodeStream(InputStream input, OutputStream output,
           {bool verify = false}) =>
-      platformZLibDecoder.decodeStream(input, output, verify: verify);
+      platformGZipDecoder.decodeStream(input, output, verify: verify);
 }

@@ -2,7 +2,8 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import '../../util/input_stream.dart';
-import 'zlib_decoder_base.dart';
+import '../../util/output_stream.dart';
+import '_zlib_decoder_base.dart';
 
 const platformZLibDecoder = _ZLibDecoder();
 
@@ -15,6 +16,9 @@ class _ZLibDecoder extends ZLibDecoderBase {
       ZLibCodec().decoder.convert(data) as Uint8List;
 
   @override
-  Uint8List decodeStream(InputStream input, {bool verify = false}) =>
-      decode(input.toUint8List(), verify: verify);
+  void decodeStream(InputStream input, OutputStream output,
+      {bool verify = false}) {
+    final decoded = decode(input.toUint8List(), verify: verify);
+    output.writeBytes(decoded);
+  }
 }

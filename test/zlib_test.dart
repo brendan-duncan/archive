@@ -41,7 +41,9 @@ void main() async {
       {
         final inStream = InputFileStream('$testOutputPath/zlib_stream.zlib')
           ..open();
-        final decoded = const ZLibDecoder().decodeStream(inStream);
+        final outStream = OutputMemoryStream();
+        ZLibDecoder().decodeStream(inStream, outStream);
+        final decoded = outStream.getBytes();
 
         expect(decoded.length, equals(buffer.length));
         for (var i = 0; i < buffer.length; ++i) {
