@@ -17,7 +17,7 @@ class _GZipDecoder extends ZLibDecoderBase {
 
   @override
   void decodeStream(InputStream input, OutputStream output,
-          {bool verify = false}) {
+      {bool verify = false}) {
     final bytes = decode(input.toUint8List(), verify: verify);
     output.writeBytes(bytes);
   }
