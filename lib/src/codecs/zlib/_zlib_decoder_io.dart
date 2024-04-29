@@ -14,7 +14,7 @@ class _ZLibDecoder extends ZLibDecoderBase {
   const _ZLibDecoder();
 
   @override
-  Uint8List decode(List<int> data, {bool verify = false}) =>
+  Uint8List decodeBytes(List<int> data, {bool verify = false}) =>
       ZLibCodec().decode(data) as Uint8List;
 
   @override

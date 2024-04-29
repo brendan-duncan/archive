@@ -6,8 +6,8 @@ import 'zlib/_gzip_decoder.dart';
 
 /// Decompress data with the gzip format decoder.
 class GZipDecoder {
-  Uint8List decode(List<int> bytes, {bool verify = false}) =>
-      platformGZipDecoder.decode(bytes, verify: verify);
+  Uint8List decodeBytes(List<int> bytes, {bool verify = false}) =>
+      platformGZipDecoder.decodeBytes(bytes, verify: verify);
 
   void decodeStream(InputStream input, OutputStream output,
           {bool verify = false}) =>

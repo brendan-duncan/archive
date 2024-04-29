@@ -7,8 +7,8 @@ import 'zlib/_zlib_encoder.dart';
 class ZLibEncoder {
   const ZLibEncoder();
 
-  Uint8List encode(List<int> bytes, {int level = 6}) =>
-      platformZLibEncoder.encode(bytes, level: level);
+  Uint8List encodeBytes(List<int> bytes, {int level = 6}) =>
+      platformZLibEncoder.encodeBytes(bytes, level: level);
 
   void encodeStream(InputStream input, OutputStream output, {int level = 6}) =>
       platformZLibEncoder.encodeStream(input, output, level: level);

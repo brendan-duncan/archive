@@ -18,7 +18,7 @@ class _ZLibDecoder extends ZLibDecoderBase {
   const _ZLibDecoder();
 
   @override
-  Uint8List decode(List<int> data, {bool verify = false}) {
+  Uint8List decodeBytes(List<int> data, {bool verify = false}) {
     final output = OutputMemoryStream();
     decodeStream(
         InputMemoryStream(data, byteOrder: ByteOrder.bigEndian), output,

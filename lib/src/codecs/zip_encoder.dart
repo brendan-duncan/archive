@@ -94,7 +94,7 @@ class ZipEncoder {
     endEncode(comment: archive.comment);
   }
 
-  Uint8List encode(Archive archive,
+  Uint8List encodeBytes(Archive archive,
       {int level = DeflateLevel.bestSpeed,
       OutputStream? output,
       DateTime? modified,

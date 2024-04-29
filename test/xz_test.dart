@@ -12,7 +12,7 @@ void main() {
     test('good-1-lzma2-1.xz', () {
       final file = File(p.join('test/_data/xz/good-1-lzma2-1.xz'));
       final compressed = file.readAsBytesSync();
-      final data = XZDecoder().decode(compressed);
+      final data = XZDecoder().decodeBytes(compressed);
       final expected = File(p.join('test/_data/xz/expected/good-1-lzma2-1'))
           .readAsBytesSync();
 
@@ -25,7 +25,7 @@ void main() {
     test('decode empty', () {
       final file = File(p.join('test/_data/xz/empty.xz'));
       final compressed = file.readAsBytesSync();
-      final data = XZDecoder().decode(compressed);
+      final data = XZDecoder().decodeBytes(compressed);
       expect(data, isEmpty);
     });
 
@@ -33,7 +33,7 @@ void main() {
       // hello.xz has no LZMA compression due to its simplicity.
       final file = File(p.join('test/_data/xz/hello.xz'));
       final compressed = file.readAsBytesSync();
-      final data = XZDecoder().decode(compressed);
+      final data = XZDecoder().decodeBytes(compressed);
       expect(data, equals(utf8.encode('hello\n')));
     });
 
@@ -41,7 +41,7 @@ void main() {
       // Uses a CRC-32 checksum.
       final file = File(p.join('test/_data/xz/crc32.xz'));
       final compressed = file.readAsBytesSync();
-      final data = XZDecoder().decode(compressed, verify: true);
+      final data = XZDecoder().decodeBytes(compressed, verify: true);
       expect(data, equals(utf8.encode('hello\n')));
     });
 
@@ -49,7 +49,7 @@ void main() {
       // Uses a CRC-64 checksum.
       final file = File(p.join('test/_data/xz/crc64.xz'));
       final compressed = file.readAsBytesSync();
-      final data = XZDecoder().decode(compressed, verify: true);
+      final data = XZDecoder().decodeBytes(compressed, verify: true);
       expect(data, equals(utf8.encode('hello\n')));
     });
 
@@ -57,7 +57,7 @@ void main() {
       // Uses a SHA-256 checksum.
       final file = File(p.join('test/_data/xz/sha256.xz'));
       final compressed = file.readAsBytesSync();
-      final data = XZDecoder().decode(compressed, verify: true);
+      final data = XZDecoder().decodeBytes(compressed, verify: true);
       expect(data, equals(utf8.encode('hello\n')));
     });
 
@@ -65,7 +65,7 @@ void main() {
       // Uses no checksum
       final file = File(p.join('test/_data/xz/nocheck.xz'));
       final compressed = file.readAsBytesSync();
-      final data = XZDecoder().decode(compressed, verify: true);
+      final data = XZDecoder().decodeBytes(compressed, verify: true);
       expect(data, equals(utf8.encode('hello\n')));
     });
 
@@ -73,7 +73,7 @@ void main() {
       // Simple file with a small amount of compression due to repeated data.
       final file = File(p.join('test/_data/xz/hello-hello-hello.xz'));
       final compressed = file.readAsBytesSync();
-      final data = XZDecoder().decode(compressed);
+      final data = XZDecoder().decodeBytes(compressed);
       expect(data, equals(utf8.encode('hello hello hello')));
     });
 
@@ -82,14 +82,14 @@ void main() {
       final compressed = file.readAsBytesSync();
       final b = File(p.join('test/_data/cat.jpg'));
       final bBytes = b.readAsBytesSync();
-      final data = XZDecoder().decode(compressed);
+      final data = XZDecoder().decodeBytes(compressed);
       compareBytes(data, bBytes);
     });
 
     test('encode empty', () {
       final file = File(p.join('test/_data/xz/empty.xz'));
       final expected = file.readAsBytesSync();
-      final data = XZEncoder().encode([]);
+      final data = XZEncoder().encodeBytes([]);
       compareBytes(data, expected);
     });
 
@@ -97,7 +97,7 @@ void main() {
       // hello.xz has no LZMA compression due to its simplicity.
       final file = File(p.join('test/_data/xz/hello.xz'));
       final expected = file.readAsBytesSync();
-      final data = XZEncoder().encode(utf8.encode('hello\n'));
+      final data = XZEncoder().encodeBytes(utf8.encode('hello\n'));
       compareBytes(data, expected);
     });
 
@@ -106,7 +106,7 @@ void main() {
       final file = File(p.join('test/_data/xz/crc32.xz'));
       final expected = file.readAsBytesSync();
       final data =
-          XZEncoder().encode(utf8.encode('hello\n'), check: XZCheck.crc32);
+          XZEncoder().encodeBytes(utf8.encode('hello\n'), check: XZCheck.crc32);
       compareBytes(data, expected);
     });
 
@@ -115,7 +115,7 @@ void main() {
       final file = File(p.join('test/_data/xz/crc64.xz'));
       final expected = file.readAsBytesSync();
       final data =
-          XZEncoder().encode(utf8.encode('hello\n'), check: XZCheck.crc64);
+          XZEncoder().encodeBytes(utf8.encode('hello\n'), check: XZCheck.crc64);
       compareBytes(data, expected);
     });
 
@@ -124,7 +124,7 @@ void main() {
       final file = File(p.join('test/_data/xz/sha256.xz'));
       final expected = file.readAsBytesSync();
       final data =
-          XZEncoder().encode(utf8.encode('hello\n'), check: XZCheck.sha256);
+          XZEncoder().encodeBytes(utf8.encode('hello\n'), check: XZCheck.sha256);
       compareBytes(data, expected);
     });
 
@@ -133,7 +133,7 @@ void main() {
       final file = File(p.join('test/_data/xz/nocheck.xz'));
       final expected = file.readAsBytesSync();
       final data =
-          XZEncoder().encode(utf8.encode('hello\n'), check: XZCheck.none);
+          XZEncoder().encodeBytes(utf8.encode('hello\n'), check: XZCheck.none);
       compareBytes(data, expected);
     });
   });

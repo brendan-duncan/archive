@@ -22,7 +22,7 @@ class TarEncoder {
     finish();
   }
 
-  Uint8List encode(Archive archive, {OutputStream? output}) {
+  Uint8List encodeBytes(Archive archive, {OutputStream? output}) {
     output ??= OutputMemoryStream();
     encodeStream(archive, output);
     return output.getBytes();

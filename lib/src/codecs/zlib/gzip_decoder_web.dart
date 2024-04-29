@@ -9,8 +9,8 @@ class GZipDecoderWeb extends ZLibDecoderBase {
   const GZipDecoderWeb();
 
   @override
-  Uint8List decode(List<int> data, {bool verify = false}) =>
-      platformGZipDecoder.decode(data, verify: verify);
+  Uint8List decodeBytes(List<int> data, {bool verify = false}) =>
+      platformGZipDecoder.decodeBytes(data, verify: verify);
 
   @override
   void decodeStream(InputStream input, OutputStream output,

@@ -9,8 +9,8 @@ class ZLibDecoderWeb extends ZLibDecoderBase {
   const ZLibDecoderWeb();
 
   @override
-  Uint8List decode(List<int> data, {bool verify = false}) =>
-      platformZLibDecoder.decode(data, verify: verify);
+  Uint8List decodeBytes(List<int> data, {bool verify = false}) =>
+      platformZLibDecoder.decodeBytes(data, verify: verify);
 
   @override
   void decodeStream(InputStream input, OutputStream output,

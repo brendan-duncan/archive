@@ -57,7 +57,7 @@ void main() {
   });
 
   test('git inflate block', () {
-    final output = ZLibDecoder().decode(gitInflateInput);
+    final output = ZLibDecoder().decodeBytes(gitInflateInput);
     expect(output, equals(gitExpectedOutput));
   });
 }

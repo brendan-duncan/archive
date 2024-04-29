@@ -14,7 +14,7 @@ import 'lzma/lzma_decoder.dart';
 
 /// Decompress data with the xz format decoder.
 class XZDecoder {
-  Uint8List decode(List<int> data, {bool verify = false}) {
+  Uint8List decodeBytes(List<int> data, {bool verify = false}) {
     return decodeStream(InputMemoryStream(data), verify: verify);
   }
 

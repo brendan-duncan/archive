@@ -5,7 +5,7 @@ import '../../util/output_stream.dart';
 abstract class ZLibDecoderBase {
   const ZLibDecoderBase();
 
-  Uint8List decode(List<int> bytes, {bool verify = false});
+  Uint8List decodeBytes(List<int> bytes, {bool verify = false});
 
   void decodeStream(InputStream input, OutputStream output,
       {bool verify = false});

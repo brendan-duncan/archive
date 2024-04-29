@@ -15,7 +15,7 @@ class _ZLibEncoder {
 
   const _ZLibEncoder();
 
-  Uint8List encode(List<int> bytes, {int level = 6}) {
+  Uint8List encodeBytes(List<int> bytes, {int level = 6}) {
     final output = OutputMemoryStream(byteOrder: ByteOrder.bigEndian);
     encodeStream(InputMemoryStream(bytes), output, level: level);
     return output.getBytes();

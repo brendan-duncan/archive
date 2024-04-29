@@ -17,7 +17,7 @@ class TarDecoder {
 
   TarDecoder({this.filenameEncoding = const Utf8Codec()});
 
-  Archive decode(List<int> data,
+  Archive decodeBytes(List<int> data,
       {bool verify = false, bool storeData = true, ArchiveCallback? callback}) {
     return decodeStream(InputMemoryStream(data),
         verify: verify, storeData: storeData, callback: callback);

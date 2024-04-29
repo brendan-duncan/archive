@@ -16,7 +16,7 @@ enum XZCheck { none, crc32, crc64, sha256 }
 /// Compress data using the xz format encoder.
 /// This encoder only currently supports uncompressed data.
 class XZEncoder {
-  Uint8List encode(List<int> bytes, {XZCheck check = XZCheck.crc64}) {
+  Uint8List encodeBytes(List<int> bytes, {XZCheck check = XZCheck.crc64}) {
     final input = InputMemoryStream(bytes);
     final output = OutputMemoryStream();
     encodeStream(input, output, check: check);

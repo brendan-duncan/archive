@@ -152,7 +152,7 @@ void main() {
   group('tar', () {
     test('invalid archive', () {
       try {
-        TarDecoder().decode(Uint8List.fromList([1, 2, 3]));
+        TarDecoder().decodeBytes(Uint8List.fromList([1, 2, 3]));
         assert(false);
       } catch (e) {
         // pass
@@ -161,7 +161,7 @@ void main() {
 
     test('file', () {
       final tar = TarEncoder()
-          .encode(Archive()..add(ArchiveFile.list('file.txt', [100])));
+          .encodeBytes(Archive()..add(ArchiveFile.list('file.txt', [100])));
       File(p.join(testOutputPath, 'tar_encoded.tar'))
         ..createSync(recursive: true)
         ..writeAsBytesSync(tar);
@@ -169,18 +169,18 @@ void main() {
 
     test('file with symlink', () {
       ArchiveFile symlink = ArchiveFile.symlink('file.txt', 'file2.txt');
-      final tar = TarEncoder().encode(Archive()..add(symlink));
+      final tar = TarEncoder().encodeBytes(Archive()..add(symlink));
       File(p.join(testOutputPath, 'tar_encoded.tar'))
         ..createSync(recursive: true)
         ..writeAsBytesSync(tar);
-      final archive = TarDecoder().decode(tar);
+      final archive = TarDecoder().decodeBytes(tar);
       expect(archive[0].isSymbolicLink, true);
     });
 
     test('long file name', () {
       final file = File('test/_data/tar/x.tar');
       final bytes = file.readAsBytesSync();
-      final archive = TarDecoder().decode(bytes, verify: true);
+      final archive = TarDecoder().decodeBytes(bytes, verify: true);
 
       expect(archive.length, equals(1));
       var x = '';
@@ -194,8 +194,8 @@ void main() {
     test('long file name not null terminated', () async {
       final bytes = await http.readBytes(Uri.parse(
           'https://pub.dev/packages/firebase_messaging/versions/10.0.8.tar.gz'));
-      final tarBytes = GZipDecoder().decode(bytes, verify: true);
-      final archive = TarDecoder().decode(tarBytes, verify: true);
+      final tarBytes = GZipDecoder().decodeBytes(bytes, verify: true);
+      final archive = TarDecoder().decodeBytes(tarBytes, verify: true);
 
       expect(archive.length, equals(129));
       expect(
@@ -207,7 +207,7 @@ void main() {
     test('symlink', () {
       var file = File('test/_data/tar/symlink_tar.tar');
       final bytes = file.readAsBytesSync();
-      final archive = TarDecoder().decode(bytes, verify: true);
+      final archive = TarDecoder().decodeBytes(bytes, verify: true);
       expect(archive.length, equals(4));
       expect(archive[1].isSymbolicLink, equals(true));
       expect(archive[1].symbolicLink, equals('b/b.txt'));
@@ -216,7 +216,7 @@ void main() {
     test('decode test2.tar', () {
       final file = File('test/_data/test2.tar');
       final bytes = file.readAsBytesSync();
-      final archive = TarDecoder().decode(bytes, verify: true);
+      final archive = TarDecoder().decodeBytes(bytes, verify: true);
 
       final expectedFiles = <File>[];
       listDir(expectedFiles, Directory('test/_data/test2'));
@@ -228,8 +228,8 @@ void main() {
       final file = File('test/_data/test2.tar.gz');
       var bytes = file.readAsBytesSync();
 
-      bytes = GZipDecoder().decode(bytes, verify: true);
-      final archive = TarDecoder().decode(bytes, verify: true);
+      bytes = GZipDecoder().decodeBytes(bytes, verify: true);
+      final archive = TarDecoder().decodeBytes(bytes, verify: true);
 
       final expectedFiles = <File>[];
       listDir(expectedFiles, Directory('test/_data/test2'));
@@ -286,7 +286,7 @@ void main() {
 
         final tar = TarDecoder();
         /*Archive archive =*/
-        tar.decode(bytes, verify: true);
+        tar.decodeBytes(bytes, verify: true);
         expect(tar.files.length, equals(t['headers'].length));
 
         for (var i = 0; i < tar.files.length; ++i) {

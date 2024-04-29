@@ -11,7 +11,7 @@ const platformZLibEncoder = _ZLibEncoder();
 class _ZLibEncoder {
   const _ZLibEncoder();
 
-  Uint8List encode(List<int> bytes, {int level = 6}) =>
+  Uint8List encodeBytes(List<int> bytes, {int level = 6}) =>
       ZLibCodec(level: level).encode(bytes) as Uint8List;
 
   void encodeStream(InputStream input, OutputStream output, {int level = 6}) {
