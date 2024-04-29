@@ -2,6 +2,17 @@
 [![Dart CI](https://github.com/brendan-duncan/archive/actions/workflows/build.yaml/badge.svg)](https://github.com/brendan-duncan/archive/actions/workflows/build.yaml)
 [![pub package](https://img.shields.io/pub/v/archive.svg)](https://pub.dev/packages/archive)
 
+## 4.0 Update
+
+The Archive library was originally written when the web was the primary use of Dart. File IO was less of a concern
+and the design was around having everything in memory. As other uses of Dart came about, such as Flutter, a lot
+of File IO operations were added to the library, but not in a very clean way.
+
+The design goal for the 4.0 revision of the library is to ensure File IO is a primary focus, while minimizing memory
+usage. Memory-only interfaces are still available for web platforms.
+
+#### [Migrating 3.x to 4.x](doc/migrating_3_to_4.md).
+
 ## Overview
 
 A Dart library to encode and decode various archive and compression formats.
@@ -25,16 +36,6 @@ And the following encoders:
 - XZ [uncompressed data only]
 
 ---
-
-## 4.0 Update
-
-The Archive library was originally written when the web was the primary use of Dart. File IO was less of a concern
-and the design was around having everything in memory. As other uses of Dart came about, such as Flutter, a lot
-of File IO operations were added to the library, but not in a very clean way.
-
-I've decided it's time to take a major version change as an opportunity to make a number of breaking changes that
-allow me to clean up the library, and really focus on File IO and reducing memory usage as a primary focus.
-
 
 ## Usage
 
