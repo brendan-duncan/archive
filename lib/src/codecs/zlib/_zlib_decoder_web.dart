@@ -27,7 +27,7 @@ class _ZLibDecoder extends ZLibDecoderBase {
   }
 
   @override
-  void decodeStream(InputStream input, OutputStream output,
+  bool decodeStream(InputStream input, OutputStream output,
       {bool verify = false}) {
     Uint8List? buffer;
 
@@ -57,7 +57,7 @@ class _ZLibDecoder extends ZLibDecoderBase {
 
       if (method != deflate) {
         //throw ArchiveException('Only DEFLATE compression supported: $method');
-        break;
+        return false;
       }
 
       final fcheck = flg & 16; // ignore: unused_local_variable
@@ -67,13 +67,13 @@ class _ZLibDecoder extends ZLibDecoderBase {
       // FCHECK is set such that (cmf * 256 + flag) must be a multiple of 31.
       if (((cmf << 8) + flg) % 31 != 0) {
         //throw ArchiveException('Invalid FCHECK');
-        break;
+        return false;
       }
 
       if (fdict != 0) {
         /*dictid =*/ input.readUint32();
         //throw ArchiveException('FDICT Encoding not currently supported');
-        break;
+        return false;
       }
 
       if (buffer != null) {
@@ -89,8 +89,7 @@ class _ZLibDecoder extends ZLibDecoderBase {
         final a = getAdler32(buffer);
         if (adler32 != a) {
           buffer = null;
-          break;
-          //throw ArchiveException('Invalid adler-32 checksum');
+          return false;
         }
       }
     }
@@ -98,5 +97,7 @@ class _ZLibDecoder extends ZLibDecoderBase {
     if (buffer != null) {
       output.writeBytes(buffer);
     }
+
+    return true;
   }
 }

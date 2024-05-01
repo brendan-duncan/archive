@@ -1,6 +1,5 @@
 import 'dart:typed_data';
 
-import '../../util/archive_exception.dart';
 import '../../util/crc32.dart';
 import '../../util/input_memory_stream.dart';
 import '../../util/input_stream.dart';
@@ -32,8 +31,9 @@ class Deflate {
       DeflateFlushMode flush = DeflateFlushMode.finish})
       : input = InputMemoryStream(bytes),
         output = output ?? OutputMemoryStream() {
-    _init(level);
-    _deflate(flush: flush);
+    if (_init(level)) {
+      _deflate(flush: flush);
+    }
   }
 
   Deflate.stream(this.input,
@@ -83,7 +83,7 @@ class Deflate {
   int get level => _level;
 
   /// Initialize the deflate structures for the given parameters.
-  void _init(int level,
+  bool _init(int level,
       {int method = zDeflated,
       int windowBits = maxWBits,
       int memLevel = defMemLevel,
@@ -97,10 +97,15 @@ class Deflate {
         level > 9 ||
         strategy < 0 ||
         strategy > zHuffmanOnly) {
-      throw ArchiveException('Invalid Deflate parameter');
+      return false;
+      //throw ArchiveException('Invalid Deflate parameter');
     }
 
-    _config = _getConfig(level);
+    final config = _getConfig(level);
+    if (config == null) {
+      return false;
+    }
+    _config = config;
 
     _dynamicLengthTree = Uint16List(heapSize * 2);
     _dynamicDistTree = Uint16List((2 * dCodes + 1) * 2);
@@ -143,6 +148,8 @@ class Deflate {
 
     _trInit();
     _lmInit();
+
+    return true;
   }
 
   /// Compress the current input buffer.
@@ -1234,7 +1241,7 @@ class Deflate {
     }
   }
 
-  _DeflaterConfig _getConfig(int level) {
+  _DeflaterConfig? _getConfig(int level) {
     switch (level) {
       //  good  lazy  nice  chain
       case 0:
@@ -1259,7 +1266,8 @@ class Deflate {
         return _DeflaterConfig(32, 258, 258, 4096, slow);
     }
     // Should not happen: Level has been checked before.
-    throw ArchiveException('Invalid Deflate parameter');
+    return null;
+    //throw ArchiveException('Invalid Deflate parameter');
   }
 
   static const maxMemLevel = 9;

@@ -23,7 +23,7 @@ class _GZipDecoder extends ZLibDecoderBase {
   }
 
   @override
-  void decodeStream(InputStream input, OutputStream output,
+  bool decodeStream(InputStream input, OutputStream output,
       {bool verify = false}) {
     while (!input.isEOS) {
       if (!_readHeader(input)) {
@@ -47,6 +47,8 @@ class _GZipDecoder extends ZLibDecoderBase {
         }
       }*/
     }
+
+    return true;
   }
 
   bool _readHeader(InputStream input) {

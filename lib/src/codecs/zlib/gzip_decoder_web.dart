@@ -13,7 +13,7 @@ class GZipDecoderWeb extends ZLibDecoderBase {
       platformGZipDecoder.decodeBytes(data, verify: verify);
 
   @override
-  void decodeStream(InputStream input, OutputStream output,
+  bool decodeStream(InputStream input, OutputStream output,
           {bool verify = false}) =>
       platformGZipDecoder.decodeStream(input, output, verify: verify);
 }

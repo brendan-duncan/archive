@@ -13,7 +13,7 @@ class ZLibDecoderWeb extends ZLibDecoderBase {
       platformZLibDecoder.decodeBytes(data, verify: verify);
 
   @override
-  void decodeStream(InputStream input, OutputStream output,
+  bool decodeStream(InputStream input, OutputStream output,
           {bool verify = false}) =>
       platformZLibDecoder.decodeStream(input, output, verify: verify);
 }

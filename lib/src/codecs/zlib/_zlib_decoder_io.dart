@@ -18,7 +18,7 @@ class _ZLibDecoder extends ZLibDecoderBase {
       ZLibCodec().decode(data) as Uint8List;
 
   @override
-  void decodeStream(InputStream input, OutputStream output,
+  bool decodeStream(InputStream input, OutputStream output,
       {bool verify = false}) {
     final outSink = ChunkedConversionSink<List<int>>.withCallback((chunks) {
       for (final chunk in chunks) {
@@ -34,5 +34,7 @@ class _ZLibDecoder extends ZLibDecoderBase {
       inSink.add(chunk);
     }
     inSink.close();
+
+    return true;
   }
 }

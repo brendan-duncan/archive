@@ -9,7 +9,7 @@ class GZipDecoder {
   Uint8List decodeBytes(List<int> bytes, {bool verify = false}) =>
       platformGZipDecoder.decodeBytes(bytes, verify: verify);
 
-  void decodeStream(InputStream input, OutputStream output,
+  bool decodeStream(InputStream input, OutputStream output,
           {bool verify = false}) =>
       platformGZipDecoder.decodeStream(input, output, verify: verify);
 }

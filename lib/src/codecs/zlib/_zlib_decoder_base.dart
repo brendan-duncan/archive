@@ -7,6 +7,6 @@ abstract class ZLibDecoderBase {
 
   Uint8List decodeBytes(List<int> bytes, {bool verify = false});
 
-  void decodeStream(InputStream input, OutputStream output,
+  bool decodeStream(InputStream input, OutputStream output,
       {bool verify = false});
 }

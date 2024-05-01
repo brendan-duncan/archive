@@ -18,10 +18,10 @@ class XZDecoder {
     return output.getBytes();
   }
 
-  void decodeStream(InputStream input, OutputStream output,
+  bool decodeStream(InputStream input, OutputStream output,
       {bool verify = false}) {
-    var decoder = _XZStreamDecoder(verify: verify);
-    decoder.decode(input, output);
+    final decoder = _XZStreamDecoder(verify: verify);
+    return decoder.decode(input, output);
   }
 }
 
