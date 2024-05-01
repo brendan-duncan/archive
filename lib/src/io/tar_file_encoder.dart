@@ -30,7 +30,7 @@ class TarFileEncoder {
 
     Directory tempDir;
     if (compression == gzip) {
-      tempDir = Directory.systemTemp.createTempSync('dart_archive');
+      tempDir = await Directory.systemTemp.createTemp('dart_archive');
       tarPath = '${tempDir.path}/temp.tar';
     }
 
@@ -62,13 +62,13 @@ class TarFileEncoder {
     final files = dir.listSync(recursive: true, followLinks: followLinks);
 
     final dirName = path.basename(dir.path);
-    var futures = <Future<void>>[];
-    for (var file in files) {
+    final futures = <Future<void>>[];
+    for (final file in files) {
       if (file is Directory) {
         var filename = path.relative(file.path, from: dir.path);
         filename = includeDirName ? '$dirName/$filename' : filename;
         final af = ArchiveDirectory('$filename/');
-        af.mode = file.statSync().mode;
+        af.mode = (await file.stat()).mode;
         _encoder.add(af);
       } else if (file is File) {
         final dirName = path.basename(dir.path);
@@ -85,8 +85,8 @@ class TarFileEncoder {
     final fileStream = InputFileStream(file.path);
     final f =
         ArchiveFile.stream(filename ?? path.basename(file.path), fileStream);
-    f.lastModTime = file.lastModifiedSync().millisecondsSinceEpoch ~/ 1000;
-    f.mode = file.statSync().mode;
+    f.lastModTime = (await file.lastModified()).millisecondsSinceEpoch ~/ 1000;
+    f.mode = (await file.stat()).mode;
     _encoder.add(f);
     await fileStream.close();
   }

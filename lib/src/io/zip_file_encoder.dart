@@ -44,7 +44,8 @@ class ZipFileEncoder {
         level: level,
         followLinks: followLinks,
         onProgress: onProgress);
-    closeSync();
+
+    await close();
   }
 
   /// Composes the path (target) of the Zip file after a [Directory] is zipped.
@@ -137,10 +138,12 @@ class ZipFileEncoder {
     }
 
     archiveFile.lastModTime =
-        file.lastModifiedSync().millisecondsSinceEpoch ~/ 1000;
-    archiveFile.mode = file.statSync().mode;
+    (await file.lastModified()).millisecondsSinceEpoch ~/ 1000;
+
+    archiveFile.mode = (await file.stat()).mode;
 
     _encoder.add(archiveFile);
+
     await fileStream.close();
   }
 

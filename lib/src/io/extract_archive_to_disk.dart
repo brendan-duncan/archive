@@ -14,9 +14,9 @@ import '../util/input_file_stream.dart';
 import '../util/input_stream.dart';
 import '../util/output_file_stream.dart';
 
-/// Ensure filePath is contained in the outputDir folder, to make sure archives
-/// aren't trying to write to some system path.
-bool isWithinOutputPath(String outputDir, String filePath) {
+// Ensure filePath is contained in the outputDir folder, to make sure archives
+// aren't trying to write to some system path.
+bool _isWithinOutputPath(String outputDir, String filePath) {
   return path.isWithin(
       path.canonicalize(outputDir), path.canonicalize(filePath));
 }
@@ -30,7 +30,7 @@ bool _isValidSymLink(String outputPath, ArchiveEntry file) {
     return false;
   }
   final absLinkPath = path.normalize(path.join(filePath, linkPath));
-  if (!isWithinOutputPath(outputPath, absLinkPath)) {
+  if (!_isWithinOutputPath(outputPath, absLinkPath)) {
     // Don't allow decoding of files outside of the output path.
     return false;
   }
@@ -48,7 +48,7 @@ String? _prepareArchiveFilePath(ArchiveFile archiveFile, String outputPath) {
   final filePath = path.join(outputPath, path.normalize(archiveFile.name));
 
   if ((!archiveFile.isFile && !archiveFile.isSymbolicLink) ||
-      !isWithinOutputPath(outputPath, filePath)) {
+      !_isWithinOutputPath(outputPath, filePath)) {
     return null;
   }
 
@@ -96,7 +96,7 @@ void extractArchiveToDiskSync(
 }
 
 Future<void> extractArchiveToDisk(Archive archive, String outputPath,
-    {bool asyncWrite = true, int? bufferSize}) async {
+    {int? bufferSize}) async {
   final futures = <Future<void>>[];
   final outDir = Directory(outputPath);
   if (!outDir.existsSync()) {
@@ -107,7 +107,7 @@ Future<void> extractArchiveToDisk(Archive archive, String outputPath,
     final filePath = path.normalize(path.join(outputPath, entry.fullPathName));
 
     if ((!entry.isFile && !entry.isSymbolicLink) ||
-        !isWithinOutputPath(outputPath, filePath)) {
+        !_isWithinOutputPath(outputPath, filePath)) {
       continue;
     }
 
@@ -116,38 +116,19 @@ Future<void> extractArchiveToDisk(Archive archive, String outputPath,
         continue;
       }
 
-      if (asyncWrite) {
-        final link = Link(filePath);
-        await link.create(path.normalize(entry.symbolicLink ?? ""),
-            recursive: true);
-      } else {
-        final link = Link(filePath);
-        link.createSync(path.normalize(entry.symbolicLink ?? ""),
-            recursive: true);
-      }
+      final link = Link(filePath);
+      await link.create(path.normalize(entry.symbolicLink ?? ""),
+          recursive: true);
       continue;
     }
 
     if (!entry.isFile) {
-      if (asyncWrite) {
-        await Directory(filePath).create(recursive: true);
-      } else {
-        Directory(filePath).createSync(recursive: true);
-      }
+      await Directory(filePath).create(recursive: true);
       continue;
     }
 
     ArchiveFile file = entry as ArchiveFile;
 
-    /*if (asyncWrite) {
-      final output = File(filePath);
-      final f = await output.create(recursive: true);
-      final fp = await f.open(mode: FileMode.write);
-      final bytes = file.readBytes()!;
-      await fp.writeFrom(bytes);
-      await file.clear();
-      futures.add(fp.close());
-    } else {*/
     bufferSize ??= OutputFileStream.kDefaultBufferSize;
     final fileSize = file.size;
     final fileBufferSize = fileSize < bufferSize ? fileSize : bufferSize;
@@ -159,7 +140,7 @@ Future<void> extractArchiveToDisk(Archive archive, String outputPath,
     }
     await output.close();
   }
-  //}
+
   if (futures.isNotEmpty) {
     await Future.wait(futures);
     futures.clear();
@@ -167,11 +148,11 @@ Future<void> extractArchiveToDisk(Archive archive, String outputPath,
 }
 
 Future<void> extractFileToDisk(String inputPath, String outputPath,
-    {String? password, bool asyncWrite = false, int? bufferSize}) async {
+    {String? password, int? bufferSize}) async {
   Directory? tempDir;
   var archivePath = inputPath;
 
-  var futures = <Future<void>>[];
+  final futures = <Future<void>>[];
   if (inputPath.endsWith('tar.gz') || inputPath.endsWith('tgz')) {
     tempDir = Directory.systemTemp.createTempSync('dart_archive');
     archivePath = path.join(tempDir.path, 'temp.tar');
@@ -222,7 +203,7 @@ Future<void> extractFileToDisk(String inputPath, String outputPath,
   final files = archive.getAllFiles();
   for (final file in files) {
     final filePath = path.join(outputPath, path.normalize(file.name));
-    if (!isWithinOutputPath(outputPath, filePath)) {
+    if (!_isWithinOutputPath(outputPath, filePath)) {
       continue;
     }
 
@@ -237,34 +218,18 @@ Future<void> extractFileToDisk(String inputPath, String outputPath,
       continue;
     }
 
-    if (asyncWrite) {
-      if (file.isSymbolicLink) {
-        final link = Link(filePath);
-        await link.create(path.normalize(file.symbolicLink ?? ""),
-            recursive: true);
-      } else {
-        final output = File(filePath);
-        final f = await output.create(recursive: true);
-        final fp = await f.open(mode: FileMode.write);
-        final bytes = file.readBytes()!;
-        await fp.writeFrom(bytes);
-        await file.clear();
-        futures.add(fp.close());
-      }
+    if (file.isSymbolicLink) {
+      final link = Link(filePath);
+      final p = path.normalize(file.symbolicLink ?? "");
+      link.createSync(p, recursive: true);
     } else {
-      if (file.isSymbolicLink) {
-        final link = Link(filePath);
-        final p = path.normalize(file.symbolicLink ?? "");
-        link.createSync(p, recursive: true);
-      } else {
-        final output = OutputFileStream(filePath, bufferSize: bufferSize);
-        try {
-          file.writeContent(output);
-        } catch (err) {
-          //
-        }
-        futures.add(output.close());
+      final output = OutputFileStream(filePath, bufferSize: bufferSize);
+      try {
+        file.writeContent(output);
+      } catch (err) {
+        //
       }
+      futures.add(output.close());
     }
   }
 
