@@ -1,5 +1,4 @@
 import 'package:path/path.dart' as p;
-import '../util/archive_exception.dart';
 import 'archive_entry.dart';
 import 'archive_file.dart';
 
@@ -51,7 +50,7 @@ class ArchiveDirectory extends ArchiveEntry {
       if (entry is ArchiveDirectory) {
         return entry;
       }
-      throw ArchiveException('Invalid archive');
+      return null;
     }
     final dir = ArchiveDirectory(name);
     entryMap[name] = entries.length;

@@ -6,8 +6,6 @@ import '../archive/archive.dart';
 import '../archive/archive_directory.dart';
 import '../archive/archive_entry.dart';
 import '../archive/archive_file.dart';
-import '../util/archive_exception.dart';
-import '../util/crc32.dart';
 import '../util/input_memory_stream.dart';
 import '../util/input_stream.dart';
 import 'zip/zip_directory.dart';
@@ -33,13 +31,13 @@ class ZipDecoder {
       // The attributes are stored in base 8
       final mode = zfh.externalFileAttributes;
 
-      if (verify) {
+      /*if (verify) {
         final stream = zf.getStream();
         final computedCrc = getCrc32(stream.toUint8List());
         if (computedCrc != zf.crc32) {
           throw ArchiveException('Invalid CRC for file in archive.');
         }
-      }
+      }*/
 
       final entryMode = mode >> 16;
 

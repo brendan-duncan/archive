@@ -486,7 +486,8 @@ void main() {
 
   test('decode_empty_directory', () {
     final zip = ZipDecoder();
-    final archive = zip.decodeBytes(File('test/_data/test2.zip').readAsBytesSync());
+    final archive =
+        zip.decodeBytes(File('test/_data/test2.zip').readAsBytesSync());
     final entries = archive.getAllEntries();
     expect(entries.length, 5);
   });

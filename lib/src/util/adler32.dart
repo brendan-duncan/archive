@@ -92,15 +92,16 @@ class _Adler32Sink extends ByteConversionSinkBase {
 
   var _hash = 1;
 
-  /// Whether [close] has been called.
+  // Whether [close] has been called.
   var _isClosed = false;
 
   _Adler32Sink(this._inner);
 
   @override
   void add(List<int> data) {
-    if (_isClosed) throw StateError('Hash.add() called after close().');
-    _hash = getAdler32(data, _hash);
+    if (!_isClosed) {
+      _hash = getAdler32(data, _hash);
+    }
   }
 
   @override

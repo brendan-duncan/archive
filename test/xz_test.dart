@@ -123,8 +123,8 @@ void main() {
       // Uses a SHA-256 checksum.
       final file = File(p.join('test/_data/xz/sha256.xz'));
       final expected = file.readAsBytesSync();
-      final data =
-          XZEncoder().encodeBytes(utf8.encode('hello\n'), check: XZCheck.sha256);
+      final data = XZEncoder()
+          .encodeBytes(utf8.encode('hello\n'), check: XZCheck.sha256);
       compareBytes(data, expected);
     });
 

@@ -157,7 +157,6 @@ abstract class InputStream {
         }
         codes.add(c);
       }
-      //throw ArchiveException('EOF reached without finding string terminator');
       return codesToString(codes);
     }
 

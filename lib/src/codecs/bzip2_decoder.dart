@@ -1,7 +1,6 @@
 import 'dart:typed_data';
 
 import '../util/archive_exception.dart';
-import '../util/byte_order.dart';
 import '../util/input_memory_stream.dart';
 import '../util/input_stream.dart';
 import '../util/output_memory_stream.dart';
@@ -13,9 +12,10 @@ import 'bzip2/bzip2.dart';
 /// Derived from libbzip2 (http://www.bzip.org).
 class BZip2Decoder {
   Uint8List decodeBytes(List<int> data, {bool verify = false}) {
-    return decodeStreamBytes(
-        InputMemoryStream(data, byteOrder: ByteOrder.bigEndian),
-        verify: verify);
+    final input = InputMemoryStream(data);
+    final output = OutputMemoryStream();
+    decodeStream(input, output, verify: verify);
+    return output.getBytes();
   }
 
   void decodeStream(InputStream input, OutputStream output,
@@ -75,13 +75,6 @@ class BZip2Decoder {
         return;
       }
     }
-  }
-
-  Uint8List decodeStreamBytes(InputStream input,
-      {bool verify = false, OutputStream? output}) {
-    output ??= OutputMemoryStream();
-    decodeStream(input, output, verify: verify);
-    return output.getBytes();
   }
 
   int _readBlockType(Bz2BitReader br) {

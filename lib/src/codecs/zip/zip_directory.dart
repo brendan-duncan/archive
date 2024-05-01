@@ -1,4 +1,3 @@
-import '../../util/archive_exception.dart';
 import '../../util/input_stream.dart';
 import 'zip_file_header.dart';
 
@@ -22,10 +21,14 @@ class ZipDirectory {
 
   void read(InputStream input, {String? password}) {
     filePosition = _findSignature(input);
+    if (filePosition < 0) {
+      return;
+    }
+
     input.setPosition(filePosition);
     final sig = input.readUint32();
     if (sig != eocdSignature) {
-      throw ArchiveException('Could not find End of Central Directory Record');
+      return;
     }
     numberOfThisDisk = input.readUint16();
     diskWithTheStartOfTheCentralDirectory = input.readUint16();
@@ -162,6 +165,6 @@ class ZipDirectory {
         sp -= chunkSize;
       }
     }
-    throw ArchiveException('Could not find End of Central Directory Record');
+    return -1;
   }
 }

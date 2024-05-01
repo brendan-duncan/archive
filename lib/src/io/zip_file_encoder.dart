@@ -138,7 +138,7 @@ class ZipFileEncoder {
     }
 
     archiveFile.lastModTime =
-    (await file.lastModified()).millisecondsSinceEpoch ~/ 1000;
+        (await file.lastModified()).millisecondsSinceEpoch ~/ 1000;
 
     archiveFile.mode = (await file.stat()).mode;
 

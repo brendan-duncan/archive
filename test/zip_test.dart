@@ -361,8 +361,8 @@ void main() async {
       final afile = ArchiveFile.bytes(name, bytes);
       archive.add(afile);
 
-      var zipData = ZipEncoder()
-          .encodeBytes(archive, modified: DateTime.utc(2010, DateTime.january, 1));
+      var zipData = ZipEncoder().encodeBytes(archive,
+          modified: DateTime.utc(2010, DateTime.january, 1));
 
       File(p.join(testOutputPath, 'uncompressed.zip'))
         ..createSync(recursive: true)

@@ -1,8 +1,6 @@
-import 'dart:convert';
 import 'dart:typed_data';
 
 import 'abstract_file_handle.dart';
-import 'archive_exception.dart';
 import 'byte_order.dart';
 import 'file_buffer.dart';
 import 'file_handle.dart';
@@ -197,31 +195,6 @@ class InputFileStream extends InputStream {
       return Uint8List(0);
     }
     return _file.readBytes(_fileOffset + position, fileRemaining, _fileSize);
-  }
-
-  /// Read a null-terminated string, or if [len] is provided, that number of
-  /// bytes returned as a string.
-  @override
-  String readString({int? size, bool utf8 = true}) {
-    if (size == null) {
-      final codes = <int>[];
-      while (!isEOS) {
-        var c = readByte();
-        if (c == 0) {
-          return utf8
-              ? Utf8Decoder().convert(codes)
-              : String.fromCharCodes(codes);
-        }
-        codes.add(c);
-      }
-      throw ArchiveException('EOF reached without finding string terminator');
-    }
-
-    final s = readBytes(size);
-    final bytes = s.toUint8List();
-    final str =
-        utf8 ? Utf8Decoder().convert(bytes) : String.fromCharCodes(bytes);
-    return str;
   }
 
   FileBuffer get file => _file;

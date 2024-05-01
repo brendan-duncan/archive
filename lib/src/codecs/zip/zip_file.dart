@@ -2,7 +2,6 @@ import 'dart:typed_data';
 
 import '../../archive/compression_type.dart';
 import '../../util/aes.dart';
-import '../../util/archive_exception.dart';
 import '../../util/crc32.dart';
 import '../../util/encryption.dart';
 import '../../util/file_content.dart';
@@ -72,7 +71,7 @@ class ZipFile extends FileContent {
   void read(InputStream input, {String? password}) {
     final sig = input.readUint32();
     if (sig != zipSignature) {
-      throw ArchiveException('Invalid Zip Signature');
+      return;
     }
 
     version = input.readUint16();

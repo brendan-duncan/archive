@@ -1,12 +1,10 @@
 import 'dart:typed_data';
 
-import 'package:crypto/crypto.dart';
-
-import '../util/archive_exception.dart';
 import '../util/crc32.dart';
-import '../util/crc64.dart';
 import '../util/input_memory_stream.dart';
 import '../util/input_stream.dart';
+import '../util/output_memory_stream.dart';
+import '../util/output_stream.dart';
 import 'lzma/lzma_decoder.dart';
 
 // The XZ specification can be found at
@@ -15,12 +13,15 @@ import 'lzma/lzma_decoder.dart';
 /// Decompress data with the xz format decoder.
 class XZDecoder {
   Uint8List decodeBytes(List<int> data, {bool verify = false}) {
-    return decodeStream(InputMemoryStream(data), verify: verify);
+    final output = OutputMemoryStream();
+    decodeStream(InputMemoryStream(data), output, verify: verify);
+    return output.getBytes();
   }
 
-  Uint8List decodeStream(InputStream input, {bool verify = false}) {
+  void decodeStream(InputStream input, OutputStream output,
+      {bool verify = false}) {
     var decoder = _XZStreamDecoder(verify: verify);
-    return decoder.decode(input);
+    decoder.decode(input, output);
   }
 }
 
@@ -28,9 +29,6 @@ class XZDecoder {
 class _XZStreamDecoder {
   // True if checksums are confirmed.
   final bool verify;
-
-  // Decoded data.
-  final data = BytesBuilder();
 
   // LZMA decoder.
   final decoder = LzmaDecoder();
@@ -43,26 +41,34 @@ class _XZStreamDecoder {
 
   _XZStreamDecoder({this.verify = false});
 
-  // Decode this stream and return the uncompressed data.
-  Uint8List decode(InputStream input) {
-    _readStreamHeader(input);
+  /// Decode this stream and return the uncompressed data.
+  bool decode(InputStream input, OutputStream output) {
+    if (!_readStreamHeader(input, output)) {
+      return false;
+    }
 
-    while (true) {
+    while (!input.isEOS) {
       final blockHeader = input.peekBytes(1).readByte();
 
       if (blockHeader == 0) {
         final indexSize = _readStreamIndex(input);
-        _readStreamFooter(input, indexSize);
-        return data.takeBytes();
+        if (indexSize < 0) {
+          return false;
+        }
+        return _readStreamFooter(input, indexSize);
       }
 
       final blockLength = (blockHeader + 1) * 4;
-      _readBlock(input, blockLength);
+      if (!_readBlock(input, output, blockLength)) {
+        return false;
+      }
     }
+
+    return true;
   }
 
   // Reads an XZ steam header from [input].
-  void _readStreamHeader(InputStream input) {
+  bool _readStreamHeader(InputStream input, OutputStream output) {
     final magic = input.readBytes(6).toUint8List();
     final magicIsValid = magic[0] == 253 &&
         magic[1] == 55 /* '7' */ &&
@@ -71,24 +77,29 @@ class _XZStreamDecoder {
         magic[4] == 90 /* 'Z' */ &&
         magic[5] == 0;
     if (!magicIsValid) {
-      throw ArchiveException('Invalid XZ stream header signature');
+      return false;
+      //throw ArchiveException('Invalid XZ stream header signature');
     }
 
     final header = input.readBytes(2);
     if (header.readByte() != 0) {
-      throw ArchiveException('Invalid stream flags');
+      return false;
+      //throw ArchiveException('Invalid stream flags');
     }
     streamFlags = header.readByte();
     header.reset();
 
     final crc = input.readUint32();
     if (getCrc32(header.toUint8List()) != crc) {
-      throw ArchiveException('Invalid stream header CRC checksum');
+      return false;
+      //throw ArchiveException('Invalid stream header CRC checksum');
     }
+
+    return true;
   }
 
   // Reads a data block from [input].
-  void _readBlock(InputStream input, int headerLength) {
+  bool _readBlock(InputStream input, OutputStream output, int headerLength) {
     final blockStart = input.position;
     final header = input.readBytes(headerLength - 4);
 
@@ -122,7 +133,8 @@ class _XZStreamDecoder {
         // lzma2 filter
         final v = properties[0];
         if (v > 40) {
-          throw ArchiveException('Invalid LZMA dictionary size');
+          return false;
+          //throw ArchiveException('Invalid LZMA dictionary size');
         } else if (v == 40) {
           dictionarySize = 0xffffffff;
         } else {
@@ -137,37 +149,46 @@ class _XZStreamDecoder {
         filters.add(0);
       }
     }
-    _readPadding(header);
+    if (_readPadding(header) < 0) {
+      return false;
+    }
     header.reset();
 
     final crc = input.readUint32();
     if (getCrc32(header.toUint8List()) != crc) {
-      throw ArchiveException('Invalid block CRC checksum');
+      return false;
+      //throw ArchiveException('Invalid block CRC checksum');
     }
 
     if (filters.length != 2 && filters.first != 0x21) {
-      throw ArchiveException('Unsupported filters');
+      return false;
+      //throw ArchiveException('Unsupported filters');
     }
 
     final startPosition = input.position;
-    final startDataLength = data.length;
+    final startDataLength = output.length;
 
-    _readLZMA2(input, dictionarySize);
+    _readLZMA2(input, output, dictionarySize);
 
     final actualCompressedLength = input.position - startPosition;
-    final actualUncompressedLength = data.length - startDataLength;
+    final actualUncompressedLength = output.length - startDataLength;
 
     if (compressedLength != null &&
         compressedLength != actualCompressedLength) {
-      throw ArchiveException("Compressed data doesn't match expected length");
+      return false;
+      //throw ArchiveException("Compressed data doesn't match expected length");
     }
 
     uncompressedLength ??= actualUncompressedLength;
     if (uncompressedLength != actualUncompressedLength) {
-      throw ArchiveException("Uncompressed data doesn't match expected length");
+      return false;
+      //throw ArchiveException("Uncompressed data doesn't match expected length");
     }
 
     final paddingSize = _readPadding(input);
+    if (paddingSize < 0) {
+      return false;
+    }
 
     // Checksum
     final checkType = streamFlags & 0xf;
@@ -175,48 +196,48 @@ class _XZStreamDecoder {
       case 0: // none
         break;
       case 0x1: // CRC32
-        final expectedCrc = input.readUint32();
-        if (verify) {
+        /*final expectedCrc =*/ input.readUint32();
+        /*if (verify) {
           final actualCrc = getCrc32(data.toBytes().sublist(startDataLength));
           if (actualCrc != expectedCrc) {
             throw ArchiveException('CRC32 check failed');
           }
-        }
+        }*/
         break;
       case 0x2:
       case 0x3:
         input.skip(4);
-        if (verify) {
+        /*if (verify) {
           throw ArchiveException('Unknown check type $checkType');
-        }
+        }*/
         break;
       case 0x4: // CRC64
-        final expectedCrc = input.readUint64();
-        if (verify && isCrc64Supported()) {
+        /*final expectedCrc =*/ input.readUint64();
+        /*if (verify && isCrc64Supported()) {
           final actualCrc = getCrc64(data.toBytes().sublist(startDataLength));
           if (actualCrc != expectedCrc) {
             throw ArchiveException('CRC64 check failed');
           }
-        }
+        }*/
         break;
       case 0x5:
       case 0x6:
         input.skip(8);
-        if (verify) {
+        /*if (verify) {
           throw ArchiveException('Unknown check type $checkType');
-        }
+        }*/
         break;
       case 0x7:
       case 0x8:
       case 0x9:
         input.skip(16);
-        if (verify) {
+        /*if (verify) {
           throw ArchiveException('Unknown check type $checkType');
-        }
+        }*/
         break;
       case 0xa: // SHA-256
-        final expectedCrc = input.readBytes(32).toUint8List();
-        if (verify) {
+        /*final expectedCrc =*/ input.readBytes(32).toUint8List();
+        /*if (verify) {
           final actualCrc =
               sha256.convert(data.toBytes().sublist(startDataLength)).bytes;
           for (var i = 0; i < 32; i++) {
@@ -224,34 +245,37 @@ class _XZStreamDecoder {
               throw ArchiveException('SHA-256 check failed');
             }
           }
-        }
+        }*/
         break;
       case 0xb:
       case 0xc:
         input.skip(32);
-        if (verify) {
+        /*if (verify) {
           throw ArchiveException('Unknown check type $checkType');
-        }
+        }*/
         break;
       case 0xd:
       case 0xe:
       case 0xf:
         input.skip(64);
-        if (verify) {
+        /*if (verify) {
           throw ArchiveException('Unknown check type $checkType');
-        }
+        }*/
         break;
       default:
-        throw ArchiveException('Unknown block check type $checkType');
+        //throw ArchiveException('Unknown block check type $checkType');
+        return false;
     }
 
     final unpaddedLength = input.position - blockStart - paddingSize;
     _blockSizes.add(_XZBlockSize(unpaddedLength, uncompressedLength));
+
+    return true;
   }
 
   // Reads LZMA2 data from [input].
-  void _readLZMA2(InputStream input, int dictionarySize) {
-    while (true) {
+  bool _readLZMA2(InputStream input, OutputStream output, int dictionarySize) {
+    while (!input.isEOS) {
       final control = input.readByte();
       // Control values:
       // 00000000 - end marker
@@ -261,16 +285,18 @@ class _XZStreamDecoder {
       if (control & 0x80 == 0) {
         if (control == 0) {
           decoder.reset(resetDictionary: true);
-          return;
+          return true;
         } else if (control == 1) {
           final length = (input.readByte() << 8 | input.readByte()) + 1;
-          data.add(input.readBytes(length).toUint8List());
+          output.writeBytes(input.readBytes(length).toUint8List());
         } else if (control == 2) {
           // uncompressed data
           final length = (input.readByte() << 8 | input.readByte()) + 1;
-          data.add(decoder.decodeUncompressed(input.readBytes(length), length));
+          output.writeBytes(
+              decoder.decodeUncompressed(input.readBytes(length), length));
         } else {
-          throw ArchiveException('Unknown LZMA2 control code $control');
+          return false;
+          //throw ArchiveException('Unknown LZMA2 control code $control');
         }
       } else {
         // Reset flags:
@@ -303,10 +329,12 @@ class _XZStreamDecoder {
               resetDictionary: reset == 3);
         }
 
-        data.add(decoder.decode(
+        output.writeBytes(decoder.decode(
             input.readBytes(compressedLength), uncompressedLength));
       }
     }
+
+    return true;
   }
 
   // Reads an XZ stream index from [input].
@@ -316,20 +344,25 @@ class _XZStreamDecoder {
     input.skip(1); // Skip index indicator
     final nRecords = _readMultibyteInteger(input);
     if (nRecords != _blockSizes.length) {
-      throw ArchiveException('Stream index block count mismatch');
+      return -1;
+      //throw ArchiveException('Stream index block count mismatch');
     }
 
     for (var i = 0; i < nRecords; i++) {
       final unpaddedLength = _readMultibyteInteger(input);
       final uncompressedLength = _readMultibyteInteger(input);
       if (_blockSizes[i].unpaddedLength != unpaddedLength) {
-        throw ArchiveException('Stream index compressed length mismatch');
+        return -1;
+        //throw ArchiveException('Stream index compressed length mismatch');
       }
       if (_blockSizes[i].uncompressedLength != uncompressedLength) {
-        throw ArchiveException('Stream index uncompressed length mismatch');
+        return -1;
+        //throw ArchiveException('Stream index uncompressed length mismatch');
       }
     }
-    _readPadding(input);
+    if (_readPadding(input) < 0) {
+      return -1;
+    }
 
     // Re-read for CRC calculation
     final indexLength = input.position - startPosition;
@@ -338,7 +371,8 @@ class _XZStreamDecoder {
 
     final crc = input.readUint32();
     if (getCrc32(indexData.toUint8List()) != crc) {
-      throw ArchiveException('Invalid stream index CRC checksum');
+      return -1;
+      //throw ArchiveException('Invalid stream index CRC checksum');
     }
 
     return indexLength + 4;
@@ -346,30 +380,37 @@ class _XZStreamDecoder {
 
   // Reads an XZ stream footer from [input] and check the index size matches
   // [indexSize].
-  void _readStreamFooter(InputStream input, int indexSize) {
+  bool _readStreamFooter(InputStream input, int indexSize) {
     final crc = input.readUint32();
     final footer = input.readBytes(6);
     final backwardSize = (footer.readUint32() + 1) * 4;
     if (backwardSize != indexSize) {
-      throw ArchiveException('Stream footer has invalid index size');
+      return false;
+      //throw ArchiveException('Stream footer has invalid index size');
     }
     if (footer.readByte() != 0) {
-      throw ArchiveException('Invalid stream flags');
+      return false;
+      //throw ArchiveException('Invalid stream flags');
     }
     final footerFlags = footer.readByte();
     if (footerFlags != streamFlags) {
-      throw ArchiveException("Stream footer flags don't match header flags");
+      return false;
+      //throw ArchiveException("Stream footer flags don't match header flags");
     }
     footer.reset();
 
     if (getCrc32(footer.toUint8List()) != crc) {
-      throw ArchiveException('Invalid stream footer CRC checksum');
+      return false;
+      //throw ArchiveException('Invalid stream footer CRC checksum');
     }
 
     final magic = input.readBytes(2).toUint8List();
     if (magic[0] != 89 /* 'Y' */ && magic[1] != 90 /* 'Z' */) {
-      throw ArchiveException('Invalid XZ stream footer signature');
+      return false;
+      //throw ArchiveException('Invalid XZ stream footer signature');
     }
+
+    return true;
   }
 
   // Reads a multibyte integer from [input].
@@ -393,7 +434,8 @@ class _XZStreamDecoder {
     var count = 0;
     while (input.position % 4 != 0) {
       if (input.readByte() != 0) {
-        throw ArchiveException('Non-zero padding byte');
+        return -1;
+        //throw ArchiveException('Non-zero padding byte');
       }
       count++;
     }

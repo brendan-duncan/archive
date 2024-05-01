@@ -174,7 +174,7 @@ Future<void> extractFileToDisk(String inputPath, String outputPath,
     archivePath = path.join(tempDir.path, 'temp.tar');
     final input = InputFileStream(inputPath);
     final output = OutputFileStream(archivePath, bufferSize: bufferSize);
-    output.writeBytes(XZDecoder().decodeStream(input));
+    XZDecoder().decodeStream(input, output);
     futures.add(input.close());
     futures.add(output.close());
   }
