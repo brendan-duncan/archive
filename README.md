@@ -17,69 +17,69 @@ usage. Memory-only interfaces are still available for web platforms.
 
 A Dart library to encode and decode various archive and compression formats.
 
-The archive library currently supports the following decoders:
+The archive library currently supports the following codecs:
 
-- Zip (Archive)
-- Tar (Archive)
-- ZLib [Inflate decompression]
-- GZip [Inflate decompression]
-- BZip2 [decompression]
-- XZ [decompression]
-
-And the following encoders:
-
-- Zip (Archive)
-- Tar (Archive)
-- ZLib [Deflate compression]
-- GZip [Deflate compression]
-- BZip2 [compression]
-- XZ [uncompressed data only]
+- Zip
+- Tar
+- ZLib
+- GZip
+- BZip2
+- XZ
 
 ---
 
 ## Usage
 
-There are two versions of the Archive library:
-
 **package:archive/archive.dart**
-* Can be used for web applications since it has no dependency on 'dart:io'.
+* Can be used for both web and native applications.
 
 **package:archive/archive_io.dart**
-  * For Flutter and server applications, with direct file access to
-    reduce memory usage. All classes and functions of `archive.dart`
-    are included in `archive_io.dart`.
+  * Provides some extra utilities for 'dart:io' based applications.
 
-### archive_io
 
-The archive_io library contains classes and functions for accessing the file system. 
-These classes and functions can significantly reduce memory usage for decoding archives
-directly to disk.
+#### Decoding a zip file in memory
+
+```dart
+import 'package:archive/archive.dart';
+import 'dart:io';
+void main() {
+  final bytes = File('test.zip').readAsBytesSync();
+  final archive = ZipDecoder().decodeBytes(bytes);
+  final files = archive.getAllFiles();
+  for (final file in files) {
+    final fileBytes = file.readBytes();
+    File('out/${file.fullPathName}')
+      ..createSync(recursive: true)
+      ..writeAsBytesSync(fileBytes);
+  }
+}
+```
 
 #### Using InputFileStream and OutputFileStream to reduce memory usage:
 ```dart
-import 'package:archive/archive_io.dart';
-// ...
+import 'package:archive/archive.dart';
+void main() {
   // Use an InputFileStream to access the zip file without storing it in memory.
   final inputStream = InputFileStream('test.zip');
   // Decode the zip from the InputFileStream. The archive will have the contents of the
   // zip, without having stored the data in memory. 
-  final archive = ZipDecoder().decodeBuffer(inputStream);
+  final archive = ZipDecoder().decodeStream(inputStream);
+  // Get all of the files from the archive
+  final files = archive.getAllFiles();
   // For all of the entries in the archive
-  for (var file in archive.files) {
-    // If it's a file and not a directory 
-    if (file.isFile) {
-      // Write the file content to a directory called 'out'.
-      // In practice, you should make sure file.name doesn't include '..' paths
-      // that would put it outside of the extraction directory.
-      // An OutputFileStream will write the data to disk.
-      final outputStream = OutputFileStream('out/${file.name}');
-      // The writeContent method will decompress the file content directly to disk without
-      // storing the decompressed data in memory. 
-      file.writeContent(outputStream);
-      // Make sure to close the output stream so the File is closed.
-      outputStream.close();
-    }
+  for (final file in files) {
+    // Write the file content to a directory called 'out'.
+    // In practice, you should make sure file.name doesn't include '..' paths
+    // that would put it outside of the extraction directory.
+    // An OutputFileStream will write the data to disk.
+    final outputStream = OutputFileStream('out/${file.name}');
+    // The writeContent method will decompress the file content directly to disk without
+    // storing the decompressed data in memory. 
+    file.writeContent(outputStream);
+    // Make sure to close the output stream so the File is closed.
+    outputStream.closeSync();
   }
+}
 ```
 #### extractFileToDisk
 `extractFileToDisk` is a convenience function to extract the contents of
