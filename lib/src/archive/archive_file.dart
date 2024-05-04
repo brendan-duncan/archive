@@ -9,16 +9,17 @@ import 'compression_type.dart';
 
 /// A file contained in an Archive.
 class ArchiveFile extends ArchiveEntry {
-  /// The uncompressed size of the file
-  @override
-  int size = 0;
-
   FileContent? _rawContent;
   FileContent? _content;
+  @override
+  int size = 0;
+  /// The type of compression the file content is compressed with.
   CompressionType compression = CompressionType.deflate;
+
   @override
   bool isFile = true;
 
+  /// The unix permission flags of the file.
   int get unixPermissions => mode & 0x1ff;
 
   factory ArchiveFile.list(String name, List<int> content) => ArchiveFile.bytes(
@@ -134,6 +135,9 @@ class ArchiveFile extends ArchiveEntry {
   }
 
   /// If the file data is compressed, decompress it.
+  /// Optionally write the decompressed content to [output], otherwise the
+  /// decompressed content is stored with this ArchiveFile in its cached
+  /// contents.
   void decompress([OutputStream? output]) {
     if (_content != null) {
       if (output != null) {
@@ -153,7 +157,7 @@ class ArchiveFile extends ArchiveEntry {
     }
   }
 
-  /// Is the data stored by this file currently compressed?
+  /// True if the data stored by this file currently compressed
   bool get isCompressed =>
       _content == null && _rawContent != null && _rawContent!.isCompressed;
 }

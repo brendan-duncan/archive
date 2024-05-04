@@ -43,7 +43,7 @@ class ArchiveDirectory extends ArchiveEntry {
     entry.parent = this;
   }
 
-  ArchiveDirectory? getOrCreateDirectory(String name) {
+  ArchiveDirectory? _getOrCreateDirectory(String name) {
     final index = entryMap[name];
     if (index != null) {
       final entry = entries[index];
@@ -57,6 +57,31 @@ class ArchiveDirectory extends ArchiveEntry {
     entries.add(dir);
     dir.parent = this;
     return dir;
+  }
+
+  /// Get or create an [ArchiveDirectory] container for the given [path].
+  /// Directories are created recursively as necessary.
+  /// If [isFile] is true, then [path] is a file path and the file name will
+  /// not be included in creating directories.
+  /// If the [path] points to an [ArchiveFile], then null will be returned.
+  ArchiveDirectory? getOrCreateDirectory(String path, { bool isFile = true }) {
+    final pathTk = p.split(path);
+    if (pathTk.last.isEmpty) {
+      pathTk.removeLast();
+    }
+    if (isFile) {
+      pathTk.removeLast(); // Pop off the file name
+    }
+    if (pathTk.isNotEmpty) {
+      var e = _getOrCreateDirectory(pathTk[0]);
+      if (e != null) {
+        for (var i = 1; i < pathTk.length; ++i) {
+          e = e!.getOrCreateDirectory(pathTk[i], isFile: false)!;
+        }
+      }
+      return e;
+    }
+    return null;
   }
 
   @override
