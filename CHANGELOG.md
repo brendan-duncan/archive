@@ -1,3 +1,7 @@
+## 3.5.1 - May 3, 2024
+
+* Re-add zipPath to ZipFileEncoder.
+
 ## 3.5.0 - April 26, 2024
 
 * Remove dependency to pointycastle package
