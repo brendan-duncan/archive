@@ -6,51 +6,69 @@ import '../../util/output_memory_stream.dart';
 import '../../util/output_stream.dart';
 import '_huffman_table.dart';
 
+/// Dart implementation of the ZLib inflate decompression algorithm,
+/// used by [ZLibEncoder] and [GZipEncoder]. This is used to decompress
+/// data that was previously compressed by the [Deflate] algorithm.
 class Inflate {
-  InputStream? input;
-  OutputStream output;
+  InputStream? _input;
+  OutputStream _output;
 
+  /// Decompress the given [bytes].
+  /// If [output] is provided, the decompressed data will be written to that,
+  /// otherwise the decompressed data can be gotten from the [getBytes] method.
+  /// If [uncompressedSize] is provided and [output] is not, then the
+  /// internal memory buffer will be pre-allocated to that size, reducing the
+  /// need to grow the uncompressed data buffer.
   Inflate(List<int> bytes, {OutputStream? output, int? uncompressedSize})
-      : input = InputMemoryStream(bytes),
-        output = output ?? OutputMemoryStream(size: uncompressedSize) {
-    inflate();
+      : _input = InputMemoryStream(bytes),
+        _output = output ?? OutputMemoryStream(size: uncompressedSize) {
+    _inflate();
   }
 
-  Inflate.stream(this.input, {OutputStream? output, int? uncompressedSize})
-      : output = output ?? OutputMemoryStream(size: uncompressedSize) {
-    inflate();
+  /// Decompress the given [input] InputStream.
+  /// If [output] is provided, the decompressed data will be written to that,
+  /// otherwise the decompressed data can be gotten from the [getBytes] method.
+  /// If [input] is null, then data will not start being decompressed
+  /// immediately. Instead, you can call the [streamInput] method add
+  /// compressed byte chunks to be decompressed, allowing the compressed data
+  /// to be streamed in without being stored entirely in memory. You would
+  /// then call [inflateNext] repeatedly until it returns null to compress
+  /// the next chunk of bytes.
+  Inflate.stream(this._input, {OutputStream? output, int? uncompressedSize})
+      : _output = output ?? OutputMemoryStream(size: uncompressedSize) {
+    _inflate();
   }
 
   void streamInput(List<int> bytes) {
-    if (input != null) {
-      input!.setPosition(_blockPos);
-      final inputLen = input!.length;
+    if (_input != null) {
+      _input!.setPosition(_blockPos);
+      final inputLen = _input!.length;
       final newLen = inputLen + bytes.length;
 
-      final inputBytes = input!.toUint8List();
+      final inputBytes = _input!.toUint8List();
       final newBytes = Uint8List(newLen)
         ..setRange(0, inputLen, inputBytes, 0)
         ..setRange(inputLen, newLen, bytes, 0);
 
-      input = InputMemoryStream(newBytes);
+      _input = InputMemoryStream(newBytes);
     } else {
-      input = InputMemoryStream(bytes);
+      _input = InputMemoryStream(bytes);
     }
   }
 
   Uint8List? inflateNext() {
     _bitBuffer = 0;
     _bitBufferLen = 0;
-    if (output is OutputMemoryStream) {
-      output.clear();
+    if (_output is OutputMemoryStream) {
+      _output.clear();
     }
-    if (input == null || input!.isEOS) {
+    if (_input == null || _input!.isEOS) {
       return null;
     }
 
     try {
-      if (input is InputMemoryStream) {
-        final i = input as InputMemoryStream;
+      if (_input is InputMemoryStream) {
+        final i = _input as InputMemoryStream;
         _blockPos = i.position;
       }
       _parseBlock();
@@ -60,23 +78,23 @@ class Inflate {
       return null;
     }
 
-    if (output is OutputMemoryStream) {
-      return output.getBytes();
+    if (_output is OutputMemoryStream) {
+      return _output.getBytes();
     }
     return null;
   }
 
   /// Get the decompressed data.
-  Uint8List getBytes() => output.getBytes();
+  Uint8List getBytes() => _output.getBytes();
 
-  void inflate() {
+  void _inflate() {
     _bitBuffer = 0;
     _bitBufferLen = 0;
-    if (input == null) {
+    if (_input == null) {
       return;
     }
 
-    while (!input!.isEOS) {
+    while (!_input!.isEOS) {
       if (!_parseBlock()) {
         return;
       }
@@ -86,7 +104,7 @@ class Inflate {
   /// Parse deflated block.  Returns true if there is more to read, false
   /// if we're done.
   bool _parseBlock() {
-    if (input!.isEOS) {
+    if (_input!.isEOS) {
       return false;
     }
 
@@ -130,12 +148,12 @@ class Inflate {
 
     // not enough buffer
     while (_bitBufferLen < length) {
-      if (input!.isEOS) {
+      if (_input!.isEOS) {
         return -1;
       }
 
       // input byte
-      final octet = input!.readByte();
+      final octet = _input!.readByte();
 
       // concat octet
       _bitBuffer |= octet << _bitBufferLen;
@@ -157,11 +175,11 @@ class Inflate {
 
     // Not enough buffer
     while (_bitBufferLen < maxCodeLength) {
-      if (input!.isEOS) {
+      if (_input!.isEOS) {
         return -1;
       }
 
-      final octet = input!.readByte();
+      final octet = _input!.readByte();
 
       _bitBuffer |= octet << _bitBufferLen;
       _bitBufferLen += 8;
@@ -191,11 +209,11 @@ class Inflate {
     }
 
     // check size
-    if (len > input!.length) {
+    if (len > _input!.length) {
       return -1;
     }
 
-    output.writeStream(input!.readBytes(len));
+    _output.writeStream(_input!.readBytes(len));
     return 0;
   }
 
@@ -277,7 +295,7 @@ class Inflate {
 
       // [0, 255] - Literal
       if (code < 256) {
-        output.writeByte(code & 0xff);
+        _output.writeByte(code & 0xff);
         continue;
       }
 
@@ -297,21 +315,21 @@ class Inflate {
 
       // lz77 decode
       while (codeLength > distance) {
-        output.writeBytes(output.subset(-distance));
+        _output.writeBytes(_output.subset(-distance));
         codeLength -= distance;
       }
 
       if (codeLength == distance) {
-        output.writeBytes(output.subset(-distance));
+        _output.writeBytes(_output.subset(-distance));
       } else {
-        final bytes = output.subset(-distance, end: codeLength - distance);
-        output.writeBytes(bytes);
+        final bytes = _output.subset(-distance, end: codeLength - distance);
+        _output.writeBytes(bytes);
       }
     }
 
     while (_bitBufferLen >= 8) {
       _bitBufferLen -= 8;
-      input!.rewind();
+      _input!.rewind();
     }
 
     return 0;

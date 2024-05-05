@@ -6,6 +6,7 @@ import '../../util/input_stream.dart';
 import '../../util/output_memory_stream.dart';
 import '../../util/output_stream.dart';
 
+/// Defines some standard compression levels to use for the Deflate algorithm.
 class DeflateLevel {
   static const none = 0;
   static const defaultCompression = 6;
@@ -19,7 +20,8 @@ class DeflateLevel {
 // Flush modes specified by the zlib standard.
 enum _DeflateFlushMode { none, partial, full, finish }
 
-/// Deflate compression used by [ZLibEncoder] and [GZipEncoder].
+/// Dart implementation of the ZLib deflate compression algorithm,
+/// used by [ZLibEncoder] and [GZipEncoder].
 class Deflate {
   InputStream _input;
   final OutputStream _output;
@@ -43,8 +45,8 @@ class Deflate {
     }
   }
 
-  /// Deflate the given [InputStream] [input].
-  /// [input] can be null, which means it won't start compressing any data in
+  /// Deflate the given [InputStream] [_input].
+  /// [_input] can be null, which means it won't start compressing any data in
   /// the constructor and you can use [addStream] to compress incoming data in
   /// chunks, followed by [finish] to finalize the compression.
   /// [level] is the compression level to use for the deflate algorithm. If not
