@@ -61,6 +61,8 @@ import 'dart:io';
 import 'package:archive/archive.dart';
 void main() {
   // Use an InputFileStream to access the zip file without storing it in memory.
+  // Note that using InputFileStream will result in an error from the web platform  
+  // as there is no file system there.
   final inputStream = InputFileStream('test.zip');
   // Decode the zip from the InputFileStream. The archive will have the contents of the
   // zip, without having stored the data in memory. 
