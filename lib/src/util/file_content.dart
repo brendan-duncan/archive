@@ -4,27 +4,38 @@ import 'input_memory_stream.dart';
 import 'input_stream.dart';
 import 'output_stream.dart';
 
+/// Used by [ArchiveFile] to abstract the content of a file within an archive
+/// file, either in memory, or a position within a file on disk.
 abstract class FileContent {
+  /// Get the InputStream for reading the file content.
   InputStream getStream();
 
+  /// Write the contents of the file to the given [output].
   void write(OutputStream output);
 
+  /// Close the file content asynchronously.
   Future<void> close();
 
+  /// Close the file content synchronously.
   void closeSync();
 
+  /// Read the file content into memory and return the read bytes.
   Uint8List readBytes() {
     final stream = getStream();
     return stream.toUint8List();
   }
 
+  /// Decompress the file content and write out the decompressed bytes to
+  /// the [output] stream.
   void decompress(OutputStream output) {
     output.writeStream(getStream());
   }
 
+  /// True if the file content is compressed.
   bool get isCompressed => false;
 }
 
+/// A [FileContent] that is resident in memory.
 class FileContentMemory extends FileContent {
   final Uint8List bytes;
 
@@ -44,6 +55,7 @@ class FileContentMemory extends FileContent {
   void closeSync() {}
 }
 
+/// A [FileContent] that is stored in a disk file.
 class FileContentStream extends FileContent {
   final InputStream stream;
 
