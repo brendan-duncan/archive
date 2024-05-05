@@ -1,3 +1,4 @@
+import 'dart:math';
 import '../../util/input_stream.dart';
 import 'zip_file_header.dart';
 
@@ -48,7 +49,8 @@ class ZipDirectory {
     final dirContent = input.subset(
         position: centralDirectoryOffset,
         length: centralDirectorySize,
-        bufferSize: 1024);
+        bufferSize: min(centralDirectorySize, 1024));
+
     while (!dirContent.isEOS) {
       final fileSig = dirContent.readUint32();
       if (fileSig != ZipFileHeader.signature) {

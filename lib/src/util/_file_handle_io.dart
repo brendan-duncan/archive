@@ -81,11 +81,11 @@ class FileHandle extends AbstractFileHandle {
   }
 
   @override
-  int readInto(Uint8List buffer, [int? end]) {
+  int readInto(Uint8List buffer, [int? length]) {
     if (_file == null) {
       open();
     }
-    final size = _file!.readIntoSync(buffer, 0, end);
+    final size = _file!.readIntoSync(buffer, 0, length);
     _position += size;
     return size;
   }

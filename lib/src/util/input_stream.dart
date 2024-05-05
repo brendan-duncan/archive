@@ -46,11 +46,15 @@ abstract class InputStream {
   InputStream peekBytes(int count, {int offset = 0}) =>
       subset(position: position + offset, length: count);
 
-  /// Return a InputStream to read a subset of this stream. It does not
+  /// Return a [InputStream] to read a subset of this stream. It does not
   /// move the read position of this stream. [position] is specified relative
   /// to the start of the buffer. If [position] is not specified, the current
   /// read position is used. If [length] is not specified, the remainder of this
   /// stream is used.
+  /// If [bufferSize] is provided, and this is an [InputFileStream], the
+  /// returned [InputStream] will get its own [FileBuffer] with the given
+  /// [bufferSize], otherwise it will share the [FileBuffer] of this
+  /// [InputFileStream].
   InputStream subset({int? position, int? length, int? bufferSize});
 
   /// Read a single byte.

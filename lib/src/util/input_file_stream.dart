@@ -14,6 +14,9 @@ class InputFileStream extends InputStream {
   late int _fileSize;
   int _position;
 
+  /// Create an [InputFileStream] with the given [FileBuffer].
+  /// [byteOrder] determines if multi-byte values are read in bigEndian or
+  /// littleEndian order.
   InputFileStream.withFileBuffer(this._file,
       {super.byteOrder = ByteOrder.littleEndian})
       : _fileOffset = 0,
@@ -21,6 +24,9 @@ class InputFileStream extends InputStream {
     _fileSize = _file.length;
   }
 
+  /// Create an [InputFileStream] with the given [AbstractFileHandle].
+  /// [byteOrder] determines if multi-byte values are read in bigEndian or
+  /// littleEndian order.
   InputFileStream.withFileHandle(AbstractFileHandle fh,
       {super.byteOrder = ByteOrder.littleEndian})
       : _file = FileBuffer(fh),
@@ -29,6 +35,12 @@ class InputFileStream extends InputStream {
     _fileSize = _file.length;
   }
 
+  /// Create an [InputFileStream] with the given file system [path\.
+  /// A file handle will be created to read from the file at that [path].
+  /// [byteOrder] determines if multi-byte values are read in bigEndian or
+  /// littleEndian order.
+  /// [bufferSize] determines the size of the cache used by the created
+  /// [FileBuffer].
   factory InputFileStream(
     String path, {
     ByteOrder byteOrder = ByteOrder.littleEndian,
@@ -39,7 +51,7 @@ class InputFileStream extends InputStream {
         byteOrder: byteOrder);
   }
 
-  static Future<InputFileStream> asMemoryFile(
+  static Future<InputFileStream> asRamFile(
       Stream<Uint8List> stream, int fileLength,
       {ByteOrder byteOrder = ByteOrder.littleEndian}) async {
     return InputFileStream.withFileBuffer(
@@ -47,6 +59,14 @@ class InputFileStream extends InputStream {
         byteOrder: byteOrder);
   }
 
+  /// Create an [InputFileStream] from another [InputFileStream].
+  /// If [position] is provided, it is the offset into [other] to start reading,
+  /// relative to the current position of [other]. Otherwise the current
+  /// position of [other] is used.
+  /// If [length] is provided, it sets the length of this [InputFileStream],
+  /// otherwise the remaining bytes in [other] is used.
+  /// [bufferSize] determines the size of the cache used by the created
+  /// [FileBuffer].
   InputFileStream.fromFileStream(InputFileStream other,
       {int? position, int? length, int? bufferSize})
       : _file = bufferSize != null

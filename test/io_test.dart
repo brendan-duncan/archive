@@ -342,9 +342,12 @@ void main() {
       zipEncoder.addArchiveFile(ArchiveFile.bytes(name, content));
     }
     zipEncoder.closeSync();
+
     final Uint8List zippedBytes = Uint8List(ramFileData.length);
     ramFileData.readIntoSync(zippedBytes, 0, zippedBytes.length);
+
     final RamFileData readRamFileData = RamFileData.fromBytes(zippedBytes);
+
     final Archive archive = ZipDecoder().decodeStream(
       InputFileStream.withFileBuffer(
         FileBuffer(
@@ -352,6 +355,7 @@ void main() {
         ),
       ),
     );
+
     expect(archive.length, fileNameToFileContent.length);
     for (int i = 0; i < archive.length; i++) {
       final file = archive[i];
