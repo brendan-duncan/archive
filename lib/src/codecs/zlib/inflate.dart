@@ -11,6 +11,7 @@ import '_huffman_table.dart';
 /// data that was previously compressed by the [Deflate] algorithm.
 class Inflate {
   InputStream? _input;
+  InputStream? _nextInput;
   OutputStream _output;
 
   /// Decompress the given [bytes].
@@ -29,59 +30,73 @@ class Inflate {
   /// If [output] is provided, the decompressed data will be written to that,
   /// otherwise the decompressed data can be gotten from the [getBytes] method.
   /// If [input] is null, then data will not start being decompressed
-  /// immediately. Instead, you can call the [streamInput] method add
-  /// compressed byte chunks to be decompressed, allowing the compressed data
-  /// to be streamed in without being stored entirely in memory. You would
-  /// then call [inflateNext] repeatedly until it returns null to compress
-  /// the next chunk of bytes.
+  /// immediately. Instead, you can call the [addBytes] or [addStream] method
+  /// to add compressed byte chunks to be decompressed, allowing the compressed
+  /// data to be streamed in without being stored entirely in memory.
   Inflate.stream(this._input, {OutputStream? output, int? uncompressedSize})
       : _output = output ?? OutputMemoryStream(size: uncompressedSize) {
     _inflate();
   }
 
-  void streamInput(List<int> bytes) {
+  /// Add compressed data to be decompressed.
+  void addStream(InputStream stream) {
     if (_input != null) {
       _input!.setPosition(_blockPos);
-      final inputLen = _input!.length;
-      final newLen = inputLen + bytes.length;
-
-      final inputBytes = _input!.toUint8List();
-      final newBytes = Uint8List(newLen)
-        ..setRange(0, inputLen, inputBytes, 0)
-        ..setRange(inputLen, newLen, bytes, 0);
-
-      _input = InputMemoryStream(newBytes);
+      if (_input!.isEOS) {
+        _input = stream;
+      } else {
+        _nextInput = stream;
+      }
     } else {
-      _input = InputMemoryStream(bytes);
+      _input = stream;
     }
+
+    while (_inflateNext()) {}
   }
 
-  Uint8List? inflateNext() {
+  /// Add compressed data to be decompressed.
+  void addBytes(List<int> bytes) =>
+    addStream(InputMemoryStream(bytes));
+
+  InputStream? get _inputStream {
+    if (_input == null && _nextInput != null) {
+      _input = _nextInput;
+      _nextInput = null;
+      return _input;
+    }
+    if (_input == null) {
+      return _input;
+    }
+    if (_input!.isEOS && _nextInput != null) {
+      _input = _nextInput;
+    }
+    return _input;
+  }
+
+  bool _inflateNext() {
     _bitBuffer = 0;
     _bitBufferLen = 0;
     if (_output is OutputMemoryStream) {
       _output.clear();
     }
-    if (_input == null || _input!.isEOS) {
-      return null;
+
+    final input = _inputStream;
+    if (input == null ||_input!.isEOS) {
+      return false;
     }
 
     try {
-      if (_input is InputMemoryStream) {
-        final i = _input as InputMemoryStream;
-        _blockPos = i.position;
+      if (input is InputMemoryStream) {
+        _blockPos = input.position;
       }
       _parseBlock();
       // If it didn't finish reading the block, it will have thrown an exception
       _blockPos = 0;
     } catch (e) {
-      return null;
+      return false;
     }
 
-    if (_output is OutputMemoryStream) {
-      return _output.getBytes();
-    }
-    return null;
+    return true;
   }
 
   /// Get the decompressed data.
@@ -90,11 +105,11 @@ class Inflate {
   void _inflate() {
     _bitBuffer = 0;
     _bitBufferLen = 0;
-    if (_input == null) {
+    if (_inputStream == null) {
       return;
     }
 
-    while (!_input!.isEOS) {
+    while (!_inputStream!.isEOS) {
       if (!_parseBlock()) {
         return;
       }
@@ -104,7 +119,8 @@ class Inflate {
   /// Parse deflated block.  Returns true if there is more to read, false
   /// if we're done.
   bool _parseBlock() {
-    if (_input!.isEOS) {
+    final input = _inputStream;
+    if (input == null || input.isEOS) {
       return false;
     }
 
@@ -148,12 +164,12 @@ class Inflate {
 
     // not enough buffer
     while (_bitBufferLen < length) {
-      if (_input!.isEOS) {
+      if (_inputStream!.isEOS) {
         return -1;
       }
 
       // input byte
-      final octet = _input!.readByte();
+      final octet = _inputStream!.readByte();
 
       // concat octet
       _bitBuffer |= octet << _bitBufferLen;
@@ -175,11 +191,11 @@ class Inflate {
 
     // Not enough buffer
     while (_bitBufferLen < maxCodeLength) {
-      if (_input!.isEOS) {
+      if (_inputStream!.isEOS) {
         return -1;
       }
 
-      final octet = _input!.readByte();
+      final octet = _inputStream!.readByte();
 
       _bitBuffer |= octet << _bitBufferLen;
       _bitBufferLen += 8;
@@ -209,11 +225,11 @@ class Inflate {
     }
 
     // check size
-    if (len > _input!.length) {
+    if (len > _inputStream!.length) {
       return -1;
     }
 
-    _output.writeStream(_input!.readBytes(len));
+    _output.writeStream(_inputStream!.readBytes(len));
     return 0;
   }
 
@@ -329,7 +345,7 @@ class Inflate {
 
     while (_bitBufferLen >= 8) {
       _bitBufferLen -= 8;
-      _input!.rewind();
+      _inputStream!.rewind();
     }
 
     return 0;

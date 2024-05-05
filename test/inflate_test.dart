@@ -25,8 +25,9 @@ void main() {
 
     final deflatedBytes = deflated;
 
+    final output = OutputMemoryStream();
     // Create a stream inflator.
-    final inflate = Inflate.stream(null);
+    final inflate = Inflate.stream(null, output: output);
 
     var bi = 0;
 
@@ -38,21 +39,17 @@ void main() {
       // Create a view of the input data for the bytes we're currently
       // streaming.
       final streamBytes =
-          Uint8List.view(deflatedBytes.buffer, streamOffset, streamSize);
+      Uint8List.view(deflatedBytes.buffer, streamOffset, streamSize);
       streamOffset += streamBytes.length;
 
       // Set the bytes as the stream input.
-      inflate.streamInput(streamBytes);
+      inflate.addBytes(streamBytes);
+    }
 
-      // Inflate all of blocks available from the stream input.
-      var inflated = inflate.inflateNext();
-      while (inflated != null) {
-        // Verify the current block we inflated matches the original buffer.
-        for (var i = 0; i < inflated.length; ++i) {
-          expect(inflated[i], equals(buffer[bi++]));
-        }
-        inflated = inflate.inflateNext();
-      }
+    final inflated = output.getBytes();
+    // Verify the current block we inflated matches the original buffer.
+    for (var i = 0; i < inflated.length; ++i) {
+      expect(inflated[i], equals(buffer[bi++]));
     }
   });
 
