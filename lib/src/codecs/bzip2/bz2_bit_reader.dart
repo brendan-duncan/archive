@@ -1,5 +1,6 @@
 import '../../util/input_stream.dart';
 
+/// Internal class used by [BZip2Decoder]
 class Bz2BitReader {
   InputStream input;
 

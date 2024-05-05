@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+/// Internal class used by [BZip2Decoder]
 class BZip2 {
   static final emptyUint8List = Uint8List(0);
   static final emptyUint32List = Uint32List(0);

@@ -9,6 +9,7 @@ import 'range_decoder.dart';
 // https://en.wikipedia.org/wiki/Lempel%E2%80%93Ziv%E2%80%93Markov_chain_algorithm
 // https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/lib/xz
 
+/// LZMA compression decoder, used by [XZDecoder]
 class LzmaDecoder {
   // Compressed data.
   final _rc = RangeDecoder();

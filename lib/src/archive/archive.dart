@@ -1,4 +1,3 @@
-import 'package:path/path.dart' as p;
 import 'archive_directory.dart';
 
 /// An [Archive] represents a file system, as a collection of [ArchiveEntity]

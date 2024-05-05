@@ -1,5 +1,6 @@
 import '../../util/output_stream.dart';
 
+/// Internal class used by [BZip2Encoder]
 class Bz2BitWriter {
   OutputStream output;
 

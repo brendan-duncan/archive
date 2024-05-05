@@ -57,11 +57,11 @@ class TarEncoder {
     ts.groupId = entry.groupId;
     ts.lastModTime = entry.lastModTime;
     if (!entry.isFile) {
-      ts.typeFlag = TarFileType.directory;
+      ts.typeFlag = TarFile.directory;
     } else {
       final file = entry as ArchiveFile;
       if (file.symbolicLink != null) {
-        ts.typeFlag = TarFileType.symbolicLink;
+        ts.typeFlag = TarFile.symbolicLink;
         ts.nameOfLinkedFile = file.symbolicLink;
       } else {
         ts.fileSize = file.size;

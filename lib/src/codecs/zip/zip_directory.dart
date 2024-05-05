@@ -1,6 +1,7 @@
 import '../../util/input_stream.dart';
 import 'zip_file_header.dart';
 
+/// The internal directory structure for a zip archive, used by [ZipDecoder].
 class ZipDirectory {
   // End of Central Directory Record
   static const eocdSignature = 0x06054b50;

@@ -4,6 +4,7 @@ import '../../util/input_memory_stream.dart';
 import '../../util/input_stream.dart';
 import 'zip_file.dart';
 
+/// Provides information about a file, used by [ZipDecoder].
 class ZipFileHeader {
   static const int signature = 0x02014b50;
   int versionMadeBy = 0;

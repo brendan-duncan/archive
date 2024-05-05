@@ -11,7 +11,7 @@ const _probabilityOne = (1 << _probabilityBitCount);
 // Value used for a probability of 0.5.
 const _probabilityHalf = _probabilityOne ~/ 2;
 
-// Probability table used with [RangeDecoder].
+/// Probability table used with [RangeDecoder].
 class RangeDecoderTable {
   // Table of probabilities for each symbol.
   final Uint16List table;
@@ -27,7 +27,7 @@ class RangeDecoderTable {
   }
 }
 
-// Implements the LZMA range decoder.
+/// Implements the LZMA range decoder for [LZMADecoder].
 class RangeDecoder {
   // Data being read from.
   late InputStream _input;

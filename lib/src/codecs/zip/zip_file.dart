@@ -13,6 +13,7 @@ import '../bzip2_decoder.dart';
 import '../zlib/inflate.dart';
 import 'zip_file_header.dart';
 
+/// Internal class used by [ZipDecoder].
 class ZipAesHeader {
   static const signature = 39169;
 
@@ -33,6 +34,7 @@ const _compressionTypes = <int, CompressionType>{
   12: CompressionType.bzip2
 };
 
+/// A file object used by [ZipDecoder].
 class ZipFile extends FileContent {
   static const int zipSignature = 0x04034b50;
   static const int zipCompressionStore = 0;

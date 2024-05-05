@@ -30,7 +30,8 @@ import '../../util/output_stream.dart';
  *  345   155  Filename prefix
  */
 
-class TarFileType {
+/// A file entry decoded by [TarDecoder].
+class TarFile {
   static const String normalFile = '0';
   static const String hardLink = '1';
   static const String symbolicLink = '2';
@@ -46,9 +47,7 @@ class TarFileType {
   // (POSIX.1-2001)
   static const String exHeader = 'x';
   static const String exHeader2 = 'X';
-}
 
-class TarFile {
   // Pre-POSIX Format
   late String filename; // 100 bytes
   int mode = 644; // 8 bytes
@@ -118,9 +117,9 @@ class TarFile {
     }
   }
 
-  bool get isFile => typeFlag != TarFileType.directory;
+  bool get isFile => typeFlag != TarFile.directory;
 
-  bool get isSymLink => typeFlag == TarFileType.symbolicLink;
+  bool get isSymLink => typeFlag == TarFile.symbolicLink;
 
   InputStream? get rawContent => _rawContent;
 

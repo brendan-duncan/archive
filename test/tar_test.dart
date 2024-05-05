@@ -108,7 +108,7 @@ var tarTests = [
         'ModTime': 1350244992,
         'ChangeTime': 1350244992,
         'AccessTime': 1350244992,
-        'Typeflag': TarFileType.normalFile,
+        'Typeflag': TarFile.normalFile,
       },
       {
         'Name': 'a/b',
@@ -121,7 +121,7 @@ var tarTests = [
         'ModTime': 1350266320,
         'ChangeTime': 1350266320,
         'AccessTime': 1350266320,
-        'Typeflag': TarFileType.symbolicLink,
+        'Typeflag': TarFile.symbolicLink,
         'Linkname':
             '123456789101112131415161718192021222324252627282930313233343536373839404142434445464748495051525354555657585960616263646566676869707172737475767778798081828384858687888990919293949596979899100',
       },
@@ -137,7 +137,7 @@ var tarTests = [
         'Gid': 0,
         'Size': 14,
         'ModTime': 1365454838,
-        'Typeflag': TarFileType.normalFile,
+        'Typeflag': TarFile.normalFile,
         'Linkname': '',
         'Uname': 'eyefi',
         'Gname': 'eyefi',
