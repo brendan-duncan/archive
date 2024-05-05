@@ -55,8 +55,7 @@ class Inflate {
   }
 
   /// Add compressed data to be decompressed.
-  void addBytes(List<int> bytes) =>
-    addStream(InputMemoryStream(bytes));
+  void addBytes(List<int> bytes) => addStream(InputMemoryStream(bytes));
 
   InputStream? get _inputStream {
     if (_input == null && _nextInput != null) {
@@ -81,7 +80,7 @@ class Inflate {
     }
 
     final input = _inputStream;
-    if (input == null ||_input!.isEOS) {
+    if (input == null || _input!.isEOS) {
       return false;
     }
 
