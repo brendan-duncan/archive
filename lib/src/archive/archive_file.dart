@@ -23,20 +23,20 @@ class ArchiveFile extends ArchiveEntry {
   /// The unix permission flags of the file.
   int get unixPermissions => mode & 0x1ff;
 
-  factory ArchiveFile.list(String name, List<int> content) => ArchiveFile.bytes(
-      name, content is Uint8List ? content : Uint8List.fromList(content));
-
-  ArchiveFile.bytes(String name, Uint8List content)
+  /// A file storing the given [data].
+  ArchiveFile.bytes(String name, List<int> data)
       : super(name: name, mode: 0x1a4) {
-    _content = FileContentMemory(content);
-    _rawContent = FileContentMemory(content);
-    size = content.length;
+    _content = FileContentMemory(data);
+    _rawContent = FileContentMemory(data);
+    size = data.length;
   }
 
+  /// A file storing the given [data].
   factory ArchiveFile.typedData(String name, TypedData data) =>
       ArchiveFile.bytes(name,
           Uint8List.view(data.buffer, data.offsetInBytes, data.lengthInBytes));
 
+  /// A file storing the given string data [content].
   ArchiveFile.string(String name, String content)
       : super(name: name, mode: 0x1a4) {
     final bytes = utf8.encode(content);
@@ -45,6 +45,7 @@ class ArchiveFile extends ArchiveEntry {
     _rawContent = FileContentMemory(bytes);
   }
 
+  /// A file that gets its content from the given [stream].
   ArchiveFile.stream(String name, InputStream stream,
       {this.compression = CompressionType.deflate})
       : super(name: name, mode: 0x1a4) {
@@ -52,19 +53,25 @@ class ArchiveFile extends ArchiveEntry {
     _rawContent = FileContentStream(stream);
   }
 
+  /// A file that gets its content from the given [file].
   ArchiveFile.file(String name, this.size, FileContent file,
       {this.compression = CompressionType.deflate})
       : super(name: name, mode: 0x1a4) {
     _rawContent = file;
   }
 
+  /// A file that's a symlink to another file.
   ArchiveFile.symlink(String name, String symbolicLink)
       : super(name: name, mode: 0x1a4) {
     this.symbolicLink = symbolicLink;
   }
 
+  /// An empty file.
   ArchiveFile.noData(String name) : super(name: name, mode: 0x1a4);
 
+  /// Write the contents of the file to the given [output]. If [freeMemory]
+  /// is true, then any storage of decompressed data will be freed after
+  /// the write has completed.
   void writeContent(OutputStream output, {bool freeMemory = true}) {
     if (_content == null) {
       if (_rawContent == null) {

@@ -28,7 +28,8 @@ abstract class FileContent {
 class FileContentMemory extends FileContent {
   final Uint8List bytes;
 
-  FileContentMemory(this.bytes);
+  FileContentMemory(List<int> data)
+    : bytes = data is Uint8List ? data : Uint8List.fromList(data);
 
   @override
   InputStream getStream() => InputMemoryStream(bytes);

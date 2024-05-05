@@ -161,7 +161,7 @@ void main() {
 
     test('file', () {
       final tar = TarEncoder()
-          .encodeBytes(Archive()..add(ArchiveFile.list('file.txt', [100])));
+          .encodeBytes(Archive()..add(ArchiveFile.bytes('file.txt', [100])));
       File(p.join(testOutputPath, 'tar_encoded.tar'))
         ..createSync(recursive: true)
         ..writeAsBytesSync(tar);
