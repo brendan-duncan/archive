@@ -16,67 +16,77 @@ class DeflateLevel {
   const DeflateLevel(this.value);
 }
 
-enum DeflateFlushMode { none, partial, sync, full, finish }
+// Flush modes specified by the zlib standard.
+enum _DeflateFlushMode { none, partial, full, finish }
 
+/// Deflate compression used by [ZLibEncoder] and [GZipEncoder].
 class Deflate {
-  int crc32 = 0;
-
-  InputStream input;
-  final OutputStream output;
+  InputStream _input;
+  final OutputStream _output;
   int? _status;
 
+  /// The computed CRC32 checksum of the uncompressed data.
+  int crc32 = 0;
+
+  /// Deflate the given [bytes].
+  /// [level] is the compression level to use for the deflate algorithm. If not
+  /// provided, the default level of 6 is used.
+  /// If [output] is provided, the compressed data will be written to that
+  /// [OutputStream], otherwise the compressed data will be accessed from
+  /// the [getBytes] method.
   Deflate(List<int> bytes,
-      {int level = DeflateLevel.defaultCompression,
-      OutputStream? output,
-      DeflateFlushMode flush = DeflateFlushMode.finish})
-      : input = InputMemoryStream(bytes),
-        output = output ?? OutputMemoryStream() {
+      {int level = DeflateLevel.defaultCompression, OutputStream? output})
+      : _input = InputMemoryStream(bytes),
+        _output = output ?? OutputMemoryStream() {
     if (_init(level)) {
-      _deflate(flush: flush);
+      _deflate(_DeflateFlushMode.finish);
     }
   }
 
-  Deflate.stream(this.input,
-      {int level = DeflateLevel.defaultCompression,
-      OutputStream? output,
-      DeflateFlushMode flush = DeflateFlushMode.finish})
-      : output = output ?? OutputMemoryStream() {
+  /// Deflate the given [InputStream] [input].
+  /// [input] can be null, which means it won't start compressing any data in
+  /// the constructor and you can use [addStream] to compress incoming data in
+  /// chunks, followed by [finish] to finalize the compression.
+  /// [level] is the compression level to use for the deflate algorithm. If not
+  /// provided, the default level of 6 is used.
+  /// If [output] is provided, the compressed data will be written to that
+  /// [OutputStream], otherwise the compressed data will be accessed from
+  /// the [getBytes] method.
+  Deflate.stream(this._input,
+      {int level = DeflateLevel.defaultCompression, OutputStream? output})
+      : _output = output ?? OutputMemoryStream() {
     _init(level);
-    _deflate(flush: flush);
+    _deflate(_DeflateFlushMode.finish);
   }
 
-  int deflate({DeflateFlushMode flush = DeflateFlushMode.finish}) =>
-      _deflate(flush: flush);
-
+  /// Finalize the compression.
   void finish() => _flushPending();
 
   /// Get the resulting compressed bytes.
   Uint8List getBytes() {
     _flushPending();
-    return output.getBytes();
+    return _output.getBytes();
   }
 
   /// Get the resulting compressed bytes without storing the resulting data to
   /// minimize memory usage.
   Uint8List takeBytes() {
     _flushPending();
-    final bytes = output.getBytes();
-    output.clear();
+    final bytes = _output.getBytes();
+    _output.clear();
     return bytes;
   }
 
   /// Add more data to be deflated.
-  void addBytes(List<int> bytes,
-      {DeflateFlushMode flush = DeflateFlushMode.finish}) {
-    input = InputMemoryStream(bytes);
-    _deflate(flush: flush);
+  void addBytes(List<int> bytes) {
+    _input = InputMemoryStream(bytes);
+    _deflate(_DeflateFlushMode.finish);
   }
 
   /// Add more data to be deflated.
-  int addStream(InputStream buffer,
-      {DeflateFlushMode flush = DeflateFlushMode.finish}) {
-    input = buffer;
-    return _deflate(flush: flush);
+  int addStream(InputStream buffer) {
+    _input = buffer;
+    return _deflate(_DeflateFlushMode.finish);
   }
 
   /// Compression level used (1..9)
@@ -153,7 +163,7 @@ class Deflate {
   }
 
   /// Compress the current input buffer.
-  int _deflate({DeflateFlushMode flush = DeflateFlushMode.finish}) {
+  int _deflate(_DeflateFlushMode flush) {
     // Flush as much pending output as possible
     if (_pending != 0) {
       // Make sure there is something to do and avoid duplicate consecutive
@@ -163,9 +173,9 @@ class Deflate {
     }
 
     // Start a block or continue the current one.
-    if (!input.isEOS ||
+    if (!_input.isEOS ||
         _lookAhead != 0 ||
-        (flush != DeflateFlushMode.none && _status != finishState)) {
+        (flush != _DeflateFlushMode.none && _status != finishState)) {
       var bState = -1;
       switch (_config.function) {
         case stored:
@@ -196,14 +206,14 @@ class Deflate {
       }
 
       if (bState == blockDone) {
-        if (flush == DeflateFlushMode.partial) {
+        if (flush == _DeflateFlushMode.partial) {
           _trAlign();
         } else {
           // FULL_FLUSH or SYNC_FLUSH
           _trStoredBlock(0, 0, false);
           // For a full flush, this empty block will be recognized
           // as a special marker by inflate_sync().
-          if (flush == DeflateFlushMode.full) {
+          if (flush == _DeflateFlushMode.full) {
             for (var i = 0; i < _hashSize; i++) {
               // forget history
               _head[i] = 0;
@@ -215,7 +225,7 @@ class Deflate {
       }
     }
 
-    if (flush != DeflateFlushMode.finish) {
+    if (flush != _DeflateFlushMode.finish) {
       return zOk;
     }
 
@@ -682,7 +692,7 @@ class Deflate {
   // only for the level=0 compression option.
   // NOTE: this function should be optimized to avoid extra copying from
   // window to pending_buf.
-  int _deflateStored(DeflateFlushMode flush) {
+  int _deflateStored(_DeflateFlushMode flush) {
     // Stored blocks are limited to 0xffff bytes, pending_buf is limited
     // to pending_buf_size, and each stored block has a 5 byte header:
     var maxBlockSize = 0xffff;
@@ -697,7 +707,7 @@ class Deflate {
       if (_lookAhead <= 1) {
         _fillWindow();
 
-        if (_lookAhead == 0 && flush == DeflateFlushMode.none) {
+        if (_lookAhead == 0 && flush == _DeflateFlushMode.none) {
           return needMore;
         }
 
@@ -725,9 +735,9 @@ class Deflate {
       }
     }
 
-    _flushBlockOnly(flush == DeflateFlushMode.finish);
+    _flushBlockOnly(flush == _DeflateFlushMode.finish);
 
-    return (flush == DeflateFlushMode.finish) ? finishDone : blockDone;
+    return (flush == _DeflateFlushMode.finish) ? finishDone : blockDone;
   }
 
   // Send a stored block
@@ -850,7 +860,7 @@ class Deflate {
         more += _windowSize;
       }
 
-      if (input.isEOS) {
+      if (_input.isEOS) {
         return;
       }
 
@@ -878,7 +888,7 @@ class Deflate {
 
       // If the whole input has less than MIN_MATCH bytes, ins_h is garbage,
       // but this is not important since only literal bytes will be emitted.
-    } while (_lookAhead < minLookAhead && !input.isEOS);
+    } while (_lookAhead < minLookAhead && !_input.isEOS);
   }
 
   // Compress as much as possible from the input stream, return the current
@@ -886,7 +896,7 @@ class Deflate {
   // This function does not perform lazy evaluation of matches and inserts
   // strings in the dictionary only for unmatched strings or for short
   // matches. It is used only for the fast compression options.
-  int _deflateFast(DeflateFlushMode flush) {
+  int _deflateFast(_DeflateFlushMode flush) {
     var hashHead = 0; // head of the hash chain
     bool bflush = false; // set if current block must be flushed
 
@@ -897,7 +907,7 @@ class Deflate {
       // string following the next match.
       if (_lookAhead < minLookAhead) {
         _fillWindow();
-        if (_lookAhead < minLookAhead && flush == DeflateFlushMode.none) {
+        if (_lookAhead < minLookAhead && flush == _DeflateFlushMode.none) {
           return needMore;
         }
         if (_lookAhead == 0) {
@@ -980,15 +990,15 @@ class Deflate {
       }
     }
 
-    _flushBlockOnly(flush == DeflateFlushMode.finish);
+    _flushBlockOnly(flush == _DeflateFlushMode.finish);
 
-    return flush == DeflateFlushMode.finish ? finishDone : blockDone;
+    return flush == _DeflateFlushMode.finish ? finishDone : blockDone;
   }
 
   /// Same as above, but achieves better compression. We use a lazy
   /// evaluation for matches: a match is finally adopted only if there is
   /// no better match at the next window position.
-  int _deflateSlow(DeflateFlushMode flush) {
+  int _deflateSlow(_DeflateFlushMode flush) {
     var hashHead = 0; // head of hash chain
     bool bflush = false; // set if current block must be flushed
 
@@ -1001,7 +1011,7 @@ class Deflate {
       if (_lookAhead < minLookAhead) {
         _fillWindow();
 
-        if (_lookAhead < minLookAhead && flush == DeflateFlushMode.none) {
+        if (_lookAhead < minLookAhead && flush == _DeflateFlushMode.none) {
           return needMore;
         }
 
@@ -1106,9 +1116,9 @@ class Deflate {
       bflush = _trTally(0, _window[_strStart - 1] & 0xff);
       _matchAvailable = 0;
     }
-    _flushBlockOnly(flush == DeflateFlushMode.finish);
+    _flushBlockOnly(flush == _DeflateFlushMode.finish);
 
-    return flush == DeflateFlushMode.finish ? finishDone : blockDone;
+    return flush == _DeflateFlushMode.finish ? finishDone : blockDone;
   }
 
   int _longestMatch(int curMatch) {
@@ -1206,11 +1216,11 @@ class Deflate {
   /// (See also flush_pending()).
   int total = 0;
   int _readBuf(Uint8List buf, int start, int size) {
-    if (size == 0 || input.isEOS) {
+    if (size == 0 || _input.isEOS) {
       return 0;
     }
 
-    final data = input.readBytes(size);
+    final data = _input.readBytes(size);
     var len = data.length;
     if (len == 0) {
       return 0;
@@ -1232,7 +1242,7 @@ class Deflate {
   /// to avoid allocating a large strm->next_out buffer and copying into it.
   void _flushPending() {
     final len = _pending;
-    output.writeBytes(_pendingBuffer, length: len);
+    _output.writeBytes(_pendingBuffer, length: len);
 
     _pendingOut += len;
     _pending -= len;
