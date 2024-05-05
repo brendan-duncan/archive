@@ -10,29 +10,39 @@ typedef ArchiveCallback = void Function(ArchiveEntry entry);
 abstract class ArchiveEntry extends Iterable<ArchiveEntry> {
   /// The name of the file or directory.
   String name;
+
   /// The access mode of the file or directory.
   int mode;
+
   /// The owner id of the file or directory.
   int ownerId = 0;
+
   /// The group id of the file or directory.
   int groupId = 0;
+
   /// The creation timestamp of the file or directory, in seconds from
   /// epoch.
   int creationTime = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+
   /// The timestamp the file or directory was last modified, in seconds since
   /// epoch.
   late int lastModTime;
+
   /// If symbolicLink is not null, the entry is a symbolic link and this is
   /// the path to what it's linking to. This should be an archive relative path.
   /// Symlinks pointing outside of the archive will be invalid when extracting
   /// archives to disk.
   String? symbolicLink;
+
   /// True if the entry is a symbolic link, otherwise false.
   bool get isSymbolicLink => symbolicLink?.isNotEmpty ?? false;
+
   /// The crc32 checksum of the uncompressed content.
   int? crc32;
+
   /// An optional comment for the archive entry.
   String? comment;
+
   /// The parent [ArchiveDirectory] of the entry.
   ArchiveEntry? parent;
 
@@ -43,6 +53,7 @@ abstract class ArchiveEntry extends Iterable<ArchiveEntry> {
 
   /// True if the entry is an [ArchiveFile], otherwise false.
   bool get isFile;
+
   /// True if the entry is an [ArchiveDirectory], otherwise false.
   bool get isDirectory => !isFile;
 

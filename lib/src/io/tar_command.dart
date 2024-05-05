@@ -58,13 +58,17 @@ Directory extractTarFiles(String inputPath, String outputPath) {
   final input = InputFileStream(tarPath);
   final tarArchive = TarDecoder().decodeStream(input);
 
-  final files = tarArchive.getAllFiles();
-  for (final file in files) {
-    final filePath = '$outputPath${Platform.pathSeparator}${file.name}';
-    final output = OutputFileStream(filePath);
-    file.writeContent(output);
-    print('  extracted ${file.name}');
-    output.closeSync();
+  final entries = tarArchive.getAllEntries();
+  for (final entry in entries) {
+    final path = '$outputPath${Platform.pathSeparator}${entry.fullPathName}';
+    if (entry is ArchiveDirectory) {
+      Directory(path).createSync(recursive: true);
+    } else if (entry is ArchiveFile) {
+      final output = OutputFileStream(path);
+      entry.writeContent(output);
+      print('  extracted ${path}');
+      output.closeSync();
+    }
   }
 
   input.closeSync();

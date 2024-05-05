@@ -46,7 +46,7 @@ void main() {
         tempDir.deleteSync(recursive: true);
       }
 
-      extractTarFiles(p.join('test/_data/test2.tar.gz'), dir.path);
+      extractTarFiles('test/_data/test2.tar.gz', dir.path);
       expect(dir.listSync(recursive: true).length, 4);
     } finally {
       dir.deleteSync(recursive: true);

@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'package:path/path.dart' as p;
+
 import '../archive/archive.dart';
 import '../archive/archive_directory.dart';
 import '../archive/archive_entry.dart';
@@ -90,10 +92,19 @@ class TarDecoder {
       }
       files.add(tf);
 
+      final dir = archive.getOrCreateDirectory(tf.filename);
+
+      final pathTk = p.split(tf.filename);
+      if (pathTk.last.isEmpty) {
+        pathTk.removeLast();
+      }
+      final filename = pathTk.last;
+
       if (tf.isFile) {
         final file = storeData
-            ? ArchiveFile.stream(tf.filename, tf.rawContent!)
-            : ArchiveFile.noData(tf.filename);
+            ? ArchiveFile.stream(filename, tf.rawContent!)
+            : ArchiveFile.noData(filename);
+
         file.mode = tf.mode;
         file.ownerId = tf.ownerId;
         file.groupId = tf.groupId;
@@ -101,12 +112,18 @@ class TarDecoder {
         if (tf.nameOfLinkedFile != null) {
           file.symbolicLink = tf.nameOfLinkedFile!;
         }
-        archive.add(file);
+
+        if (dir == null) {
+          archive.add(file);
+        } else {
+          dir.add(file);
+        }
+
         if (callback != null) {
           callback(file);
         }
       } else {
-        final file = ArchiveDirectory(tf.filename);
+        final file = ArchiveDirectory(filename);
         file.mode = tf.mode;
         file.ownerId = tf.ownerId;
         file.groupId = tf.groupId;
@@ -114,7 +131,13 @@ class TarDecoder {
         if (tf.nameOfLinkedFile != null) {
           file.symbolicLink = tf.nameOfLinkedFile!;
         }
-        archive.add(file);
+
+        if (dir == null) {
+          archive.add(file);
+        } else {
+          dir.add(file);
+        }
+
         if (callback != null) {
           callback(file);
         }

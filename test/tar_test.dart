@@ -196,10 +196,10 @@ void main() {
           'https://pub.dev/packages/firebase_messaging/versions/10.0.8.tar.gz'));
       final tarBytes = GZipDecoder().decodeBytes(bytes, verify: true);
       final archive = TarDecoder().decodeBytes(tarBytes, verify: true);
-
-      expect(archive.length, equals(129));
+      final files = archive.getAllFiles();
+      expect(files.length, equals(129));
       expect(
-          archive[13].name,
+          files[13].fullPathName,
           equals(
               'android/src/main/java/io/flutter/plugins/firebase/messaging/FlutterFirebaseMessagingBackgroundExecutor.java'));
     });
@@ -208,9 +208,10 @@ void main() {
       var file = File('test/_data/tar/symlink_tar.tar');
       final bytes = file.readAsBytesSync();
       final archive = TarDecoder().decodeBytes(bytes, verify: true);
-      expect(archive.length, equals(4));
-      expect(archive[1].isSymbolicLink, equals(true));
-      expect(archive[1].symbolicLink, equals('b/b.txt'));
+      final files = archive.getAllEntries();
+      expect(files.length, equals(4));
+      expect(files[1].isSymbolicLink, equals(true));
+      expect(files[1].symbolicLink, equals('b/b.txt'));
     });
 
     test('decode test2.tar', () {
@@ -221,7 +222,8 @@ void main() {
       final expectedFiles = <File>[];
       listDir(expectedFiles, Directory('test/_data/test2'));
 
-      expect(archive.length, equals(4));
+      final files = archive.getAllEntries();
+      expect(files.length, equals(4));
     });
 
     test('decode test2.tar.gz', () {
@@ -234,7 +236,8 @@ void main() {
       final expectedFiles = <File>[];
       listDir(expectedFiles, Directory('test/_data/test2'));
 
-      expect(archive.length, equals(4));
+      final entries = archive.getAllEntries();
+      expect(entries.length, equals(4));
     });
 
     test('decode/encode', () {

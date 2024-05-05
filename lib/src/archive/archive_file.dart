@@ -13,6 +13,7 @@ class ArchiveFile extends ArchiveEntry {
   FileContent? _content;
   @override
   int size = 0;
+
   /// The type of compression the file content is compressed with.
   CompressionType compression = CompressionType.deflate;
 

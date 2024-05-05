@@ -64,7 +64,7 @@ class ArchiveDirectory extends ArchiveEntry {
   /// If [isFile] is true, then [path] is a file path and the file name will
   /// not be included in creating directories.
   /// If the [path] points to an [ArchiveFile], then null will be returned.
-  ArchiveDirectory? getOrCreateDirectory(String path, { bool isFile = true }) {
+  ArchiveDirectory? getOrCreateDirectory(String path, {bool isFile = true}) {
     final pathTk = p.split(path);
     if (pathTk.last.isEmpty) {
       pathTk.removeLast();

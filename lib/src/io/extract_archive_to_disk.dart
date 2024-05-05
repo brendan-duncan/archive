@@ -44,10 +44,11 @@ void _prepareOutDir(String outDirPath) {
   }
 }
 
-String? _prepareArchiveFilePath(ArchiveFile archiveFile, String outputPath) {
-  final filePath = path.join(outputPath, path.normalize(archiveFile.name));
+String? _prepareArchiveFilePath(ArchiveEntry archiveFile, String outputPath) {
+  final filePath =
+      path.join(outputPath, path.normalize(archiveFile.fullPathName));
 
-  if ((!archiveFile.isFile && !archiveFile.isSymbolicLink) ||
+  if ((archiveFile.isDirectory && !archiveFile.isSymbolicLink) ||
       !_isWithinOutputPath(outputPath, filePath)) {
     return null;
   }
@@ -62,21 +63,25 @@ String? _prepareArchiveFilePath(ArchiveFile archiveFile, String outputPath) {
 }
 
 void _extractArchiveEntryToDiskSync(
-  ArchiveFile file,
+  ArchiveEntry entry,
   String filePath, {
   int? bufferSize,
 }) {
-  if (file.isSymbolicLink) {
+  if (entry.isSymbolicLink) {
     final link = Link(filePath);
-    link.createSync(path.normalize(file.symbolicLink ?? ""), recursive: true);
+    link.createSync(path.normalize(entry.symbolicLink ?? ""), recursive: true);
   } else {
-    final output = OutputFileStream(filePath, bufferSize: bufferSize);
-    try {
-      file.writeContent(output);
-    } catch (err) {
-      //
+    if (entry is ArchiveFile) {
+      final output = OutputFileStream(filePath, bufferSize: bufferSize);
+      try {
+        entry.writeContent(output);
+      } catch (err) {
+        //
+      }
+      output.closeSync();
+    } else {
+      Directory(filePath).createSync(recursive: true);
     }
-    output.closeSync();
   }
 }
 
@@ -86,11 +91,11 @@ void extractArchiveToDiskSync(
   int? bufferSize,
 }) {
   _prepareOutDir(outputPath);
-  final files = archive.getAllFiles();
-  for (final file in files) {
-    final filePath = _prepareArchiveFilePath(file, outputPath);
+  final entries = archive.getAllEntries();
+  for (final entry in entries) {
+    final filePath = _prepareArchiveFilePath(entry, outputPath);
     if (filePath != null) {
-      _extractArchiveEntryToDiskSync(file, filePath, bufferSize: bufferSize);
+      _extractArchiveEntryToDiskSync(entry, filePath, bufferSize: bufferSize);
     }
   }
 }
@@ -102,11 +107,12 @@ Future<void> extractArchiveToDisk(Archive archive, String outputPath,
   if (!outDir.existsSync()) {
     outDir.createSync(recursive: true);
   }
+
   final entries = archive.getAllEntries();
   for (final entry in entries) {
     final filePath = path.normalize(path.join(outputPath, entry.fullPathName));
 
-    if ((!entry.isFile && !entry.isSymbolicLink) ||
+    if ((entry.isDirectory && !entry.isSymbolicLink) ||
         !_isWithinOutputPath(outputPath, filePath)) {
       continue;
     }
@@ -122,7 +128,7 @@ Future<void> extractArchiveToDisk(Archive archive, String outputPath,
       continue;
     }
 
-    if (!entry.isFile) {
+    if (entry.isDirectory) {
       await Directory(filePath).create(recursive: true);
       continue;
     }
@@ -200,9 +206,9 @@ Future<void> extractFileToDisk(String inputPath, String outputPath,
         'Must end tar.gz, tgz, tar.bz2, tbz, tar.xz, txz, tar or zip.');
   }
 
-  final files = archive.getAllFiles();
+  final files = archive.getAllEntries();
   for (final file in files) {
-    final filePath = path.join(outputPath, path.normalize(file.name));
+    final filePath = path.join(outputPath, path.normalize(file.fullPathName));
     if (!_isWithinOutputPath(outputPath, filePath)) {
       continue;
     }
@@ -213,7 +219,7 @@ Future<void> extractFileToDisk(String inputPath, String outputPath,
       }
     }
 
-    if (!file.isFile && !file.isSymbolicLink) {
+    if (file.isDirectory && !file.isSymbolicLink) {
       Directory(filePath).createSync(recursive: true);
       continue;
     }
@@ -222,7 +228,7 @@ Future<void> extractFileToDisk(String inputPath, String outputPath,
       final link = Link(filePath);
       final p = path.normalize(file.symbolicLink ?? "");
       link.createSync(p, recursive: true);
-    } else {
+    } else if (file is ArchiveFile) {
       final output = OutputFileStream(filePath, bufferSize: bufferSize);
       try {
         file.writeContent(output);

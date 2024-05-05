@@ -418,7 +418,8 @@ void main() {
     final tarDecoder = TarDecoder();
     final f = File('$testOutputPath/test3.tar');
     final archive = tarDecoder.decodeBytes(f.readAsBytesSync(), verify: true);
-    expect(archive.length, equals(4));
+    final entries = archive.getAllEntries();
+    expect(entries.length, equals(5));
   });
 
   _testInputOutputFileStream('stream gzip encode', (
