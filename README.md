@@ -55,7 +55,7 @@ void main() {
 }
 ```
 
-#### Using InputFileStream and OutputFileStream to reduce memory usage:
+#### Using InputFileStream and OutputFileStream to extract a zip:
 ```dart
 import 'dart:io';
 import 'package:archive/archive.dart';
