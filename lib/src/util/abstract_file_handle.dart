@@ -2,7 +2,7 @@ import 'dart:typed_data';
 
 import 'file_access.dart';
 
-/// Base class for MemoryFileHandle and FileHandle (dart:io).
+/// Base class for RamFileHandle and FileHandle (dart:io).
 abstract class AbstractFileHandle {
   AbstractFileHandle({FileAccess mode = FileAccess.read});
 

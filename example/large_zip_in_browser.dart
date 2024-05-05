@@ -25,12 +25,12 @@ void importAndExportLargeZipFile(bool experimental) async {
   // Obtain a file stream to a very large zip file
   final _FileStreamData fileStreamData = await _getFileStream();
 
-  // Read the stream as an archive and extract all files' data
+  /// Read the stream as an archive and extract all files' data
   final List<_FileData> readFileDataList = await _readZipContentFromStream(
     fileStreamData,
   );
 
-  // Write all the files into a new zip archive contained in a RamFileData
+  /// Write all the files into a new zip archive contained in a RamFileData
   final RamFileData writtenZipData = _writeFilesDataAsZipRamData(
     readFileDataList,
   );
