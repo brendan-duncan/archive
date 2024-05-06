@@ -392,7 +392,7 @@ void main() {
       try {
         final f = File('$testOutputPath/$filename');
         f.parent.createSync(recursive: true);
-        f.writeAsBytesSync(file.content as List<int>);
+        f.writeAsBytesSync(file.content!.readBytes());
       } catch (e) {
         print(e);
       }
