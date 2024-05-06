@@ -106,6 +106,9 @@ class ArchiveFile extends ArchiveEntry {
     return stream?.toUint8List();
   }
 
+  /// Alias to [readBytes], kept for backwards compatibility.
+  List<int> get content => readBytes() ?? [];
+
   @override
   Future<void> close() async {
     final futures = <Future<void>>[];
