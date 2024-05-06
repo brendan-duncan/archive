@@ -109,6 +109,20 @@ class ZipEncoder {
     return output.getBytes();
   }
 
+  /// Alias for [encodeBytes], kept for backwards compatibility.
+  List<int> encode(Archive archive,
+          {int level = DeflateLevel.bestSpeed,
+          OutputStream? output,
+          DateTime? modified,
+          bool autoClose = true,
+          ArchiveCallback? callback}) =>
+      encodeBytes(archive,
+          level: level,
+          output: output,
+          modified: modified,
+          autoClose: autoClose,
+          callback: callback);
+
   void startEncode(OutputStream? output,
       {int? level = DeflateLevel.bestSpeed, DateTime? modified}) {
     _data = _ZipEncoderData(level, modified);

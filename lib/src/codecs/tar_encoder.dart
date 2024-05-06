@@ -28,6 +28,10 @@ class TarEncoder {
     return output.getBytes();
   }
 
+  /// Alias for [encodeBytes], kept for backwards compatibility.
+  List<int> encode(Archive archive, {OutputStream? output}) =>
+      encodeBytes(archive, output: output);
+
   void start([OutputStream? outputStream]) {
     _outputStream = outputStream ?? OutputMemoryStream();
   }

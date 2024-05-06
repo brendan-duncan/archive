@@ -19,6 +19,9 @@ class BZip2Encoder {
     return output.getBytes();
   }
 
+  /// Alias for [encodeBytes], kept for backwards compatibility.
+  List<int> encode(List<int> bytes) => encodeBytes(bytes);
+
   bool encodeStream(InputStream input, OutputStream output) {
     this.input = input;
     bw = Bz2BitWriter(output);

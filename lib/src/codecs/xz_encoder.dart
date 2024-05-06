@@ -23,6 +23,10 @@ class XZEncoder {
     return output.getBytes();
   }
 
+  /// Alias for [encodeBytes], kept for backwards compatibility.
+  List<int> encode(List<int> bytes, {XZCheck check = XZCheck.crc64}) =>
+      encodeBytes(bytes, check: check);
+
   void encodeStream(InputStream input, OutputStream output,
       {XZCheck check = XZCheck.crc64}) {
     var flags = 0;
