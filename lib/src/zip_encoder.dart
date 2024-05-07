@@ -82,7 +82,7 @@ class ZipEncoder {
       {int level = Deflate.BEST_SPEED,
       OutputStreamBase? output,
       DateTime? modified,
-      bool autoClose = true}) {
+      bool autoClose = false}) {
     output ??= OutputStream();
 
     startEncode(output, level: level, modified: modified);
