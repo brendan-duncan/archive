@@ -2,7 +2,6 @@ import 'dart:io';
 
 import 'package:path/path.dart' as path;
 
-import '../archive/archive_directory.dart';
 import '../archive/archive_file.dart';
 import '../archive/compression_type.dart';
 import '../codecs/zip_encoder.dart';
@@ -112,7 +111,7 @@ class ZipFileEncoder {
       if (file is Directory) {
         var filename = path.relative(file.path, from: dir.path);
         filename = includeDirName ? '$dirName/$filename' : filename;
-        final af = ArchiveDirectory(filename);
+        final af = ArchiveFile.directory(filename);
         final stat = file.statSync();
         af.mode = stat.mode;
         af.lastModTime = stat.modified.millisecondsSinceEpoch ~/ 1000;

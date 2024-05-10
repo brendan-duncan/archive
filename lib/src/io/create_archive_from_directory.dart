@@ -2,7 +2,6 @@ import 'dart:io';
 import 'package:path/path.dart' as path;
 
 import '../archive/archive.dart';
-import '../archive/archive_directory.dart';
 import '../archive/archive_file.dart';
 import '../util/input_file_stream.dart';
 
@@ -17,7 +16,7 @@ Archive createArchiveFromDirectory(Directory dir,
     if (file is Directory) {
       var filename = path.relative(file.path, from: dir.path);
       filename = includeDirName ? ('$dirName/$filename') : filename;
-      final af = ArchiveDirectory('$filename/');
+      final af = ArchiveFile.directory('$filename/');
       af.mode = file.statSync().mode;
       archive.add(af);
     } else if (file is File) {

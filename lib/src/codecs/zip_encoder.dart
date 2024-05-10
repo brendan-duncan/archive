@@ -3,8 +3,6 @@ import 'dart:math';
 import 'dart:typed_data';
 
 import '../archive/archive.dart';
-import '../archive/archive_directory.dart';
-import '../archive/archive_entry.dart';
 import '../archive/archive_file.dart';
 import '../util/aes.dart';
 import '../util/crc32.dart';
@@ -85,7 +83,7 @@ class ZipEncoder {
   void encodeStream(Archive archive, OutputStream output,
       {int level = DeflateLevel.bestSpeed,
       DateTime? modified,
-      bool autoClose = true,
+      bool autoClose = false,
       ArchiveCallback? callback}) {
     startEncode(output, level: level, modified: modified);
     for (final file in archive) {
@@ -98,7 +96,7 @@ class ZipEncoder {
       {int level = DeflateLevel.bestSpeed,
       OutputStream? output,
       DateTime? modified,
-      bool autoClose = true,
+      bool autoClose = false,
       ArchiveCallback? callback}) {
     output ??= OutputMemoryStream();
     encodeStream(archive, output,
@@ -114,7 +112,7 @@ class ZipEncoder {
           {int level = DeflateLevel.bestSpeed,
           OutputStream? output,
           DateTime? modified,
-          bool autoClose = true,
+          bool autoClose = false,
           ArchiveCallback? callback}) =>
       encodeBytes(archive,
           level: level,
@@ -181,7 +179,7 @@ class ZipEncoder {
     return data;
   }
 
-  void add(ArchiveEntry entry,
+  void add(ArchiveFile entry,
       {bool autoClose = true, ArchiveCallback? callback}) {
     final fileData = _ZipFileData();
     _data.files.add(fileData);
@@ -193,7 +191,7 @@ class ZipEncoder {
     final lastModMS = entry.lastModTime * 1000;
     final lastModTime = DateTime.fromMillisecondsSinceEpoch(lastModMS);
 
-    fileData.name = entry.fullPathName;
+    fileData.name = entry.name;
     if (!entry.isFile &&
         !fileData.name.endsWith('/') &&
         !fileData.name.endsWith('\\')) {
@@ -225,7 +223,7 @@ class ZipEncoder {
       }
     } else*/
 
-    if (entry is ArchiveFile) {
+    if (entry.isFile) {
       final file = entry;
       if (file.isCompressed) {
         // If the file is already compressed, no sense in uncompressing it and
@@ -295,11 +293,11 @@ class ZipEncoder {
 
     fileData.compressedData = null;
 
-    if (entry is ArchiveDirectory) {
+    /*if (entry.isDirectory) {
       for (final file in entry) {
         add(file, autoClose: autoClose, callback: callback);
       }
-    }
+    }*/
 
     if (autoClose) {
       entry.closeSync();

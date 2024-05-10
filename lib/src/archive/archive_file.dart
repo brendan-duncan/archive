@@ -4,28 +4,67 @@ import 'dart:typed_data';
 import '../util/file_content.dart';
 import '../util/input_stream.dart';
 import '../util/output_stream.dart';
-import 'archive_entry.dart';
 import 'compression_type.dart';
 
+/// A callback function called when archive entries are read from or written
+/// to archive files like zip or tar.
+typedef ArchiveCallback = void Function(ArchiveFile entry);
+
 /// A file contained in an Archive.
-class ArchiveFile extends ArchiveEntry {
+class ArchiveFile {
+  /// The name of the file or directory.
+  String name;
+
+  /// The access mode of the file or directory.
+  int mode;
+
+  /// The owner id of the file or directory.
+  int ownerId = 0;
+
+  /// The group id of the file or directory.
+  int groupId = 0;
+
+  /// The creation timestamp of the file or directory, in seconds from
+  /// epoch.
+  int creationTime = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+
+  /// The timestamp the file or directory was last modified, in seconds since
+  /// epoch.
+  late int lastModTime = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+
+  /// If symbolicLink is not null, the entry is a symbolic link and this is
+  /// the path to what it's linking to. This should be an archive relative path.
+  /// Symlinks pointing outside of the archive will be invalid when extracting
+  /// archives to disk.
+  String? symbolicLink;
+
+  /// True if the entry is a symbolic link, otherwise false.
+  bool get isSymbolicLink => symbolicLink?.isNotEmpty ?? false;
+
+  /// The crc32 checksum of the uncompressed content.
+  int? crc32;
+
+  /// An optional comment for the archive entry.
+  String? comment;
+
   FileContent? _rawContent;
   FileContent? _content;
-  @override
   int size = 0;
 
   /// The type of compression the file content is compressed with.
   CompressionType compression = CompressionType.deflate;
 
-  @override
+  /// If false, the file represents a directory.
   bool isFile = true;
+
+  /// If true, the file represents a directory.
+  bool get isDirectory => !isFile;
 
   /// The unix permission flags of the file.
   int get unixPermissions => mode & 0x1ff;
 
   /// A file storing the given [data].
-  ArchiveFile.bytes(String name, List<int> data)
-      : super(name: name, mode: 0x1a4) {
+  ArchiveFile.bytes(this.name, List<int> data) : mode = 0x1a4 {
     _content = FileContentMemory(data);
     _rawContent = FileContentMemory(data);
     size = data.length;
@@ -37,8 +76,7 @@ class ArchiveFile extends ArchiveEntry {
           Uint8List.view(data.buffer, data.offsetInBytes, data.lengthInBytes));
 
   /// A file storing the given string data [content].
-  ArchiveFile.string(String name, String content)
-      : super(name: name, mode: 0x1a4) {
+  ArchiveFile.string(this.name, String content) : mode = 0x1a4 {
     final bytes = utf8.encode(content);
     size = bytes.length;
     _content = FileContentMemory(bytes);
@@ -46,28 +84,32 @@ class ArchiveFile extends ArchiveEntry {
   }
 
   /// A file that gets its content from the given [stream].
-  ArchiveFile.stream(String name, InputStream stream,
+  ArchiveFile.stream(this.name, InputStream stream,
       {this.compression = CompressionType.deflate})
-      : super(name: name, mode: 0x1a4) {
+      : mode = 0x1a4 {
     size = stream.length;
     _rawContent = FileContentStream(stream);
   }
 
   /// A file that gets its content from the given [file].
-  ArchiveFile.file(String name, this.size, FileContent file,
+  ArchiveFile.file(this.name, this.size, FileContent file,
       {this.compression = CompressionType.deflate})
-      : super(name: name, mode: 0x1a4) {
+      : mode = 0x1a4 {
     _rawContent = file;
   }
 
   /// A file that's a symlink to another file.
-  ArchiveFile.symlink(String name, String symbolicLink)
-      : super(name: name, mode: 0x1a4) {
+  ArchiveFile.symlink(this.name, String symbolicLink) : mode = 0x1a4 {
     this.symbolicLink = symbolicLink;
   }
 
   /// An empty file.
-  ArchiveFile.noData(String name) : super(name: name, mode: 0x1a4);
+  ArchiveFile.noData(this.name) : mode = 0x1a4;
+
+  /// A directory, usually representing an empty directory in an archive.
+  ArchiveFile.directory(this.name)
+      : mode = 0x1a4,
+        isFile = false;
 
   /// Write the contents of the file to the given [output]. If [freeMemory]
   /// is true, then any storage of decompressed data will be freed after
@@ -92,7 +134,6 @@ class ArchiveFile extends ArchiveEntry {
   FileContent? get rawContent => _rawContent;
 
   /// Get the content of the file, decompressing on demand as necessary.
-  @override
   InputStream? getContent() {
     if (_content == null) {
       decompress();
@@ -109,7 +150,6 @@ class ArchiveFile extends ArchiveEntry {
   /// Alias to [readBytes], kept for backwards compatibility.
   List<int> get content => readBytes() ?? [];
 
-  @override
   Future<void> close() async {
     final futures = <Future<void>>[];
     if (_content != null) {
@@ -123,7 +163,6 @@ class ArchiveFile extends ArchiveEntry {
     await Future.wait(futures);
   }
 
-  @override
   void closeSync() {
     if (_content != null) {
       _content!.closeSync();
@@ -135,12 +174,10 @@ class ArchiveFile extends ArchiveEntry {
     _rawContent = null;
   }
 
-  @override
   Future<void> clear() async {
     _content = null;
   }
 
-  @override
   void clearSync() {
     _content = null;
   }

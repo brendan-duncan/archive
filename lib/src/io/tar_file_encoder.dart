@@ -2,7 +2,6 @@ import 'dart:io';
 
 import 'package:path/path.dart' as path;
 
-import '../archive/archive_directory.dart';
 import '../archive/archive_file.dart';
 import '../codecs/gzip_encoder.dart';
 import '../codecs/tar_encoder.dart';
@@ -67,7 +66,7 @@ class TarFileEncoder {
       if (file is Directory) {
         var filename = path.relative(file.path, from: dir.path);
         filename = includeDirName ? '$dirName/$filename' : filename;
-        final af = ArchiveDirectory('$filename/');
+        final af = ArchiveFile.directory('$filename/');
         af.mode = (await file.stat()).mode;
         _encoder.add(af);
       } else if (file is File) {

@@ -81,8 +81,7 @@ Future<List<_FileData>> _readZipContentFromStream(
 
   // Going through every archive file and storing it as a _FileData instance
   final extractedFilesData = <_FileData>[];
-  final files = archive.getAllFiles();
-  for (final file in files) {
+  for (final file in archive) {
     extractedFilesData.add(_FileData(file.name, file.readBytes()!));
   }
 

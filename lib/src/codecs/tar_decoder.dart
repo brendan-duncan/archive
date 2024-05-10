@@ -1,10 +1,6 @@
 import 'dart:convert';
 
-import 'package:path/path.dart' as p;
-
 import '../archive/archive.dart';
-import '../archive/archive_directory.dart';
-import '../archive/archive_entry.dart';
 import '../archive/archive_file.dart';
 import '../util/input_memory_stream.dart';
 import '../util/input_stream.dart';
@@ -91,13 +87,7 @@ class TarDecoder {
       }
       files.add(tf);
 
-      final dir = archive.getOrCreateDirectory(tf.filename);
-
-      final pathTk = p.split(tf.filename);
-      if (pathTk.last.isEmpty) {
-        pathTk.removeLast();
-      }
-      final filename = pathTk.last;
+      final filename = tf.filename;
 
       if (tf.isFile) {
         final file = storeData
@@ -112,17 +102,13 @@ class TarDecoder {
           file.symbolicLink = tf.nameOfLinkedFile!;
         }
 
-        if (dir == null) {
-          archive.add(file);
-        } else {
-          dir.add(file);
-        }
+        archive.add(file);
 
         if (callback != null) {
           callback(file);
         }
       } else {
-        final file = ArchiveDirectory(filename);
+        final file = ArchiveFile.directory(filename);
         file.mode = tf.mode;
         file.ownerId = tf.ownerId;
         file.groupId = tf.groupId;
@@ -131,11 +117,7 @@ class TarDecoder {
           file.symbolicLink = tf.nameOfLinkedFile!;
         }
 
-        if (dir == null) {
-          archive.add(file);
-        } else {
-          dir.add(file);
-        }
+        archive.add(file);
 
         if (callback != null) {
           callback(file);

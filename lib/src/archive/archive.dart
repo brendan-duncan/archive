@@ -1,23 +1,133 @@
-import 'archive_directory.dart';
+import 'dart:collection';
+
 import 'archive_file.dart';
 
-/// An [Archive] represents a file system, as a collection of [ArchiveEntity]
-/// objects, which are either an [ArchiveFile] or an [ArchiveDirectory].
-/// Zip and Tar codecs work with Archives, where decoders will convert a zip or
-/// tar file into an [Archive] and encoders will convert an [Archive] into a zip
-/// or tar file. An [ArchiveDirectory] can contain other [ArchiveDirectory] or
-/// [ArchiveFile] objects, making a hierarchy filesystem.
-class Archive extends ArchiveDirectory {
-  List<ArchiveFile>? _files;
+//// A collection of files
+class Archive extends IterableBase<ArchiveFile> {
+  /// The list of files in the archive.
+  final List<ArchiveFile> _files = [];
+  final Map<String, int> _fileMap = {};
 
-  Archive([super.name = '']) : super();
+  /// A global comment for the archive.
+  String? comment;
 
-  /// Shortcut for [getAllFiles]. The file list is cached, so getting
-  /// files multiple times will not result in multiple calls to [getAllFiles].
-  List<ArchiveFile> get files {
-    if (_files == null) {
-      _files = getAllFiles();
+  /// Unmodifiable view of the files in the archive.
+  List<ArchiveFile> get files => UnmodifiableListView(_files);
+
+  /// Add a file or directory to the archive.
+  void add(ArchiveFile file) {
+    // Adding a file with the same path as one that's already in the archive
+    // will replace the previous file.
+    final index = _fileMap[file.name];
+    if (index != null) {
+      _files[index] = file;
+      return;
     }
-    return _files!;
+    // No existing file was in the archive with the same path, add it to the
+    // archive.
+    _files.add(file);
+    _fileMap[file.name] = _files.length - 1;
   }
+
+  /// Alias for [add] for backwards compatibility.
+  void addFile(ArchiveFile file) => add(file);
+
+  void removeFile(ArchiveFile file) {
+    final index = _fileMap[file.name];
+    if (index != null) {
+      _files.removeAt(index);
+      _fileMap.remove(file.name);
+    }
+  }
+
+  void removeAt(int index) {
+    if (index < 0 || index >= _files.length) {
+      return;
+    }
+    _fileMap.remove(_files[index].name);
+    _files.removeAt(index);
+  }
+
+  Future<void> clear() async {
+    var futures = <Future<void>>[];
+    for (var fp in _files) {
+      futures.add(fp.close());
+    }
+    _files.clear();
+    _fileMap.clear();
+    comment = null;
+    await Future.wait(futures);
+  }
+
+  void clearSync() {
+    for (var fp in _files) {
+      fp.closeSync();
+    }
+    _files.clear();
+    _fileMap.clear();
+    comment = null;
+  }
+
+  /// The number of files in the archive.
+  @override
+  int get length => _files.length;
+
+  /// Get a file from the archive.
+  ArchiveFile operator [](int index) => _files[index];
+
+  /// Set a file in the archive.
+  void operator []=(int index, ArchiveFile file) {
+    if (index < 0 || index >= _files.length) {
+      return;
+    }
+    _fileMap.remove(_files[index].name);
+    _files[index] = file;
+    _fileMap[file.name] = index;
+  }
+
+  /// Find a file with the given [name] in the archive. If the file isn't found,
+  /// null will be returned.
+  ArchiveFile? find(String name) {
+    var index = _fileMap[name];
+    return index != null ? _files[index] : null;
+  }
+
+  /// Alias for [find], for backwards compatibility.
+  ArchiveFile? findFile(String name) => find(name);
+
+  /// The number of files in the archive.
+  int numberOfFiles() {
+    return _files.length;
+  }
+
+  /// The name of the file at the given [index].
+  String fileName(int index) {
+    return _files[index].name;
+  }
+
+  /// The decompressed size of the file at the given [index].
+  int fileSize(int index) {
+    return _files[index].size;
+  }
+
+  /// The decompressed data of the file at the given [index].
+  List<int> fileData(int index) {
+    return _files[index].content;
+  }
+
+  @override
+  ArchiveFile get first => _files.first;
+
+  @override
+  ArchiveFile get last => _files.last;
+
+  @override
+  bool get isEmpty => _files.isEmpty;
+
+  // Returns true if there is at least one element in this collection.
+  @override
+  bool get isNotEmpty => _files.isNotEmpty;
+
+  @override
+  Iterator<ArchiveFile> get iterator => _files.iterator;
 }

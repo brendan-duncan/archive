@@ -218,6 +218,17 @@ void main() async {
       expect(decoded.length, equals(0));
     });
 
+    test('shared file', () async {
+      final archive = ZipDecoder().decodeStream(
+          InputMemoryStream(File('test/_data/test2.zip').readAsBytesSync()));
+      final archive2 = Archive()
+        ..add(archive[0]);
+      final zip = ZipEncoder().encodeBytes(archive2);
+      final archive3 = ZipDecoder().decodeBytes(zip);
+      expect(archive3.length, 1);
+      expect(archive3[0].name, archive[0].name);
+    });
+
     test('decode encode', () async {
       final archive = ZipDecoder().decodeStream(
           InputMemoryStream(File('test/_data/test2.zip').readAsBytesSync()));
@@ -226,12 +237,7 @@ void main() async {
 
       final archive2 = ZipDecoder().decodeBytes(zipBytes);
 
-      final entries1 = archive.getAllEntries();
-      final size1 = entries1.length;
-      final entries2 = archive2.getAllEntries();
-      final size2 = entries2.length;
-
-      expect(size1, size2);
+      expect(archive.length, archive2.length);
     });
 
     test('decode file stream', () async {
@@ -246,13 +252,12 @@ void main() async {
       var file = File(p.join('test/_data/zip/android-javadoc.zip'));
       var bytes = file.readAsBytesSync();
       final archive = ZipDecoder().decodeBytes(bytes, verify: true);
-      final entries = archive.getAllEntries();
-      expect(entries.length, equals(102));
+      expect(archive.length, equals(102));
     });
 
     test('empty directory', () {
       final archive = Archive();
-      archive.add(ArchiveDirectory('empty'));
+      archive.add(ArchiveFile.directory('empty'));
       final encodedBytes = ZipEncoder().encodeBytes(archive);
       File(p.join(testOutputPath, 'empty_directory.zip'))
         ..createSync(recursive: true)
@@ -260,14 +265,13 @@ void main() async {
       final archiveDecoded = ZipDecoder().decodeBytes(encodedBytes);
       expect(archiveDecoded.length, 1);
       expect(archiveDecoded[0].isFile, false);
-      expect(archiveDecoded[0].name, 'empty');
+      expect(archiveDecoded[0].name, 'empty/');
     });
 
     test('file decode utf file', () {
       var bytes = File(p.join('test/_data/zip/utf.zip')).readAsBytesSync();
       final archive = ZipDecoder().decodeBytes(bytes, verify: true);
-      final entries = archive.getAllEntries();
-      expect(entries.length, equals(5));
+      expect(archive.length, equals(5));
     });
 
     test('file stream encode', () {
@@ -288,7 +292,7 @@ void main() async {
       final archive = Archive();
       archive.add(ArchiveFile.bytes(originalFileName, bytes));
 
-      archive.add(ArchiveDirectory('foo'));
+      archive.add(ArchiveFile.directory('foo'));
       archive.add(ArchiveFile.string('foo/bar.txt', '123'));
 
       var encodedBytes = ZipEncoder().encodeBytes(archive);
@@ -298,7 +302,7 @@ void main() async {
         ..writeAsBytesSync(encodedBytes);
 
       final archiveDecoded = ZipDecoder().decodeBytes(encodedBytes);
-      expect(archiveDecoded.length, 2);
+      expect(archiveDecoded.length, 3);
 
       final decodedFile = archiveDecoded[0];
 
@@ -544,7 +548,7 @@ void main() async {
           nextEntryIndex++;
           continue;
         }
-        final f = file as ArchiveFile;
+        final f = file;
         final String filename = f.name;
         final data = f.getContent();
         await f.clear();

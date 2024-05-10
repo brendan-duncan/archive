@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import '../archive/archive.dart';
-import '../archive/archive_entry.dart';
 import '../archive/archive_file.dart';
 import '../util/output_memory_stream.dart';
 import '../util/output_stream.dart';
@@ -36,7 +35,7 @@ class TarEncoder {
     _outputStream = outputStream ?? OutputMemoryStream();
   }
 
-  void add(ArchiveEntry entry) {
+  void add(ArchiveFile entry) {
     if (_outputStream == null) {
       return;
     }
@@ -63,7 +62,7 @@ class TarEncoder {
     if (!entry.isFile) {
       ts.typeFlag = TarFile.directory;
     } else {
-      final file = entry as ArchiveFile;
+      final file = entry;
       if (file.symbolicLink != null) {
         ts.typeFlag = TarFile.symbolicLink;
         ts.nameOfLinkedFile = file.symbolicLink;

@@ -39,7 +39,7 @@ void main() {
       // Create a view of the input data for the bytes we're currently
       // streaming.
       final streamBytes =
-      Uint8List.view(deflatedBytes.buffer, streamOffset, streamSize);
+          Uint8List.view(deflatedBytes.buffer, streamOffset, streamSize);
       streamOffset += streamBytes.length;
 
       // Set the bytes as the stream input.

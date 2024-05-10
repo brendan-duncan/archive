@@ -1,10 +1,6 @@
 import 'dart:convert';
 
-import 'package:path/path.dart' as p;
-
 import '../archive/archive.dart';
-import '../archive/archive_directory.dart';
-import '../archive/archive_entry.dart';
 import '../archive/archive_file.dart';
 import '../util/input_memory_stream.dart';
 import '../util/input_stream.dart';
@@ -54,27 +50,17 @@ class ZipDecoder {
         isDirectory = zf.filename.endsWith('/');
       }
 
-      final dir = archive.getOrCreateDirectory(zf.filename);
-
-      final pathTk = p.split(zf.filename);
-      if (pathTk.last.isEmpty) {
-        pathTk.removeLast();
-      }
-      final filename = pathTk.last;
+      final filename = zf.filename;
 
       var entry = archive.find(filename);
 
       if (entry == null) {
         entry = isDirectory
-            ? ArchiveDirectory(filename)
+            ? ArchiveFile.directory(filename)
             : ArchiveFile.file(filename, zf.uncompressedSize, zf,
                 compression: zf.compressionMethod);
 
-        if (dir != null) {
-          dir.add(entry);
-        } else {
-          archive.add(entry);
-        }
+        archive.add(entry);
       }
 
       entry.mode = entryMode;

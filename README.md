@@ -78,22 +78,22 @@ void main() {
       symbolicLinks.add(entity);
       continue;
     }
-    if (entity is ArchiveFile) {
+    if (entity.isFile) {
       // Write the file content to a directory called 'out'.
       // In practice, you should make sure file.name doesn't include '..' paths
       // that would put it outside of the extraction directory.
       // An OutputFileStream will write the data to disk.
-      final outputStream = OutputFileStream('out/${entity.fullPathName}');
+      final outputStream = OutputFileStream('out/${entity.name}');
       // The writeContent method will decompress the file content directly to disk without
       // storing the decompressed data in memory. 
       entity.writeContent(outputStream);
       // Make sure to close the output stream so the File is closed.
       outputStream.closeSync();
-    } else if (entity is ArchiveDirectory) {
+    } else {
       // If the entity is a directory, create it. Normally writing a file will create
       // the directories necessary, but sometimes an archive will have an empty directory
       // with no files.
-      Directory('out/${entity.fullPathName}').createSync(recursive: true);
+      Directory('out/${entity.name}').createSync(recursive: true);
     }
   }
   // Create symbolic links **after** the rest of the archive has been extracted to make sure

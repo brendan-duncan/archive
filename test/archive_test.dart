@@ -7,13 +7,14 @@ void main() {
   group('archive', () {
     test('replace existing file', () {
       final archive = Archive();
-      archive.add(ArchiveFile.bytes("a", Uint8List.fromList([0])));
-      archive.add(ArchiveFile.bytes("b", Uint8List.fromList([1])));
-      archive.add(ArchiveFile.bytes("c", Uint8List.fromList([2])));
+      archive.addFile(ArchiveFile.bytes("a", Uint8List.fromList([0])));
+      archive.addFile(ArchiveFile.bytes("b", Uint8List.fromList([1])));
+      archive.addFile(ArchiveFile.bytes("c", Uint8List.fromList([2])));
 
-      archive.add(ArchiveFile.bytes("b", Uint8List.fromList([3])));
+      archive.addFile(ArchiveFile.bytes("b", Uint8List.fromList([3])));
 
-      archive.add(ArchiveFile.bytes("陳大文_1_test.png", Uint8List.fromList([4])));
+      archive.addFile(
+          ArchiveFile.bytes("陳大文_1_test.png", Uint8List.fromList([4])));
 
       expect(archive.length, 4);
       expect(archive[0].name, "a");
@@ -29,9 +30,9 @@ void main() {
 
     test('clear', () {
       final archive = Archive();
-      archive.add(ArchiveFile.bytes("a", Uint8List.fromList([0])));
-      archive.add(ArchiveFile.bytes("b", Uint8List.fromList([1])));
-      archive.add(ArchiveFile.bytes("c", Uint8List.fromList([2])));
+      archive.addFile(ArchiveFile.bytes("a", Uint8List.fromList([0])));
+      archive.addFile(ArchiveFile.bytes("b", Uint8List.fromList([1])));
+      archive.addFile(ArchiveFile.bytes("c", Uint8List.fromList([2])));
       archive.clearSync();
       expect(archive.length, 0);
     });

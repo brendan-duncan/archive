@@ -422,8 +422,7 @@ void main() {
     final tarDecoder = TarDecoder();
     final f = File('$testOutputPath/test3.tar');
     final archive = tarDecoder.decodeBytes(f.readAsBytesSync(), verify: true);
-    final entries = archive.getAllEntries();
-    expect(entries.length, equals(5));
+    expect(archive.length, equals(4));
   });
 
   _testInputOutputFileStream('stream gzip encode', (
@@ -485,16 +484,14 @@ void main() {
     final zipDecoder = ZipDecoder();
     final f = File('$testOutputPath/example2.zip');
     final archive = zipDecoder.decodeBytes(f.readAsBytesSync(), verify: true);
-    final entries = archive.getAllEntries();
-    expect(entries.length, equals(7));
+    expect(archive.length, equals(6));
   });
 
   test('decode_empty_directory', () {
     final zip = ZipDecoder();
     final archive =
         zip.decodeBytes(File('test/_data/test2.zip').readAsBytesSync());
-    final entries = archive.getAllEntries();
-    expect(entries.length, 5);
+    expect(archive.length, 4);
   });
 
   test('create_archive_from_directory', () {
@@ -510,8 +507,7 @@ void main() {
 
     final zipDecoder = ZipDecoder();
     final archive2 = zipDecoder.decodeBytes(bytes, verify: true);
-    final entries = archive2.getAllEntries();
-    expect(entries.length, equals(5));
+    expect(archive2.length, equals(4));
   });
 
   _testInputFileStream('file close', (ifsConstructor) async {

@@ -1,8 +1,6 @@
 library archive;
 
 export 'src/archive/archive.dart';
-export 'src/archive/archive_directory.dart';
-export 'src/archive/archive_entry.dart';
 export 'src/archive/archive_file.dart';
 export 'src/archive/compression_type.dart';
 export 'src/archive/encryption_type.dart';

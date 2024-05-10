@@ -3,7 +3,6 @@ import 'dart:io';
 import 'package:path/path.dart' as path;
 
 import '../archive/archive.dart';
-import '../archive/archive_entry.dart';
 import '../archive/archive_file.dart';
 import '../codecs/bzip2_decoder.dart';
 import '../codecs/gzip_decoder.dart';
@@ -21,7 +20,7 @@ bool _isWithinOutputPath(String outputDir, String filePath) {
       path.canonicalize(outputDir), path.canonicalize(filePath));
 }
 
-bool _isValidSymLink(String outputPath, ArchiveEntry file) {
+bool _isValidSymLink(String outputPath, ArchiveFile file) {
   final filePath =
       path.dirname(path.join(outputPath, path.normalize(file.name)));
   final linkPath = path.normalize(file.symbolicLink ?? "");
@@ -44,9 +43,8 @@ void _prepareOutDir(String outDirPath) {
   }
 }
 
-String? _prepareArchiveFilePath(ArchiveEntry archiveFile, String outputPath) {
-  final filePath =
-      path.join(outputPath, path.normalize(archiveFile.fullPathName));
+String? _prepareArchiveFilePath(ArchiveFile archiveFile, String outputPath) {
+  final filePath = path.join(outputPath, path.normalize(archiveFile.name));
 
   if ((archiveFile.isDirectory && !archiveFile.isSymbolicLink) ||
       !_isWithinOutputPath(outputPath, filePath)) {
@@ -63,7 +61,7 @@ String? _prepareArchiveFilePath(ArchiveEntry archiveFile, String outputPath) {
 }
 
 void _extractArchiveEntryToDiskSync(
-  ArchiveEntry entry,
+  ArchiveFile entry,
   String filePath, {
   int? bufferSize,
 }) {
@@ -71,7 +69,7 @@ void _extractArchiveEntryToDiskSync(
     final link = Link(filePath);
     link.createSync(path.normalize(entry.symbolicLink ?? ""), recursive: true);
   } else {
-    if (entry is ArchiveFile) {
+    if (entry.isFile) {
       final output = OutputFileStream(filePath, bufferSize: bufferSize);
       try {
         entry.writeContent(output);
@@ -91,8 +89,7 @@ void extractArchiveToDiskSync(
   int? bufferSize,
 }) {
   _prepareOutDir(outputPath);
-  final entries = archive.getAllEntries();
-  for (final entry in entries) {
+  for (final entry in archive) {
     final filePath = _prepareArchiveFilePath(entry, outputPath);
     if (filePath != null) {
       _extractArchiveEntryToDiskSync(entry, filePath, bufferSize: bufferSize);
@@ -108,9 +105,8 @@ Future<void> extractArchiveToDisk(Archive archive, String outputPath,
     outDir.createSync(recursive: true);
   }
 
-  final entries = archive.getAllEntries();
-  for (final entry in entries) {
-    final filePath = path.normalize(path.join(outputPath, entry.fullPathName));
+  for (final entry in archive) {
+    final filePath = path.normalize(path.join(outputPath, entry.name));
 
     if ((entry.isDirectory && !entry.isSymbolicLink) ||
         !_isWithinOutputPath(outputPath, filePath)) {
@@ -133,7 +129,7 @@ Future<void> extractArchiveToDisk(Archive archive, String outputPath,
       continue;
     }
 
-    ArchiveFile file = entry as ArchiveFile;
+    ArchiveFile file = entry;
 
     bufferSize ??= OutputFileStream.kDefaultBufferSize;
     final fileSize = file.size;
@@ -206,9 +202,8 @@ Future<void> extractFileToDisk(String inputPath, String outputPath,
         'Must end tar.gz, tgz, tar.bz2, tbz, tar.xz, txz, tar or zip.');
   }
 
-  final files = archive.getAllEntries();
-  for (final file in files) {
-    final filePath = path.join(outputPath, path.normalize(file.fullPathName));
+  for (final file in archive) {
+    final filePath = path.join(outputPath, path.normalize(file.name));
     if (!_isWithinOutputPath(outputPath, filePath)) {
       continue;
     }
@@ -228,7 +223,7 @@ Future<void> extractFileToDisk(String inputPath, String outputPath,
       final link = Link(filePath);
       final p = path.normalize(file.symbolicLink ?? "");
       link.createSync(p, recursive: true);
-    } else if (file is ArchiveFile) {
+    } else if (file.isFile) {
       final output = OutputFileStream(filePath, bufferSize: bufferSize);
       try {
         file.writeContent(output);

@@ -196,10 +196,9 @@ void main() {
           'https://pub.dev/packages/firebase_messaging/versions/10.0.8.tar.gz'));
       final tarBytes = GZipDecoder().decodeBytes(bytes, verify: true);
       final archive = TarDecoder().decodeBytes(tarBytes, verify: true);
-      final files = archive.getAllFiles();
-      expect(files.length, equals(129));
+      expect(archive.length, equals(129));
       expect(
-          files[13].fullPathName,
+          archive[13].name,
           equals(
               'android/src/main/java/io/flutter/plugins/firebase/messaging/FlutterFirebaseMessagingBackgroundExecutor.java'));
     });
@@ -208,10 +207,9 @@ void main() {
       var file = File('test/_data/tar/symlink_tar.tar');
       final bytes = file.readAsBytesSync();
       final archive = TarDecoder().decodeBytes(bytes, verify: true);
-      final files = archive.getAllEntries();
-      expect(files.length, equals(4));
-      expect(files[1].isSymbolicLink, equals(true));
-      expect(files[1].symbolicLink, equals('b/b.txt'));
+      expect(archive.length, equals(4));
+      expect(archive[1].isSymbolicLink, equals(true));
+      expect(archive[1].symbolicLink, equals('b/b.txt'));
     });
 
     test('decode test2.tar', () {
@@ -222,8 +220,7 @@ void main() {
       final expectedFiles = <File>[];
       listDir(expectedFiles, Directory('test/_data/test2'));
 
-      final files = archive.getAllEntries();
-      expect(files.length, equals(4));
+      expect(archive.length, equals(4));
     });
 
     test('decode test2.tar.gz', () {
@@ -236,8 +233,7 @@ void main() {
       final expectedFiles = <File>[];
       listDir(expectedFiles, Directory('test/_data/test2'));
 
-      final entries = archive.getAllEntries();
-      expect(entries.length, equals(4));
+      expect(archive.length, equals(4));
     });
 
     test('decode/encode', () {
@@ -284,8 +280,8 @@ void main() {
 
     for (Map<String, dynamic> t in tarTests) {
       test('untar ${t['file']}', () {
-        var file = File(p.join('test', t['file'] as String));
-        var bytes = file.readAsBytesSync();
+        final file = File(p.join('test', t['file'] as String));
+        final bytes = file.readAsBytesSync();
 
         final tar = TarDecoder();
         /*Archive archive =*/
@@ -294,7 +290,7 @@ void main() {
 
         for (var i = 0; i < tar.files.length; ++i) {
           final file = tar.files[i];
-          var hdr = t['headers'][i] as Map<String, dynamic>;
+          final hdr = t['headers'][i] as Map<String, dynamic>;
 
           if (hdr.containsKey('Name')) {
             expect(file.filename, equals(hdr['Name']));
