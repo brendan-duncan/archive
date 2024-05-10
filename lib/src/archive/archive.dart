@@ -1,4 +1,5 @@
 import 'dart:collection';
+import 'dart:typed_data';
 
 import 'archive_file.dart';
 
@@ -96,24 +97,16 @@ class Archive extends IterableBase<ArchiveFile> {
   ArchiveFile? findFile(String name) => find(name);
 
   /// The number of files in the archive.
-  int numberOfFiles() {
-    return _files.length;
-  }
+  int numberOfFiles() => _files.length;
 
   /// The name of the file at the given [index].
-  String fileName(int index) {
-    return _files[index].name;
-  }
+  String fileName(int index) => _files[index].name;
 
   /// The decompressed size of the file at the given [index].
-  int fileSize(int index) {
-    return _files[index].size;
-  }
+  int fileSize(int index) => _files[index].size;
 
   /// The decompressed data of the file at the given [index].
-  List<int> fileData(int index) {
-    return _files[index].content;
-  }
+  Uint8List fileData(int index) => _files[index].content;
 
   @override
   ArchiveFile get first => _files.first;

@@ -19,7 +19,7 @@ class BZip2 {
 
   static const List<int> bzhSignature = [0x42, 0x5a, 0x68];
 
-  static const int hdr0 = 0x30;
+  static const hdr0 = 0x30;
 
   static const List<int> compressedMagic = [0x31, 0x41, 0x59, 0x26, 0x53, 0x59];
 

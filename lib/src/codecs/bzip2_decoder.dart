@@ -850,19 +850,19 @@ class BZip2Decoder {
   late List<Uint8List> _len;
   int _numInUse = 0;
 
-  static const int bzNGroups = 6;
-  static const int bzGSize = 50;
-  static const int bzNIters = 4;
-  static const int bzMaxAlphaSize = 258;
-  static const int bzMaxCodeLen = 23;
-  static const int bzMaxSelectors = (2 + (900000 ~/ bzGSize));
-  static const int mtfaSize = 4096;
-  static const int mtflSize = 16;
-  static const int bzRunA = 0;
-  static const int bzRunB = 1;
+  static const bzNGroups = 6;
+  static const bzGSize = 50;
+  static const bzNIters = 4;
+  static const bzMaxAlphaSize = 258;
+  static const bzMaxCodeLen = 23;
+  static const bzMaxSelectors = (2 + (900000 ~/ bzGSize));
+  static const mtfaSize = 4096;
+  static const mtflSize = 16;
+  static const bzRunA = 0;
+  static const bzRunB = 1;
 
-  static const int blockCompressed = 0;
-  static const int blockEos = 2;
+  static const blockCompressed = 0;
+  static const blockEos = 2;
 
   static const List<int> bz2RNums = [
     619,

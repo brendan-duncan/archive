@@ -7,14 +7,14 @@ import 'package:test/test.dart';
 
 import '_test_util.dart';
 
-const int _sourceListMinSize = 1;
-const int _sourceListMaxSize = 10;
-const int _sourceStreamListsMinSize = 1;
-const int _sourceStreamListsMaxSize = 10;
-const int _targetSubListMinSize = 1;
-const int _targetSubListMaxSize = 10;
-const int _readIntoSyncMinSize = 1;
-const int _readSyncIntoMaxSize = 10;
+const _sourceListMinSize = 1;
+const _sourceListMaxSize = 10;
+const _sourceStreamListsMinSize = 1;
+const _sourceStreamListsMaxSize = 10;
+const _targetSubListMinSize = 1;
+const _targetSubListMaxSize = 10;
+const _readIntoSyncMinSize = 1;
+const _readSyncIntoMaxSize = 10;
 
 Stream<List<int>> _buildIntListStream(
   List<int> sourceListsData,

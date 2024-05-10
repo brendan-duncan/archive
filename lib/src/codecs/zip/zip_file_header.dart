@@ -6,7 +6,7 @@ import 'zip_file.dart';
 
 /// Provides information about a file, used by [ZipDecoder].
 class ZipFileHeader {
-  static const int signature = 0x02014b50;
+  static const signature = 0x02014b50;
   int versionMadeBy = 0;
   int versionNeededToExtract = 0;
   int generalPurposeBitFlag = 0;

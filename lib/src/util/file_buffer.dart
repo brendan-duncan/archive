@@ -17,8 +17,8 @@ class FileBuffer {
 
   /// The buffer size should be at least 8 bytes, so reading a 64-bit value
   /// doesn't have to deal with buffer overflow.
-  static const int kMinBufferSize = 8;
-  static const int kDefaultBufferSize = 1024;
+  static const kMinBufferSize = 8;
+  static const kDefaultBufferSize = 1024;
 
   /// Create a FileBuffer with the given [file].
   /// [byteOrder] determines if multi-byte values should be read in bigEndian

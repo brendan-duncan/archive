@@ -13,8 +13,8 @@ class ZipFileEncoder {
   late ZipEncoder _encoder;
   final String? password;
 
-  static const int store = 0;
-  static const int gzip = 1;
+  static const store = 0;
+  static const gzip = 1;
 
   ZipFileEncoder({this.password});
 

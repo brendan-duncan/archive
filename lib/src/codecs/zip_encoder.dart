@@ -74,11 +74,11 @@ class ZipEncoder {
   ZipEncoder({this.filenameEncoding = const Utf8Codec(), this.password});
 
   /// Bit 1 of the general purpose flag, File encryption flag
-  static const int fileEncryptionBit = 1;
+  static const fileEncryptionBit = 1;
 
   /// Bit 11 of the general purpose flag, Language encoding flag
-  static const int languageEncodingBitUtf8 = 2048;
-  static const int _aesEncryptionExtraHeaderId = 0x9901;
+  static const languageEncodingBitUtf8 = 2048;
+  static const _aesEncryptionExtraHeaderId = 0x9901;
 
   void encodeStream(Archive archive, OutputStream output,
       {int level = DeflateLevel.bestSpeed,
@@ -554,8 +554,8 @@ class ZipEncoder {
     output.writeBytes(encodedComment);
   }
 
-  static const int version = 20;
+  static const version = 20;
 
   // enum OS
-  static const int _osMSDos = 0;
+  static const _osMSDos = 0;
 }

@@ -14,7 +14,7 @@ class OutputFileStream extends OutputStream {
   final Uint8List _buffer;
   int _bufferPosition;
 
-  static const int kDefaultBufferSize = 1024 * 1024; // 1MB
+  static const kDefaultBufferSize = 1024 * 1024; // 1MB
 
   OutputFileStream.withFileHandle(
     this._fileHandle, {

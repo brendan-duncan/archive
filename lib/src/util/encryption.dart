@@ -1980,11 +1980,11 @@ class AESEngine extends BaseBlockCipher {
 
   int _shift(int r, int shift) => rotr32(r, shift);
 
-  static const int _m1 = 0x80808080;
-  static const int _m2 = 0x7f7f7f7f;
-  static const int _m3 = 0x0000001b;
-  static const int _m4 = 0xC0C0C0C0;
-  static const int _m5 = 0x3f3f3f3f;
+  static const _m1 = 0x80808080;
+  static const _m2 = 0x7f7f7f7f;
+  static const _m3 = 0x0000001b;
+  static const _m4 = 0xC0C0C0C0;
+  static const _m5 = 0x3f3f3f3f;
 
   int _fFmulX(int x) {
     var lsr = shiftr32(x & _m1, 7);

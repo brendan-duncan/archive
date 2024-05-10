@@ -36,11 +36,11 @@ const _compressionTypes = <int, CompressionType>{
 
 /// A file object used by [ZipDecoder].
 class ZipFile extends FileContent {
-  static const int zipSignature = 0x04034b50;
-  static const int zipCompressionStore = 0;
-  static const int zipCompressionDeflate = 8;
-  static const int zipCompressionBZip2 = 12;
-  static const int zipCompressionAexEncryption = 99;
+  static const zipSignature = 0x04034b50;
+  static const zipCompressionStore = 0;
+  static const zipCompressionDeflate = 8;
+  static const zipCompressionBZip2 = 12;
+  static const zipCompressionAexEncryption = 99;
 
   int version = 0;
   int flags = 0;

@@ -147,8 +147,10 @@ class ArchiveFile {
     return stream?.toUint8List();
   }
 
+  static final _emptyData = Uint8List(0);
+
   /// Alias to [readBytes], kept for backwards compatibility.
-  List<int> get content => readBytes() ?? [];
+  Uint8List get content => readBytes() ?? _emptyData;
 
   Future<void> close() async {
     final futures = <Future<void>>[];
@@ -158,8 +160,11 @@ class ArchiveFile {
     if (_rawContent != null) {
       futures.add(_rawContent!.close());
     }
-    _content = null;
-    _rawContent = null;
+
+    if (_rawContent != null) {
+      _content = null;
+    }
+
     await Future.wait(futures);
   }
 
@@ -170,8 +175,10 @@ class ArchiveFile {
     if (_rawContent != null) {
       _rawContent!.closeSync();
     }
-    _content = null;
-    _rawContent = null;
+
+    if (_rawContent != null) {
+      _content = null;
+    }
   }
 
   Future<void> clear() async {

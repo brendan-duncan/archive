@@ -2100,17 +2100,17 @@ class BZip2Encoder {
   late Uint8List _selector;
   late Uint8List _selectorMtf;
 
-  static const int _bzNRadix = 2;
-  static const int _bzNQSort = 12;
-  static const int _bzNShell = 18;
-  static const int _bzNOvershoot = (_bzNRadix + _bzNQSort + _bzNShell + 2);
-  static const int _bzMaxAlphaSize = 258;
-  static const int _bzRunA = 0;
-  static const int _bzRunB = 1;
-  static const int _bzNGroups = 6;
-  static const int _bzGSize = 50;
-  static const int _bzNIters = 4;
-  static const int _bzLesserICost = 0;
-  static const int _bzGreaterICost = 15;
-  static const int _bzMaxSelectors = (2 + (900000 ~/ _bzGSize));
+  static const _bzNRadix = 2;
+  static const _bzNQSort = 12;
+  static const _bzNShell = 18;
+  static const _bzNOvershoot = (_bzNRadix + _bzNQSort + _bzNShell + 2);
+  static const _bzMaxAlphaSize = 258;
+  static const _bzRunA = 0;
+  static const _bzRunB = 1;
+  static const _bzNGroups = 6;
+  static const _bzGSize = 50;
+  static const _bzNIters = 4;
+  static const _bzLesserICost = 0;
+  static const _bzGreaterICost = 15;
+  static const _bzMaxSelectors = (2 + (900000 ~/ _bzGSize));
 }

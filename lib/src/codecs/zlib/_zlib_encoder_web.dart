@@ -11,7 +11,7 @@ import 'deflate.dart';
 const platformZLibEncoder = _ZLibEncoder();
 
 class _ZLibEncoder {
-  static const int _deflate = 8;
+  static const _deflate = 8;
 
   const _ZLibEncoder();
 

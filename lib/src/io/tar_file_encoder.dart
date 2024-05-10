@@ -13,8 +13,8 @@ class TarFileEncoder {
   late OutputFileStream _output;
   late TarEncoder _encoder;
 
-  static const int store = 0;
-  static const int gzip = 1;
+  static const store = 0;
+  static const gzip = 1;
 
   Future<void> tarDirectory(
     Directory dir, {

@@ -218,15 +218,26 @@ void main() async {
       expect(decoded.length, equals(0));
     });
 
+    test('zip file data: memory stream', () async {
+      final archive = ZipDecoder().decodeStream(
+          InputMemoryStream(File('test/_data/test2.zip').readAsBytesSync()));
+      final file = archive[1];
+      file.closeSync();
+      expect(file.rawContent, isNotNull);
+    });
+
     test('shared file', () async {
       final archive = ZipDecoder().decodeStream(
           InputMemoryStream(File('test/_data/test2.zip').readAsBytesSync()));
       final archive2 = Archive()
-        ..add(archive[0]);
-      final zip = ZipEncoder().encodeBytes(archive2);
+        ..add(archive[1]);
+      final zip = ZipEncoder().encodeBytes(archive2, autoClose: true);
       final archive3 = ZipDecoder().decodeBytes(zip);
       expect(archive3.length, 1);
-      expect(archive3[0].name, archive[0].name);
+      expect(archive3[0].name, archive[1].name);
+      final b1 = archive3[0].content;
+      final b2 = archive[1].content;
+      compareBytes(b1, b2);
     });
 
     test('decode encode', () async {
