@@ -68,7 +68,8 @@ class ZipFile extends FileContent {
   ZipFile(this.header);
 
   @override
-  bool get isCompressed => _content == null && _rawContent != null;
+  bool get isCompressed => _content == null && _rawContent != null &&
+      compressionMethod != CompressionType.none;
 
   void read(InputStream input, {String? password}) {
     final sig = input.readUint32();
