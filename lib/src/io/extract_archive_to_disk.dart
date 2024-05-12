@@ -150,7 +150,7 @@ Future<void> extractArchiveToDisk(Archive archive, String outputPath,
 }
 
 Future<void> extractFileToDisk(String inputPath, String outputPath,
-    {String? password, int? bufferSize}) async {
+    {String? password, int? bufferSize, ArchiveCallback? callback}) async {
   Directory? tempDir;
   var archivePath = inputPath;
 
@@ -191,11 +191,12 @@ Future<void> extractFileToDisk(String inputPath, String outputPath,
   Archive archive;
   if (archivePath.endsWith('tar')) {
     final input = InputFileStream(archivePath);
-    archive = TarDecoder().decodeStream(input);
+    archive = TarDecoder().decodeStream(input, callback: callback);
     toClose = input;
   } else if (archivePath.endsWith('zip')) {
     final input = InputFileStream(archivePath);
-    archive = ZipDecoder().decodeStream(input, password: password);
+    archive = ZipDecoder()
+        .decodeStream(input, password: password, callback: callback);
     toClose = input;
   } else {
     throw ArgumentError.value(inputPath, 'inputPath',

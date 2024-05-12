@@ -229,8 +229,7 @@ void main() async {
     test('shared file', () async {
       final archive = ZipDecoder().decodeStream(
           InputMemoryStream(File('test/_data/test2.zip').readAsBytesSync()));
-      final archive2 = Archive()
-        ..add(archive[1]);
+      final archive2 = Archive()..add(archive[1]);
       final zip = ZipEncoder().encodeBytes(archive2, autoClose: true);
       final archive3 = ZipDecoder().decodeBytes(zip);
       expect(archive3.length, 1);
