@@ -5,7 +5,7 @@ import '../../util/output_stream.dart';
 abstract class ZLibEncoderBase {
   const ZLibEncoderBase();
 
-  Uint8List encodeBytes(List<int> bytes, {int level = 6});
+  Uint8List encodeBytes(List<int> bytes, {int? level});
 
-  void encodeStream(InputStream input, OutputStream output, {int level = 6});
+  void encodeStream(InputStream input, OutputStream output, {int? level});
 }

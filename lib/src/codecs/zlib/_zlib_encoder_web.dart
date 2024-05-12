@@ -15,13 +15,13 @@ class _ZLibEncoder {
 
   const _ZLibEncoder();
 
-  Uint8List encodeBytes(List<int> bytes, {int level = 6}) {
+  Uint8List encodeBytes(List<int> bytes, {int? level}) {
     final output = OutputMemoryStream(byteOrder: ByteOrder.bigEndian);
     encodeStream(InputMemoryStream(bytes), output, level: level);
     return output.getBytes();
   }
 
-  void encodeStream(InputStream input, OutputStream output, {int level = 6}) {
+  void encodeStream(InputStream input, OutputStream output, {int? level}) {
     output.byteOrder = ByteOrder.bigEndian;
 
     // Compression Method and Flags
@@ -52,7 +52,7 @@ class _ZLibEncoder {
 
     input.setPosition(startPos);
 
-    Deflate.stream(input, level: level, output: output);
+    Deflate.stream(input, level: level ?? 6, output: output);
 
     output
       ..writeUint32(adler32)

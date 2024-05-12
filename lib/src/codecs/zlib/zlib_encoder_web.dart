@@ -9,10 +9,10 @@ class ZLibEncoderWeb extends ZLibEncoderBase {
   const ZLibEncoderWeb();
 
   @override
-  Uint8List encodeBytes(List<int> data, {int level = 6}) =>
+  Uint8List encodeBytes(List<int> data, {int? level}) =>
       platformZLibEncoder.encodeBytes(data, level: level);
 
   @override
-  void encodeStream(InputStream input, OutputStream output, {int level = 6}) =>
+  void encodeStream(InputStream input, OutputStream output, {int? level}) =>
       platformZLibEncoder.encodeStream(input, output, level: level);
 }

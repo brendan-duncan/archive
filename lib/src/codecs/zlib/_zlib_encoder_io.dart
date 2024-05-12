@@ -11,17 +11,18 @@ const platformZLibEncoder = _ZLibEncoder();
 class _ZLibEncoder {
   const _ZLibEncoder();
 
-  Uint8List encodeBytes(List<int> bytes, {int level = 6}) =>
-      ZLibCodec(level: level).encode(bytes) as Uint8List;
+  Uint8List encodeBytes(List<int> bytes, {int? level}) =>
+      ZLibCodec(level: level ?? 6).encode(bytes) as Uint8List;
 
-  void encodeStream(InputStream input, OutputStream output, {int level = 6}) {
+  void encodeStream(InputStream input, OutputStream output, {int? level}) {
     final outSink = ChunkedConversionSink<List<int>>.withCallback((chunks) {
       for (final chunk in chunks) {
         output.writeBytes(chunk);
       }
     });
 
-    final inSink = ZLibCodec().encoder.startChunkedConversion(outSink);
+    final inSink =
+        ZLibCodec(level: level ?? 6).encoder.startChunkedConversion(outSink);
 
     while (!input.isEOS) {
       final chunkSize = min(1024, input.length);

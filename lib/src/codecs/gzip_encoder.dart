@@ -16,15 +16,15 @@ class GZipEncoder {
 
   /// Compress the given [bytes] with the GZip format.
   /// [level] will set the compression level to use, between 0 and 9.
-  Uint8List encodeBytes(List<int> bytes, {int level = 6}) =>
+  Uint8List encodeBytes(List<int> bytes, {int? level}) =>
       platformGZipEncoder.encodeBytes(bytes, level: level);
 
   /// Alias for [encodeBytes], kept for backwards compatibility.
-  List<int> encode(List<int> bytes, {int level = 6}) =>
+  List<int> encode(List<int> bytes, {int? level}) =>
       encodeBytes(bytes, level: level);
 
   /// Compress the given [input] stream with the GZip format.
   /// [level] will set the compression level to use, between 0 and 9.
-  void encodeStream(InputStream input, OutputStream output, {int level = 6}) =>
+  void encodeStream(InputStream input, OutputStream output, {int? level}) =>
       platformGZipEncoder.encodeStream(input, output, level: level);
 }
