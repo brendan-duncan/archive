@@ -498,6 +498,27 @@ void main() {
     }
   });
 
+  test('encode already compressed file', () {
+    final testArchive = Archive();
+    testArchive.addFile(ArchiveFile('test', 3, [1, 2, 3])..compress = true);
+    final testArchiveBytes =
+        ZipEncoder().encode(testArchive, level: Deflate.BEST_COMPRESSION)!;
+
+    final decodedTestArchive = ZipDecoder().decodeBytes(testArchiveBytes);
+
+    // Verify that the archive file is already compressed and will be
+    // compressed when re-encoded.
+    expect(decodedTestArchive.files.single.isCompressed, true);
+    expect(decodedTestArchive.files.single.compressionType, 8);
+    expect(decodedTestArchive.files.single.compress, true);
+
+    final decodedTestArchiveBytes = ZipEncoder()
+        .encode(decodedTestArchive, level: Deflate.BEST_COMPRESSION)!;
+
+    final verifyArchive = ZipDecoder().decodeBytes(decodedTestArchiveBytes);
+    expect(verifyArchive.single.content, [1, 2, 3]);
+  });
+
   test('decode many files (100k)', () {
     final fp = InputFileStream(
       p.join(testDirPath, 'res/test_100k_files.zip'),
