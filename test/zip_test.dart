@@ -417,9 +417,8 @@ void main() async {
     });
 
     test('aes256', () {
-      final file = File(p.join('test/_data/zip/aes256.zip'));
-      final fileBytes = file.readAsBytesSync();
-      final archive = ZipDecoder().decodeBytes(fileBytes, password: '12345');
+      final stream = InputFileStream('test/_data/zip/aes256.zip');
+      final archive = ZipDecoder().decodeStream(stream, password: '12345');
 
       expect(archive.length, equals(2));
       for (var i = 0; i < archive.length; ++i) {
