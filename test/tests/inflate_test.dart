@@ -62,10 +62,10 @@ void main() {
     }
   });
 
-  test('git inflate block', () {
+  /*test('git inflate block', () {
     final output = ZLibDecoder().decodeBytes(gitInflateInput);
     expect(output, equals(gitExpectedOutput));
-  }, skip: 'see https://github.com/brendan-duncan/archive/issues/329');
+  }, skip: 'see https://github.com/brendan-duncan/archive/issues/329');*/
 }
 
 // Note: only 148 bytes consumed

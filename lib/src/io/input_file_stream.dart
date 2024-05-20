@@ -82,7 +82,7 @@ class InputFileStream extends InputStreamBase {
   }
 
   @override
-  int get length => _fileSize;
+  int get length => fileRemaining;
 
   @override
   int get position => _position;

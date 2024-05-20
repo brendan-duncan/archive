@@ -382,9 +382,8 @@ void main() {
   });
 
   test('aes256', () {
-    var file = File(p.join(testDirPath, 'res/zip/aes256.zip'));
-    var bytes = file.readAsBytesSync();
-    final archive = ZipDecoder().decodeBytes(bytes, password: '12345');
+    final stream = InputFileStream(p.join(testDirPath, 'res/zip/aes256.zip'));
+    final archive = ZipDecoder().decodeBuffer(stream, password: '12345');
 
     expect(archive.numberOfFiles(), equals(2));
     for (var i = 0; i < archive.numberOfFiles(); ++i) {
