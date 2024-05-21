@@ -194,7 +194,8 @@ class ZipEncoder {
         crc32 = getFileCrc32(file);
       }
     } else if (file.isCompressed &&
-        file.compressionType == ArchiveFile.DEFLATE) {
+        file.compressionType == ArchiveFile.DEFLATE &&
+        file.rawContent != null) {
       // If the file is already compressed, no sense in uncompressing it and
       // compressing it again, just pass along the already compressed data.
       compressedData = file.rawContent;
