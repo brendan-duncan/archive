@@ -192,7 +192,7 @@ class ZipFile extends FileContent {
   /// Get the decompressed content from the file. The file isn't decompressed
   /// until it is requested.
   @override
-  InputStream getStream() {
+  InputStream getStream({bool decompress = true}) {
     if (_rawContent == null) {
       return InputMemoryStream(Uint8List(0));
     }
@@ -209,6 +209,10 @@ class ZipFile extends FileContent {
           }
           _encryptionType = ZipEncryptionMode.none;
         }
+      }
+
+      if (!decompress) {
+        return _rawContent!;
       }
 
       if (compressionMethod == CompressionType.deflate) {

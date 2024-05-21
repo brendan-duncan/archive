@@ -226,6 +226,28 @@ void main() async {
       expect(file.rawContent, isNotNull);
     });
 
+    test('encode already compressed file', () {
+      final testArchive = Archive();
+      testArchive.addFile(ArchiveFile.bytes('test', [1, 2, 3]));
+
+      final testArchiveBytes = ZipEncoder()
+          .encode(testArchive, level: DeflateLevel.bestCompression)!;
+
+      final decodedTestArchive = ZipDecoder().decodeBytes(testArchiveBytes);
+
+      // Verify that the archive file is already compressed and will be
+      // compressed when re-encoded.
+      expect(decodedTestArchive.files.single.isCompressed, true);
+      expect(
+          decodedTestArchive.files.single.compression, CompressionType.deflate);
+
+      final decodedTestArchiveBytes = ZipEncoder()
+          .encode(decodedTestArchive, level: DeflateLevel.bestCompression)!;
+
+      final verifyArchive = ZipDecoder().decodeBytes(decodedTestArchiveBytes);
+      expect(verifyArchive.single.content, [1, 2, 3]);
+    });
+
     test('shared file', () async {
       final archive = ZipDecoder().decodeStream(
           InputMemoryStream(File('test/_data/test2.zip').readAsBytesSync()));

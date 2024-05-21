@@ -8,7 +8,7 @@ import 'output_stream.dart';
 /// file, either in memory, or a position within a file on disk.
 abstract class FileContent {
   /// Get the InputStream for reading the file content.
-  InputStream getStream();
+  InputStream getStream({bool decompress = true});
 
   /// Write the contents of the file to the given [output].
   void write(OutputStream output);
@@ -43,7 +43,7 @@ class FileContentMemory extends FileContent {
       : bytes = data is Uint8List ? data : Uint8List.fromList(data);
 
   @override
-  InputStream getStream() => InputMemoryStream(bytes);
+  InputStream getStream({bool decompress = true}) => InputMemoryStream(bytes);
 
   @override
   void write(OutputStream output) => output.writeBytes(bytes);
@@ -62,7 +62,7 @@ class FileContentStream extends FileContent {
   FileContentStream(this.stream);
 
   @override
-  InputStream getStream() => stream;
+  InputStream getStream({bool decompress = true}) => stream;
 
   @override
   void write(OutputStream output) => output.writeStream(stream);

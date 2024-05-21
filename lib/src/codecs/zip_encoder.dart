@@ -228,7 +228,7 @@ class ZipEncoder {
       if (file.isCompressed) {
         // If the file is already compressed, no sense in uncompressing it and
         // compressing it again, just pass along the already compressed data.
-        compressedData = file.rawContent?.getStream();
+        compressedData = file.rawContent?.getStream(decompress: false);
 
         if (file.crc32 != null) {
           crc32 = file.crc32!;
