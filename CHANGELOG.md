@@ -1,3 +1,9 @@
+## 3.6.0 - May 22, 2024
+
+* Fix zip encoding when a file was previously decoded.
+* Fix decoding zips with password when using InputFileStream.
+* ZipEncoder.encode autoClose now defaults to false.
+
 ## 3.5.1 - May 3, 2024
 
 * Re-add zipPath to ZipFileEncoder.
