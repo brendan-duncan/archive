@@ -82,6 +82,7 @@ class ArchiveFile {
         size = content.length;
       }
     } else if (content is FileContent) {
+      _rawContent = content.rawContent;
       _content = content;
     }
   }

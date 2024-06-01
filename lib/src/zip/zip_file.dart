@@ -136,6 +136,9 @@ class ZipFile extends FileContent {
     return _computedCrc32 == crc32;
   }
 
+  @override
+  InputStreamBase? get rawContent => _rawContent;
+
   /// Get the decompressed content from the file. The file isn't decompressed
   /// until it is requested.
   @override
@@ -178,13 +181,6 @@ class ZipFile extends FileContent {
     }
 
     return _content!;
-  }
-
-  dynamic get rawContent {
-    if (_content != null) {
-      return _content;
-    }
-    return _rawContent;
   }
 
   @override

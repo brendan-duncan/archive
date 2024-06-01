@@ -214,6 +214,19 @@ void main() {
     ZipDecoder().decodeBytes(ZipEncoder().encode(Archive())!);
   });
 
+  test('apk', () async {
+    final archive = Archive()
+      ..addFile(ArchiveFile('AndroidManifest.xml', 100,  List<int>.filled(100, 0)));
+
+    final apk = ZipEncoder().encode(archive)!;
+
+    final decodedArchive = ZipDecoder().decodeBytes(apk);
+    for (final archiveFile in decodedArchive.files) {
+      expect(archiveFile.rawContent, isNotNull);
+      expect(archiveFile.rawContent!.length, 6);
+    }
+  });
+
   test('zip isFile', () async {
     var file = File(p.join(testDirPath, 'res/zip/android-javadoc.zip'));
     var bytes = file.readAsBytesSync();
