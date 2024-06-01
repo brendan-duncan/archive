@@ -216,7 +216,8 @@ void main() {
 
   test('apk', () async {
     final archive = Archive()
-      ..addFile(ArchiveFile('AndroidManifest.xml', 100,  List<int>.filled(100, 0)));
+      ..addFile(
+          ArchiveFile('AndroidManifest.xml', 100, List<int>.filled(100, 0)));
 
     final apk = ZipEncoder().encode(archive)!;
 

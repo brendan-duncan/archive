@@ -60,11 +60,13 @@ Future<InputFileStream> _buildRamIfs(String path, [int? bufferSize]) async {
       },
     ),
   );
-  final RamFileHandle fileHandle = await RamFileHandle.fromStream(fileStream, fileLength);
+  final RamFileHandle fileHandle =
+      await RamFileHandle.fromStream(fileStream, fileLength);
   if (bufferSize == null) {
     return InputFileStream.withFileBuffer(FileBuffer(fileHandle));
   } else {
-    return InputFileStream.withFileBuffer(FileBuffer(fileHandle, bufferSize: bufferSize));
+    return InputFileStream.withFileBuffer(
+        FileBuffer(fileHandle, bufferSize: bufferSize));
   }
 }
 
@@ -93,10 +95,14 @@ void _testInputOutputFileStream(
     Future<OutputFileStream> Function(String) ofsConstructor,
   ) testFunction,
 ) {
-  test('$description (file > file)', () => testFunction(_buildFileIFS, _buildFileOFS));
-  test('$description (file > ram)', () => testFunction(_buildFileIFS, _buildRamOfs));
-  test('$description (ram > file)', () => testFunction(_buildRamIfs, _buildFileOFS));
-  test('$description (ram > ram)', () => testFunction(_buildRamIfs, _buildRamOfs));
+  test('$description (file > file)',
+      () => testFunction(_buildFileIFS, _buildFileOFS));
+  test('$description (file > ram)',
+      () => testFunction(_buildFileIFS, _buildRamOfs));
+  test('$description (ram > file)',
+      () => testFunction(_buildRamIfs, _buildFileOFS));
+  test('$description (ram > ram)',
+      () => testFunction(_buildRamIfs, _buildRamOfs));
 }
 
 void main() {
@@ -114,9 +120,7 @@ void main() {
   testFile.openSync(mode: FileMode.write);
   testFile.writeAsBytesSync(testData);
 
-  test('FileHandle', () async {
-
-  });
+  test('FileHandle', () async {});
 
   test('FileBuffer', () async {
     FileBuffer fb = FileBuffer(FileHandle(testPath), bufferSize: 5);
@@ -160,7 +164,8 @@ void main() {
     _testInputFileStream('readByte', (ifsConstructor) async {
       final fs = await ifsConstructor(testPath, 2);
       for (var i = 0; i < testData.length; ++i) {
-        expect(fs.readByte(), testData[i], reason: 'Byte at index $i was incorrect');
+        expect(fs.readByte(), testData[i],
+            reason: 'Byte at index $i was incorrect');
       }
     });
 
@@ -320,7 +325,8 @@ void main() {
     ];
     final fileNameToFileContent = <String, Uint8List>{};
     for (final fileName in testFiles) {
-      fileNameToFileContent[fileName] = File(p.join(testDirPath, 'res/cat.jpg')).readAsBytesSync();
+      fileNameToFileContent[fileName] =
+          File(p.join(testDirPath, 'res/cat.jpg')).readAsBytesSync();
     }
     final RamFileData ramFileData = RamFileData.outputBuffer();
     final zipEncoder = ZipFileEncoder()
@@ -349,7 +355,8 @@ void main() {
     for (int i = 0; i < archive.files.length; i++) {
       final file = archive.files[i];
       final Uint8List? fileContent = fileNameToFileContent[file.name];
-      expect(fileContent != null, true, reason: 'File content was null for "${file.name}"');
+      expect(fileContent != null, true,
+          reason: 'File content was null for "${file.name}"');
       compareBytes(file.content as List<int>, fileContent as List<int>);
     }
   });
@@ -447,7 +454,8 @@ void main() {
     await encoder.close();
 
     final input = await ifsConstructor(p.join(testDirPath, 'out/example2.tar'));
-    final output = await ofsConstructor(p.join(testDirPath, 'out/example2.tgz'));
+    final output =
+        await ofsConstructor(p.join(testDirPath, 'out/example2.tgz'));
     GZipEncoder().encode(input, output: output);
     await input.close();
     await output.close();
@@ -590,7 +598,8 @@ void main() {
     final a = Archive();
     a.addFile(f1);
     a.addFile(f2);
-    await extractArchiveToDisk(a, '$testDirPath/out/extractArchiveToDisk_symlink');
+    await extractArchiveToDisk(
+        a, '$testDirPath/out/extractArchiveToDisk_symlink');
   });
 
   test('extractArchiveToDiskSync symlink', () {
@@ -601,7 +610,8 @@ void main() {
     final a = Archive();
     a.addFile(f1);
     a.addFile(f2);
-    extractArchiveToDiskSync(a, '$testDirPath/out/extractArchiveToDisk_symlink');
+    extractArchiveToDiskSync(
+        a, '$testDirPath/out/extractArchiveToDisk_symlink');
   });
 
   test('FileHandle', () async {
