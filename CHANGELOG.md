@@ -1,3 +1,7 @@
+## 3.6.1 - May 31, 2024
+
+- Fix ArchiveFile.rawContent returning null after decoding a zip.
+
 ## 3.6.0 - May 22, 2024
 
 * Fix zip encoding when a file was previously decoded.
