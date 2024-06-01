@@ -7,6 +7,9 @@ import 'output_stream.dart';
 /// Used by [ArchiveFile] to abstract the content of a file within an archive
 /// file, either in memory, or a position within a file on disk.
 abstract class FileContent {
+  /// The size of the file content in bytes.
+  int get length;
+
   /// Get the InputStream for reading the file content.
   InputStream getStream({bool decompress = true});
 
@@ -43,6 +46,9 @@ class FileContentMemory extends FileContent {
       : bytes = data is Uint8List ? data : Uint8List.fromList(data);
 
   @override
+  int get length => bytes.length;
+
+  @override
   InputStream getStream({bool decompress = true}) => InputMemoryStream(bytes);
 
   @override
@@ -60,6 +66,9 @@ class FileContentStream extends FileContent {
   final InputStream stream;
 
   FileContentStream(this.stream);
+
+  @override
+  int get length => stream.length;
 
   @override
   InputStream getStream({bool decompress = true}) => stream;

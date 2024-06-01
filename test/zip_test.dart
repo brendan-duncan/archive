@@ -218,6 +218,20 @@ void main() async {
       expect(decoded.length, equals(0));
     });
 
+    test('apk', () async {
+      final archive = Archive()
+        ..addFile(
+            ArchiveFile.bytes('AndroidManifest.xml', List<int>.filled(100, 0)));
+
+      final apk = ZipEncoder().encode(archive)!;
+
+      final decodedArchive = ZipDecoder().decodeBytes(apk);
+      for (final archiveFile in decodedArchive.files) {
+        expect(archiveFile.rawContent, isNotNull);
+        expect(archiveFile.rawContent!.length, 6);
+      }
+    });
+
     test('zip file data: memory stream', () async {
       final archive = ZipDecoder().decodeStream(
           InputMemoryStream(File('test/_data/test2.zip').readAsBytesSync()));

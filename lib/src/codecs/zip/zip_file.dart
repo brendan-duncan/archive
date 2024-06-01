@@ -189,6 +189,9 @@ class ZipFile extends FileContent {
     _rawContent!.setPosition(savePos);
   }
 
+  @override
+  int get length => getRawContent().length;
+
   /// Get the decompressed content from the file. The file isn't decompressed
   /// until it is requested.
   @override
@@ -241,9 +244,6 @@ class ZipFile extends FileContent {
   }
 
   Uint8List getRawContent() {
-    if (_content != null) {
-      return _content!;
-    }
     if (_rawContent == null) {
       return Uint8List(0);
     }
