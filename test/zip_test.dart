@@ -223,7 +223,7 @@ void main() async {
         ..addFile(
             ArchiveFile.bytes('AndroidManifest.xml', List<int>.filled(100, 0)));
 
-      final apk = ZipEncoder().encode(archive)!;
+      final apk = ZipEncoder().encode(archive);
 
       final decodedArchive = ZipDecoder().decodeBytes(apk);
       for (final archiveFile in decodedArchive.files) {
