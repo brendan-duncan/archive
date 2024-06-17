@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 import 'byte_order.dart';
+import 'package:enough_convert/enough_convert.dart';
 
 abstract class InputStreamBase {
   ///  The current read position relative to the start of the buffer.
@@ -214,7 +215,19 @@ class InputStream extends InputStreamBase {
         }
         codes.add(c);
       }
-      return utf8 ? Utf8Decoder().convert(codes) : String.fromCharCodes(codes);
+      try {
+        final str =
+            utf8 ? Utf8Decoder().convert(codes) : String.fromCharCodes(codes);
+        return str;
+      } catch (err) {
+        try {
+          final str = GbkCodec(allowInvalid: false).decode(codes);
+          return str;
+        } catch (gbkError) {
+          // If the string is not a valid UTF8 string or gbk string, decode it as character codes.
+          return String.fromCharCodes(codes);
+        }
+      }
     }
 
     final s = readBytes(size);
@@ -224,8 +237,13 @@ class InputStream extends InputStreamBase {
           utf8 ? Utf8Decoder().convert(bytes) : String.fromCharCodes(bytes);
       return str;
     } catch (err) {
-      // If the string is not a valid UTF8 string, decode it as character codes.
-      return String.fromCharCodes(bytes);
+      try {
+        final str = GbkCodec(allowInvalid: false).decode(bytes);
+        return str;
+      } catch (gbkError) {
+        // If the string is not a valid UTF8 string or gbk string, decode it as character codes.
+        return String.fromCharCodes(bytes);
+      }
     }
   }
 

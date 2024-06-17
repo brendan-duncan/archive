@@ -8,6 +8,7 @@ import '../util/input_stream.dart';
 import '../util/ram_file_handle.dart';
 import 'file_buffer.dart';
 import 'file_handle.dart';
+import 'package:enough_convert/enough_convert.dart';
 
 class InputFileStream extends InputStreamBase {
   final FileBuffer _file;
@@ -216,9 +217,20 @@ class InputFileStream extends InputStreamBase {
       while (!isEOS) {
         var c = readByte();
         if (c == 0) {
-          return utf8
-              ? Utf8Decoder().convert(codes)
-              : String.fromCharCodes(codes);
+          try {
+            final str = utf8
+                ? Utf8Decoder().convert(codes)
+                : String.fromCharCodes(codes);
+            return str;
+          } catch (err) {
+            try {
+              final str = GbkCodec(allowInvalid: false).decode(codes);
+              return str;
+            } catch (gbkError) {
+              // If the string is not a valid UTF8 string or gbk string, decode it as character codes.
+              return String.fromCharCodes(codes);
+            }
+          }
         }
         codes.add(c);
       }
@@ -227,9 +239,19 @@ class InputFileStream extends InputStreamBase {
 
     final s = readBytes(size);
     final bytes = s.toUint8List();
-    final str =
-        utf8 ? Utf8Decoder().convert(bytes) : String.fromCharCodes(bytes);
-    return str;
+    try {
+      final str =
+          utf8 ? Utf8Decoder().convert(bytes) : String.fromCharCodes(bytes);
+      return str;
+    } catch (err) {
+      try {
+        final str = GbkCodec(allowInvalid: false).decode(bytes);
+        return str;
+      } catch (gbkError) {
+        // If the string is not a valid UTF8 string or gbk string, decode it as character codes.
+        return String.fromCharCodes(bytes);
+      }
+    }
   }
 
   FileBuffer get file => _file;

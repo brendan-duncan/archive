@@ -3,7 +3,7 @@ version: 3.6.1
 description: >-
   Provides encoders and decoders for various archive and compression formats
   such as zip, tar, bzip2, gzip, and zlib.
-repository: https://github.com/brendan-duncan/archive
+# repository: https://github.com/brendan-duncan/archive
 topics:
  - archive
  - zip
@@ -12,10 +12,11 @@ topics:
  - xz
 
 environment:
-  sdk: ^3.0.0
+  sdk: '>=3.0.0 <4.0.0'
 
 dependencies:
   crypto: ^3.0.3
+  enough_convert: ^1.6.0
   path: ^1.8.0
 
 dev_dependencies:
