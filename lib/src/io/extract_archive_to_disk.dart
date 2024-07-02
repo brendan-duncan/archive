@@ -274,8 +274,8 @@ Future<void> extractFileToDisk(String inputPath, String outputPath,
       await tempDir.delete(recursive: true);
     }
   } finally {
+    inputStream?.closeSync();
     outputStream?.closeSync();
-    outputFile?.closeSync();
     outputFile?.closeSync();
   }
 }
