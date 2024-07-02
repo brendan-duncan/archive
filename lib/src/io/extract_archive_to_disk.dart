@@ -7,7 +7,6 @@ import '../archive_file.dart';
 import '../bzip2_decoder.dart';
 import '../gzip_decoder.dart';
 import '../tar_decoder.dart';
-import '../util/input_stream.dart';
 import '../xz_decoder.dart';
 import '../zip_decoder.dart';
 import 'input_file_stream.dart';
@@ -62,20 +61,25 @@ String? _prepareArchiveFilePath(ArchiveFile archiveFile, String outputPath) {
 
 Future<void> _extractArchiveEntryToDisk(
     ArchiveFile file, String filePath) async {
-  if (file.isSymbolicLink) {
-    final link = Link(filePath);
-    await link.create(
-      path.normalize(file.nameOfLinkedFile),
-      recursive: true,
-    );
-  } else {
-    final output = File(filePath);
-    final f = await output.create(recursive: true);
-    final fp = await f.open(mode: FileMode.write);
-    final bytes = file.content as List<int>;
-    final fp2 = await fp.writeFrom(bytes);
-    file.clear();
-    await fp2.close();
+  RandomAccessFile? outputFile;
+
+  try {
+    if (file.isSymbolicLink) {
+      final link = Link(filePath);
+      await link.create(
+        path.normalize(file.nameOfLinkedFile),
+        recursive: true,
+      );
+    } else {
+      final output = File(filePath);
+      final f = await output.create(recursive: true);
+      outputFile = await f.open(mode: FileMode.write);
+      final bytes = file.content as List<int>;
+      await outputFile.writeFrom(bytes);
+      file.clear();
+    }
+  } finally {
+    outputFile?.closeSync();
   }
 }
 
@@ -98,17 +102,18 @@ void _extractArchiveEntryToDiskSync(
   String filePath, {
   int? bufferSize,
 }) {
-  if (file.isSymbolicLink) {
-    final link = Link(filePath);
-    link.createSync(path.normalize(file.nameOfLinkedFile), recursive: true);
-  } else {
-    final output = OutputFileStream(filePath, bufferSize: bufferSize);
-    try {
-      file.writeContent(output);
-    } catch (err) {
-      //
+  OutputFileStream? outputStream;
+
+  try {
+    if (file.isSymbolicLink) {
+      final link = Link(filePath);
+      link.createSync(path.normalize(file.nameOfLinkedFile), recursive: true);
+    } else {
+      outputStream = OutputFileStream(filePath, bufferSize: bufferSize);
+      file.writeContent(outputStream);
     }
-    output.closeSync();
+  } finally {
+    outputStream?.closeSync();
   }
 }
 
@@ -128,57 +133,55 @@ void extractArchiveToDiskSync(
 
 Future<void> extractArchiveToDiskAsync(Archive archive, String outputPath,
     {bool asyncWrite = false, int? bufferSize}) async {
-  final futures = <Future<void>>[];
-  final outDir = Directory(outputPath);
-  if (!outDir.existsSync()) {
-    outDir.createSync(recursive: true);
-  }
-  for (final file in archive.files) {
-    final filePath = path.join(outputPath, path.normalize(file.name));
-
-    if ((!file.isFile && !file.isSymbolicLink) ||
-        !isWithinOutputPath(outputPath, filePath)) {
-      continue;
+  
+  OutputFileStream? outputStream;
+  RandomAccessFile? outputFile;
+  
+  try {
+    final outDir = Directory(outputPath);
+    if (!outDir.existsSync()) {
+      outDir.createSync(recursive: true);
     }
+    for (final file in archive.files) {
+      final filePath = path.join(outputPath, path.normalize(file.name));
 
-    if (file.isSymbolicLink) {
-      if (!_isValidSymLink(outputPath, file)) {
+      if ((!file.isFile && !file.isSymbolicLink) ||
+          !isWithinOutputPath(outputPath, filePath)) {
         continue;
       }
-    }
 
-    if (asyncWrite) {
       if (file.isSymbolicLink) {
-        final link = Link(filePath);
-        await link.create(path.normalize(file.nameOfLinkedFile),
-            recursive: true);
-      } else {
-        final output = File(filePath);
-        final f = await output.create(recursive: true);
-        final fp = await f.open(mode: FileMode.write);
-        final bytes = file.content as List<int>;
-        await fp.writeFrom(bytes);
-        file.clear();
-        futures.add(fp.close());
-      }
-    } else {
-      if (file.isSymbolicLink) {
-        final link = Link(filePath);
-        link.createSync(path.normalize(file.nameOfLinkedFile), recursive: true);
-      } else {
-        final output = OutputFileStream(filePath, bufferSize: bufferSize);
-        try {
-          file.writeContent(output);
-        } catch (err) {
-          //
+        if (!_isValidSymLink(outputPath, file)) {
+          continue;
         }
-        await output.close();
+      }
+
+      if (asyncWrite) {
+        if (file.isSymbolicLink) {
+          final link = Link(filePath);
+          await link.create(path.normalize(file.nameOfLinkedFile),
+              recursive: true);
+        } else {
+          final output = File(filePath);
+          final f = await output.create(recursive: true);
+          outputFile = await f.open(mode: FileMode.write);
+          final bytes = file.content as List<int>;
+          await outputFile.writeFrom(bytes);
+          file.clear();
+        }
+      } else {
+        if (file.isSymbolicLink) {
+          final link = Link(filePath);
+          link.createSync(path.normalize(file.nameOfLinkedFile), recursive: true);
+        } else {
+          outputStream = OutputFileStream(filePath, bufferSize: bufferSize);
+          file.writeContent(outputStream);
+        }
       }
     }
-  }
-  if (futures.isNotEmpty) {
-    await Future.wait(futures);
-    futures.clear();
+  } finally {
+    outputStream?.closeSync();
+    outputFile?.closeSync();
   }
 }
 
@@ -187,121 +190,92 @@ Future<void> extractFileToDisk(String inputPath, String outputPath,
   Directory? tempDir;
   var archivePath = inputPath;
 
-  var futures = <Future<void>>[];
-  if (inputPath.endsWith('tar.gz') || inputPath.endsWith('tgz')) {
-    tempDir = Directory.systemTemp.createTempSync('dart_archive');
-    archivePath = path.join(tempDir.path, 'temp.tar');
-    final input = InputFileStream(inputPath);
-    final output = OutputFileStream(archivePath, bufferSize: bufferSize);
-    GZipDecoder().decodeStream(input, output);
-    futures.add(input.close());
-    futures.add(output.close());
-  } else if (inputPath.endsWith('tar.bz2') || inputPath.endsWith('tbz')) {
-    tempDir = Directory.systemTemp.createTempSync('dart_archive');
-    archivePath = path.join(tempDir.path, 'temp.tar');
-    final input = InputFileStream(inputPath);
-    final output = OutputFileStream(archivePath, bufferSize: bufferSize);
-    BZip2Decoder().decodeBuffer(input, output: output);
-    futures.add(input.close());
-    futures.add(output.close());
-  } else if (inputPath.endsWith('tar.xz') || inputPath.endsWith('txz')) {
-    tempDir = Directory.systemTemp.createTempSync('dart_archive');
-    archivePath = path.join(tempDir.path, 'temp.tar');
-    final input = InputFileStream(inputPath);
-    final output = OutputFileStream(archivePath, bufferSize: bufferSize);
-    output.writeBytes(XZDecoder().decodeBuffer(input));
-    futures.add(input.close());
-    futures.add(output.close());
-  }
+  InputFileStream? inputStream;
+  OutputFileStream? outputStream;
+  RandomAccessFile? outputFile;
 
-  if (futures.isNotEmpty) {
-    await Future.wait(futures);
-    futures.clear();
-  }
-
-  InputStreamBase? toClose;
-
-  Archive archive;
-  if (archivePath.endsWith('tar')) {
-    final input = InputFileStream(archivePath);
-    archive = TarDecoder().decodeBuffer(input);
-    toClose = input;
-  } else if (archivePath.endsWith('zip')) {
-    final input = InputFileStream(archivePath);
-    archive = ZipDecoder().decodeBuffer(input, password: password);
-    toClose = input;
-  } else {
-    throw ArgumentError.value(inputPath, 'inputPath',
-        'Must end tar.gz, tgz, tar.bz2, tbz, tar.xz, txz, tar or zip.');
-  }
-
-  for (final file in archive.files) {
-    final filePath = path.join(outputPath, path.normalize(file.name));
-    if (!isWithinOutputPath(outputPath, filePath)) {
-      continue;
+  try {
+    if (inputPath.endsWith('tar.gz') || inputPath.endsWith('tgz')) {
+      tempDir = Directory.systemTemp.createTempSync('dart_archive');
+      archivePath = path.join(tempDir.path, 'temp.tar');
+      inputStream = InputFileStream(inputPath);
+      outputStream = OutputFileStream(archivePath, bufferSize: bufferSize);
+      GZipDecoder().decodeStream(inputStream, outputStream);
+    } else if (inputPath.endsWith('tar.bz2') || inputPath.endsWith('tbz')) {
+      tempDir = Directory.systemTemp.createTempSync('dart_archive');
+      archivePath = path.join(tempDir.path, 'temp.tar');
+      inputStream = InputFileStream(inputPath);
+      outputStream = OutputFileStream(archivePath, bufferSize: bufferSize);
+      BZip2Decoder().decodeBuffer(inputStream, output: outputStream);
+    } else if (inputPath.endsWith('tar.xz') || inputPath.endsWith('txz')) {
+      tempDir = Directory.systemTemp.createTempSync('dart_archive');
+      archivePath = path.join(tempDir.path, 'temp.tar');
+      inputStream = InputFileStream(inputPath);
+      outputStream = OutputFileStream(archivePath, bufferSize: bufferSize);
+      outputStream.writeBytes(XZDecoder().decodeBuffer(inputStream));
     }
 
-    if (file.isSymbolicLink) {
-      if (!_isValidSymLink(outputPath, file)) {
+    Archive archive;
+    if (archivePath.endsWith('tar')) {
+      inputStream = InputFileStream(archivePath);
+      archive = TarDecoder().decodeBuffer(inputStream);
+    } else if (archivePath.endsWith('zip')) {
+      inputStream = InputFileStream(archivePath);
+      archive = ZipDecoder().decodeBuffer(inputStream, password: password);
+    } else {
+      throw ArgumentError.value(inputPath, 'inputPath',
+          'Must end tar.gz, tgz, tar.bz2, tbz, tar.xz, txz, tar or zip.');
+    }
+
+    for (final file in archive.files) {
+      final filePath = path.join(outputPath, path.normalize(file.name));
+      if (!isWithinOutputPath(outputPath, filePath)) {
         continue;
       }
-    }
 
-    if (!file.isFile && !file.isSymbolicLink) {
-      Directory(filePath).createSync(recursive: true);
-      continue;
-    }
-
-    if (asyncWrite) {
       if (file.isSymbolicLink) {
-        final link = Link(filePath);
-        await link.create(path.normalize(file.nameOfLinkedFile),
-            recursive: true);
-      } else {
-        final output = File(filePath);
-        final f = await output.create(recursive: true);
-        final fp = await f.open(mode: FileMode.write);
-        final bytes = file.content as List<int>;
-        await fp.writeFrom(bytes);
-        file.clear();
-        futures.add(fp.close());
-      }
-    } else {
-      if (file.isSymbolicLink) {
-        final link = Link(filePath);
-        link.createSync(path.normalize(file.nameOfLinkedFile), recursive: true);
-      } else {
-        final output = OutputFileStream(filePath, bufferSize: bufferSize);
-        try {
-          file.writeContent(output);
-        } catch (err) {
-          //
+        if (!_isValidSymLink(outputPath, file)) {
+          continue;
         }
-        futures.add(output.close());
+      }
+
+      if (!file.isFile && !file.isSymbolicLink) {
+        Directory(filePath).createSync(recursive: true);
+        continue;
+      }
+
+      if (asyncWrite) {
+        if (file.isSymbolicLink) {
+          final link = Link(filePath);
+          await link.create(path.normalize(file.nameOfLinkedFile),
+              recursive: true);
+        } else {
+          final output = File(filePath);
+          final f = await output.create(recursive: true);
+          outputFile = await f.open(mode: FileMode.write);
+          final bytes = file.content as List<int>;
+          await outputFile.writeFrom(bytes);
+          file.clear();
+        }
+      } else {
+        if (file.isSymbolicLink) {
+          final link = Link(filePath);
+          link.createSync(path.normalize(file.nameOfLinkedFile), recursive: true);
+        } else {
+          outputStream = OutputFileStream(filePath, bufferSize: bufferSize);
+          file.writeContent(outputStream);
+        }
       }
     }
-  }
 
-  futures.add(toClose.close());
+    await archive.clear();
 
-  if (futures.isNotEmpty) {
-    await Future.wait(futures);
-    futures.clear();
-  }
-
-  futures.add(archive.clear());
-
-  if (futures.isNotEmpty) {
-    await Future.wait(futures);
-    futures.clear();
-  }
-
-  if (tempDir != null) {
-    futures.add(tempDir.delete(recursive: true));
-  }
-
-  if (futures.isNotEmpty) {
-    await Future.wait(futures);
-    futures.clear();
+    if (tempDir != null) {
+      await tempDir.delete(recursive: true);
+    }
+  } finally {
+    inputStream?.closeSync();
+    outputStream?.closeSync();
+    outputFile?.closeSync();
   }
 }
