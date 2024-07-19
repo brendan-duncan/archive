@@ -24,6 +24,7 @@ class _ZLibDecoder extends ZLibDecoderBase {
       for (final chunk in chunks) {
         output.writeBytes(chunk);
       }
+      output.flush();
     });
 
     final inSink = ZLibCodec().decoder.startChunkedConversion(outSink);

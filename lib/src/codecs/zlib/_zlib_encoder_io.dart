@@ -19,6 +19,7 @@ class _ZLibEncoder {
       for (final chunk in chunks) {
         output.writeBytes(chunk);
       }
+      output.flush();
     });
 
     final inSink =

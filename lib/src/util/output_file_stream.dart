@@ -107,15 +107,15 @@ class OutputFileStream extends OutputStream {
     length ??= bytes.length;
     if (_bufferPosition + length >= _buffer.length) {
       flush();
+    }
 
-      if (_bufferPosition + length < _buffer.length) {
-        for (int i = 0, j = _bufferPosition; i < length; ++i, ++j) {
-          _buffer[j] = bytes[i];
-        }
-        _bufferPosition += length;
-        _length += length;
-        return;
+    if (_bufferPosition + length < _buffer.length) {
+      for (int i = 0, j = _bufferPosition; i < length; ++i, ++j) {
+        _buffer[j] = bytes[i];
       }
+      _bufferPosition += length;
+      _length += length;
+      return;
     }
 
     flush();
@@ -198,21 +198,38 @@ class OutputFileStream extends OutputStream {
 
   @override
   Uint8List subset(int start, {int? end}) {
-    if (_bufferPosition > 0) {
-      flush();
-    }
-
-    final pos = _fileHandle.position;
+    final pos = _fileHandle.position + _bufferPosition;
     if (start < 0) {
       start = pos + start;
     }
+    if (end != null && end < 0) {
+      end = pos + end;
+    }
+
+    if (_bufferPosition > 0) {
+      if (start >= _fileHandle.position) {
+        if (end == null) {
+          end = _fileHandle.position + _bufferPosition;
+        }
+        var length = end - start;
+        var bufferStart = start - _fileHandle.position;
+        var bufferEnd = bufferStart + length;
+        if (bufferEnd < 0) {
+          print("!!!!");
+        }
+        return _buffer.sublist(bufferStart, bufferEnd);
+      }
+      flush();
+    }
+
+
     var length = 0;
     if (end == null) {
       end = pos;
     } else if (end < 0) {
       end = pos + end;
     }
-    length = (end - start);
+    length = end - start;
     _fileHandle.position = start;
     final buffer = Uint8List(length);
     _fileHandle.readInto(buffer);

@@ -24,6 +24,7 @@ class _GZipDecoder extends ZLibDecoderBase {
       for (final chunk in chunks) {
         output.writeBytes(chunk);
       }
+      output.flush();
     });
 
     final inSink = GZipCodec().decoder.startChunkedConversion(outSink);

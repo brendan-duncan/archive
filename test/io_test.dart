@@ -106,6 +106,19 @@ void _testInputOutputFileStream(
 }
 
 void main() {
+  test('extractFileToDisk zip bzip2', () async {
+    final inPath = 'test/_data/zip/zip_bzip2.zip';
+    final outPath = '$testOutputPath/extractFileToDisk_zip_bzip2';
+    final dir = Directory(outPath);
+    if (dir.existsSync()) {
+      dir.deleteSync(recursive: true);
+    }
+    await extractFileToDisk(inPath, outPath);
+
+    final files = dir.listSync(recursive: true);
+    expect(files.length, 2);
+  });
+
   final testPath = p.join(testOutputPath, 'test_123.bin');
   final testData = Uint8List(120);
   for (var i = 0; i < testData.length; ++i) {
@@ -571,19 +584,6 @@ void main() {
   test('extractFileToDisk zip', () async {
     final inPath = 'test/_data/test.zip';
     final outPath = '$testOutputPath/extractFileToDisk_zip';
-    final dir = Directory(outPath);
-    if (dir.existsSync()) {
-      dir.deleteSync(recursive: true);
-    }
-    await extractFileToDisk(inPath, outPath);
-
-    final files = dir.listSync(recursive: true);
-    expect(files.length, 2);
-  });
-
-  test('extractFileToDisk zip bzip2', () async {
-    final inPath = 'test/_data/zip/zip_bzip2.zip';
-    final outPath = '$testOutputPath/extractFileToDisk_zip_bzip2';
     final dir = Directory(outPath);
     if (dir.existsSync()) {
       dir.deleteSync(recursive: true);

@@ -19,6 +19,7 @@ class _GZipEncoder {
       for (final chunk in chunks) {
         output.writeBytes(chunk);
       }
+      output.flush();
     });
 
     final inSink =

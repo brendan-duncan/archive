@@ -183,10 +183,18 @@ class ZipFile extends FileContent {
       }
     }
 
-    final savePos = _rawContent!.position;
-    Inflate.stream(_rawContent,
-        uncompressedSize: uncompressedSize, output: output);
-    _rawContent!.setPosition(savePos);
+    if (compressionMethod == CompressionType.deflate) {
+      final savePos = _rawContent!.position;
+      Inflate.stream(_rawContent, uncompressedSize: uncompressedSize,
+          output: output);
+      _rawContent!.setPosition(savePos);
+    } else if (compressionMethod == CompressionType.bzip2) {
+      final savePos = _rawContent!.position;
+      BZip2Decoder().decodeStream(_rawContent!, output);
+      _rawContent!.setPosition(savePos);
+    } else {
+      output.writeStream(_rawContent!);
+    }
   }
 
   @override

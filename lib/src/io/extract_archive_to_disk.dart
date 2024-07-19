@@ -229,7 +229,7 @@ Future<void> extractFileToDisk(String inputPath, String outputPath,
       try {
         file.writeContent(output);
       } catch (err) {
-        //
+        //print(err);
       }
       futures.add(output.close());
     }
