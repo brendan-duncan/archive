@@ -6,15 +6,16 @@ import 'zlib/deflate.dart';
 
 class ZLibEncoder {
   static const int DEFLATE = 8;
+  static const int WINDOW_BITS = 15;
 
   const ZLibEncoder();
 
-  List<int> encode(List<int> data, {int? level, OutputStreamBase? output}) {
+  List<int> encode(List<int> data, {int? level, int windowBits = WINDOW_BITS, OutputStreamBase? output}) {
     output = output ?? OutputStream(byteOrder: BIG_ENDIAN);
 
     // Compression Method and Flags
     final cm = DEFLATE;
-    final cinfo = 7; //2^(7+8) = 32768 window size
+    final cinfo = windowBits - DEFLATE;
 
     final cmf = (cinfo << 4) | cm;
     output.writeByte(cmf);
@@ -39,7 +40,7 @@ class ZLibEncoder {
 
     final input = InputStream(data, byteOrder: BIG_ENDIAN);
 
-    final compressed = Deflate.buffer(input, level: level).getBytes();
+    final compressed = Deflate.buffer(input, level: level, windowBits: windowBits).getBytes();
     output.writeBytes(compressed);
 
     output.writeUint32(adler32);

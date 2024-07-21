@@ -19,20 +19,23 @@ class Deflate {
   static const int FULL_FLUSH = 3;
   static const int FINISH = 4;
 
+  // others
+  static const int WINDOW_BITS = 15;
+
   int crc32 = 0;
 
   Deflate(List<int> bytes,
-      {int? level = DEFAULT_COMPRESSION, int flush = FINISH, dynamic output})
+      {int? level = DEFAULT_COMPRESSION, int flush = FINISH, int windowBits = WINDOW_BITS, dynamic output})
       : _input = InputStream(bytes),
         _output = output ?? OutputStream() {
-    _init(level);
+    _init(level, windowBits: windowBits);
     _deflate(flush);
   }
 
   Deflate.buffer(this._input,
-      {int? level = DEFAULT_COMPRESSION, int flush = FINISH, dynamic output})
+      {int? level = DEFAULT_COMPRESSION, int flush = FINISH, int windowBits = WINDOW_BITS, dynamic output})
       : _output = output ?? OutputStream() {
-    _init(level);
+    _init(level, windowBits: windowBits);
     _deflate(flush);
   }
 
