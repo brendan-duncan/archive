@@ -9,10 +9,13 @@ class GZipEncoderWeb extends ZLibEncoderBase {
   const GZipEncoderWeb();
 
   @override
-  Uint8List encodeBytes(List<int> data, {int? level}) =>
-      platformGZipEncoder.encodeBytes(data, level: level ?? 6);
+  Uint8List encodeBytes(List<int> data, {int? level, int? windowBits}) =>
+      platformGZipEncoder.encodeBytes(data,
+          level: level ?? 6, windowBits: windowBits);
 
   @override
-  void encodeStream(InputStream input, OutputStream output, {int? level}) =>
-      platformGZipEncoder.encodeStream(input, output, level: level ?? 6);
+  void encodeStream(InputStream input, OutputStream output,
+          {int? level, int? windowBits}) =>
+      platformGZipEncoder.encodeStream(input, output,
+          level: level ?? 6, windowBits: windowBits);
 }

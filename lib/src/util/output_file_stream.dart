@@ -222,7 +222,6 @@ class OutputFileStream extends OutputStream {
       flush();
     }
 
-
     var length = 0;
     if (end == null) {
       end = pos;

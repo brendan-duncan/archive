@@ -37,10 +37,12 @@ class Deflate {
   /// [OutputStream], otherwise the compressed data will be accessed from
   /// the [getBytes] method.
   Deflate(List<int> bytes,
-      {int level = DeflateLevel.defaultCompression, OutputStream? output})
+      {int level = DeflateLevel.defaultCompression,
+      int windowBits = maxWindowBits,
+      OutputStream? output})
       : _input = InputMemoryStream(bytes),
         _output = output ?? OutputMemoryStream() {
-    if (_init(level)) {
+    if (_init(level, windowBits: windowBits)) {
       _deflate(_DeflateFlushMode.finish);
     }
   }
@@ -55,9 +57,11 @@ class Deflate {
   /// [OutputStream], otherwise the compressed data will be accessed from
   /// the [getBytes] method.
   Deflate.stream(this._input,
-      {int level = DeflateLevel.defaultCompression, OutputStream? output})
+      {int level = DeflateLevel.defaultCompression,
+      int windowBits = maxWindowBits,
+      OutputStream? output})
       : _output = output ?? OutputMemoryStream() {
-    _init(level);
+    _init(level, windowBits: windowBits);
     _deflate(_DeflateFlushMode.finish);
   }
 
@@ -97,7 +101,7 @@ class Deflate {
   /// Initialize the deflate structures for the given parameters.
   bool _init(int level,
       {int method = zDeflated,
-      int windowBits = maxWBits,
+      int windowBits = maxWindowBits,
       int memLevel = defMemLevel,
       int strategy = zDefaultStrategy}) {
     if (memLevel < 1 ||
@@ -1285,7 +1289,7 @@ class Deflate {
   static const maxMemLevel = 9;
 
   /// 32K LZ77 window
-  static const maxWBits = 15;
+  static const maxWindowBits = 15;
   static const defMemLevel = 8;
 
   static const stored = 0;

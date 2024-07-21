@@ -14,19 +14,25 @@ import 'zlib/_zlib_encoder.dart';
 class ZLibEncoder {
   const ZLibEncoder();
 
+  static const maxWindowBits = 15;
+
   /// Compress the given [bytes] with the ZLib format.
   /// [level] will set the compression level to use, between 0 and 9, 6 is the
   /// default.
-  Uint8List encodeBytes(List<int> bytes, {int? level}) =>
+  Uint8List encodeBytes(List<int> bytes,
+          {int? level, int windowBits = maxWindowBits}) =>
       platformZLibEncoder.encodeBytes(bytes, level: level);
 
   /// Alias for [encodeBytes], kept for backwards compatibility.
-  List<int> encode(List<int> bytes, {int? level}) =>
-      encodeBytes(bytes, level: level);
+  List<int> encode(List<int> bytes,
+          {int? level, int windowBits = maxWindowBits}) =>
+      encodeBytes(bytes, level: level, windowBits: windowBits);
 
   /// Compress the given [input] stream with the ZLib format.
   /// [level] will set the compression level to use, between 0 and 9, 6 is the
   /// default.
-  void encodeStream(InputStream input, OutputStream output, {int? level}) =>
-      platformZLibEncoder.encodeStream(input, output, level: level);
+  void encodeStream(InputStream input, OutputStream output,
+          {int? level, int windowBits = maxWindowBits}) =>
+      platformZLibEncoder.encodeStream(input, output,
+          level: level, windowBits: windowBits);
 }

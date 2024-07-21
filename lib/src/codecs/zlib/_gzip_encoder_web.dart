@@ -13,13 +13,15 @@ const platformGZipEncoder = _GZipEncoder();
 class _GZipEncoder {
   const _GZipEncoder();
 
-  Uint8List encodeBytes(List<int> bytes, {int? level}) {
+  Uint8List encodeBytes(List<int> bytes, {int? level, int? windowBits}) {
     final output = OutputMemoryStream(byteOrder: ByteOrder.bigEndian);
-    encodeStream(InputMemoryStream(bytes), output, level: level);
+    encodeStream(InputMemoryStream(bytes), output,
+        level: level, windowBits: windowBits);
     return output.getBytes();
   }
 
-  void encodeStream(InputStream input, OutputStream output, {int? level}) {
+  void encodeStream(InputStream input, OutputStream output,
+      {int? level, int? windowBits}) {
     // The GZip format has the following structure:
     // Offset   Length   Contents
     // 0      2 bytes  magic header  0x1f, 0x8b (\037 \213)
@@ -76,7 +78,8 @@ class _GZipEncoder {
     output.writeByte(extraFlags);
     output.writeByte(osType);
 
-    final deflate = Deflate.stream(input, level: level ?? 6, output: output);
+    final deflate = Deflate.stream(input,
+        level: level ?? 6, windowBits: windowBits ?? 15, output: output);
 
     output.writeUint32(deflate.crc32);
 

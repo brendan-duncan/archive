@@ -185,8 +185,8 @@ class ZipFile extends FileContent {
 
     if (compressionMethod == CompressionType.deflate) {
       final savePos = _rawContent!.position;
-      Inflate.stream(_rawContent, uncompressedSize: uncompressedSize,
-          output: output);
+      Inflate.stream(_rawContent,
+          uncompressedSize: uncompressedSize, output: output);
       _rawContent!.setPosition(savePos);
     } else if (compressionMethod == CompressionType.bzip2) {
       final savePos = _rawContent!.position;
