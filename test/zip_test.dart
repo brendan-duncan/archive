@@ -245,7 +245,7 @@ void main() async {
       testArchive.addFile(ArchiveFile.bytes('test', [1, 2, 3]));
 
       final testArchiveBytes = ZipEncoder()
-          .encode(testArchive, level: DeflateLevel.bestCompression)!;
+          .encode(testArchive, level: DeflateLevel.bestCompression);
 
       final decodedTestArchive = ZipDecoder().decodeBytes(testArchiveBytes);
 
@@ -256,7 +256,7 @@ void main() async {
           decodedTestArchive.files.single.compression, CompressionType.deflate);
 
       final decodedTestArchiveBytes = ZipEncoder()
-          .encode(decodedTestArchive, level: DeflateLevel.bestCompression)!;
+          .encode(decodedTestArchive, level: DeflateLevel.bestCompression);
 
       final verifyArchive = ZipDecoder().decodeBytes(decodedTestArchiveBytes);
       expect(verifyArchive.single.content, [1, 2, 3]);

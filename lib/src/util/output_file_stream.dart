@@ -211,12 +211,9 @@ class OutputFileStream extends OutputStream {
         if (end == null) {
           end = _fileHandle.position + _bufferPosition;
         }
-        var length = end - start;
-        var bufferStart = start - _fileHandle.position;
-        var bufferEnd = bufferStart + length;
-        if (bufferEnd < 0) {
-          print("!!!!");
-        }
+        final length = end - start;
+        final bufferStart = start - _fileHandle.position;
+        final bufferEnd = bufferStart + length;
         return _buffer.sublist(bufferStart, bufferEnd);
       }
       flush();
