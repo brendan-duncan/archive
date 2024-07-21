@@ -20,26 +20,8 @@ to ensure their use of dart:io doesn't interfere with web builds.
 
 **OutputStreamBase** was renamed to **OutputStream**.
 
-**OutputFileStream** was moved to the core archive library from the archive_io library.
-
-### ArchiveFile
-
-#### 3.x
-
-In 3.x, the Archive class contains a list of ArchiveFile objects. The name of the ArchiveFile is the full
-archive-relative path of the file. An ArchiveFile may actually be a directory, as in the case of an empty directory.
-The ArchiveFile.isFile member was used to check if the ArchiveFile is a file or a directory.
-
-### 4.x
-
-To better handle certain situations, the Archive class now has a list of **ArchiveEntry** objects. ArchiveEntry is the
-base class for **ArchiveFile** and **ArchiveDirectory**. An ArchiveDirectory represents a directory in the archive, and contains
-a list of ArchiveEntry objects. In fact, the Archive class is extended from ArchiveDirectory.
-
-Instead of Archive being a flat list of ArchiveFile objects, archives are now hierarchical.
-
-You can recursively collect all entries, or all files, using `List<ArchiveEntry> Archive.getAllEntries()` or
-`List<ArchiveFile> Archive.getAllFiles()`, respectively.
+**OutputFileStream** was moved to the core archive library from the archive_io library. On non-web builds, it will
+throw an exception if used, as there is no file system on the web.
 
 ### File Data
 
