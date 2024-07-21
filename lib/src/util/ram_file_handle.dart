@@ -2,30 +2,28 @@ import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'abstract_file_handle.dart';
+import 'file_access.dart';
 
 class RamFileHandle extends AbstractFileHandle {
-  // ignore: deprecated_member_use_from_same_package
   final RamFileData _ramFileData;
   int _readPosition = 0;
   int _writePosition = 0;
 
-  RamFileHandle._(super.openMode, this._ramFileData);
+  RamFileHandle._(FileAccess mode, this._ramFileData);
 
   /// Creates a writeable RamFileHandle
-  factory RamFileHandle.asWritableRamBuffer({
-    @Deprecated('Visible for testing only') int subListSize = 1024 * 1024,
-  }) {
+  factory RamFileHandle.asWritableRamBuffer() {
     // ignore: deprecated_member_use_from_same_package
     return RamFileHandle._(
-      AbstractFileOpenMode.write,
-      RamFileData.outputBuffer(subListSize: subListSize),
+      FileAccess.write,
+      RamFileData.outputBuffer(),
     );
   }
 
   /// Creates a read-only RamFileHandle from a RamFileData
   factory RamFileHandle.fromRamFileData(RamFileData ramFileData) {
     // ignore: deprecated_member_use_from_same_package
-    return RamFileHandle._(AbstractFileOpenMode.read, ramFileData);
+    return RamFileHandle._(FileAccess.read, ramFileData);
   }
 
   /// Creates a read-only RamFileHandle from a stream
@@ -97,9 +95,6 @@ class RamFileData {
   int get length => _length;
   final bool _readOnly;
 
-  @Deprecated('Visible for testing only')
-  List<List<int>> get content => _content;
-
   RamFileData.outputBuffer({
     int subListSize = 1024 * 1024,
   })  : _content = <List<int>>[],
@@ -112,10 +107,7 @@ class RamFileData {
   }
 
   static Future<RamFileData> fromStream(
-    Stream<List<int>> source,
-    int fileLength, {
-    @Deprecated('Visible for testing only') int? subListMaxSize,
-  }) async {
+      Stream<List<int>> source, int fileLength) async {
     final List<List<int>> list = <List<int>>[];
     int? usedSubListSize;
     bool listSizeChanged = false;
@@ -147,6 +139,9 @@ class RamFileData {
   void clear() {
     _content.clear();
   }
+
+  @Deprecated('Visible for testing only')
+  List<List<int>> get content => _content;
 
   @Deprecated('Visible for testing only')
   List<int> readAsBytes() {

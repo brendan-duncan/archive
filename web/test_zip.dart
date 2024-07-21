@@ -22,7 +22,7 @@ void main() {
       // Convert the text to binary byte list.
       final bytes = Uint8List.view(req.response as ByteBuffer);
       final archive = ZipDecoder().decodeBytes(bytes, verify: true);
-      print('NUMBER OF FILES ${archive.numberOfFiles()}');
+      print('NUMBER OF FILES ${archive.length}');
     }
   });
   req.send('');

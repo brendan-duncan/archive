@@ -2,23 +2,23 @@ import 'dart:io';
 
 import 'package:path/path.dart' as path;
 
-import '../archive_file.dart';
-import '../gzip_encoder.dart';
-import '../tar_encoder.dart';
-import 'input_file_stream.dart';
-import 'output_file_stream.dart';
+import '../archive/archive_file.dart';
+import '../codecs/gzip_encoder.dart';
+import '../codecs/tar_encoder.dart';
+import '../util/input_file_stream.dart';
+import '../util/output_file_stream.dart';
 
 class TarFileEncoder {
   late String tarPath;
   late OutputFileStream _output;
   late TarEncoder _encoder;
 
-  static const int STORE = 0;
-  static const int GZIP = 1;
+  static const store = 0;
+  static const gzip = 1;
 
   Future<void> tarDirectory(
     Directory dir, {
-    int compression = STORE,
+    int compression = store,
     String? filename,
     bool followLinks = true,
     int? level,
@@ -28,8 +28,8 @@ class TarFileEncoder {
     final tgzPath = filename ?? '$dirPath.tar.gz';
 
     Directory tempDir;
-    if (compression == GZIP) {
-      tempDir = Directory.systemTemp.createTempSync('dart_archive');
+    if (compression == gzip) {
+      tempDir = await Directory.systemTemp.createTemp('dart_archive');
       tarPath = '${tempDir.path}/temp.tar';
     }
 
@@ -38,10 +38,10 @@ class TarFileEncoder {
     await addDirectory(Directory(dirPath), followLinks: followLinks);
     await close();
 
-    if (compression == GZIP) {
+    if (compression == gzip) {
       final input = InputFileStream(tarPath);
       final output = OutputFileStream(tgzPath);
-      GZipEncoder().encode(input, output: output, level: level);
+      GZipEncoder().encodeStream(input, output, level: level ?? 6);
       await input.close();
       await File(tarPath).delete();
     }
@@ -61,14 +61,13 @@ class TarFileEncoder {
     final files = dir.listSync(recursive: true, followLinks: followLinks);
 
     final dirName = path.basename(dir.path);
-    var futures = <Future<void>>[];
-    for (var file in files) {
+    final futures = <Future<void>>[];
+    for (final file in files) {
       if (file is Directory) {
         var filename = path.relative(file.path, from: dir.path);
         filename = includeDirName ? '$dirName/$filename' : filename;
-        final af = ArchiveFile('$filename/', 0, null);
-        af.mode = file.statSync().mode;
-        af.isFile = false;
+        final af = ArchiveFile.directory('$filename/');
+        af.mode = (await file.stat()).mode;
         _encoder.add(af);
       } else if (file is File) {
         final dirName = path.basename(dir.path);
@@ -83,10 +82,10 @@ class TarFileEncoder {
 
   Future<void> addFile(File file, [String? filename]) async {
     final fileStream = InputFileStream(file.path);
-    final f = ArchiveFile.stream(
-        filename ?? path.basename(file.path), file.lengthSync(), fileStream);
-    f.lastModTime = file.lastModifiedSync().millisecondsSinceEpoch ~/ 1000;
-    f.mode = file.statSync().mode;
+    final f =
+        ArchiveFile.stream(filename ?? path.basename(file.path), fileStream);
+    f.lastModTime = (await file.lastModified()).millisecondsSinceEpoch ~/ 1000;
+    f.mode = (await file.stat()).mode;
     _encoder.add(f);
     await fileStream.close();
   }

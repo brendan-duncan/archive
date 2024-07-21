@@ -2,52 +2,21 @@ import 'dart:io';
 
 import 'package:path/path.dart' as path;
 
-import '../archive_file.dart';
-import '../zip_encoder.dart';
-import 'input_file_stream.dart';
-import 'output_file_stream.dart';
+import '../archive/archive_file.dart';
+import '../archive/compression_type.dart';
+import '../codecs/zip_encoder.dart';
+import '../util/input_file_stream.dart';
+import '../util/output_file_stream.dart';
 
 class ZipFileEncoder {
-  late String zipPath;
   late OutputFileStream _output;
   late ZipEncoder _encoder;
   final String? password;
 
-  static const int STORE = 0;
-  static const int GZIP = 1;
+  static const store = 0;
+  static const gzip = 1;
 
   ZipFileEncoder({this.password});
-
-  /// Zips a [dir] to a Zip file synchronously.
-  ///
-  /// {@macro ZipFileEncoder._composeZipDirectoryPath.filename}
-  ///
-  /// See also:
-  ///
-  /// * [zipDirectoryAsync] for the asynchronous version of this method.
-  /// * [_composeZipDirectoryPath] for the logic of composing the Zip file path.
-  //@Deprecated('Use zipDirectoryAsync instead')
-  void zipDirectory(Directory dir,
-      {String? filename,
-      int? level,
-      bool followLinks = true,
-      void Function(double)? onProgress,
-      DateTime? modified}) {
-    create(
-      _composeZipDirectoryPath(dir: dir, filename: filename),
-      level: level ??= GZIP,
-      modified: modified,
-    );
-
-    _addDirectory(
-      dir,
-      includeDirName: false,
-      level: level,
-      followLinks: followLinks,
-      onProgress: onProgress,
-    );
-    closeSync();
-  }
 
   /// Zips a [dir] to a Zip file asynchronously.
   ///
@@ -57,7 +26,7 @@ class ZipFileEncoder {
   ///
   /// * [zipDirectory] for the synchronous version of this method.
   /// * [_composeZipDirectoryPath] for the logic of composing the Zip file path.
-  Future<void> zipDirectoryAsync(Directory dir,
+  Future<void> zipDirectory(Directory dir,
       {String? filename,
       int? level,
       bool followLinks = true,
@@ -65,7 +34,7 @@ class ZipFileEncoder {
       DateTime? modified}) async {
     create(
       _composeZipDirectoryPath(dir: dir, filename: filename),
-      level: level ??= GZIP,
+      level: level ??= gzip,
       modified: modified,
     );
 
@@ -74,7 +43,8 @@ class ZipFileEncoder {
         level: level,
         followLinks: followLinks,
         onProgress: onProgress);
-    closeSync();
+
+    await close();
   }
 
   /// Composes the path (target) of the Zip file after a [Directory] is zipped.
@@ -87,7 +57,7 @@ class ZipFileEncoder {
   ///
   /// See also:
   ///
-  /// * [zipDirectory] and [zipDirectoryAsync] for the methods that use this logic.
+  /// * [zipDirectory] for the methods that use this logic.
   String _composeZipDirectoryPath({
     required Directory dir,
     required String? filename,
@@ -111,12 +81,11 @@ class ZipFileEncoder {
   void open(String zipPath) => create(zipPath);
 
   void create(String zipPath, {int? level, DateTime? modified}) {
-    this.zipPath = zipPath;
-    createWithBuffer(OutputFileStream(zipPath),
+    createWithStream(OutputFileStream(zipPath),
         level: level, modified: modified);
   }
 
-  void createWithBuffer(
+  void createWithStream(
     OutputFileStream outputFileStream, {
     int? level,
     DateTime? modified,
@@ -124,36 +93,6 @@ class ZipFileEncoder {
     _output = outputFileStream;
     _encoder = ZipEncoder(password: password);
     _encoder.startEncode(_output, level: level, modified: modified);
-  }
-
-  void _addDirectory(
-    Directory dir, {
-    bool includeDirName = true,
-    int? level,
-    bool followLinks = true,
-    void Function(double)? onProgress,
-  }) {
-    final dirName = path.basename(dir.path);
-    final files = dir.listSync(recursive: true, followLinks: followLinks);
-    final amount = files.length;
-    var current = 0;
-    for (final file in files) {
-      if (file is Directory) {
-        var filename = path.relative(file.path, from: dir.path);
-        filename = includeDirName ? '$dirName/$filename' : filename;
-        final af = ArchiveFile('$filename/', 0, null);
-        af.mode = file.statSync().mode;
-        af.lastModTime =
-            file.statSync().modified.millisecondsSinceEpoch ~/ 1000;
-        af.isFile = false;
-        _encoder.addFile(af);
-      } else if (file is File) {
-        final dirName = path.basename(dir.path);
-        final relPath = path.relative(file.path, from: dir.path);
-        _addFile(file, includeDirName ? '$dirName/$relPath' : relPath, level);
-        onProgress?.call(++current / amount);
-      }
-    }
   }
 
   Future<void> addDirectory(
@@ -172,12 +111,11 @@ class ZipFileEncoder {
       if (file is Directory) {
         var filename = path.relative(file.path, from: dir.path);
         filename = includeDirName ? '$dirName/$filename' : filename;
-        final af = ArchiveFile('$filename/', 0, null);
-        af.mode = file.statSync().mode;
-        af.lastModTime =
-            file.statSync().modified.millisecondsSinceEpoch ~/ 1000;
-        af.isFile = false;
-        _encoder.addFile(af);
+        final af = ArchiveFile.directory(filename);
+        final stat = file.statSync();
+        af.mode = stat.mode;
+        af.lastModTime = stat.modified.millisecondsSinceEpoch ~/ 1000;
+        _encoder.add(af);
       } else if (file is File) {
         final dirName = path.basename(dir.path);
         final relPath = path.relative(file.path, from: dir.path);
@@ -189,42 +127,27 @@ class ZipFileEncoder {
     await Future.wait(futures);
   }
 
-  void _addFile(File file, [String? filename, int? level = GZIP]) {
+  Future<void> addFile(File file, [String? filename, int? level = gzip]) async {
     final fileStream = InputFileStream(file.path);
-    final archiveFile = ArchiveFile.stream(
-        filename ?? path.basename(file.path), file.lengthSync(), fileStream);
+    final archiveFile =
+        ArchiveFile.stream(filename ?? path.basename(file.path), fileStream);
 
-    if (level == STORE) {
-      archiveFile.compress = false;
+    if (level == store) {
+      archiveFile.compression = CompressionType.none;
     }
 
     archiveFile.lastModTime =
-        file.lastModifiedSync().millisecondsSinceEpoch ~/ 1000;
-    archiveFile.mode = file.statSync().mode;
+        (await file.lastModified()).millisecondsSinceEpoch ~/ 1000;
 
-    _encoder.addFile(archiveFile);
-    fileStream.closeSync();
-  }
+    archiveFile.mode = (await file.stat()).mode;
 
-  Future<void> addFile(File file, [String? filename, int? level = GZIP]) async {
-    final fileStream = InputFileStream(file.path);
-    final archiveFile = ArchiveFile.stream(
-        filename ?? path.basename(file.path), file.lengthSync(), fileStream);
+    _encoder.add(archiveFile);
 
-    if (level == STORE) {
-      archiveFile.compress = false;
-    }
-
-    archiveFile.lastModTime =
-        file.lastModifiedSync().millisecondsSinceEpoch ~/ 1000;
-    archiveFile.mode = file.statSync().mode;
-
-    _encoder.addFile(archiveFile);
     await fileStream.close();
   }
 
   void addArchiveFile(ArchiveFile file) {
-    _encoder.addFile(file);
+    _encoder.add(file);
   }
 
   void closeSync() {

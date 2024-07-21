@@ -1,5 +1,4 @@
 import 'dart:typed_data';
-
 import 'encryption.dart';
 
 class Uint8ListEquality {
@@ -47,7 +46,9 @@ class Aes {
   late Uint8List mac;
 
   int processData(Uint8List buff, int start, int len) {
-    if (!encrypt) _macGen.update(buff, 0, len);
+    if (!encrypt) {
+      _macGen.update(buff, 0, len);
+    }
 
     for (int j = start; j < start + len; j += 16) {
       int loopCount = j + 16 <= start + len ? 16 : start + len - j;
@@ -59,7 +60,9 @@ class Aes {
       ++nonce;
     }
 
-    if (encrypt) _macGen.update(buff, 0, len);
+    if (encrypt) {
+      _macGen.update(buff, 0, len);
+    }
 
     mac = Uint8List(_macGen.macSize);
     _macGen.doFinal(mac, 0);

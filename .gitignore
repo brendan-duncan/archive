@@ -13,3 +13,5 @@ example/decode_zip.dart.precompiled.js
 .idea/
 .history
 test/tests/out/
+/_out/
+/_out

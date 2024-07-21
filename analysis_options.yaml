@@ -1,4 +1,4 @@
-include: package:lints/recommended.yaml
+include: package:lints/core.yaml
 
 analyzer:
   language:
@@ -6,14 +6,14 @@ analyzer:
     strict-inference: true
     strict-raw-types: true
   errors:
-    constant_identifier_names: ignore
-    non_constant_identifier_names: ignore
+    constant_identifier_names: error
+    non_constant_identifier_names: error
     unused_element: error
     unused_field: error
     unused_local_variable: error
   exclude:
-    - test/tests/res/**
-    - test/tests/out/**
+    - test/_data/**
+    - _out/**
 
 linter:
   rules:
