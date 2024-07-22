@@ -13,6 +13,13 @@ usage. Memory-only interfaces are still available for web platforms.
 
 #### [Migrating 3.x to 4.x](doc/migrating_3_to_4.md).
 
+### Migration quick tips:
+* **decodeBuffer** has been renamed to **decodeStream** in the various decoder classes.
+* **InputStream** has been renamed to **InputMemoryStream**.
+* **OutputStream** has been renamed to **OutputMemoryStream**.
+
+---
+
 ## Overview
 
 A Dart library to encode and decode various archive and compression formats.
