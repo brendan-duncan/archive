@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'dart:typed_data';
 
 import '../../archive/compression_type.dart';
@@ -11,7 +10,6 @@ import '../../util/input_stream.dart';
 import '../../util/output_memory_stream.dart';
 import '../../util/output_stream.dart';
 import '../bzip2_decoder.dart';
-import '../zlib/inflate.dart';
 import '../zlib_decoder.dart';
 import 'zip_file_header.dart';
 

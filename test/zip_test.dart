@@ -244,8 +244,8 @@ void main() async {
       final testArchive = Archive();
       testArchive.addFile(ArchiveFile.bytes('test', [1, 2, 3]));
 
-      final testArchiveBytes = ZipEncoder()
-          .encode(testArchive, level: DeflateLevel.bestCompression);
+      final testArchiveBytes =
+          ZipEncoder().encode(testArchive, level: DeflateLevel.bestCompression);
 
       final decodedTestArchive = ZipDecoder().decodeBytes(testArchiveBytes);
 

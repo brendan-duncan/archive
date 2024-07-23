@@ -14,7 +14,8 @@ class _GZipDecoder extends ZLibDecoderBase {
   const _GZipDecoder();
 
   @override
-  Uint8List decodeBytes(List<int> data, {bool verify = false, bool raw = false}) =>
+  Uint8List decodeBytes(List<int> data,
+          {bool verify = false, bool raw = false}) =>
       GZipCodec().decode(data) as Uint8List;
 
   @override

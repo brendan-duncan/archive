@@ -6,7 +6,6 @@ import '../../util/output_memory_stream.dart';
 import '../../util/output_stream.dart';
 import '_huffman_table.dart';
 
-
 /// Dart implementation of the ZLib inflate decompression algorithm,
 /// used by [ZLibEncoder] and [GZipEncoder]. This is used to decompress
 /// data that was previously compressed by the [Deflate] algorithm.
