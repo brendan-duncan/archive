@@ -18,7 +18,7 @@ class _ZLibDecoder extends ZLibDecoderBase {
   const _ZLibDecoder();
 
   @override
-  Uint8List decodeBytes(List<int> data, {bool verify = false}) {
+  Uint8List decodeBytes(List<int> data, {bool verify = false, bool raw = false}) {
     final output = OutputMemoryStream();
     decodeStream(
         InputMemoryStream(data, byteOrder: ByteOrder.bigEndian), output,
@@ -28,7 +28,7 @@ class _ZLibDecoder extends ZLibDecoderBase {
 
   @override
   bool decodeStream(InputStream input, OutputStream output,
-      {bool verify = false}) {
+      {bool verify = false, bool raw = false}) {
     Uint8List? buffer;
 
     while (!input.isEOS) {

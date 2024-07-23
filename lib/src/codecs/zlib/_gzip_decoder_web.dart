@@ -16,7 +16,7 @@ class _GZipDecoder extends ZLibDecoderBase {
   const _GZipDecoder();
 
   @override
-  Uint8List decodeBytes(List<int> data, {bool verify = false}) {
+  Uint8List decodeBytes(List<int> data, {bool verify = false, bool raw = false}) {
     final output = OutputMemoryStream();
     decodeStream(InputMemoryStream(data), output, verify: verify);
     return output.getBytes();
@@ -24,7 +24,7 @@ class _GZipDecoder extends ZLibDecoderBase {
 
   @override
   bool decodeStream(InputStream input, OutputStream output,
-      {bool verify = false}) {
+      {bool verify = false, bool raw = false}) {
     while (!input.isEOS) {
       if (!_readHeader(input)) {
         break;

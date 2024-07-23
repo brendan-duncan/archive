@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:typed_data';
 
 import '../../archive/compression_type.dart';
@@ -11,6 +12,7 @@ import '../../util/output_memory_stream.dart';
 import '../../util/output_stream.dart';
 import '../bzip2_decoder.dart';
 import '../zlib/inflate.dart';
+import '../zlib_decoder.dart';
 import 'zip_file_header.dart';
 
 /// Internal class used by [ZipDecoder].
@@ -185,8 +187,7 @@ class ZipFile extends FileContent {
 
     if (compressionMethod == CompressionType.deflate) {
       final savePos = _rawContent!.position;
-      Inflate.stream(_rawContent,
-          uncompressedSize: uncompressedSize, output: output);
+      ZLibDecoder().decodeStream(_rawContent!, output, raw: true);
       _rawContent!.setPosition(savePos);
     } else if (compressionMethod == CompressionType.bzip2) {
       final savePos = _rawContent!.position;
@@ -228,8 +229,8 @@ class ZipFile extends FileContent {
 
       if (compressionMethod == CompressionType.deflate) {
         final savePos = _rawContent!.position;
-        final decompress =
-            Inflate.stream(_rawContent, uncompressedSize: uncompressedSize);
+        final decompress = OutputMemoryStream(size: uncompressedSize);
+        ZLibDecoder().decodeStream(_rawContent!, decompress, raw: true);
         _content = decompress.getBytes();
         _rawContent!.setPosition(savePos);
         compressionMethod = CompressionType.none;

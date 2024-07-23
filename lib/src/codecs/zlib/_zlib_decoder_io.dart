@@ -14,12 +14,12 @@ class _ZLibDecoder extends ZLibDecoderBase {
   const _ZLibDecoder();
 
   @override
-  Uint8List decodeBytes(List<int> data, {bool verify = false}) =>
-      ZLibCodec().decode(data) as Uint8List;
+  Uint8List decodeBytes(List<int> data, {bool verify = false, bool raw = false}) =>
+      ZLibCodec(raw: raw).decode(data) as Uint8List;
 
   @override
   bool decodeStream(InputStream input, OutputStream output,
-      {bool verify = false}) {
+      {bool verify = false, bool raw = false}) {
     final outSink = ChunkedConversionSink<List<int>>.withCallback((chunks) {
       for (final chunk in chunks) {
         output.writeBytes(chunk);
@@ -27,7 +27,7 @@ class _ZLibDecoder extends ZLibDecoderBase {
       output.flush();
     });
 
-    final inSink = ZLibCodec().decoder.startChunkedConversion(outSink);
+    final inSink = ZLibCodec(raw: raw).decoder.startChunkedConversion(outSink);
 
     while (!input.isEOS) {
       final chunkSize = min(1024, input.length);

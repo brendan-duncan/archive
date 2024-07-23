@@ -6,6 +6,7 @@ import '../../util/output_memory_stream.dart';
 import '../../util/output_stream.dart';
 import '_huffman_table.dart';
 
+
 /// Dart implementation of the ZLib inflate decompression algorithm,
 /// used by [ZLibEncoder] and [GZipEncoder]. This is used to decompress
 /// data that was previously compressed by the [Deflate] algorithm.
@@ -228,7 +229,8 @@ class Inflate {
       return -1;
     }
 
-    _output.writeStream(_inputStream!.readBytes(len));
+    final bytes = _inputStream!.readBytes(len);
+    _output.writeStream(bytes);
     return 0;
   }
 
@@ -310,7 +312,8 @@ class Inflate {
 
       // [0, 255] - Literal
       if (code < 256) {
-        _output.writeByte(code & 0xff);
+        final byte = code & 0xff;
+        _output.writeByte(byte);
         continue;
       }
 
@@ -330,12 +333,14 @@ class Inflate {
 
       // lz77 decode
       while (codeLength > distance) {
-        _output.writeBytes(_output.subset(-distance));
+        final bytes = _output.subset(-distance);
+        _output.writeBytes(bytes);
         codeLength -= distance;
       }
 
       if (codeLength == distance) {
-        _output.writeBytes(_output.subset(-distance));
+        final bytes = _output.subset(-distance);
+        _output.writeBytes(bytes);
       } else {
         final bytes = _output.subset(-distance, end: codeLength - distance);
         _output.writeBytes(bytes);

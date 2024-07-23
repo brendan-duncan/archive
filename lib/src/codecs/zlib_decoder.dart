@@ -17,14 +17,14 @@ class ZLibDecoder {
   /// Decompress the given [bytes] with the ZLib format.
   /// [verify] can be used to validate the checksum of the decompressed data,
   /// though it is not guaranteed this will be used.
-  Uint8List decodeBytes(List<int> bytes, {bool verify = false}) =>
-      platformZLibDecoder.decodeBytes(bytes, verify: verify);
+  Uint8List decodeBytes(List<int> bytes, {bool verify = false, bool raw = false}) =>
+      platformZLibDecoder.decodeBytes(bytes, verify: verify, raw: raw);
 
   /// Decompress the given [input] with the ZLib format, writing the
   /// decompressed data to the [output] stream.
   /// [verify] can be used to validate the checksum of the decompressed data,
   /// though it is not guaranteed this will be used.
   bool decodeStream(InputStream input, OutputStream output,
-          {bool verify = false}) =>
-      platformZLibDecoder.decodeStream(input, output, verify: verify);
+          {bool verify = false, bool raw = false}) =>
+      platformZLibDecoder.decodeStream(input, output, verify: verify, raw: raw);
 }

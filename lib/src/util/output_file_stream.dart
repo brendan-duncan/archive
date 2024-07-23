@@ -199,6 +199,7 @@ class OutputFileStream extends OutputStream {
   @override
   Uint8List subset(int start, {int? end}) {
     final pos = _fileHandle.position + _bufferPosition;
+
     if (start < 0) {
       start = pos + start;
     }
@@ -214,7 +215,8 @@ class OutputFileStream extends OutputStream {
         final length = end - start;
         final bufferStart = start - _fileHandle.position;
         final bufferEnd = bufferStart + length;
-        return _buffer.sublist(bufferStart, bufferEnd);
+        final bytes = _buffer.sublist(bufferStart, bufferEnd);
+        return bytes;
       }
       flush();
     }
