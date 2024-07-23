@@ -341,7 +341,7 @@ class Inflate {
         final bytes = _output.subset(-distance);
         _output.writeBytes(bytes);
       } else {
-        final bytes = _output.subset(-distance, end: codeLength - distance);
+        final bytes = _output.subset(-distance, codeLength - distance);
         _output.writeBytes(bytes);
       }
     }

@@ -88,7 +88,7 @@ abstract class OutputStream {
     writeByte(topBit | ((value >> 56) & 0xff));
   }
 
-  Uint8List subset(int start, {int? end});
+  Uint8List subset(int start, [int? end]);
 
-  Uint8List getBytes() => subset(0, end: length);
+  Uint8List getBytes() => subset(0, length);
 }

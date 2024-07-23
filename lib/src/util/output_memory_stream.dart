@@ -80,7 +80,7 @@ class OutputMemoryStream extends OutputStream {
   /// If [end] is not specified (or null), then it is the end of the buffer.
   /// This is equivalent to the python list range operator.
   @override
-  Uint8List subset(int start, {int? end}) {
+  Uint8List subset(int start, [int? end]) {
     if (start < 0) {
       start = length + start;
     }

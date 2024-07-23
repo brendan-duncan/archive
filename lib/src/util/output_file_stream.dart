@@ -197,7 +197,7 @@ class OutputFileStream extends OutputStream {
   }
 
   @override
-  Uint8List subset(int start, {int? end}) {
+  Uint8List subset(int start, [int? end]) {
     final pos = _fileHandle.position + _bufferPosition;
 
     if (start < 0) {
