@@ -13,6 +13,7 @@ import '../util/output_stream.dart';
 import 'zip/zip_directory.dart';
 import 'zip/zip_file.dart';
 import 'zip/zip_file_header.dart';
+import 'zlib/_zlib_encoder.dart';
 import 'zlib/deflate.dart';
 
 class _ZipFileData {
@@ -241,7 +242,8 @@ class ZipEncoder {
 
         final content = file.getContent();
         var bytes = content!.toUint8List();
-        bytes = Deflate(bytes, level: _data.level ?? 6).getBytes();
+        bytes = platformZLibEncoder.encodeBytes(bytes,
+            level: _data.level ?? 6, raw: true);
         compressedData = InputMemoryStream(bytes);
       }
     }

@@ -5,23 +5,27 @@ import '../../util/input_memory_stream.dart';
 import '../../util/input_stream.dart';
 import '../../util/output_memory_stream.dart';
 import '../../util/output_stream.dart';
+import '_zlib_encoder_base.dart';
 import 'deflate.dart';
 import 'gzip_flag.dart';
 
 const platformGZipEncoder = _GZipEncoder();
 
-class _GZipEncoder {
+class _GZipEncoder extends ZLibEncoderBase {
   const _GZipEncoder();
 
-  Uint8List encodeBytes(List<int> bytes, {int? level, int? windowBits}) {
+  @override
+  Uint8List encodeBytes(List<int> bytes,
+      {int? level, int? windowBits, bool raw = false}) {
     final output = OutputMemoryStream(byteOrder: ByteOrder.bigEndian);
     encodeStream(InputMemoryStream(bytes), output,
-        level: level, windowBits: windowBits);
+        level: level, windowBits: windowBits, raw: raw);
     return output.getBytes();
   }
 
+  @override
   void encodeStream(InputStream input, OutputStream output,
-      {int? level, int? windowBits}) {
+      {int? level, int? windowBits, bool raw = false}) {
     // The GZip format has the following structure:
     // Offset   Length   Contents
     // 0      2 bytes  magic header  0x1f, 0x8b (\037 \213)
@@ -62,6 +66,13 @@ class _GZipEncoder {
     //          bytes  compressed data
     //        4 bytes  crc32
     //        4 bytes  uncompressed input size modulo 2^32
+
+    if (raw) {
+      Deflate.stream(input,
+          level: level ?? 6, windowBits: windowBits ?? 15, output: output);
+      output.flush();
+      return;
+    }
 
     final dataLength = input.length;
 

@@ -17,6 +17,8 @@ class ZLibDecoder {
   /// Decompress the given [bytes] with the ZLib format.
   /// [verify] can be used to validate the checksum of the decompressed data,
   /// though it is not guaranteed this will be used.
+  /// If [raw] is true, the input will be considered deflate compressed data
+  /// without a zlib header.
   Uint8List decodeBytes(List<int> bytes,
           {bool verify = false, bool raw = false}) =>
       platformZLibDecoder.decodeBytes(bytes, verify: verify, raw: raw);
@@ -25,6 +27,8 @@ class ZLibDecoder {
   /// decompressed data to the [output] stream.
   /// [verify] can be used to validate the checksum of the decompressed data,
   /// though it is not guaranteed this will be used.
+  /// If [raw] is true, the input will be considered deflate compressed data
+  /// without a zlib header.
   bool decodeStream(InputStream input, OutputStream output,
           {bool verify = false, bool raw = false}) =>
       platformZLibDecoder.decodeStream(input, output, verify: verify, raw: raw);

@@ -9,13 +9,14 @@ class ZLibEncoderWeb extends ZLibEncoderBase {
   const ZLibEncoderWeb();
 
   @override
-  Uint8List encodeBytes(List<int> data, {int? level, int? windowBits}) =>
+  Uint8List encodeBytes(List<int> data,
+          {int? level, int? windowBits, bool raw = false}) =>
       platformZLibEncoder.encodeBytes(data,
-          level: level, windowBits: windowBits);
+          level: level, windowBits: windowBits, raw: raw);
 
   @override
   void encodeStream(InputStream input, OutputStream output,
-          {int? level, int? windowBits}) =>
+          {int? level, int? windowBits, bool raw = false}) =>
       platformZLibEncoder.encodeStream(input, output,
-          level: level, windowBits: windowBits);
+          level: level, windowBits: windowBits, raw: raw);
 }

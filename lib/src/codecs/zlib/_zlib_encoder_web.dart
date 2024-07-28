@@ -6,25 +6,33 @@ import '../../util/input_memory_stream.dart';
 import '../../util/input_stream.dart';
 import '../../util/output_memory_stream.dart';
 import '../../util/output_stream.dart';
+import '_zlib_encoder_base.dart';
 import 'deflate.dart';
 
 const platformZLibEncoder = _ZLibEncoder();
 
-class _ZLibEncoder {
+class _ZLibEncoder extends ZLibEncoderBase {
   static const _deflate = 8;
 
   const _ZLibEncoder();
 
-  Uint8List encodeBytes(List<int> bytes, {int? level, int? windowBits}) {
+  Uint8List encodeBytes(List<int> bytes,
+      {int? level, int? windowBits, bool raw = false}) {
     final output = OutputMemoryStream(byteOrder: ByteOrder.bigEndian);
     encodeStream(InputMemoryStream(bytes), output,
-        level: level, windowBits: windowBits);
+        level: level, windowBits: windowBits, raw: raw);
     return output.getBytes();
   }
 
   void encodeStream(InputStream input, OutputStream output,
-      {int? level, int? windowBits}) {
+      {int? level, int? windowBits, bool raw = false}) {
     output.byteOrder = ByteOrder.bigEndian;
+
+    if (raw) {
+      Deflate.stream(input,
+          level: level ?? 6, windowBits: windowBits ?? 15, output: output);
+      return;
+    }
 
     final wb = (windowBits ?? 15).clamp(0, 15);
 
