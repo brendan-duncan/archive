@@ -183,10 +183,12 @@ class ArchiveFile {
 
   Future<void> clear() async {
     _content = null;
+    await _rawContent?.close();
   }
 
   void clearSync() {
     _content = null;
+    _rawContent?.closeSync();
   }
 
   /// If the file data is compressed, decompress it.
