@@ -151,23 +151,26 @@ class ZipDirectory {
     final length = input.length - 4;
     const bufferSize = 1024;
     final chunkSize = length < bufferSize ? length : bufferSize;
-    var sp = length - chunkSize;
-    final ep = sp + chunkSize;
-    while (sp >= 0) {
-      for (var ip = sp; ip < ep; ip++) {
-        input.setPosition(ip);
+
+    var startPos = length - chunkSize;
+    int endPos() => startPos + chunkSize;
+
+    while (startPos >= 0) {
+      for (var innerPos = startPos; innerPos < endPos(); innerPos++) {
+        input.setPosition(innerPos);
         final sig = input.readUint32();
         if (sig == eocdSignature) {
           input.setPosition(pos);
-          return ip;
+          return innerPos;
         }
       }
-      if (sp > 0 && sp < chunkSize) {
-        sp = 0;
+      if (startPos > 0 && startPos < chunkSize) {
+        startPos = 0;
       } else {
-        sp -= chunkSize;
+        startPos -= chunkSize;
       }
     }
+
     return -1;
   }
 }
