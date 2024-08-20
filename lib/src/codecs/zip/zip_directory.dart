@@ -151,10 +151,12 @@ class ZipDirectory {
     final length = input.length - 4;
     const bufferSize = 1024;
     final chunkSize = length < bufferSize ? length : bufferSize;
+
     var sp = length - chunkSize;
-    final ep = sp + chunkSize;
+    int ep() => sp + chunkSize;
+
     while (sp >= 0) {
-      for (var ip = sp; ip < ep; ip++) {
+      for (var ip = sp; ip < ep(); ip++) {
         input.setPosition(ip);
         final sig = input.readUint32();
         if (sig == eocdSignature) {
@@ -168,6 +170,7 @@ class ZipDirectory {
         sp -= chunkSize;
       }
     }
+
     return -1;
   }
 }
