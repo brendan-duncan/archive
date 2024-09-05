@@ -13,6 +13,8 @@ import '../util/input_file_stream.dart';
 import '../util/input_stream.dart';
 import '../util/output_file_stream.dart';
 
+import 'package:posix/posix.dart' as posix;
+
 // Ensure filePath is contained in the outputDir folder, to make sure archives
 // aren't trying to write to some system path.
 bool _isWithinOutputPath(String outputDir, String filePath) {
@@ -231,6 +233,11 @@ Future<void> extractFileToDisk(String inputPath, String outputPath,
       } catch (err) {
         //print(err);
       }
+
+      if ((Platform.isMacOS || Platform.isLinux || Platform.isAndroid) && posix.isPosixSupported) {
+        posix.chmod(filePath, file.unixPermissions.toRadixString(8));
+      }
+
       futures.add(output.close());
     }
   }
