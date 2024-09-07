@@ -218,6 +218,11 @@ void main() async {
       expect(decoded.length, equals(0));
     });
 
+    test('decode 0 bytes', () async {
+      final archive = ZipDecoder().decodeBytes(Uint8List(0));
+      expect(archive.length, equals(0));
+    });
+
     test('apk', () async {
       final archive = Archive()
         ..addFile(

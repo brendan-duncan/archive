@@ -155,7 +155,7 @@ class ZipDirectory {
     var startPos = length - chunkSize;
     int endPos() => startPos + chunkSize;
 
-    while (startPos >= 0) {
+    while (startPos >= 0 && startPos < length) {
       for (var innerPos = startPos; innerPos < endPos(); innerPos++) {
         input.setPosition(innerPos);
         final sig = input.readUint32();
