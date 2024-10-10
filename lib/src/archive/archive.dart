@@ -30,6 +30,10 @@ class Archive extends IterableBase<ArchiveFile> {
     _fileMap[file.name] = _files.length - 1;
   }
 
+  void modifyAtIndex(int index, ArchiveFile file) {
+    _files[index] = file; // Modify the underlying list
+  }
+
   /// Alias for [add] for backwards compatibility.
   void addFile(ArchiveFile file) => add(file);
 
