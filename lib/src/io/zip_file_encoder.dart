@@ -7,6 +7,8 @@ import '../archive/compression_type.dart';
 import '../codecs/zip_encoder.dart';
 import '../util/input_file_stream.dart';
 import '../util/output_file_stream.dart';
+import 'zip_file_progress.dart';
+
 
 class ZipFileEncoder {
   late OutputFileStream _output;
@@ -19,19 +21,13 @@ class ZipFileEncoder {
   ZipFileEncoder({this.password});
 
   /// Zips a [dir] to a Zip file asynchronously.
-  ///
-  /// {@macro ZipFileEncoder._composeZipDirectoryPath.filename}
-  ///
-  /// See also:
-  ///
-  /// * [zipDirectory] for the synchronous version of this method.
-  /// * [_composeZipDirectoryPath] for the logic of composing the Zip file path.
   Future<void> zipDirectory(Directory dir,
       {String? filename,
       int? level,
       bool followLinks = true,
       void Function(double)? onProgress,
-      DateTime? modified}) async {
+      DateTime? modified,
+      ZipFileProgress? filter}) async {
     create(
       _composeZipDirectoryPath(dir: dir, filename: filename),
       level: level ??= gzip,
@@ -42,7 +38,8 @@ class ZipFileEncoder {
         includeDirName: false,
         level: level,
         followLinks: followLinks,
-        onProgress: onProgress);
+        onProgress: onProgress,
+        filter: filter);
 
     await close();
   }
@@ -101,6 +98,7 @@ class ZipFileEncoder {
     int? level,
     bool followLinks = true,
     void Function(double)? onProgress,
+    ZipFileProgress? filter
   }) async {
     final dirName = path.basename(dir.path);
     final files = dir.listSync(recursive: true, followLinks: followLinks);
@@ -108,6 +106,16 @@ class ZipFileEncoder {
     final amount = files.length;
     var current = 0;
     for (final file in files) {
+      final progress = ++current / amount;
+      if (filter != null) {
+        final operation = filter(file, progress);
+        if (operation == ZipFileOperation.cancel) {
+          break;
+        }
+        if (operation == ZipFileOperation.skip) {
+          continue;
+        }
+      }
       if (file is Directory) {
         var filename = path.relative(file.path, from: dir.path);
         filename = includeDirName ? '$dirName/$filename' : filename;
@@ -121,7 +129,7 @@ class ZipFileEncoder {
         final relPath = path.relative(file.path, from: dir.path);
         futures.add(
             addFile(file, includeDirName ? '$dirName/$relPath' : relPath, level)
-                .then((value) => onProgress?.call(++current / amount)));
+                .then((value) => onProgress?.call(progress)));
       }
     }
     await Future.wait(futures);

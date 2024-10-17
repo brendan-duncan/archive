@@ -7,6 +7,7 @@ import '../codecs/gzip_encoder.dart';
 import '../codecs/tar_encoder.dart';
 import '../util/input_file_stream.dart';
 import '../util/output_file_stream.dart';
+import 'zip_file_progress.dart';
 
 class TarFileEncoder {
   late String tarPath;
@@ -22,6 +23,7 @@ class TarFileEncoder {
     String? filename,
     bool followLinks = true,
     int? level,
+    ZipFileProgress? filter
   }) async {
     final dirPath = dir.path;
     var tarPath = filename ?? '$dirPath.tar';
@@ -35,7 +37,8 @@ class TarFileEncoder {
 
     // Encode a directory from disk to disk, no memory
     open(tarPath);
-    await addDirectory(Directory(dirPath), followLinks: followLinks);
+    await addDirectory(Directory(dirPath), followLinks: followLinks,
+     filter: filter);
     await close();
 
     if (compression == gzip) {
@@ -57,12 +60,25 @@ class TarFileEncoder {
   }
 
   Future<void> addDirectory(Directory dir,
-      {bool followLinks = true, bool includeDirName = true}) async {
+      {bool followLinks = true, bool includeDirName = true,
+       ZipFileProgress? filter}) async {
     final files = dir.listSync(recursive: true, followLinks: followLinks);
 
     final dirName = path.basename(dir.path);
     final futures = <Future<void>>[];
+    final numFiles = files.length;
+    var fileCount = 0;
     for (final file in files) {
+      final progress = ++fileCount / numFiles;
+      if (filter != null) {
+        final operation = filter(file, progress);
+        if (operation == ZipFileOperation.cancel) {
+          break;
+        }
+        if (operation == ZipFileOperation.skip) {
+          continue;
+        }
+      }
       if (file is Directory) {
         var filename = path.relative(file.path, from: dir.path);
         filename = includeDirName ? '$dirName/$filename' : filename;
