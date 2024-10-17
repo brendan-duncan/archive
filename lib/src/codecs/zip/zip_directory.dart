@@ -140,6 +140,9 @@ class ZipDirectory {
   }
 
   int _findSignature(InputStream input) {
+    if (input.length < 4) {
+      return -1;
+    }
     // The directory and archive contents are written to the end of the zip
     // file. We need to search from the end to find these structures,
     // starting with the 'End of central directory' record (EOCD).
