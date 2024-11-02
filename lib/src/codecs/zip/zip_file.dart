@@ -219,11 +219,19 @@ class ZipFile extends FileContent {
       return _rawContent!;
     }
 
+    const maxDecodeBufferSize = 500*1024*1024; // 500MB
+
     if (compressionMethod == CompressionType.deflate) {
       final savePos = _rawContent!.position;
-      final decompress = OutputMemoryStream(size: uncompressedSize);
-      ZLibDecoder().decodeStream(_rawContent!, decompress, raw: true);
-      final content = decompress.getBytes();
+      late Uint8List content;
+      if (_rawContent!.length <= maxDecodeBufferSize) {
+        final compressed = _rawContent!.toUint8List();
+        content = ZLibDecoder().decodeBytes(compressed, raw: true);
+      } else {
+        final decompress = OutputMemoryStream(size: uncompressedSize);
+        ZLibDecoder().decodeStream(_rawContent!, decompress, raw: true);
+        content = decompress.getBytes();
+      }
       _rawContent!.setPosition(savePos);
       return InputMemoryStream(content);
     } else if (compressionMethod == CompressionType.bzip2) {
