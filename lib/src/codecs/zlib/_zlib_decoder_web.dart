@@ -23,7 +23,7 @@ class _ZLibDecoder extends ZLibDecoderBase {
     final output = OutputMemoryStream();
     decodeStream(
         InputMemoryStream(data, byteOrder: ByteOrder.bigEndian), output,
-        verify: verify);
+        verify: verify, raw: raw);
     return output.getBytes();
   }
 
@@ -50,31 +50,33 @@ class _ZLibDecoder extends ZLibDecoderBase {
        *    bits [5]    FDICT (preset dictionary)
        *    bits [6, 7] FLEVEL (compression level)
        */
-      final cmf = input.readByte();
-      final flg = input.readByte();
+      if (!raw) {
+        final cmf = input.readByte();
+        final flg = input.readByte();
 
-      final method = cmf & 8;
-      final cinfo = (cmf >> 3) & 8; // ignore: unused_local_variable
+        final method = cmf & 8;
+        final cinfo = (cmf >> 3) & 8; // ignore: unused_local_variable
 
-      if (method != deflate) {
-        //throw ArchiveException('Only DEFLATE compression supported: $method');
-        return false;
-      }
+        if (method != deflate) {
+          //throw ArchiveException('Only DEFLATE compression supported: $method');
+          return false;
+        }
 
-      final fcheck = flg & 16; // ignore: unused_local_variable
-      final fdict = (flg & 32) >> 5;
-      final flevel = (flg & 64) >> 6; // ignore: unused_local_variable
+        final fcheck = flg & 16; // ignore: unused_local_variable
+        final fdict = (flg & 32) >> 5;
+        final flevel = (flg & 64) >> 6; // ignore: unused_local_variable
 
-      // FCHECK is set such that (cmf * 256 + flag) must be a multiple of 31.
-      if (((cmf << 8) + flg) % 31 != 0) {
-        //throw ArchiveException('Invalid FCHECK');
-        return false;
-      }
+        // FCHECK is set such that (cmf * 256 + flag) must be a multiple of 31.
+        if (((cmf * 256) + flg) % 31 != 0) {
+          //throw ArchiveException('Invalid FCHECK');
+          return false;
+        }
 
-      if (fdict != 0) {
-        /*dictid =*/ input.readUint32();
-        //throw ArchiveException('FDICT Encoding not currently supported');
-        return false;
+        if (fdict != 0) {
+          /*dictid =*/ input.readUint32();
+          //throw ArchiveException('FDICT Encoding not currently supported');
+          return false;
+        }
       }
 
       if (buffer != null) {
@@ -85,12 +87,14 @@ class _ZLibDecoder extends ZLibDecoderBase {
       buffer = Inflate.stream(input).getBytes();
 
       // verify adler-32
-      final adler32 = input.readUint32();
-      if (verify) {
-        final a = getAdler32(buffer);
-        if (adler32 != a) {
-          buffer = null;
-          return false;
+      if (!raw) {
+        final adler32 = input.readUint32();
+        if (verify) {
+          final a = getAdler32(buffer);
+          if (adler32 != a) {
+            buffer = null;
+            return false;
+          }
         }
       }
     }
