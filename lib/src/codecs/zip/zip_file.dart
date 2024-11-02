@@ -219,7 +219,7 @@ class ZipFile extends FileContent {
       return _rawContent!;
     }
 
-    const maxDecodeBufferSize = 500*1024*1024; // 500MB
+    const maxDecodeBufferSize = 500 * 1024 * 1024; // 500MB
 
     if (compressionMethod == CompressionType.deflate) {
       final savePos = _rawContent!.position;
