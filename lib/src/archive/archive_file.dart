@@ -63,6 +63,12 @@ class ArchiveFile {
   /// The unix permission flags of the file.
   int get unixPermissions => mode & 0x1ff;
 
+  /// Alias for ArchiveFile.bytes for backwards compatibility.
+  ArchiveFile(this.name, this.size, List<int> data) : mode = 0x1a4 {
+    _content = FileContentMemory(data);
+    _rawContent = FileContentMemory(data);
+  }
+
   /// A file storing the given [data].
   ArchiveFile.bytes(this.name, List<int> data) : mode = 0x1a4 {
     _content = FileContentMemory(data);
