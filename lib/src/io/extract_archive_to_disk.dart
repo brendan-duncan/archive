@@ -233,7 +233,8 @@ Future<void> extractFileToDisk(String inputPath, String outputPath,
         //print(err);
       }
 
-      if ((Platform.isMacOS || Platform.isLinux || Platform.isAndroid) && posix.isPosixSupported) {
+      if ((Platform.isMacOS || Platform.isLinux || Platform.isAndroid) &&
+          posix.isPosixSupported) {
         posix.chmod(filePath, file.unixPermissions.toRadixString(8));
       }
 
