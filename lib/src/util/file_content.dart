@@ -49,7 +49,8 @@ class FileContentMemory extends FileContent {
   int get length => bytes?.length ?? 0;
 
   @override
-  InputStream getStream({bool decompress = true}) => InputMemoryStream(bytes ?? Uint8List(0));
+  InputStream getStream({bool decompress = true}) =>
+      InputMemoryStream(bytes ?? Uint8List(0));
 
   @override
   void write(OutputStream output) {

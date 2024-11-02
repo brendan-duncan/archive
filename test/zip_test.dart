@@ -214,8 +214,8 @@ void main() async {
     test('file close', () async {
       final input = InputFileStream('test/_data/test2.zip');
       final archive = ZipDecoder().decodeStream(input);
-      final f1 = archive[1]!;
-      final f2 = archive[3]!;
+      final f1 = archive[1];
+      final f2 = archive[3];
       f1.closeSync();
       final f2content = f2.content;
       expect(f2content.length, 3);
@@ -224,8 +224,8 @@ void main() async {
     test('memory file close', () async {
       final archive = ZipDecoder().decodeStream(
           InputMemoryStream(File('test/_data/test2.zip').readAsBytesSync()));
-      final f1 = archive[1]!;
-      final f2 = archive[3]!;
+      final f1 = archive[1];
+      final f2 = archive[3];
       f1.closeSync();
       final f2content = f2.content;
       expect(f2content.length, 3);
@@ -621,7 +621,7 @@ void main() async {
         final f = file;
         final String filename = f.name;
         final data = f.getContent();
-        await f.clear();
+        f.clear();
         expect(
           filename.trim(),
           isNotEmpty,

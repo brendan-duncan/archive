@@ -152,6 +152,7 @@ class ArchiveFile {
   /// Alias to [readBytes], kept for backwards compatibility.
   Uint8List get content => readBytes() ?? _emptyData;
 
+  /// Clear the used memory and asynchronously close the underlying file handle.
   Future<void> close() async {
     final futures = <Future<void>>[];
     if (_content != null) {
@@ -168,20 +169,17 @@ class ArchiveFile {
     await Future.wait(futures);
   }
 
+  /// Clear the used memory and close the underlying file handle.
   void closeSync() {
     _content?.closeSync();
     _rawContent?.closeSync();
     _content = null;
   }
 
-  Future<void> clear() async {
+  /// Clears the memory used without closing the underlying file handle.
+  void clear() {
+    _rawContent = null;
     _content = null;
-    await _rawContent?.close();
-  }
-
-  void clearSync() {
-    _content = null;
-    _rawContent?.closeSync();
   }
 
   /// If the file data is compressed, decompress it.

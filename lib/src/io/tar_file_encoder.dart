@@ -17,14 +17,12 @@ class TarFileEncoder {
   static const store = 0;
   static const gzip = 1;
 
-  Future<void> tarDirectory(
-    Directory dir, {
-    int compression = store,
-    String? filename,
-    bool followLinks = true,
-    int? level,
-    ZipFileProgress? filter
-  }) async {
+  Future<void> tarDirectory(Directory dir,
+      {int compression = store,
+      String? filename,
+      bool followLinks = true,
+      int? level,
+      ZipFileProgress? filter}) async {
     final dirPath = dir.path;
     var tarPath = filename ?? '$dirPath.tar';
     final tgzPath = filename ?? '$dirPath.tar.gz';
@@ -37,8 +35,8 @@ class TarFileEncoder {
 
     // Encode a directory from disk to disk, no memory
     open(tarPath);
-    await addDirectory(Directory(dirPath), followLinks: followLinks,
-     filter: filter);
+    await addDirectory(Directory(dirPath),
+        followLinks: followLinks, filter: filter);
     await close();
 
     if (compression == gzip) {
@@ -60,8 +58,9 @@ class TarFileEncoder {
   }
 
   Future<void> addDirectory(Directory dir,
-      {bool followLinks = true, bool includeDirName = true,
-       ZipFileProgress? filter}) async {
+      {bool followLinks = true,
+      bool includeDirName = true,
+      ZipFileProgress? filter}) async {
     final files = dir.listSync(recursive: true, followLinks: followLinks);
 
     final dirName = path.basename(dir.path);

@@ -228,7 +228,7 @@ class FileBuffer {
       _buffer = Uint8List(_bufferSize);
     }
     file.position = position;
-    final size = min(fileSize, buffer!.length);
+    final size = min(fileSize, _buffer!.length);
     _bufferSize = file.readInto(_buffer!, size);
     _position = position;
   }

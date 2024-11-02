@@ -9,7 +9,6 @@ import '../util/input_file_stream.dart';
 import '../util/output_file_stream.dart';
 import 'zip_file_progress.dart';
 
-
 class ZipFileEncoder {
   late OutputFileStream _output;
   late ZipEncoder _encoder;
@@ -92,14 +91,12 @@ class ZipFileEncoder {
     _encoder.startEncode(_output, level: level, modified: modified);
   }
 
-  Future<void> addDirectory(
-    Directory dir, {
-    bool includeDirName = true,
-    int? level,
-    bool followLinks = true,
-    void Function(double)? onProgress,
-    ZipFileProgress? filter
-  }) async {
+  Future<void> addDirectory(Directory dir,
+      {bool includeDirName = true,
+      int? level,
+      bool followLinks = true,
+      void Function(double)? onProgress,
+      ZipFileProgress? filter}) async {
     final dirName = path.basename(dir.path);
     final files = dir.listSync(recursive: true, followLinks: followLinks);
     final futures = <Future<void>>[];
