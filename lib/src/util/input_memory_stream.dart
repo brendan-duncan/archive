@@ -6,7 +6,7 @@ import 'input_stream.dart';
 
 /// Stream in data from a memory buffer.
 class InputMemoryStream extends InputStream {
-  late Uint8List buffer;
+  Uint8List? buffer;
   // The read offset into the buffer.
   int _position;
   late int _length;
@@ -24,7 +24,7 @@ class InputMemoryStream extends InputStream {
     final data = bytes is Uint8List ? bytes : Uint8List.fromList(bytes);
 
     buffer = Uint8List.view(data.buffer, data.offsetInBytes + offset, length);
-    _length = buffer.length;
+    _length = buffer!.length;
   }
 
   InputMemoryStream.empty()
@@ -55,7 +55,7 @@ class InputMemoryStream extends InputStream {
 
   /// How many bytes are left in the stream.
   @override
-  int get length => buffer.length - _position;
+  int get length => buffer == null ? 0 : buffer!.length - _position;
 
   /// Is the current position at the end of the stream?
   @override
@@ -100,7 +100,7 @@ class InputMemoryStream extends InputStream {
   }
 
   /// Access the buffer relative from the current position.
-  int operator [](int index) => buffer[_position + index];
+  int operator [](int index) => buffer![_position + index];
 
   /// Return an [InputStream] to read a subset of this stream. It does not
   /// move the read position of this stream. [position] is specified relative
@@ -109,28 +109,34 @@ class InputMemoryStream extends InputStream {
   /// stream is used.
   @override
   InputStream subset({int? position, int? length, int? bufferSize}) {
+    if (buffer == null) {
+      return InputMemoryStream([]);
+    }
     position ??= _position;
     length ??= _length - position;
-    return InputMemoryStream(buffer,
+    return InputMemoryStream(buffer!,
         byteOrder: byteOrder, offset: position, length: length);
   }
 
   /// Read a single byte.
   @override
   int readByte() {
-    final b = buffer[_position++];
+    final b = buffer![_position++];
     return b;
   }
 
   @override
   Uint8List toUint8List() {
+    if (buffer == null) {
+      return Uint8List(0);
+    }
     var len = length;
-    if ((_position + len) > buffer.length) {
-      len = buffer.length - _position;
+    if ((_position + len) > buffer!.length) {
+      len = buffer!.length - _position;
     }
 
     final bytes =
-        Uint8List.view(buffer.buffer, buffer.offsetInBytes + _position, len);
+        Uint8List.view(buffer!.buffer, buffer!.offsetInBytes + _position, len);
 
     return bytes;
   }

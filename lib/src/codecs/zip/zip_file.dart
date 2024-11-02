@@ -57,7 +57,6 @@ class ZipFile extends FileContent {
   // Content of the file. If compressionMethod is not STORE, then it is
   // still compressed.
   InputStream? _rawContent;
-  Uint8List? _content;
   int? _computedCrc32;
   ZipEncryptionMode _encryptionType = ZipEncryptionMode.none;
   ZipAesHeader? _aesHeader;
@@ -69,7 +68,6 @@ class ZipFile extends FileContent {
 
   @override
   bool get isCompressed =>
-      _content == null &&
       _rawContent != null &&
       compressionMethod != CompressionType.none;
 
@@ -171,7 +169,6 @@ class ZipFile extends FileContent {
 
     if (_encryptionType != ZipEncryptionMode.none) {
       if (_rawContent!.length <= 0) {
-        _content = _rawContent!.toUint8List();
         _encryptionType = ZipEncryptionMode.none;
       } else {
         if (_encryptionType == ZipEncryptionMode.zipCrypto) {
@@ -206,48 +203,41 @@ class ZipFile extends FileContent {
     if (_rawContent == null) {
       return InputMemoryStream(Uint8List(0));
     }
-    if (_content == null) {
-      if (_encryptionType != ZipEncryptionMode.none) {
-        if (_rawContent!.length <= 0) {
-          _content = _rawContent!.toUint8List();
-          _encryptionType = ZipEncryptionMode.none;
-        } else {
-          if (_encryptionType == ZipEncryptionMode.zipCrypto) {
-            _rawContent = _decodeZipCrypto(_rawContent!);
-          } else if (_encryptionType == ZipEncryptionMode.aes) {
-            _rawContent = _decodeAes(_rawContent!);
-          }
-          _encryptionType = ZipEncryptionMode.none;
-        }
-      }
-
-      if (!decompress) {
-        return _rawContent!;
-      }
-
-      if (compressionMethod == CompressionType.deflate) {
-        final savePos = _rawContent!.position;
-        final decompress = OutputMemoryStream(size: uncompressedSize);
-        ZLibDecoder().decodeStream(_rawContent!, decompress, raw: true);
-        _content = decompress.getBytes();
-        _rawContent!.setPosition(savePos);
-        compressionMethod = CompressionType.none;
-      } else if (compressionMethod == CompressionType.bzip2) {
-        final output = OutputMemoryStream();
-        final savePos = _rawContent!.position;
-        BZip2Decoder().decodeStream(_rawContent!, output);
-        _content = output.getBytes();
-        _rawContent!.setPosition(savePos);
-        compressionMethod = CompressionType.none;
+    if (_encryptionType != ZipEncryptionMode.none) {
+      if (_rawContent!.length <= 0) {
+        _encryptionType = ZipEncryptionMode.none;
       } else {
-        _content = _rawContent!.toUint8List();
+        if (_encryptionType == ZipEncryptionMode.zipCrypto) {
+          _rawContent = _decodeZipCrypto(_rawContent!);
+        } else if (_encryptionType == ZipEncryptionMode.aes) {
+          _rawContent = _decodeAes(_rawContent!);
+        }
+        _encryptionType = ZipEncryptionMode.none;
       }
     }
 
-    if (_content == null) {
-      return InputMemoryStream(Uint8List(0));
+    if (!decompress) {
+      return _rawContent!;
     }
-    return InputMemoryStream(_content!);
+
+    if (compressionMethod == CompressionType.deflate) {
+      final savePos = _rawContent!.position;
+      final decompress = OutputMemoryStream(size: uncompressedSize);
+      ZLibDecoder().decodeStream(_rawContent!, decompress, raw: true);
+      final content = decompress.getBytes();
+      _rawContent!.setPosition(savePos);
+      return InputMemoryStream(content);
+    } else if (compressionMethod == CompressionType.bzip2) {
+      final output = OutputMemoryStream();
+      final savePos = _rawContent!.position;
+      BZip2Decoder().decodeStream(_rawContent!, output);
+      final content = output.getBytes();
+      _rawContent!.setPosition(savePos);
+      return InputMemoryStream(content);
+    } else {
+      final content = _rawContent!.toUint8List();
+      return InputMemoryStream(content);
+    }
   }
 
   Uint8List getRawContent() {
@@ -361,12 +351,12 @@ class ZipFile extends FileContent {
 
   @override
   Future<void> close() async {
-    _content = null;
+    await _rawContent?.close();
   }
 
   @override
   void closeSync() {
-    _content = null;
+    _rawContent?.closeSync();
   }
 
   @override

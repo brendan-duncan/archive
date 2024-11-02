@@ -169,16 +169,9 @@ class ArchiveFile {
   }
 
   void closeSync() {
-    if (_content != null) {
-      _content!.closeSync();
-    }
-    if (_rawContent != null) {
-      _rawContent!.closeSync();
-    }
-
-    if (_rawContent != null) {
-      _content = null;
-    }
+    _content?.closeSync();
+    _rawContent?.closeSync();
+    _content = null;
   }
 
   Future<void> clear() async {

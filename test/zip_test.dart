@@ -211,6 +211,39 @@ final zipTests = <dynamic>[
 
 void main() async {
   group('zip', () {
+    test('file close', () async {
+      final input = InputFileStream('test/_data/test2.zip');
+      final archive = ZipDecoder().decodeStream(input);
+      final f1 = archive[1]!;
+      final f2 = archive[3]!;
+      f1.closeSync();
+      final f2content = f2.content;
+      expect(f2content.length, 3);
+    });
+
+    test('memory file close', () async {
+      final archive = ZipDecoder().decodeStream(
+          InputMemoryStream(File('test/_data/test2.zip').readAsBytesSync()));
+      final f1 = archive[1]!;
+      final f2 = archive[3]!;
+      f1.closeSync();
+      final f2content = f2.content;
+      expect(f2content.length, 3);
+    });
+
+    test('shared file', () async {
+      final archive = ZipDecoder().decodeStream(
+          InputMemoryStream(File('test/_data/test2.zip').readAsBytesSync()));
+      final archive2 = Archive()..add(archive[1]);
+      final zip = ZipEncoder().encodeBytes(archive2, autoClose: true);
+      final archive3 = ZipDecoder().decodeBytes(zip);
+      expect(archive3.length, 1);
+      expect(archive3[0].name, archive[1].name);
+      final b1 = archive3[0].content;
+      final b2 = archive[1].content;
+      compareBytes(b1, b2);
+    });
+
     test('empty', () async {
       final archive = Archive();
       final encoded = ZipEncoder().encodeBytes(archive);
@@ -265,19 +298,6 @@ void main() async {
 
       final verifyArchive = ZipDecoder().decodeBytes(decodedTestArchiveBytes);
       expect(verifyArchive.single.content, [1, 2, 3]);
-    });
-
-    test('shared file', () async {
-      final archive = ZipDecoder().decodeStream(
-          InputMemoryStream(File('test/_data/test2.zip').readAsBytesSync()));
-      final archive2 = Archive()..add(archive[1]);
-      final zip = ZipEncoder().encodeBytes(archive2, autoClose: true);
-      final archive3 = ZipDecoder().decodeBytes(zip);
-      expect(archive3.length, 1);
-      expect(archive3[0].name, archive[1].name);
-      final b1 = archive3[0].content;
-      final b2 = archive[1].content;
-      compareBytes(b1, b2);
     });
 
     test('decode encode', () async {

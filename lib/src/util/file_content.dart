@@ -40,25 +40,33 @@ abstract class FileContent {
 
 /// A [FileContent] that is resident in memory.
 class FileContentMemory extends FileContent {
-  final Uint8List bytes;
+  Uint8List? bytes;
 
   FileContentMemory(List<int> data)
       : bytes = data is Uint8List ? data : Uint8List.fromList(data);
 
   @override
-  int get length => bytes.length;
+  int get length => bytes?.length ?? 0;
 
   @override
-  InputStream getStream({bool decompress = true}) => InputMemoryStream(bytes);
+  InputStream getStream({bool decompress = true}) => InputMemoryStream(bytes ?? Uint8List(0));
 
   @override
-  void write(OutputStream output) => output.writeBytes(bytes);
+  void write(OutputStream output) {
+    if (bytes != null) {
+      output.writeBytes(bytes!);
+    }
+  }
 
   @override
-  Future<void> close() async {}
+  Future<void> close() async {
+    bytes = null;
+  }
 
   @override
-  void closeSync() {}
+  void closeSync() {
+    bytes = null;
+  }
 }
 
 /// A [FileContent] that is stored in a disk file.

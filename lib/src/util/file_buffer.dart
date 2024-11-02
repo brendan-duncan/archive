@@ -10,7 +10,7 @@ import 'byte_order.dart';
 class FileBuffer {
   final ByteOrder byteOrder;
   final AbstractFileHandle file;
-  late Uint8List _buffer;
+  Uint8List? _buffer;
   int _fileSize = 0;
   int _position = 0;
   int _bufferSize = 0;
@@ -47,10 +47,11 @@ class FileBuffer {
   FileBuffer.from(FileBuffer other, {int? bufferSize})
       : this.byteOrder = other.byteOrder,
         this.file = other.file {
-    this._bufferSize = bufferSize ?? other._bufferSize;
-    this._position = other._position;
-    this._fileSize = other._fileSize;
+    _bufferSize = bufferSize ?? other._bufferSize;
+    _position = other._position;
+    _fileSize = other._fileSize;
     _buffer = Uint8List(_bufferSize);
+    _readBuffer(_position, _bufferSize);
   }
 
   /// The length of the file in bytes.
@@ -62,18 +63,28 @@ class FileBuffer {
   /// Open the file synchronously for reading.
   bool open() => file.open();
 
+  /// Get the file buffer, reloading it as necessary
+  Uint8List get buffer {
+    if (!file.isOpen) {
+      file.open();
+    }
+    if (_buffer == null) {
+      _buffer = Uint8List(_bufferSize);
+      _readBuffer(_position, _bufferSize);
+    }
+    return _buffer!;
+  }
+
   /// Close the file asynchronously.
   Future<void> close() async {
     await file.close();
-    _fileSize = 0;
-    _position = 0;
+    _buffer = null;
   }
 
   /// Close the file synchronously.
   void closeSync() {
     file.closeSync();
-    _fileSize = 0;
-    _position = 0;
+    _buffer = null;
   }
 
   /// Reset the read position of the file back to 0.
@@ -92,7 +103,7 @@ class FileBuffer {
       _readBuffer(position, fileSize ?? _fileSize);
     }
     final p = position - _position;
-    return _buffer[p];
+    return _buffer![p];
   }
 
   /// Read a 16-bit unsigned int at the given [position] within the file.
@@ -104,8 +115,8 @@ class FileBuffer {
       _readBuffer(position, fileSize ?? _fileSize);
     }
     var p = position - _position;
-    final b1 = _buffer[p++];
-    final b2 = _buffer[p++];
+    final b1 = _buffer![p++];
+    final b2 = _buffer![p++];
     if (byteOrder == ByteOrder.bigEndian) {
       return (b1 << 8) | b2;
     }
@@ -121,9 +132,9 @@ class FileBuffer {
       _readBuffer(position, fileSize ?? _fileSize);
     }
     var p = position - _position;
-    final b1 = _buffer[p++];
-    final b2 = _buffer[p++];
-    final b3 = _buffer[p++];
+    final b1 = _buffer![p++];
+    final b2 = _buffer![p++];
+    final b3 = _buffer![p++];
     if (byteOrder == ByteOrder.bigEndian) {
       return b3 | (b2 << 8) | (b1 << 16);
     }
@@ -139,10 +150,10 @@ class FileBuffer {
       _readBuffer(position, fileSize ?? _fileSize);
     }
     var p = position - _position;
-    final b1 = _buffer[p++];
-    final b2 = _buffer[p++];
-    final b3 = _buffer[p++];
-    final b4 = _buffer[p++];
+    final b1 = _buffer![p++];
+    final b2 = _buffer![p++];
+    final b3 = _buffer![p++];
+    final b4 = _buffer![p++];
     if (byteOrder == ByteOrder.bigEndian) {
       return (b1 << 24) | (b2 << 16) | (b3 << 8) | b4;
     }
@@ -158,14 +169,14 @@ class FileBuffer {
       _readBuffer(position, fileSize ?? _fileSize);
     }
     var p = position - _position;
-    final b1 = _buffer[p++];
-    final b2 = _buffer[p++];
-    final b3 = _buffer[p++];
-    final b4 = _buffer[p++];
-    final b5 = _buffer[p++];
-    final b6 = _buffer[p++];
-    final b7 = _buffer[p++];
-    final b8 = _buffer[p++];
+    final b1 = _buffer![p++];
+    final b2 = _buffer![p++];
+    final b3 = _buffer![p++];
+    final b4 = _buffer![p++];
+    final b5 = _buffer![p++];
+    final b6 = _buffer![p++];
+    final b7 = _buffer![p++];
+    final b8 = _buffer![p++];
 
     if (byteOrder == ByteOrder.bigEndian) {
       return (b1 << 56) |
@@ -189,7 +200,7 @@ class FileBuffer {
 
   /// Read [count] bytes starting at the given [position] within the file.
   Uint8List readBytes(int position, int count, [int? fileSize]) {
-    if (count > _buffer.length) {
+    if (count > buffer.length) {
       if (position + count >= _fileSize) {
         count = _fileSize - position;
       }
@@ -205,14 +216,20 @@ class FileBuffer {
     }
 
     final start = position - _position;
-    final bytes = _buffer.sublist(start, start + count);
+    final bytes = _buffer!.sublist(start, start + count);
     return bytes;
   }
 
   void _readBuffer(int position, int fileSize) {
+    if (!file.isOpen) {
+      file.open();
+    }
+    if (_buffer == null) {
+      _buffer = Uint8List(_bufferSize);
+    }
     file.position = position;
-    final size = min(fileSize, _buffer.length);
-    _bufferSize = file.readInto(_buffer, size);
+    final size = min(fileSize, buffer!.length);
+    _bufferSize = file.readInto(_buffer!, size);
     _position = position;
   }
 }
