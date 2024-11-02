@@ -21,8 +21,14 @@ void main() {
     if (req.status == 200) {
       // Convert the text to binary byte list.
       final bytes = Uint8List.view(req.response as ByteBuffer);
-      final archive = ZipDecoder().decodeBytes(bytes, verify: true);
+      print(bytes);
+      final archive = ZipDecoder().decodeBytes(bytes);
       print('NUMBER OF FILES ${archive.length}');
+      print(archive[0].name);
+      print(archive[0].size);
+      print(archive[0].compression);
+      final decoded = archive[0].readBytes();
+      print(decoded);
     }
   });
   req.send('');
