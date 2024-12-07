@@ -52,12 +52,13 @@ import 'dart:io';
 void main() {
   final bytes = File('test.zip').readAsBytesSync();
   final archive = ZipDecoder().decodeBytes(bytes);
-  final files = archive.getAllFiles();
-  for (final file in files) {
-    final fileBytes = file.readBytes();
-    File('out/${file.fullPathName}')
-      ..createSync(recursive: true)
-      ..writeAsBytesSync(fileBytes);
+  for (final entry in archive) {
+    if (entry.isFile) {
+      final fileBytes = file.readBytes();
+      File('out/${file.fullPathName}')
+        ..createSync(recursive: true)
+        ..writeAsBytesSync(fileBytes);
+    }
   }
 }
 ```
@@ -74,11 +75,9 @@ void main() {
   // Decode the zip from the InputFileStream. The archive will have the contents of the
   // zip, without having stored the data in memory. 
   final archive = ZipDecoder().decodeStream(inputStream);
-  // Get all of the files from the archive
-  final files = archive.getAllFiles();
   final symbolicLinks = []; // keep a list of the symbolic link entities, if any.
   // For all of the entries in the archive
-  for (final file in files) {
+  for (final file in archive) {
     // You should create symbolic links **after** the rest of the archive has been
     // extracted, otherwise the file being linked might not exist yet.
     if (file.isSymbolicLink) {
