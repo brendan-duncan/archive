@@ -1,3 +1,10 @@
+## 4.0.0 - December 7, 2024
+
+- Major cleanup of the code, includes potential breaking changes.
+  - **decodeBuffer** has been renamed to **decodeStream** in the various decoder classes.
+  - **InputStream** has been renamed to **InputMemoryStream**.
+  - **OutputStream** has been renamed to **OutputMemoryStream**.
+
 ## 3.6.1 - May 31, 2024
 
 - Fix ArchiveFile.rawContent returning null after decoding a zip.
