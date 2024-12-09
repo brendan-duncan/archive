@@ -24,9 +24,8 @@ void main() {
         ...GZipEncoder().encodeBytes([1, 2, 3]),
         ...GZipEncoder().encodeBytes([4, 5, 6])
       ];
-      print(compressedData);
       final decodedData =
-      GZipDecoderWeb().decodeBytes(compressedData, verify: true);
+          GZipDecoderWeb().decodeBytes(compressedData, verify: true);
       compareBytes(decodedData, [1, 2, 3, 4, 5, 6]);
     });
 
