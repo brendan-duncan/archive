@@ -6,6 +6,15 @@ import 'package:test/test.dart';
 import '_test_util.dart';
 
 void main() {
+  group('zlib web', () {
+    test('encode/decode', () {
+      final origData = [1, 2, 3, 4, 5, 6];
+      final compressed = ZLibEncoder().encodeBytes(origData);
+      final uncompressed = ZLibDecoder().decodeBytes(compressed);
+      compareBytes(uncompressed, origData);
+    });
+  });
+
   group('gzip web', () {
     final buffer = Uint8List(10000);
     for (var i = 0; i < buffer.length; ++i) {

@@ -13,6 +13,34 @@ void main() {
       buffer[i] = i % 256;
     }
 
+    test('zlib encode_web/decode', () {
+      final origData = [1, 2, 3, 4, 5, 6];
+      final compressed = ZLibEncoderWeb().encodeBytes(origData);
+      final uncompressed = ZLibDecoder().decodeBytes(compressed);
+      compareBytes(uncompressed, origData);
+    });
+
+    test('zlib encode/decode_web', () {
+      final origData = [1, 2, 3, 4, 5, 6];
+      final compressed = ZLibEncoder().encodeBytes(origData);
+      final uncompressed = ZLibDecoderWeb().decodeBytes(compressed);
+      compareBytes(uncompressed, origData);
+    });
+
+    test('gzip encode_web/decode', () {
+      final origData = [1, 2, 3, 4, 5, 6];
+      final compressed = GZipEncoderWeb().encodeBytes(origData);
+      final uncompressed = GZipDecoder().decodeBytes(compressed);
+      compareBytes(uncompressed, origData);
+    });
+
+    test('gzip encode/decode_web', () {
+      final origData = [1, 2, 3, 4, 5, 6];
+      final compressed = GZipEncoder().encodeBytes(origData);
+      final uncompressed = GZipDecoderWeb().decodeBytes(compressed);
+      compareBytes(uncompressed, origData);
+    });
+
     test('multiblock', () async {
       final compressedData = [
         ...GZipEncoder().encodeBytes([1, 2, 3]),
