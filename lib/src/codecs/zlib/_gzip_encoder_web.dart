@@ -17,7 +17,7 @@ class _GZipEncoder extends ZLibEncoderBase {
   @override
   Uint8List encodeBytes(List<int> bytes,
       {int? level, int? windowBits, bool raw = false}) {
-    final output = OutputMemoryStream(byteOrder: ByteOrder.bigEndian);
+    final output = OutputMemoryStream(byteOrder: ByteOrder.littleEndian);
     encodeStream(InputMemoryStream(bytes), output,
         level: level, windowBits: windowBits, raw: raw);
     return output.getBytes();

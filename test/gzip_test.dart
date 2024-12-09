@@ -7,7 +7,7 @@ import 'package:test/test.dart';
 import '_test_util.dart';
 
 void main() {
-  group('gzi', () {
+  group('gzip', () {
     final buffer = Uint8List(10000);
     for (var i = 0; i < buffer.length; ++i) {
       buffer[i] = i % 256;
