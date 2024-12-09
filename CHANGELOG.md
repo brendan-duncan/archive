@@ -1,3 +1,7 @@
+## 4.0.1 - December 7, 2024
+
+- Fix error with GZip encoder for web builds.
+
 ## 4.0.0 - December 7, 2024
 
 - Major cleanup of the code, includes potential breaking changes.
