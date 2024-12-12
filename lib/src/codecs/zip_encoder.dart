@@ -129,11 +129,11 @@ class ZipEncoder {
   }
 
   int getFileCrc32(ArchiveFile file) {
-    final content = file.getContent();
+    final content = file.rawContent;
     if (content == null) {
       return 0;
     }
-    final s = content;
+    final s = content.getStream(decompress: false);
     s.reset();
     var crc32 = 0;
     var size = s.length;
@@ -147,7 +147,7 @@ class ZipEncoder {
       final bytes = s.readBytes(size).toUint8List();
       crc32 = getCrc32(bytes, crc32);
     }
-    content.reset();
+    s.reset();
     return crc32;
   }
 
@@ -240,11 +240,12 @@ class ZipEncoder {
         // Otherwise we need to compress it now.
         crc32 = getFileCrc32(file);
 
-        final content = file.getContent();
-        var bytes = content!.toUint8List();
-        bytes = platformZLibEncoder.encodeBytes(bytes,
+        final content = file.rawContent;
+        final output = OutputMemoryStream();
+        platformZLibEncoder.encodeStream(
+            content!.getStream(decompress: false), output,
             level: _data.level ?? 6, raw: true);
-        compressedData = InputMemoryStream(bytes);
+        compressedData = InputMemoryStream(output.getBytes());
       }
     }
 
