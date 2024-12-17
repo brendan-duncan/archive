@@ -646,7 +646,31 @@ void main() {
     final dstFiles =
         Directory('$testOutputPath/test_zip_dir_2').listSync(recursive: true);
     expect(dstFiles.length, equals(srcFiles.length));
-    //encoder.close();
+    encoder.closeSync();
+  });
+
+  test('zip directory (too many open files regression)', () async {
+    final tmpPath = '$testOutputPath/test_zip_dir_3';
+
+    generateDataDirectory(tmpPath, fileSize: 1024, numFiles: 2000);
+
+    final inPath = '$testOutputPath/test_zip_dir_3.zip';
+    final outPath = '$testOutputPath/test_zip_dir_3';
+
+    final encoder = ZipFileEncoder();
+    await encoder.zipDirectory(Directory(tmpPath));
+
+    final dir = Directory(outPath);
+    if (dir.existsSync()) {
+      dir.deleteSync(recursive: true);
+    }
+    await extractFileToDisk(inPath, outPath);
+
+    final srcFiles = Directory(tmpPath).listSync(recursive: true);
+    final dstFiles =
+        Directory('$testOutputPath/test_zip_dir_3').listSync(recursive: true);
+    expect(dstFiles.length, equals(srcFiles.length));
+    encoder.closeSync();
   });
 
   group('$ZipFileEncoder', () {

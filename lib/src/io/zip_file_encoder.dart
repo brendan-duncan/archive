@@ -99,7 +99,6 @@ class ZipFileEncoder {
       ZipFileProgress? filter}) async {
     final dirName = path.basename(dir.path);
     final files = dir.listSync(recursive: true, followLinks: followLinks);
-    final futures = <Future<void>>[];
     final amount = files.length;
     var current = 0;
     for (final file in files) {
@@ -124,12 +123,14 @@ class ZipFileEncoder {
       } else if (file is File) {
         final dirName = path.basename(dir.path);
         final relPath = path.relative(file.path, from: dir.path);
-        futures.add(
-            addFile(file, includeDirName ? '$dirName/$relPath' : relPath, level)
-                .then((value) => onProgress?.call(progress)));
+        await addFile(
+          file,
+          includeDirName ? '$dirName/$relPath' : relPath,
+          level,
+        );
+        onProgress?.call(progress);
       }
     }
-    await Future.wait(futures);
   }
 
   Future<void> addFile(File file, [String? filename, int? level = gzip]) async {
