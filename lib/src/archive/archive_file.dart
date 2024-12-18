@@ -166,9 +166,6 @@ class ArchiveFile {
     }
     if (_rawContent != null) {
       futures.add(_rawContent!.close());
-    }
-
-    if (_rawContent != null) {
       _content = null;
     }
 
