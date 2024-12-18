@@ -1,7 +1,6 @@
 import 'dart:io';
 
 import 'package:path/path.dart' as path;
-import 'package:posix/posix.dart' as posix;
 
 import '../archive/archive.dart';
 import '../archive/archive_file.dart';
@@ -13,6 +12,7 @@ import '../codecs/zip_decoder.dart';
 import '../util/input_file_stream.dart';
 import '../util/input_stream.dart';
 import '../util/output_file_stream.dart';
+import 'posix.dart' as posix;
 
 // Ensure filePath is contained in the outputDir folder, to make sure archives
 // aren't trying to write to some system path.
@@ -155,13 +155,7 @@ Future<void> extractFileToDisk(String inputPath, String outputPath,
   Directory? tempDir;
   var archivePath = inputPath;
 
-  var posixSupported = false;
-  try {
-    if ((Platform.isMacOS || Platform.isLinux || Platform.isAndroid) &&
-        posix.isPosixSupported) {
-      posixSupported = true;
-    }
-  } catch (_) {}
+  var posixSupported = posix.isPosixSupported();
 
   final futures = <Future<void>>[];
   if (inputPath.endsWith('tar.gz') || inputPath.endsWith('tgz')) {
@@ -237,9 +231,7 @@ Future<void> extractFileToDisk(String inputPath, String outputPath,
       final output = OutputFileStream(filePath, bufferSize: bufferSize);
       try {
         file.writeContent(output);
-      } catch (err) {
-        //print(err);
-      }
+      } catch (_) {}
       if (posixSupported) {
         posix.chmod(filePath, file.unixPermissions.toRadixString(8));
       }
