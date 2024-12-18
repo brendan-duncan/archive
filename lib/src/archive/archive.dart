@@ -54,10 +54,10 @@ class Archive extends IterableBase<ArchiveFile> {
   }
 
   Future<void> clear() async {
-    var futures = <Future<void>>[];
-    for (var fp in _files) {
-      futures.add(fp.close());
-    }
+    var futures = <Future<void>>[
+      for (var fp in _files)
+        fp.close()
+    ];
     _files.clear();
     _fileMap.clear();
     comment = null;

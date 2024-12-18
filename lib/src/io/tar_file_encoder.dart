@@ -64,7 +64,6 @@ class TarFileEncoder {
     final files = dir.listSync(recursive: true, followLinks: followLinks);
 
     final dirName = path.basename(dir.path);
-    final futures = <Future<void>>[];
     final numFiles = files.length;
     var fileCount = 0;
     for (final file in files) {
@@ -87,12 +86,10 @@ class TarFileEncoder {
       } else if (file is File) {
         final dirName = path.basename(dir.path);
         final relPath = path.relative(file.path, from: dir.path);
-        futures
-            .add(addFile(file, includeDirName ? '$dirName/$relPath' : relPath));
+        await addFile(file, includeDirName ? '$dirName/$relPath' : relPath);
       }
     }
 
-    await Future.wait(futures);
   }
 
   Future<void> addFile(File file, [String? filename]) async {
