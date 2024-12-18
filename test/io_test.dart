@@ -663,8 +663,7 @@ void main() {
     await extractFileToDisk(inPath, outPath);
 
     final srcFiles = Directory(tmpPath).listSync(recursive: true);
-    final dstFiles =
-        Directory(outPath).listSync(recursive: true);
+    final dstFiles = Directory(outPath).listSync(recursive: true);
     expect(dstFiles.length, equals(srcFiles.length));
     encoder.closeSync();
   });

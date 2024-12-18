@@ -218,8 +218,8 @@ void main() async {
       archive.add(ArchiveFile.stream('android-javadoc.zip', input));
       ZipEncoder().encodeStream(archive, output);
 
-      final archive2 = ZipDecoder().decodeStream(
-          InputMemoryStream(File('$testOutputPath/encode_file_stream.zip').readAsBytesSync()));
+      final archive2 = ZipDecoder().decodeStream(InputMemoryStream(
+          File('$testOutputPath/encode_file_stream.zip').readAsBytesSync()));
 
       input.reset();
       expect(archive2.length, 1);
