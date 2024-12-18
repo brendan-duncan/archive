@@ -155,6 +155,14 @@ Future<void> extractFileToDisk(String inputPath, String outputPath,
   Directory? tempDir;
   var archivePath = inputPath;
 
+  var posixSupported = false;
+  try {
+    if ((Platform.isMacOS || Platform.isLinux || Platform.isAndroid) &&
+        posix.isPosixSupported) {
+      posixSupported = true;
+    }
+  } catch (_) {}
+
   final futures = <Future<void>>[];
   if (inputPath.endsWith('tar.gz') || inputPath.endsWith('tgz')) {
     tempDir = Directory.systemTemp.createTempSync('dart_archive');
@@ -232,9 +240,7 @@ Future<void> extractFileToDisk(String inputPath, String outputPath,
       } catch (err) {
         //print(err);
       }
-
-      if ((Platform.isMacOS || Platform.isLinux || Platform.isAndroid) &&
-          posix.isPosixSupported) {
+      if (posixSupported) {
         posix.chmod(filePath, file.unixPermissions.toRadixString(8));
       }
 
