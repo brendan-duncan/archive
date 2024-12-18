@@ -89,7 +89,6 @@ class TarFileEncoder {
         await addFile(file, includeDirName ? '$dirName/$relPath' : relPath);
       }
     }
-
   }
 
   Future<void> addFile(File file, [String? filename]) async {
