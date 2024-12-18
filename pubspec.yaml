@@ -19,6 +19,9 @@ dependencies:
   posix: ^6.0.1
 
 dev_dependencies:
+  build_runner: ^2.4.14
+  build_web_compilers: ^4.1.0
   http: ^1.1.0
   lints: ^4.0.0
   test: ^1.24.6
+  web: ^1.1.0
