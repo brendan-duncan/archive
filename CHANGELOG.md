@@ -1,3 +1,8 @@
+## 4.0.2 - December 19, 2024
+
+- Reduce SDK min version to 3.0.
+- Fix import error with js_interop.
+
 ## 4.0.1 - December 7, 2024
 
 - Fix error with GZip encoder for web builds.
