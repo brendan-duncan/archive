@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import '../archive/archive.dart';
 import '../archive/archive_file.dart';
+import '../util/_cast.dart';
 import '../util/output_memory_stream.dart';
 import '../util/output_stream.dart';
 import 'tar/tar_file.dart';
@@ -49,7 +50,7 @@ class TarEncoder {
       ts.ownerId = 0;
       ts.groupId = 0;
       ts.lastModTime = 0;
-      ts.contentBytes = utf8.encode(entry.name);
+      ts.contentBytes = castToUint8List(utf8.encode(entry.name));
       ts.write(_outputStream!);
     }
 
