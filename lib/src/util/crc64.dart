@@ -1,6 +1,4 @@
-import '_crc64_stub.dart'
-    if (dart.library.io) '_crc64_io.dart'
-    if (dart.library.js_interop) '_crc64_html.dart';
+import '_crc64_html.dart' if (dart.library.io) '_crc64_io.dart';
 
 int getCrc64(List<int> array, [int crc = 0]) => getCrc64_(array, crc);
 
