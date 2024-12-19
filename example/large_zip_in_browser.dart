@@ -1,10 +1,11 @@
 import 'dart:async';
-import 'dart:html' as html;
-import 'dart:js' as js;
+import 'dart:js_interop' as js;
+import 'dart:js_interop_unsafe';
 import 'dart:math' as math;
 import 'dart:typed_data';
 
-import 'package:archive/archive_io.dart';
+import 'package:archive/archive.dart';
+import 'package:web/web.dart' as web;
 
 /// Sample code showing how a large zip file can be extracted and compressed
 /// all within the RAM when running in a Web environment.
@@ -92,24 +93,23 @@ RamFileData _writeFilesDataAsZipRamData(List<_FileData> fileDataList) {
   // Create a RamFileData that will store the output
   final outputRamFileData = RamFileData.outputBuffer();
 
+  final output = OutputFileStream.toRamFile(
+    RamFileHandle.fromRamFileData(outputRamFileData),
+  );
+
   // Create a ZipFileEncoder that will write into the RamFileData
-  final zipEncoder = ZipFileEncoder()
-    ..createWithStream(
-      OutputFileStream.toRamFile(
-        RamFileHandle.fromRamFileData(outputRamFileData),
-      ),
-    );
+  final zipEncoder = ZipEncoder()..startEncode(output);
 
   // Write all files into the ZipFileEncoder
   for (final _FileData fileData in fileDataList) {
-    zipEncoder.addArchiveFile(ArchiveFile.bytes(
+    zipEncoder.add(ArchiveFile.bytes(
       fileData.fileName,
       fileData.fileBytes,
     ));
   }
 
   // Close the ZipFileEncoder
-  zipEncoder.closeSync();
+  zipEncoder.endEncode();
 
   return outputRamFileData;
 }
@@ -120,11 +120,12 @@ RamFileData _writeFilesDataAsZipRamData(List<_FileData> fileDataList) {
 Future<void> _saveRamFileDataToDiskRegular(RamFileData ramFileData) async {
   final fileBytes = Uint8List(ramFileData.length);
   ramFileData.readIntoSync(fileBytes, 0, fileBytes.length);
-  final dataUrl = html.Url.createObjectUrlFromBlob(html.Blob(
-    <dynamic>[fileBytes],
-    'application/zip',
-  ));
-  html.AnchorElement(href: dataUrl)
+  final blob = web.Blob(
+      [fileBytes.toJS].toJS, web.BlobPropertyBag(type: 'application/zip'));
+  final dataUrl = web.URL.createObjectURL(blob);
+  final a = web.HTMLAnchorElement();
+  a.href = dataUrl;
+  a
     ..setAttribute('download', 'exported_file.zip')
     ..click();
 }
@@ -173,35 +174,36 @@ class _FileData {
 /// https://developer.mozilla.org/en-US/docs/MDN/Writing_guidelines/Experimental_deprecated_obsolete#experimental
 class _ExperimentalFileSaver {
   static Future<T> _callJsMethod<T>(
-    js.JsObject calledObj,
+    js.JSObject calledObj,
     String methodName, [
     List<dynamic>? params,
   ]) async {
     final completer = Completer<T>();
-    final promiseObj = calledObj.callMethod(
-      methodName,
-      <dynamic>[
-        if (params != null) ...params,
-      ],
-    ) as js.JsObject;
-    final thenObj = promiseObj.callMethod(
-      'then',
-      <dynamic>[
+
+    final promiseObj = calledObj.callMethodVarArgs(
+        methodName.toJS,
+        (params?.map((e) => e.toJS) ?? []).toList(growable: false)
+            as List<js.JSAny?>) as js.JSObject;
+
+    final thenObj = promiseObj.callMethodVarArgs(
+      'then'.toJS,
+      <js.JSAny>[
         (
           T promiseResult,
         ) {
           completer.complete(promiseResult);
-        }
+        }.toJSBox
       ],
-    ) as js.JsObject;
-    thenObj.callMethod('catch', <dynamic>[
+    ) as js.JSObject;
+
+    thenObj.callMethodVarArgs('catch'.toJS, <js.JSAny>[
       (
-        js.JsObject errorResult,
+        js.JSObject errorResult,
       ) {
         completer.completeError(
           '_callJsMethod encountered an error calling the method "$methodName": $errorResult',
         );
-      }
+      }.toJSBox
     ]);
     return completer.future;
   }
@@ -211,21 +213,21 @@ class _ExperimentalFileSaver {
     RamFileData ramFileData,
   ) async {
     // https://developer.mozilla.org/en-US/docs/Web/API/FileSystemFileHandle
-    final js.JsObject fileSystemFileHandle;
+    final js.JSObject fileSystemFileHandle;
     fileSystemFileHandle = await _callJsMethod(
-      js.context,
+      web.window,
       // https://developer.mozilla.org/en-US/docs/Web/API/Window/showSaveFilePicker
       'showSaveFilePicker',
-      <dynamic>[
-        js.JsObject.jsify(<String, Object>{
+      <js.JSAny>[
+        <String, Object>{
           'suggestedName': fileName,
           'writable': true,
-        }),
+        }.toJSBox,
       ],
     );
     // https://developer.mozilla.org/en-US/docs/Web/API/FileSystemWritableFileStream
-    final js.JsObject fileSystemWritableFileStream;
-    fileSystemWritableFileStream = await _callJsMethod<js.JsObject>(
+    final js.JSObject fileSystemWritableFileStream;
+    fileSystemWritableFileStream = await _callJsMethod<js.JSObject>(
       fileSystemFileHandle,
       'createWritable',
     );
@@ -244,8 +246,8 @@ class _ExperimentalFileSaver {
       await _callJsMethod<void>(
         fileSystemWritableFileStream,
         'write',
-        <dynamic>[
-          html.Blob(<dynamic>[buffer])
+        <js.JSAny>[
+          web.Blob([buffer.toJS].toJS)
         ],
       );
     }
