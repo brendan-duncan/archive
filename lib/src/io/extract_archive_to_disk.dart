@@ -100,7 +100,6 @@ void extractArchiveToDiskSync(
 
 Future<void> extractArchiveToDisk(Archive archive, String outputPath,
     {int? bufferSize}) async {
-  final futures = <Future<void>>[];
   final outDir = Directory(outputPath);
   if (!outDir.existsSync()) {
     outDir.createSync(recursive: true);
@@ -143,11 +142,6 @@ Future<void> extractArchiveToDisk(Archive archive, String outputPath,
     }
     await output.close();
   }
-
-  if (futures.isNotEmpty) {
-    await Future.wait(futures);
-    futures.clear();
-  }
 }
 
 Future<void> extractFileToDisk(String inputPath, String outputPath,
@@ -157,36 +151,30 @@ Future<void> extractFileToDisk(String inputPath, String outputPath,
 
   var posixSupported = posix.isPosixSupported();
 
-  final futures = <Future<void>>[];
   if (inputPath.endsWith('tar.gz') || inputPath.endsWith('tgz')) {
     tempDir = Directory.systemTemp.createTempSync('dart_archive');
     archivePath = path.join(tempDir.path, 'temp.tar');
     final input = InputFileStream(inputPath);
     final output = OutputFileStream(archivePath, bufferSize: bufferSize);
     GZipDecoder().decodeStream(input, output);
-    futures.add(input.close());
-    futures.add(output.close());
+    await input.close();
+    await output.close();
   } else if (inputPath.endsWith('tar.bz2') || inputPath.endsWith('tbz')) {
     tempDir = Directory.systemTemp.createTempSync('dart_archive');
     archivePath = path.join(tempDir.path, 'temp.tar');
     final input = InputFileStream(inputPath);
     final output = OutputFileStream(archivePath, bufferSize: bufferSize);
     BZip2Decoder().decodeStream(input, output);
-    futures.add(input.close());
-    futures.add(output.close());
+    await input.close();
+    await output.close();
   } else if (inputPath.endsWith('tar.xz') || inputPath.endsWith('txz')) {
     tempDir = Directory.systemTemp.createTempSync('dart_archive');
     archivePath = path.join(tempDir.path, 'temp.tar');
     final input = InputFileStream(inputPath);
     final output = OutputFileStream(archivePath, bufferSize: bufferSize);
     XZDecoder().decodeStream(input, output);
-    futures.add(input.close());
-    futures.add(output.close());
-  }
-
-  if (futures.isNotEmpty) {
-    await Future.wait(futures);
-    futures.clear();
+    await input.close();
+    await output.close();
   }
 
   InputStream? toClose;
@@ -236,30 +224,15 @@ Future<void> extractFileToDisk(String inputPath, String outputPath,
         posix.chmod(filePath, file.unixPermissions.toRadixString(8));
       }
 
-      futures.add(output.close());
+      await output.close();
     }
   }
 
-  futures.add(toClose.close());
+  await toClose.close();
 
-  if (futures.isNotEmpty) {
-    await Future.wait(futures);
-    futures.clear();
-  }
-
-  futures.add(archive.clear());
-
-  if (futures.isNotEmpty) {
-    await Future.wait(futures);
-    futures.clear();
-  }
+  await archive.clear();
 
   if (tempDir != null) {
-    futures.add(tempDir.delete(recursive: true));
-  }
-
-  if (futures.isNotEmpty) {
-    await Future.wait(futures);
-    futures.clear();
+    await tempDir.delete(recursive: true);
   }
 }
