@@ -183,9 +183,14 @@ void main() {
           'GNU tar files store extra long file names in a separate file. gt100 gt100 gt100 gt100 gt100 gt100 gt100.txt';
       final tar = TarEncoder()
           .encodeBytes(Archive()..add(ArchiveFile.bytes(longFileName, [100])));
+
       File(p.join(testOutputPath, 'tar_encoded.tar'))
         ..createSync(recursive: true)
         ..writeAsBytesSync(tar);
+
+      final tarDecoded = TarDecoder().decodeBytes(tar);
+      expect(tarDecoded.length, 1);
+      expect(tarDecoded[0].name, longFileName);
     });
 
     test('long file name', () {
