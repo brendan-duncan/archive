@@ -177,6 +177,17 @@ void main() {
       expect(archive[0].isSymbolicLink, true);
     });
 
+    test('file GNU tar files store extra long file names in a separate file.',
+        () {
+      var longFileName =
+          'GNU tar files store extra long file names in a separate file. gt100 gt100 gt100 gt100 gt100 gt100 gt100.txt';
+      final tar = TarEncoder()
+          .encodeBytes(Archive()..add(ArchiveFile.bytes(longFileName, [100])));
+      File(p.join(testOutputPath, 'tar_encoded.tar'))
+        ..createSync(recursive: true)
+        ..writeAsBytesSync(tar);
+    });
+
     test('long file name', () {
       final file = File('test/_data/tar/x.tar');
       final bytes = file.readAsBytesSync();
