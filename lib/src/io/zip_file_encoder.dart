@@ -133,6 +133,24 @@ class ZipFileEncoder {
     }
   }
 
+  void addFileSync(File file, [String? filename, int? level = gzip])
+  {
+    final fileStream = InputFileStream(file.path);
+    final archiveFile =
+    ArchiveFile.stream(filename ?? path.basename(file.path), fileStream);
+
+    if (level == store) {
+      archiveFile.compression = CompressionType.none;
+    }
+
+    archiveFile.lastModTime =
+    (file.lastModifiedSync()).millisecondsSinceEpoch ~/ 1000;
+
+    archiveFile.mode = (file.statSync()).mode;
+
+    _encoder.add(archiveFile);
+  }
+
   Future<void> addFile(File file, [String? filename, int? level = gzip]) async {
     final fileStream = InputFileStream(file.path);
     final archiveFile =
