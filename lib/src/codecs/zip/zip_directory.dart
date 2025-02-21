@@ -140,7 +140,7 @@ class ZipDirectory {
   }
 
   int _findSignature(InputStream input) {
-    if (input.length < 4) {
+    if (input.length <= 4) {
       return -1;
     }
     // The directory and archive contents are written to the end of the zip
