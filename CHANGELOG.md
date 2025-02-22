@@ -1,3 +1,9 @@
+## 4.0.3 - February 21, 2025
+
+- Fix potential infinite loop when parsing zip headers.
+- Update conditional imports to be compatible with WASM.
+- Add addFileSync to ZipFileEncoder for synchronous call to addFile.
+
 ## 4.0.2 - December 19, 2024
 
 - Reduce SDK min version to 3.0.
