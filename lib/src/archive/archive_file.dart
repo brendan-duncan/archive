@@ -4,7 +4,6 @@ import 'dart:typed_data';
 import '../util/file_content.dart';
 import '../util/input_stream.dart';
 import '../util/output_stream.dart';
-import 'compression_type.dart';
 
 /// A callback function called when archive entries are read from or written
 /// to archive files like zip or tar.
@@ -51,9 +50,6 @@ class ArchiveFile {
   FileContent? _content;
   int size = 0;
 
-  /// The type of compression the file content is compressed with.
-  CompressionType compression = CompressionType.deflate;
-
   /// If false, the file represents a directory.
   bool isFile = true;
 
@@ -90,16 +86,14 @@ class ArchiveFile {
   }
 
   /// A file that gets its content from the given [stream].
-  ArchiveFile.stream(this.name, InputStream stream,
-      {this.compression = CompressionType.deflate})
+  ArchiveFile.stream(this.name, InputStream stream)
       : mode = 0x1a4 {
     size = stream.length;
     _rawContent = FileContentStream(stream);
   }
 
   /// A file that gets its content from the given [file].
-  ArchiveFile.file(this.name, this.size, FileContent file,
-      {this.compression = CompressionType.deflate})
+  ArchiveFile.file(this.name, this.size, FileContent file)
       : mode = 0x1a4 {
     _rawContent = file;
   }

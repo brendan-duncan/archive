@@ -19,7 +19,6 @@ void main() async {
     print('NUMBER OF FILES ${archive.length}');
     print(archive[0].name);
     print(archive[0].size);
-    print(archive[0].compression);
     final decoded = archive[0].readBytes();
     print(String.fromCharCodes(decoded!));
   }
