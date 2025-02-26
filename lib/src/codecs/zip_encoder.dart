@@ -181,7 +181,7 @@ class ZipEncoder {
   }
 
   void add(ArchiveFile entry,
-      {bool autoClose = true, ArchiveCallback? callback}) {
+      {bool autoClose = true, ArchiveCallback? callback, int? level}) {
     final fileData = _ZipFileData();
     _data.files.add(fileData);
 
@@ -244,7 +244,7 @@ class ZipEncoder {
         final output = OutputMemoryStream();
         platformZLibEncoder.encodeStream(
             content!.getStream(decompress: false), output,
-            level: _data.level ?? 6, raw: true);
+            level: level ?? _data.level ?? 6, raw: true);
         compressedData = InputMemoryStream(output.getBytes());
       }
     }

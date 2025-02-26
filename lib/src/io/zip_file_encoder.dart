@@ -133,7 +133,7 @@ class ZipFileEncoder {
     }
   }
 
-  void addFileSync(File file, [String? filename, int? level = gzip]) {
+  void addFileSync(File file, [String? filename, int? level]) {
     final fileStream = InputFileStream(file.path);
     final archiveFile =
         ArchiveFile.stream(filename ?? path.basename(file.path), fileStream);
@@ -147,10 +147,10 @@ class ZipFileEncoder {
 
     archiveFile.mode = (file.statSync()).mode;
 
-    _encoder.add(archiveFile);
+    _encoder.add(archiveFile, level: level);
   }
 
-  Future<void> addFile(File file, [String? filename, int? level = gzip]) async {
+  Future<void> addFile(File file, [String? filename, int? level]) async {
     final fileStream = InputFileStream(file.path);
     final archiveFile =
         ArchiveFile.stream(filename ?? path.basename(file.path), fileStream);
@@ -164,7 +164,7 @@ class ZipFileEncoder {
 
     archiveFile.mode = (await file.stat()).mode;
 
-    _encoder.add(archiveFile);
+    _encoder.add(archiveFile, level: level);
 
     await fileStream.close();
   }
