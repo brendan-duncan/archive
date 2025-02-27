@@ -500,6 +500,26 @@ void main() {
     expect(archive.length, equals(6));
   });
 
+  test('stream zip encode levels', () async {
+    final encoder = ZipFileEncoder();
+    encoder.create('$testOutputPath/example3.zip');
+    await encoder.addFile(File('test/_data/tarurls.txt'), "tarurls_0.txt", 0);
+    await encoder.addFile(File('test/_data/tarurls.txt'), "tarurls_1.txt", 1);
+    await encoder.addFile(File('test/_data/tarurls.txt'), "tarurls_6.txt", 6);
+    encoder.closeSync();
+
+    final zipDecoder = ZipDecoder();
+    final f = File('$testOutputPath/example3.zip');
+    final archive = zipDecoder.decodeBytes(f.readAsBytesSync(), verify: true);
+
+    // Ensure that higher compression levels produce smaller files
+    final f0 = archive.files.firstWhere((o) => o.name == "tarurls_0.txt");
+    final f1 = archive.files.firstWhere((o) => o.name == "tarurls_1.txt");
+    final f6 = archive.files.firstWhere((o) => o.name == "tarurls_6.txt");
+    assert(f1.rawContent!.length < f0.rawContent!.length);
+    assert(f6.rawContent!.length < f1.rawContent!.length);
+  });
+
   test('decode_empty_directory', () {
     final zip = ZipDecoder();
     final archive =
