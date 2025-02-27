@@ -3,7 +3,6 @@ import 'dart:io';
 import 'package:path/path.dart' as path;
 
 import '../archive/archive_file.dart';
-import '../archive/compression_type.dart';
 import '../codecs/zip_encoder.dart';
 import '../util/input_file_stream.dart';
 import '../util/output_file_stream.dart';
@@ -138,10 +137,6 @@ class ZipFileEncoder {
     final archiveFile =
         ArchiveFile.stream(filename ?? path.basename(file.path), fileStream);
 
-    if (level == store) {
-      archiveFile.compression = CompressionType.none;
-    }
-
     archiveFile.lastModTime =
         (file.lastModifiedSync()).millisecondsSinceEpoch ~/ 1000;
 
@@ -154,10 +149,6 @@ class ZipFileEncoder {
     final fileStream = InputFileStream(file.path);
     final archiveFile =
         ArchiveFile.stream(filename ?? path.basename(file.path), fileStream);
-
-    if (level == store) {
-      archiveFile.compression = CompressionType.none;
-    }
 
     archiveFile.lastModTime =
         (await file.lastModified()).millisecondsSinceEpoch ~/ 1000;

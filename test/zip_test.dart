@@ -308,8 +308,6 @@ void main() async {
       // Verify that the archive file is already compressed and will be
       // compressed when re-encoded.
       expect(decodedTestArchive.files.single.isCompressed, true);
-      expect(
-          decodedTestArchive.files.single.compression, CompressionType.deflate);
 
       final decodedTestArchiveBytes = ZipEncoder()
           .encode(decodedTestArchive, level: DeflateLevel.bestCompression);
@@ -428,7 +426,6 @@ void main() async {
       final bytes = Uint8List.fromList(bdata.codeUnits);
       final name = 'abc.txt';
       final afile = ArchiveFile.bytes(name, bytes);
-      afile.compression = CompressionType.none;
       archive.add(afile);
 
       final zipData = ZipEncoder().encodeBytes(archive);
