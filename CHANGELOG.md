@@ -1,3 +1,10 @@
+## 4.0.4 - February 28, 2025
+
+- Fix level argument for ZipEncoder.add method.
+- Fix ArchiveFile.compression to work for controlling compression method used encoding zips.
+- Add ArchiveFile.compression CompressionType.bzip2 compression mode support.
+- Add ArchiveFile.compressionLevel to work for controlling compression level used for encoding zips.
+
 ## 4.0.3 - February 21, 2025
 
 - Fix potential infinite loop when parsing zip headers.
