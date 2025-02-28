@@ -211,6 +211,39 @@ final zipTests = <dynamic>[
 
 void main() async {
   group('zip', () {
+    test('ArchiveFile compression level', () async {
+      final testArchive = Archive();
+      final list = Uint8List(1000);
+      for (var i = 0; i < list.length; i++) {
+        list[i] = i % 256;
+      }
+      final f = ArchiveFile.bytes('test', list);
+      final f2 = ArchiveFile.bytes('test2', list);
+      testArchive.addFile(f);
+      testArchive.addFile(f2);
+
+      final zipBytes = ZipEncoder().encode(testArchive);
+
+      f.compression = CompressionType.none;
+      final zipBytes2 = ZipEncoder().encode(testArchive);
+
+      // Using no compression should result in a larger zip
+      expect(zipBytes.length, lessThan(zipBytes2.length));
+
+      final archive2 = ZipDecoder().decodeBytes(zipBytes2);
+      // Verify the compression method decoded from the zip is preserved.
+      expect(archive2.files[0].compression, CompressionType.none);
+      expect(archive2.files[1].compression, CompressionType.deflate);
+
+      f.compression = CompressionType.deflate;
+      f.compressionLevel = 9;
+      f2.compressionLevel = 9;
+      final zipBytes3 = ZipEncoder().encode(testArchive);
+
+      // Higher compression level should result in a smaller zip
+      expect(zipBytes.length, greaterThan(zipBytes3.length));
+    });
+
     test('encode file stream', () async {
       final input = InputFileStream('test/_data/zip/android-javadoc.zip');
       final output = OutputFileStream('$testOutputPath/encode_file_stream.zip');

@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import '../util/file_content.dart';
 import '../util/input_stream.dart';
 import '../util/output_stream.dart';
+import './compression_type.dart';
 
 /// A callback function called when archive entries are read from or written
 /// to archive files like zip or tar.
@@ -46,8 +47,27 @@ class ArchiveFile {
   /// An optional comment for the archive entry.
   String? comment;
 
+  /// The type of compression to use when encoding an archive.
+  /// If this is not set, the default compression type will be used.
+  /// For a zip file, this is deflate compression.
+  /// This value is set when decoding a zip to the method of compression
+  /// the file was stored in the zip file. It does not indicate the current
+  /// compression of the file's content, it is only used for how the file
+  /// should be compressed when encoding a zip.
+  CompressionType? compression;
+
+  /// The level of compression to use when encoding an archive.
+  /// If this is not set, the default level of compression will be used.
+  /// This value is only used for encoding an archive, allowing you to control
+  /// the compression level of individual files in an archive. It is not set
+  /// when decoding an archive.
+  int? compressionLevel;
+
   FileContent? _rawContent;
   FileContent? _content;
+
+  /// The size of the file, in bytes. This is set when decoding an archive,
+  /// it isn't used for encoding.
   int size = 0;
 
   /// If false, the file represents a directory.
@@ -86,15 +106,13 @@ class ArchiveFile {
   }
 
   /// A file that gets its content from the given [stream].
-  ArchiveFile.stream(this.name, InputStream stream)
-      : mode = 0x1a4 {
+  ArchiveFile.stream(this.name, InputStream stream) : mode = 0x1a4 {
     size = stream.length;
     _rawContent = FileContentStream(stream);
   }
 
   /// A file that gets its content from the given [file].
-  ArchiveFile.file(this.name, this.size, FileContent file)
-      : mode = 0x1a4 {
+  ArchiveFile.file(this.name, this.size, FileContent file) : mode = 0x1a4 {
     _rawContent = file;
   }
 

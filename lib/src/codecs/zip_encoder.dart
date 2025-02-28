@@ -4,12 +4,14 @@ import 'dart:typed_data';
 
 import '../archive/archive.dart';
 import '../archive/archive_file.dart';
+import '../archive/compression_type.dart';
 import '../util/aes.dart';
 import '../util/crc32.dart';
 import '../util/input_memory_stream.dart';
 import '../util/input_stream.dart';
 import '../util/output_memory_stream.dart';
 import '../util/output_stream.dart';
+import 'bzip2_encoder.dart';
 import 'zip/zip_directory.dart';
 import 'zip/zip_file.dart';
 import 'zip/zip_file_header.dart';
@@ -24,7 +26,7 @@ class _ZipFileData {
   int compressedSize = 0;
   int uncompressedSize = 0;
   InputStream? compressedData;
-  bool compress = true;
+  CompressionType compression = CompressionType.deflate;
   String? comment = '';
   int position = 0;
   int mode = 0;
@@ -208,28 +210,27 @@ class ZipEncoder {
     InputStream? compressedData;
     int crc32 = 0;
 
-    // If the user want's to store the file without compressing it,
-    // make sure it's decompressed.
-    /*if (!file.compress) {
-      if (file.isCompressed) {
-        file.decompress();
-      }
-
-      compressedData = file.getContent();
-
-      if (file.crc32 != null) {
-        crc32 = file.crc32!;
-      } else {
-        crc32 = getFileCrc32(file);
-      }
-    } else*/
+    var compressionType = entry.compression ?? CompressionType.deflate;
 
     if (entry.isFile) {
       final file = entry;
       if (file.isCompressed) {
-        // If the file is already compressed, no sense in uncompressing it and
-        // compressing it again, just pass along the already compressed data.
-        compressedData = file.rawContent?.getStream(decompress: false);
+        if (file.compression == CompressionType.none) {
+          // If the user want's to store the file without compressing it,
+          // make sure it's decompressed.
+          compressedData = file.rawContent?.getStream(decompress: true);
+        } else {
+          // If the file is already compressed, no sense in uncompressing it and
+          // compressing it again, just pass along the already compressed data.
+          // TODO: handle explicit compression level or type.
+          // If the compression level is different, or the compression mode,
+          // then we'll need to decompress the file and recompress it.
+          compressedData = file.rawContent?.getStream(decompress: false);
+          if (file.rawContent is ZipFile) {
+            final zipFile = file.rawContent as ZipFile;
+            compressionType = zipFile.compressionMethod;
+          }
+        }
 
         if (file.crc32 != null) {
           crc32 = file.crc32!;
@@ -240,12 +241,24 @@ class ZipEncoder {
         // Otherwise we need to compress it now.
         crc32 = getFileCrc32(file);
 
-        final content = file.rawContent;
-        final output = OutputMemoryStream();
-        platformZLibEncoder.encodeStream(
-            content!.getStream(decompress: false), output,
-            level: level ?? _data.level ?? 6, raw: true);
-        compressedData = InputMemoryStream(output.getBytes());
+        if (compressionType == CompressionType.deflate) {
+          final content = file.rawContent;
+          final output = OutputMemoryStream();
+          platformZLibEncoder.encodeStream(
+              content!.getStream(decompress: false), output,
+              level: level ?? file.compressionLevel ?? _data.level ?? 6,
+              raw: true);
+          compressedData = InputMemoryStream(output.getBytes());
+        } else if (compressionType == CompressionType.bzip2) {
+          final content = file.rawContent;
+          final output = OutputMemoryStream();
+          final bzip2 = BZip2Encoder();
+          bzip2.encodeStream(content!.getStream(decompress: false), output);
+          compressedData = InputMemoryStream(output.getBytes());
+        } else {
+          // no compression
+          compressedData = file.rawContent?.getStream(decompress: false);
+        }
       }
     }
 
@@ -288,7 +301,7 @@ class ZipEncoder {
     fileData.compressedSize = dataLen;
     fileData.compressedData = compressedData;
     fileData.uncompressedSize = entry.size;
-    fileData.compress = true;
+    fileData.compression = compressionType;
     fileData.comment = entry.comment;
     fileData.position = _output!.length;
 
@@ -334,9 +347,11 @@ class ZipEncoder {
     // https://www.winzip.com/en/support/aes-encryption/#zip-format
     final out = OutputMemoryStream();
 
-    final compressionMethod = fileData.compress
+    final compressionMethod = fileData.compression == CompressionType.deflate
         ? ZipFile.zipCompressionDeflate
-        : ZipFile.zipCompressionStore;
+        : fileData.compression == CompressionType.bzip2
+            ? ZipFile.zipCompressionBZip2
+            : ZipFile.zipCompressionStore;
 
     out.writeUint16(_aesEncryptionExtraHeaderId); // AE-x encryption ID
     out.writeUint16(0x0007); // field length
@@ -367,9 +382,11 @@ class ZipEncoder {
 
     final compressionMethod = password != null
         ? ZipFile.zipCompressionAexEncryption
-        : fileData.compress
+        : fileData.compression == CompressionType.deflate
             ? ZipFile.zipCompressionDeflate
-            : ZipFile.zipCompressionStore;
+            : fileData.compression == CompressionType.bzip2
+                ? ZipFile.zipCompressionBZip2
+                : ZipFile.zipCompressionStore;
     final lastModFileTime = fileData.time;
     final lastModFileDate = fileData.date;
     final crc32 = fileData.crc32;
@@ -457,9 +474,11 @@ class ZipEncoder {
       }
       final compressionMethod = password != null
           ? ZipFile.zipCompressionAexEncryption
-          : fileData.compress
+          : fileData.compression == CompressionType.deflate
               ? ZipFile.zipCompressionDeflate
-              : ZipFile.zipCompressionStore;
+              : fileData.compression == CompressionType.bzip2
+                  ? ZipFile.zipCompressionBZip2
+                  : ZipFile.zipCompressionStore;
       final lastModifiedFileTime = fileData.time;
       final lastModifiedFileDate = fileData.date;
       final crc32 = fileData.crc32;

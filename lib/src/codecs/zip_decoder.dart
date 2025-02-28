@@ -58,6 +58,7 @@ class ZipDecoder {
         entry = isDirectory
             ? ArchiveFile.directory(filename)
             : ArchiveFile.file(filename, zf.uncompressedSize, zf);
+        entry.compression = zf.compressionMethod;
 
         archive.add(entry);
       }
@@ -70,6 +71,7 @@ class ZipDecoder {
         final fileType = entry.mode & 0xf000;
         if (fileType == 0xa000) {
           final f = ArchiveFile.file(filename, zf.uncompressedSize, zf);
+          f.compression = zf.compressionMethod;
           final bytes = f.readBytes();
           if (bytes != null) {
             entry.symbolicLink = utf8.decode(bytes);
