@@ -110,9 +110,7 @@ class OutputFileStream extends OutputStream {
     }
 
     if (_bufferPosition + length < _buffer.length) {
-      for (int i = 0, j = _bufferPosition; i < length; ++i, ++j) {
-        _buffer[j] = bytes[i];
-      }
+      _buffer.setRange(_bufferPosition, _bufferPosition + length, bytes);
       _bufferPosition += length;
       _length += length;
       return;
