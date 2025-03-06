@@ -129,6 +129,15 @@ class ArchiveFile {
       : mode = 0x1a4,
         isFile = false;
 
+  /// Helper constructor to define a file storing the given [data], which
+  /// remains uncompressed in the archive.
+  ArchiveFile.noCompress(this.name, this.size, List<int> data)
+      : mode = 0x1a4 {
+    _content = FileContentMemory(data);
+    _rawContent = FileContentMemory(data);
+    compression = CompressionType.none;
+  }
+
   /// Write the contents of the file to the given [output]. If [freeMemory]
   /// is true, then any storage of decompressed data will be freed after
   /// the write has completed.
