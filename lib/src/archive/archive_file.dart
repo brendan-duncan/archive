@@ -131,8 +131,7 @@ class ArchiveFile {
 
   /// Helper constructor to define a file storing the given [data], which
   /// remains uncompressed in the archive.
-  ArchiveFile.noCompress(this.name, this.size, List<int> data)
-      : mode = 0x1a4 {
+  ArchiveFile.noCompress(this.name, this.size, List<int> data) : mode = 0x1a4 {
     _content = FileContentMemory(data);
     _rawContent = FileContentMemory(data);
     compression = CompressionType.none;

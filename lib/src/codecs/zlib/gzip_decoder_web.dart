@@ -11,10 +11,10 @@ class GZipDecoderWeb extends ZLibDecoderBase {
   @override
   Uint8List decodeBytes(List<int> data,
           {bool verify = false, bool raw = false}) =>
-      platformGZipDecoder.decodeBytes(data, verify: verify);
+      platformGZipDecoder.decodeBytes(data, verify: verify, raw: raw);
 
   @override
   bool decodeStream(InputStream input, OutputStream output,
           {bool verify = false, bool raw = false}) =>
-      platformGZipDecoder.decodeStream(input, output, verify: verify);
+      platformGZipDecoder.decodeStream(input, output, verify: verify, raw: raw);
 }

@@ -1,11 +1,11 @@
 import 'dart:typed_data';
 
-//import '../../util/crc32.dart';
 import '../../util/input_memory_stream.dart';
 import '../../util/input_stream.dart';
 import '../../util/output_memory_stream.dart';
 import '../../util/output_stream.dart';
 import '_zlib_decoder_base.dart';
+import '_zlib_decoder_web.dart';
 import 'gzip_flag.dart';
 import 'inflate.dart';
 
@@ -19,7 +19,7 @@ class _GZipDecoder extends ZLibDecoderBase {
   Uint8List decodeBytes(List<int> data,
       {bool verify = false, bool raw = false}) {
     final output = OutputMemoryStream();
-    decodeStream(InputMemoryStream(data), output, verify: verify);
+    decodeStream(InputMemoryStream(data), output, verify: verify, raw: raw);
     return output.getBytes();
   }
 
@@ -27,8 +27,13 @@ class _GZipDecoder extends ZLibDecoderBase {
   bool decodeStream(InputStream input, OutputStream output,
       {bool verify = false, bool raw = false}) {
     while (!input.isEOS) {
+      final startPos = input.position;
       if (!_readHeader(input)) {
-        break;
+        // Fall back to ZLib if there is no GZip header. This is to make it
+        // consistent with dart's native library behavior.
+        input.position = startPos;
+        return platformZLibDecoder.decodeStream(input, output,
+            verify: verify, raw: raw);
       }
       Inflate.stream(input, output: output);
 
