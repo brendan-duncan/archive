@@ -42,6 +42,8 @@ class Archive extends IterableBase<ArchiveFile> {
     if (index != null) {
       _files.removeAt(index);
       _fileMap.remove(file.name);
+      // Indexes have changed, update the file map.
+      _updateFileMap();
     }
   }
 
@@ -51,6 +53,8 @@ class Archive extends IterableBase<ArchiveFile> {
     }
     _fileMap.remove(_files[index].name);
     _files.removeAt(index);
+    // Indexes have changed, update the file map.
+    _updateFileMap();
   }
 
   Future<void> clear() async {
@@ -124,4 +128,11 @@ class Archive extends IterableBase<ArchiveFile> {
 
   @override
   Iterator<ArchiveFile> get iterator => _files.iterator;
+
+  void _updateFileMap() {
+    _fileMap.clear();
+    for (var i = 0; i < _files.length; i++) {
+      _fileMap[_files[i].name] = i;
+    }
+  }
 }
