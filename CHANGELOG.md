@@ -1,3 +1,9 @@
+## 4.0.5 - March 23, 2025
+
+- Improve performance of OutputFileStream.
+- Add ArchiveFile.noCompress, which had been removed from the 3.x to 4.x update.
+- GZipDecoder should fall back to ZLib if there is no GZip header.
+
 ## 4.0.4 - February 28, 2025
 
 - Fix level argument for ZipEncoder.add method.
