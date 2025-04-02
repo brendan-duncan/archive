@@ -137,6 +137,16 @@ class ArchiveFile {
     compression = CompressionType.none;
   }
 
+  DateTime get lastModDateTime {
+    int year = ((lastModTime >> 25) & 0x7f) + 1980;
+    int month = ((lastModTime >> 21) & 0x0f);
+    int day = (lastModTime >> 16) & 0x1f;
+    int hours = (lastModTime >> 11) & 0x1f;
+    int minutes = (lastModTime >> 5) & 0x3f;
+    int seconds = (lastModTime << 1) & 0x3e;
+    return DateTime.utc(year, month, day, hours, minutes, seconds);
+  }
+
   /// Write the contents of the file to the given [output]. If [freeMemory]
   /// is true, then any storage of decompressed data will be freed after
   /// the write has completed.
