@@ -157,7 +157,6 @@ class ZipDirectory {
     final chunkSize = length < bufferSize ? length : bufferSize;
 
     var startPos = length - chunkSize;
-    int endPos() => startPos + chunkSize;
 
     while (startPos >= 0) {
       input.setPosition(startPos);
