@@ -47,7 +47,7 @@ class ZipDecoder {
           isDirectory = true;
         }
       } else {
-        isDirectory = zf.filename.endsWith('/');
+        isDirectory = zf.filename.endsWith('/') || zf.filename.endsWith('\\');
       }
 
       final filename = zf.filename;
