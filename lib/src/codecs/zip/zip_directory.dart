@@ -1,4 +1,5 @@
 import 'dart:math';
+import '../../util/input_memory_stream.dart';
 import '../../util/input_stream.dart';
 import 'zip_file_header.dart';
 
@@ -159,12 +160,18 @@ class ZipDirectory {
     int endPos() => startPos + chunkSize;
 
     while (startPos >= 0) {
-      for (var innerPos = startPos; innerPos < endPos(); innerPos++) {
-        input.setPosition(innerPos);
-        final sig = input.readUint32();
+      input.setPosition(startPos);
+      // Need to search for hte signature backwards from the end of the file,
+      // without incurring file io seeking performance issues, so we read a
+      // chunk of data starting from the end of the file and search backwards
+      // within that. This avoids signatures from nested zips being found.
+      final chunk = InputMemoryStream(input.readBytes(chunkSize).toUint8List());
+      for (var chunkPos = chunkSize - 4; chunkPos >= 0; --chunkPos) {
+        chunk.setPosition(chunkPos);
+        final sig = chunk.readUint32();
         if (sig == eocdSignature) {
           input.setPosition(pos);
-          return innerPos;
+          return startPos + chunkPos;
         }
       }
       if (startPos > 0 && startPos < chunkSize) {
