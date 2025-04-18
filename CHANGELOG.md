@@ -1,3 +1,9 @@
+## 4.0.6 - April 17, 2025
+
+- Fix zip decoding when the last file of the archive is also a zip.
+- Add lastModifiedDateTime to ArchiveFile
+- Fix Archive files and fileMap getting out of sync after calling removeFile
+
 ## 4.0.5 - March 23, 2025
 
 - Improve performance of OutputFileStream.
