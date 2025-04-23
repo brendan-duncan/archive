@@ -1,3 +1,7 @@
+## 4.0.7 - April 22, 2025
+
+- Change posix dependency to 6.0.2.
+
 ## 4.0.6 - April 17, 2025
 
 - Fix zip decoding when the last file of the archive is also a zip.
