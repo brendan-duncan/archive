@@ -62,7 +62,7 @@ class ZipFile extends FileContent {
   ZipAesHeader? _aesHeader;
   String? _password;
 
-  final _keys = <int>[0, 0, 0];
+  final _keys = <BigInt>[BigInt.from(0), BigInt.from(0), BigInt.from(0)];
 
   ZipFile(this.header);
 
@@ -258,23 +258,25 @@ class ZipFile extends FileContent {
   String toString() => filename;
 
   void _initKeys(String password) {
-    _keys[0] = 305419896;
-    _keys[1] = 591751049;
-    _keys[2] = 878082192;
+    _keys[0] = BigInt.from(305419896);
+    _keys[1] = BigInt.from(591751049);
+    _keys[2] = BigInt.from(878082192);
     for (final c in password.codeUnits) {
       _updateKeys(c);
     }
   }
 
   void _updateKeys(int c) {
-    _keys[0] = getCrc32Byte(_keys[0], c);
-    _keys[1] += _keys[0] & 0xff;
-    _keys[1] = _keys[1] * 134775813 + 1;
-    _keys[2] = getCrc32Byte(_keys[2], _keys[1] >> 24);
+    _keys[0] = BigInt.from(getCrc32Byte(_keys[0].toInt(), c));
+    _keys[1] += _keys[0] & BigInt.from(0xff);
+    _keys[1] = (_keys[1] * BigInt.from(134775813) + BigInt.from(1)) &
+        BigInt.from(0xffffffff);
+    _keys[2] = BigInt.from(getCrc32Byte(_keys[2].toInt(),
+        (_keys[1] >> 24).toInt()));
   }
 
   int _decryptByte() {
-    final temp = (_keys[2] & 0xffff) | 2;
+    final temp = (_keys[2] & BigInt.from(0xffff)).toInt() | 2;
     return ((temp * (temp ^ 1)) >> 8) & 0xff;
   }
 
