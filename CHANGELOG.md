@@ -1,3 +1,8 @@
+## 4.0.8 - May 31, 2025
+
+- Remove dependency to crypto package
+- Removed Adler32 and Crc32 classes
+
 ## 4.0.7 - April 22, 2025
 
 - Change posix dependency to 6.0.2.

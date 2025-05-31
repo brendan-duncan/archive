@@ -1,8 +1,8 @@
 import 'dart:typed_data';
-import 'package:crypto/crypto.dart';
 
 import '../util/crc32.dart';
 import '../util/crc64.dart';
+import '../util/encryption.dart';
 import '../util/input_memory_stream.dart';
 import '../util/input_stream.dart';
 import '../util/output_memory_stream.dart';
@@ -148,7 +148,7 @@ class XZEncoder {
         output.writeUint64(getCrc64(data));
         break;
       case 0x0a: // SHA-256
-        output.writeBytes(sha256.convert(data).bytes);
+        output.writeBytes(SHA256Digest().process(data));
         break;
       default:
         throw 'Unknown check type $checkType';

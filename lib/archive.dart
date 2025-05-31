@@ -40,6 +40,7 @@ export 'src/util/archive_exception.dart';
 export 'src/util/byte_order.dart';
 export 'src/util/crc32.dart';
 export 'src/util/crc64.dart';
+export 'src/util/encryption.dart';
 export 'src/util/file_access.dart';
 export 'src/util/file_buffer.dart';
 export 'src/util/file_content.dart';

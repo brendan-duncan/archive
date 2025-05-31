@@ -1,6 +1,3 @@
-import 'dart:convert';
-
-import 'package:crypto/crypto.dart' as crypto;
 
 import 'input_stream.dart';
 
@@ -53,67 +50,4 @@ int getAdler32(List<int> array, [int adler = 1]) {
   }
 
   return (s2 << 16) | s1;
-}
-
-/// A class to compute Adler-32 checksums.
-class Adler32 extends crypto.Hash {
-  int _hash = 1;
-
-  /// Get the value of the hash directly. This returns the same value as
-  /// [close].
-  int get hash => _hash;
-
-  @override
-  int get blockSize => 4;
-
-  Adler32();
-
-  Adler32 newInstance() => Adler32();
-
-  @override
-  ByteConversionSink startChunkedConversion(Sink<crypto.Digest> sink) =>
-      _Adler32Sink(sink);
-
-  void add(List<int> data) {
-    _hash = getAdler32(data, _hash);
-  }
-
-  List<int> close() => [
-        ((_hash >> 24) & 0xff),
-        ((_hash >> 16) & 0xff),
-        ((_hash >> 8) & 0xff),
-        (_hash & 0xff)
-      ];
-}
-
-// A [ByteConversionSink] that computes Adler-32 checksums.
-class _Adler32Sink extends ByteConversionSinkBase {
-  final Sink<crypto.Digest> _inner;
-
-  var _hash = 1;
-
-  // Whether [close] has been called.
-  var _isClosed = false;
-
-  _Adler32Sink(this._inner);
-
-  @override
-  void add(List<int> data) {
-    if (!_isClosed) {
-      _hash = getAdler32(data, _hash);
-    }
-  }
-
-  @override
-  void close() {
-    if (_isClosed) return;
-    _isClosed = true;
-
-    _inner.add(crypto.Digest([
-      ((_hash >> 24) & 0xff),
-      ((_hash >> 16) & 0xff),
-      ((_hash >> 8) & 0xff),
-      (_hash & 0xff)
-    ]));
-  }
 }
