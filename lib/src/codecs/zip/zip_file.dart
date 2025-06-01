@@ -271,8 +271,8 @@ class ZipFile extends FileContent {
     _keys[1] += _keys[0] & BigInt.from(0xff);
     _keys[1] = (_keys[1] * BigInt.from(134775813) + BigInt.from(1)) &
         BigInt.from(0xffffffff);
-    _keys[2] = BigInt.from(getCrc32Byte(_keys[2].toInt(),
-        (_keys[1] >> 24).toInt()));
+    _keys[2] =
+        BigInt.from(getCrc32Byte(_keys[2].toInt(), (_keys[1] >> 24).toInt()));
   }
 
   int _decryptByte() {

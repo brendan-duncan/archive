@@ -1,4 +1,3 @@
-
 import 'input_stream.dart';
 
 int getAdler32Stream(InputStream stream, [int adler = 1]) {
