@@ -144,6 +144,14 @@ Future<void> extractArchiveToDisk(Archive archive, String outputPath,
   }
 }
 
+// a utility function to get the extension of the input file. Separated out
+// so it can be tested independently.
+String getInputExtension(String inputPath) {
+  // get the extension of the input file with up to 2 components
+  // e.g. for file.tar.gz, it will return '.tar.gz'
+  return path.extension(inputPath, 2).toLowerCase();
+}
+
 Future<void> extractFileToDisk(String inputPath, String outputPath,
     {String? password, int? bufferSize, ArchiveCallback? callback}) async {
   Directory? tempDir;
@@ -151,7 +159,21 @@ Future<void> extractFileToDisk(String inputPath, String outputPath,
 
   var posixSupported = posix.isPosixSupported();
 
-  if (inputPath.endsWith('tar.gz') || inputPath.endsWith('tgz')) {
+  const String extensionMsg =
+      '.tar.gz, .tgz, .tar.bz2, .tbz, .tar.xz, .txz, .tar or .zip';
+
+  // get the extension of the input file with up to 2 components
+  // e.g. for file.tar.gz, it will return '.tar.gz'
+  final archiveExt = getInputExtension(archivePath);
+  if (archiveExt.isEmpty) {
+    throw ArgumentError.value(
+      inputPath,
+      'inputPath',
+      'No file extension detected, must end with $extensionMsg',
+    );
+  }
+
+  if (archiveExt == '.tar.gz' || archiveExt == '.tgz') {
     tempDir = Directory.systemTemp.createTempSync('dart_archive');
     archivePath = path.join(tempDir.path, 'temp.tar');
     final input = InputFileStream(inputPath);
@@ -159,7 +181,7 @@ Future<void> extractFileToDisk(String inputPath, String outputPath,
     GZipDecoder().decodeStream(input, output);
     await input.close();
     await output.close();
-  } else if (inputPath.endsWith('tar.bz2') || inputPath.endsWith('tbz')) {
+  } else if (archiveExt == '.tar.bz2' || archiveExt == '.tbz') {
     tempDir = Directory.systemTemp.createTempSync('dart_archive');
     archivePath = path.join(tempDir.path, 'temp.tar');
     final input = InputFileStream(inputPath);
@@ -167,7 +189,7 @@ Future<void> extractFileToDisk(String inputPath, String outputPath,
     BZip2Decoder().decodeStream(input, output);
     await input.close();
     await output.close();
-  } else if (inputPath.endsWith('tar.xz') || inputPath.endsWith('txz')) {
+  } else if (archiveExt == '.tar.xz' || archiveExt == '.txz') {
     tempDir = Directory.systemTemp.createTempSync('dart_archive');
     archivePath = path.join(tempDir.path, 'temp.tar');
     final input = InputFileStream(inputPath);
@@ -180,18 +202,17 @@ Future<void> extractFileToDisk(String inputPath, String outputPath,
   InputStream? toClose;
 
   Archive archive;
-  if (archivePath.endsWith('tar')) {
+  if (archiveExt == '.tar') {
     final input = InputFileStream(archivePath);
     archive = TarDecoder().decodeStream(input, callback: callback);
     toClose = input;
-  } else if (archivePath.endsWith('zip')) {
+  } else if (archiveExt == '.zip') {
     final input = InputFileStream(archivePath);
     archive = ZipDecoder()
         .decodeStream(input, password: password, callback: callback);
     toClose = input;
   } else {
-    throw ArgumentError.value(inputPath, 'inputPath',
-        'Must end tar.gz, tgz, tar.bz2, tbz, tar.xz, txz, tar or zip.');
+    throw ArgumentError.value(inputPath, 'inputPath', 'Must end $extensionMsg');
   }
 
   for (final file in archive) {

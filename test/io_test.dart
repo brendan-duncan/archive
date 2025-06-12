@@ -106,6 +106,22 @@ void _testInputOutputFileStream(
 }
 
 void main() {
+  test('inputExtension', () async {
+    expect(getInputExtension('test.zip') == '.zip', isTrue);
+    expect(getInputExtension('test.ZIP') == '.zip', isTrue);
+    expect(getInputExtension('test.tar') == '.tar', isTrue);
+    expect(getInputExtension('test.tar.gz') == '.tar.gz', isTrue);
+    expect(getInputExtension('test.tar.GZ') == '.tar.gz', isTrue);
+    expect(getInputExtension('test.tar.bz2') == '.tar.bz2', isTrue);
+    expect(getInputExtension('test.TAR.BZ2') == '.tar.bz2', isTrue);
+    expect(getInputExtension('test.tgz') == '.tgz', isTrue);
+    expect(getInputExtension('test.TgZ') == '.tgz', isTrue);
+    expect(getInputExtension('test.tar.xz') == '.tar.xz', isTrue);
+    expect(getInputExtension('test.TAR.xz') == '.tar.xz', isTrue);
+    expect(getInputExtension('test.txz') == '.txz', isTrue);
+    expect(getInputExtension('TEST.TXZ') == '.txz', isTrue);
+  });
+
   test('extractFileToDisk zip bzip2', () async {
     final inPath = 'test/_data/zip/zip_bzip2.zip';
     final outPath = '$testOutputPath/extractFileToDisk_zip_bzip2';
