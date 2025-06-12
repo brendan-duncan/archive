@@ -159,6 +159,9 @@ Future<void> extractFileToDisk(String inputPath, String outputPath,
 
   var posixSupported = posix.isPosixSupported();
 
+  const String extensionMsg =
+      '.tar.gz, .tgz, .tar.bz2, .tbz, .tar.xz, .txz, .tar or .zip';
+
   // get the extension of the input file with up to 2 components
   // e.g. for file.tar.gz, it will return '.tar.gz'
   final archiveExt = getInputExtension(archivePath);
@@ -166,7 +169,7 @@ Future<void> extractFileToDisk(String inputPath, String outputPath,
     throw ArgumentError.value(
       inputPath,
       'inputPath',
-      'No file extension detected, must end with .tar.gz, .tgz, .tar.bz2, .tbz, .tar.xz, .txz, .tar or .zip',
+      'No file extension detected, must end with $extensionMsg',
     );
   }
 
@@ -209,8 +212,7 @@ Future<void> extractFileToDisk(String inputPath, String outputPath,
         .decodeStream(input, password: password, callback: callback);
     toClose = input;
   } else {
-    throw ArgumentError.value(inputPath, 'inputPath',
-        'Must end tar.gz, tgz, tar.bz2, tbz, tar.xz, txz, tar or zip.');
+    throw ArgumentError.value(inputPath, 'inputPath', 'Must end $extensionMsg');
   }
 
   for (final file in archive) {
