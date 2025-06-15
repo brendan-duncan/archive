@@ -90,6 +90,48 @@ class ZipFileEncoder {
     _encoder.startEncode(_output, level: level, modified: modified);
   }
 
+  void addDirectorySync(Directory dir,
+      {bool includeDirName = true,
+      int? level,
+      bool followLinks = true,
+      void Function(double)? onProgress,
+      ZipFileProgress? filter}) {
+    final dirName = path.basename(dir.path);
+    final files = dir.listSync(recursive: true, followLinks: followLinks);
+    final amount = files.length;
+    var current = 0;
+    for (final file in files) {
+      final progress = ++current / amount;
+      if (filter != null) {
+        final operation = filter(file, progress);
+        if (operation == ZipFileOperation.cancel) {
+          break;
+        }
+        if (operation == ZipFileOperation.skip) {
+          continue;
+        }
+      }
+      if (file is Directory) {
+        var filename = path.relative(file.path, from: dir.path);
+        filename = includeDirName ? '$dirName/$filename' : filename;
+        final af = ArchiveFile.directory(filename);
+        final stat = file.statSync();
+        af.mode = stat.mode;
+        af.lastModTime = stat.modified.millisecondsSinceEpoch ~/ 1000;
+        _encoder.add(af);
+      } else if (file is File) {
+        final dirName = path.basename(dir.path);
+        final relPath = path.relative(file.path, from: dir.path);
+        addFileSync(
+          file,
+          includeDirName ? '$dirName/$relPath' : relPath,
+          level,
+        );
+        onProgress?.call(progress);
+      }
+    }
+  }
+
   Future<void> addDirectory(Directory dir,
       {bool includeDirName = true,
       int? level,

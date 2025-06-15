@@ -502,16 +502,30 @@ void main() {
     await encoder.close();
   });
 
-  test('stream zip encode', () async {
+  test('stream zip encode async', () async {
     final encoder = ZipFileEncoder();
     encoder.create('$testOutputPath/example2.zip');
     await encoder.addDirectory(Directory('test/_data/test2'));
     await encoder.addFile(File('test/_data/cat.jpg'));
     await encoder.addFile(File('test/_data/tarurls.txt'));
-    encoder.closeSync();
+    await encoder.close();
 
     final zipDecoder = ZipDecoder();
     final f = File('$testOutputPath/example2.zip');
+    final archive = zipDecoder.decodeBytes(f.readAsBytesSync(), verify: true);
+    expect(archive.length, equals(6));
+  });
+
+  test('stream zip encode sync', () {
+    final encoder = ZipFileEncoder();
+    encoder.create('$testOutputPath/example2_sync.zip');
+    encoder.addDirectorySync(Directory('test/_data/test2'));
+    encoder.addFileSync(File('test/_data/cat.jpg'));
+    encoder.addFileSync(File('test/_data/tarurls.txt'));
+    encoder.closeSync();
+
+    final zipDecoder = ZipDecoder();
+    final f = File('$testOutputPath/example2_sync.zip');
     final archive = zipDecoder.decodeBytes(f.readAsBytesSync(), verify: true);
     expect(archive.length, equals(6));
   });
