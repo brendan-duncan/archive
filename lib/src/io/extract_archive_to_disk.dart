@@ -164,7 +164,7 @@ Future<void> extractFileToDisk(String inputPath, String outputPath,
 
   // get the extension of the input file with up to 2 components
   // e.g. for file.tar.gz, it will return '.tar.gz'
-  final archiveExt = getInputExtension(archivePath);
+  var archiveExt = getInputExtension(archivePath);
   if (archiveExt.isEmpty) {
     throw ArgumentError.value(
       inputPath,
@@ -181,6 +181,7 @@ Future<void> extractFileToDisk(String inputPath, String outputPath,
     GZipDecoder().decodeStream(input, output);
     await input.close();
     await output.close();
+    archiveExt = '.tar';
   } else if (archiveExt == '.tar.bz2' || archiveExt == '.tbz') {
     tempDir = Directory.systemTemp.createTempSync('dart_archive');
     archivePath = path.join(tempDir.path, 'temp.tar');
@@ -189,6 +190,7 @@ Future<void> extractFileToDisk(String inputPath, String outputPath,
     BZip2Decoder().decodeStream(input, output);
     await input.close();
     await output.close();
+    archiveExt = '.tar';
   } else if (archiveExt == '.tar.xz' || archiveExt == '.txz') {
     tempDir = Directory.systemTemp.createTempSync('dart_archive');
     archivePath = path.join(tempDir.path, 'temp.tar');
@@ -197,6 +199,7 @@ Future<void> extractFileToDisk(String inputPath, String outputPath,
     XZDecoder().decodeStream(input, output);
     await input.close();
     await output.close();
+    archiveExt = '.tar';
   }
 
   InputStream? toClose;
