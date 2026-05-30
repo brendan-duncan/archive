@@ -75,6 +75,28 @@ class OutputMemoryStream extends OutputStream {
     length += stream.length;
   }
 
+  @override
+  void writeBackReference(int distance, int count) {
+    while (length + count > _buffer.length) {
+      _expandBuffer((length + count) - _buffer.length);
+    }
+    final src = length - distance;
+    if (distance >= count) {
+      // Non-overlapping copy: bulk move is safe and fast.
+      _buffer.setRange(length, length + count, _buffer, src);
+    } else {
+      // Overlapping copy (LZ77 run): copy forward byte-by-byte so the source
+      // bytes written earlier in this same call are repeated correctly.
+      var s = src;
+      var d = length;
+      final end = length + count;
+      while (d < end) {
+        _buffer[d++] = _buffer[s++];
+      }
+    }
+    length += count;
+  }
+
   /// Return the subset of the buffer in the range [start:end].
   ///
   /// If [start] or [end] are < 0 then it is relative to the end of the buffer.
@@ -97,14 +119,17 @@ class OutputMemoryStream extends OutputStream {
   }
 
   /// Grow the buffer to accommodate additional data.
+  ///
+  /// [required] is the number of bytes needed beyond the current buffer
+  /// capacity (the deficit). The buffer grows geometrically (doubling) to keep
+  /// amortized append cost O(1), but is always grown by at least [required] so
+  /// a single call satisfies the request.
   void _expandBuffer([int? required]) {
-    var blockSize = defaultBufferSize;
-    if (required != null) {
-      if (required > defaultBufferSize) {
-        blockSize = required;
-      }
+    final minLength = _buffer.length + (required ?? 1);
+    var newLength = _buffer.isEmpty ? defaultBufferSize : _buffer.length * 2;
+    if (newLength < minLength) {
+      newLength = minLength;
     }
-    final newLength = (_buffer.length + blockSize) * 2;
     final newBuffer = Uint8List(newLength)
       ..setRange(0, _buffer.length, _buffer);
     _buffer = newBuffer;

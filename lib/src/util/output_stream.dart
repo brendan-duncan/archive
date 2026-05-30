@@ -90,5 +90,25 @@ abstract class OutputStream {
 
   Uint8List subset(int start, [int? end]);
 
+  /// Append [count] bytes copied from [distance] bytes before the current end
+  /// of the stream (an LZ77 back-reference, as used by [Inflate]). Correctly
+  /// handles overlapping copies where [count] > [distance] (e.g. RLE-style
+  /// runs), reproducing the repeating pattern.
+  ///
+  /// This default implementation is expressed in terms of [subset] and
+  /// [writeBytes]; subclasses backed by a contiguous buffer should override it
+  /// with a direct in-buffer copy to avoid per-iteration view allocations.
+  void writeBackReference(int distance, int count) {
+    while (count > distance) {
+      writeBytes(subset(-distance));
+      count -= distance;
+    }
+    if (count == distance) {
+      writeBytes(subset(-distance));
+    } else {
+      writeBytes(subset(-distance, count - distance));
+    }
+  }
+
   Uint8List getBytes() => subset(0, length);
 }

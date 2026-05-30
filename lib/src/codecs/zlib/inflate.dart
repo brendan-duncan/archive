@@ -331,19 +331,7 @@ class Inflate {
           _distCodeTable[distCode] + _readBits(_distExtraTable[distCode]);
 
       // lz77 decode
-      while (codeLength > distance) {
-        final bytes = _output.subset(-distance);
-        _output.writeBytes(bytes);
-        codeLength -= distance;
-      }
-
-      if (codeLength == distance) {
-        final bytes = _output.subset(-distance);
-        _output.writeBytes(bytes);
-      } else {
-        final bytes = _output.subset(-distance, codeLength - distance);
-        _output.writeBytes(bytes);
-      }
+      _output.writeBackReference(distance, codeLength);
     }
 
     while (_bitBufferLen >= 8) {
