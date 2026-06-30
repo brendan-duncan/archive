@@ -307,6 +307,24 @@ void main() async {
       expect(archive.length, equals(0));
     });
 
+    test('normalizes backslash path separators', () async {
+      // Regression test for #411: Windows-style paths with backslashes must
+      // be normalized to forward slashes, as required by the zip format.
+      final archive = Archive();
+      archive.add(ArchiveFile('dir_name\\file_name', 3, [1, 2, 3]));
+      archive.add(ArchiveFile.directory('sub_dir\\nested'));
+
+      final encoded = ZipEncoder().encodeBytes(archive);
+      final decoded = ZipDecoder().decodeBytes(encoded);
+
+      final names = decoded.map((f) => f.name).toList();
+      for (final name in names) {
+        expect(name, isNot(contains('\\')));
+      }
+      expect(names, contains('dir_name/file_name'));
+      expect(names, contains('sub_dir/nested/'));
+    });
+
     test('apk', () async {
       final archive = Archive()
         ..addFile(

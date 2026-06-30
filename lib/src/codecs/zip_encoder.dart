@@ -194,10 +194,11 @@ class ZipEncoder {
     final lastModMS = entry.lastModTime * 1000;
     final lastModTime = DateTime.fromMillisecondsSinceEpoch(lastModMS);
 
-    fileData.name = entry.name;
-    if (!entry.isFile &&
-        !fileData.name.endsWith('/') &&
-        !fileData.name.endsWith('\\')) {
+    // The zip format requires forward slashes as the path separator
+    // (APPNOTE 4.4.17). Normalize backslashes that can creep in from
+    // Windows paths so the archive isn't corrupt on other platforms.
+    fileData.name = entry.name.replaceAll('\\', '/');
+    if (!entry.isFile && !fileData.name.endsWith('/')) {
       fileData.name += '/';
     }
     // If the archive modification time was overwritten, use that, otherwise
