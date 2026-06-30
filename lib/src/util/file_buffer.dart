@@ -108,7 +108,7 @@ class FileBuffer {
 
   /// Read a 16-bit unsigned int at the given [position] within the file.
   int readUint16(int position, [int? fileSize]) {
-    if (position >= (_fileSize - 2) || position < 0) {
+    if (position > (_fileSize - 2) || position < 0) {
       return 0;
     }
     if (position < _position || position >= (_position + (_bufferSize - 2))) {
@@ -125,7 +125,7 @@ class FileBuffer {
 
   /// Read a 24-bit unsigned int at the given [position] within the file.
   int readUint24(int position, [int? fileSize]) {
-    if (position >= (_fileSize - 3) || position < 0) {
+    if (position > (_fileSize - 3) || position < 0) {
       return 0;
     }
     if (position < _position || position >= (_position + (_bufferSize - 3))) {
@@ -143,7 +143,7 @@ class FileBuffer {
 
   /// Read a 32-bit unsigned int at the given [position] within the file.
   int readUint32(int position, [int? fileSize]) {
-    if (position >= (_fileSize - 4) || position < 0) {
+    if (position > (_fileSize - 4) || position < 0) {
       return 0;
     }
     if (position < _position || position >= (_position + (_bufferSize - 4))) {
@@ -162,7 +162,7 @@ class FileBuffer {
 
   /// Read a 64-bit unsigned int at the given [position] within the file.
   int readUint64(int position, [int? fileSize]) {
-    if (position >= (_fileSize - 8) || position < 0) {
+    if (position > (_fileSize - 8) || position < 0) {
       return 0;
     }
     if (position < _position || position >= (_position + (_bufferSize - 8))) {

@@ -89,6 +89,22 @@ void main() {
       }
     });
 
+    test('read multi-byte value at end of file', () async {
+      // Regression test for #410: reading a uint16/24/32 whose last byte is
+      // the final byte of the file used to incorrectly return 0.
+      final fs = InputFileStream(testPath, bufferSize: 2)..open();
+
+      fs.setPosition(testData.length - 2);
+      expect(fs.readUint16(), (119 << 8) | 118);
+
+      fs.setPosition(testData.length - 3);
+      expect(fs.readUint24(), 117 | (118 << 8) | (119 << 16));
+
+      fs.setPosition(testData.length - 4);
+      expect(fs.readUint32(),
+          116 | (117 << 8) | (118 << 16) | (119 << 24));
+    });
+
     test("clone", () async {
       final input = InputFileStream(testPath)..open();
       final input2 =
