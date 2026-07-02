@@ -367,6 +367,30 @@ void main() async {
       expect(verifyArchive.single.content, [1, 2, 3]);
     });
 
+    test('re-encode after reading content', () {
+      // https://github.com/brendan-duncan/archive/issues/374
+      // Reading a file's content caches the decompressed data, which should
+      // not cause the still-compressed rawContent to be compressed a second
+      // time when the archive is re-encoded.
+      final text = 'Hello World! ' * 10;
+      final archive = Archive()..addFile(ArchiveFile.string('test.txt', text));
+      final zipBytes = ZipEncoder().encode(archive);
+
+      final decodedArchive = ZipDecoder().decodeBytes(zipBytes);
+      final file = decodedArchive.findFile('test.txt')!;
+
+      // Trigger decompression, caching the decompressed content.
+      expect(utf8.decode(file.content), text);
+      expect(file.isCompressed, true);
+
+      final reEncodedZipBytes = ZipEncoder().encode(decodedArchive);
+
+      final verifyArchive =
+          ZipDecoder().decodeBytes(reEncodedZipBytes, verify: true);
+      final verifyFile = verifyArchive.findFile('test.txt')!;
+      expect(utf8.decode(verifyFile.content), text);
+    });
+
     test('decode encode', () async {
       final archive = ZipDecoder().decodeStream(
           InputMemoryStream(File('test/_data/test2.zip').readAsBytesSync()));

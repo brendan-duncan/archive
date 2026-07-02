@@ -239,6 +239,5 @@ class ArchiveFile {
   }
 
   /// True if the data stored by this file currently compressed
-  bool get isCompressed =>
-      _content == null && _rawContent != null && _rawContent!.isCompressed;
+  bool get isCompressed => _rawContent != null && _rawContent!.isCompressed;
 }
