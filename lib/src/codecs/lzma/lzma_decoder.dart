@@ -138,11 +138,17 @@ class LzmaDecoder {
   Uint8List decodeUncompressed(InputStream input, int uncompressedLength) {
     final inputData = input.readBytes(uncompressedLength);
 
-    var initialSize = _dictionary.length;
-    var finalSize = initialSize + uncompressedLength;
-    final newDictionary = Uint8List(finalSize);
-    newDictionary.setAll(0, _dictionary);
-    _dictionary = newDictionary;
+    final initialSize = _writePosition;
+    final finalSize = initialSize + uncompressedLength;
+    if (finalSize > _dictionary.length) {
+      var newLen = _dictionary.isEmpty ? finalSize : _dictionary.length;
+      while (newLen < finalSize) newLen *= 2;
+      final newDictionary = Uint8List(newLen);
+      if (_writePosition > 0) {
+        newDictionary.setRange(0, _writePosition, _dictionary);
+      }
+      _dictionary = newDictionary;
+    }
 
     final inputBytes = inputData.toUint8List();
     _dictionary.setAll(initialSize, inputBytes);
@@ -154,20 +160,26 @@ class LzmaDecoder {
   // Decode [input] which contains compressed LZMA data that unpacks to
   // [uncompressedLength] bytes.
   Uint8List decode(InputStream input, int uncompressedLength) {
-    _rc.input = input;
+    _rc.setBuffer(input.toUint8List());
     _rc.initialize();
 
     // Expand dictionary to fit new data.
-    var initialSize = _dictionary.length;
-    var finalSize = initialSize + uncompressedLength;
-    final newDictionary = Uint8List(finalSize);
-    newDictionary.setAll(0, _dictionary);
-    _dictionary = newDictionary;
+    final initialSize = _writePosition;
+    final finalSize = initialSize + uncompressedLength;
+    if (finalSize > _dictionary.length) {
+      var newLen = _dictionary.isEmpty ? finalSize : _dictionary.length;
+      while (newLen < finalSize) newLen *= 2;
+      final newDictionary = Uint8List(newLen);
+      if (_writePosition > 0) {
+        newDictionary.setRange(0, _writePosition, _dictionary);
+      }
+      _dictionary = newDictionary;
+    }
 
     // Decode packets (literal, match or repeat) until all the data has been
     // decoded.
+    final positionMask = (1 << _positionBits) - 1;
     while (_writePosition < finalSize) {
-      final positionMask = (1 << _positionBits) - 1;
       final posState = _writePosition & positionMask;
       if (_rc.readBit(_nonLiteralTables[state.index], posState) == 0) {
         _decodeLiteral();
@@ -179,7 +191,7 @@ class LzmaDecoder {
     }
 
     // Return new data added to the dictionary.
-    return _dictionary.sublist(initialSize);
+    return _dictionary.sublist(initialSize, _writePosition);
   }
 
   // Returns true if the previous packet seen was a literal.
@@ -214,7 +226,7 @@ class LzmaDecoder {
 
     int value;
     if (_prevPacketIsLiteral()) {
-      value = _rc.readBittree(table, 8);
+      value = _rc.decodeByte(table.table, 0);
     } else {
       // Get the last byte before the match that just occurred.
       prevByte = _dictionary[_writePosition - _distance0 - 1];
@@ -332,16 +344,20 @@ class LzmaDecoder {
   // Repeat decompressed data, starting [distance] bytes back from the end of
   // the buffer and copying [length] bytes.
   void _repeatData(int distance, int length) {
-    final start = _writePosition - distance - 1;
-    for (var i = 0; i < length; i++) {
-      if (start < 0 || _writePosition < 0) {
-        break;
+    final src = _writePosition - distance - 1;
+    if (distance >= length) {
+      _dictionary.setRange(
+          _writePosition, _writePosition + length,
+          _dictionary, src);
+      _writePosition += length;
+    } else {
+      final end = _writePosition + length;
+      var s = src;
+      var d = _writePosition;
+      while (d < end) {
+        _dictionary[d++] = _dictionary[s++];
       }
-      _dictionary[_writePosition] = _dictionary[start + i];
-      _writePosition++;
-      /*if (_writePosition >= _dictionary.length) {
-        break; // TODO: what is this?
-      }*/
+      _writePosition = end;
     }
   }
 }
