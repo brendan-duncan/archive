@@ -23,6 +23,10 @@ class LzmaDecoder {
   // Number of bits used from [_dictionary] for literal probabilities.
   int _literalContextBits = 3;
 
+  // Cached masks
+  int _contextShift = 5;     // 8 - _literalContextBits
+  int _literalPosMask = 0;   // (1 << _literalPositionBits) - 1
+
   // Bit probabilities for determining which LZMA packet is present.
   final _nonLiteralTables = <RangeDecoderTable>[];
   late final RangeDecoderTable _repeatTable;
@@ -88,6 +92,9 @@ class LzmaDecoder {
     _positionBits = positionBits ?? _positionBits;
     _literalPositionBits = literalPositionBits ?? _literalPositionBits;
     _literalContextBits = literalContextBits ?? _literalContextBits;
+
+    _contextShift = 8 - _literalContextBits;
+    _literalPosMask = (1 << _literalPositionBits) - 1;
 
     state = _LzmaState.litLit;
     _distance0 = 0;
@@ -217,10 +224,9 @@ class LzmaDecoder {
   // Decode a packet containing a literal byte.
   void _decodeLiteral() {
     // Get probabilities based on previous byte written.
-    var prevByte = _writePosition > 0 ? _dictionary[_writePosition - 1] : 0;
-    final low = prevByte >> (8 - _literalContextBits);
-    final positionMask = (1 << _literalPositionBits) - 1;
-    final high = (_writePosition & positionMask) << _literalContextBits;
+    final prevByte = _writePosition > 0 ? _dictionary[_writePosition - 1] : 0;
+    final low = prevByte >> _contextShift;
+    final high = (_writePosition & _literalPosMask) << _literalContextBits;
     final hash = low + high;
     final table = _literalTables[hash];
 
@@ -228,28 +234,11 @@ class LzmaDecoder {
     if (_prevPacketIsLiteral()) {
       value = _rc.decodeByte(table.table, 0);
     } else {
-      // Get the last byte before the match that just occurred.
-      prevByte = _dictionary[_writePosition - _distance0 - 1];
-
-      value = 0;
-      var symbolPrefix = 1;
-      var matched = true;
-      final matchTable0 = _matchLiteralTables0[hash];
-      final matchTable1 = _matchLiteralTables1[hash];
-      for (var i = 0; i < 8; i++) {
-        int b;
-        if (matched) {
-          final matchBit = (prevByte >> 7) & 0x1;
-          prevByte <<= 1;
-          b = _rc.readBit(
-              matchBit == 0 ? matchTable0 : matchTable1, symbolPrefix | value);
-          matched = b == matchBit;
-        } else {
-          b = _rc.readBit(table, symbolPrefix | value);
-        }
-        value = (value << 1) | b;
-        symbolPrefix <<= 1;
-      }
+      value = _rc.decodeMatchedByte(
+          table.table, 0,
+          _matchLiteralTables0[hash].table,
+          _matchLiteralTables1[hash].table,
+          _dictionary[_writePosition - _distance0 - 1]);
     }
 
     // Add new byte to the output.
