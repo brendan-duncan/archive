@@ -82,14 +82,21 @@ class LzmaDecoder {
 
     reset();
   }
-
+  
   void trimDictionary(int maxSize) {
       final threshold = maxSize + (maxSize >> 2);
       if (_writePosition <= threshold) return;
   
-      final start = _writePosition - maxSize;
-      _dictionary.setRange(0, maxSize, _dictionary, start);
-      _writePosition = maxSize;
+      final alignBits = _positionBits > _literalPositionBits
+          ? _positionBits
+          : _literalPositionBits;
+      final posMask = (1 << alignBits) - 1;
+      final alignment = _writePosition & posMask;
+      final keepBytes = maxSize + alignment;
+  
+      final start = _writePosition - keepBytes;
+      _dictionary.setRange(0, keepBytes, _dictionary, start);
+      _writePosition = keepBytes;
   }
 
   // Reset the decoder.
