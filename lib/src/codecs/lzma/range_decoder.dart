@@ -29,9 +29,6 @@ class RangeDecoderTable {
 
 /// Implements the LZMA range decoder for [LZMADecoder].
 class RangeDecoder {
-  // Data being read from.
-  late InputStream _input;
-
   // Mask showing the current bits in [code].
   var range = 0xffffffff;
 
