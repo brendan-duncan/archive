@@ -1,7 +1,5 @@
 import 'dart:typed_data';
 
-import '../../util/input_stream.dart';
-
 // Number of bits used for probabilities.
 const _probabilityBitCount = 11;
 
@@ -98,6 +96,52 @@ class RangeDecoder {
         code -= bound;
         probs[baseIndex + symbol] -= probs[baseIndex + symbol] >> 5;
         symbol = (symbol << 1) | 1;
+      }
+    }
+    return symbol & 0xff;
+  }
+
+
+  int decodeMatchedByte(Uint16List probs, int baseIndex,
+      Uint16List matchProbs0, Uint16List matchProbs1,
+      int matchByte) {
+    var symbol = 1;
+    var matched = true;
+    for (var i = 7; i >= 0; i--) {
+      if (range < 0x1000000) {
+        range <<= 8;
+        code = (code << 8) | _buffer[_bufferPos++];
+      }
+      if (matched) {
+        final matchBit = (matchByte >> i) & 1;
+        final t = matchBit == 0 ? matchProbs0 : matchProbs1;
+        final idx = symbol;
+        final bound = (range >> 11) * t[idx];
+        if (code < bound) {
+          range = bound;
+          t[idx] += (2048 - t[idx]) >> 5;
+          symbol = symbol << 1;
+          matched = matchBit == 0;
+        } else {
+          range -= bound;
+          code -= bound;
+          t[idx] -= t[idx] >> 5;
+          symbol = (symbol << 1) | 1;
+          matched = matchBit == 1;
+        }
+      } else {
+        final bound = (range >> 11) * probs[baseIndex + symbol];
+        if (code < bound) {
+          range = bound;
+          probs[baseIndex + symbol] +=
+              (2048 - probs[baseIndex + symbol]) >> 5;
+          symbol = symbol << 1;
+        } else {
+          range -= bound;
+          code -= bound;
+          probs[baseIndex + symbol] -= probs[baseIndex + symbol] >> 5;
+          symbol = (symbol << 1) | 1;
+        }
       }
     }
     return symbol & 0xff;
