@@ -287,8 +287,11 @@ class _XZStreamDecoder {
           decoder.reset(resetDictionary: true);
           return true;
         } else if (control == 1) {
+          decoder.reset(resetDictionary: true);
           final length = (input.readByte() << 8 | input.readByte()) + 1;
-          output.writeBytes(input.readBytes(length).toUint8List());
+          output.writeBytes(
+              decoder.decodeUncompressed(input.readBytes(length), length));
+          decoder.trimDictionary(dictionarySize);
         } else if (control == 2) {
           // uncompressed data
           final length = (input.readByte() << 8 | input.readByte()) + 1;
