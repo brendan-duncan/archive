@@ -165,7 +165,9 @@ class LzmaDecoder {
     final finalSize = initialSize + uncompressedLength;
     if (finalSize > _dictionary.length) {
       var newLen = _dictionary.isEmpty ? finalSize : _dictionary.length;
-      while (newLen < finalSize) newLen *= 2;
+      while (newLen < finalSize) {
+        newLen *= 2;
+      }
       final newDictionary = Uint8List(newLen);
       if (_writePosition > 0) {
         newDictionary.setRange(0, _writePosition, _dictionary);
@@ -191,7 +193,9 @@ class LzmaDecoder {
     final finalSize = initialSize + uncompressedLength;
     if (finalSize > _dictionary.length) {
       var newLen = _dictionary.isEmpty ? finalSize : _dictionary.length;
-      while (newLen < finalSize) newLen *= 2;
+      while (newLen < finalSize) {
+        newLen *= 2;
+      }
       final newDictionary = Uint8List(newLen);
       if (_writePosition > 0) {
         newDictionary.setRange(0, _writePosition, _dictionary);
