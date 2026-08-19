@@ -1,3 +1,10 @@
+## 4.1.0 - August 18, 2026
+
+- Fix: RangeError when parsing ZIP extra fields with trailing bytes.
+- Optimize LZ77 decode
+- Fix: issue with file_buffer preventing last value
+- Fix: invalid path separator in zip content compression
+
 ## 4.0.9 - February 17, 2026
 
 - Fix extractFileToDisk file extension handling, where foo.bar.zip would fail.
