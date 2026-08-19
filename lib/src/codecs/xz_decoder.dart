@@ -294,6 +294,7 @@ class _XZStreamDecoder {
           final length = (input.readByte() << 8 | input.readByte()) + 1;
           output.writeBytes(
               decoder.decodeUncompressed(input.readBytes(length), length));
+          decoder.trimDictionary(dictionarySize);
         } else {
           return false;
           //throw ArchiveException('Unknown LZMA2 control code $control');
@@ -331,6 +332,7 @@ class _XZStreamDecoder {
 
         output.writeBytes(decoder.decode(
             input.readBytes(compressedLength), uncompressedLength));
+        decoder.trimDictionary(dictionarySize);
       }
     }
 
