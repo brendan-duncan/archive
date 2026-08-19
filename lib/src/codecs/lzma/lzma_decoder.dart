@@ -83,6 +83,13 @@ class LzmaDecoder {
     reset();
   }
 
+  void trimDictionary(int maxSize) {
+    if (_writePosition <= maxSize) return;
+    final start = _writePosition - maxSize;
+    _dictionary = _dictionary.sublist(start, _writePosition);
+    _writePosition = maxSize;
+  }
+
   // Reset the decoder.
   void reset(
       {int? positionBits,
