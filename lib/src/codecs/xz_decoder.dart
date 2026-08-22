@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import '../util/crc32.dart';
+import '../util/crc64.dart';
 import '../util/input_memory_stream.dart';
 import '../util/input_stream.dart';
 import '../util/output_memory_stream.dart';
@@ -121,6 +122,7 @@ class _XZStreamDecoder {
 
     final filters = <int>[];
     var dictionarySize = 0;
+
     for (var i = 0; i < nFilters; i++) {
       final id = _readMultibyteInteger(header);
       final propertiesLength = _readMultibyteInteger(header);
@@ -150,6 +152,12 @@ class _XZStreamDecoder {
         filters.add(0);
       }
     }
+
+    if (dictionarySize > 0 && dictionarySize < 0x40000000) {
+      decoder.dictionaryCap =
+          dictionarySize + (dictionarySize >> 2) + (2 << 20) + 16;
+    }
+
     if (_readPadding(header) < 0) {
       return false;
     }
@@ -199,13 +207,10 @@ class _XZStreamDecoder {
       case 0: // none
         break;
       case 0x1: // CRC32
-        /*final expectedCrc =*/ input.readUint32();
-        /*if (verify) {
-          final actualCrc = getCrc32(data.toBytes().sublist(startDataLength));
-          if (actualCrc != expectedCrc) {
-            throw ArchiveException('CRC32 check failed');
-          }
-        }*/
+        final int expectedCrc = input.readUint32();
+        if (verify && getCrc32(output.subset(startDataLength)) != expectedCrc) {
+          return false;
+        }
         break;
       case 0x2:
       case 0x3:
@@ -215,13 +220,12 @@ class _XZStreamDecoder {
         }*/
         break;
       case 0x4: // CRC64
-        /*final expectedCrc =*/ input.readUint64();
-        /*if (verify && isCrc64Supported()) {
-          final actualCrc = getCrc64(data.toBytes().sublist(startDataLength));
-          if (actualCrc != expectedCrc) {
-            throw ArchiveException('CRC64 check failed');
-          }
-        }*/
+        final int expectedCrc = input.readUint64();
+        if (verify &&
+            isCrc64Supported() &&
+            getCrc64(output.subset(startDataLength)) != expectedCrc) {
+          return false;
+        }
         break;
       case 0x5:
       case 0x6:
