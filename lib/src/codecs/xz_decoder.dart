@@ -64,7 +64,8 @@ class _XZStreamDecoder {
       }
     }
 
-    return true;
+    // Valid XZ always goes trough _readStreamFooter
+    return false;
   }
 
   // Reads an XZ steam header from [input].
@@ -168,7 +169,7 @@ class _XZStreamDecoder {
     final startPosition = input.position;
     final startDataLength = output.length;
 
-    _readLZMA2(input, output, dictionarySize);
+    if (!_readLZMA2(input, output, dictionarySize)) return false;
 
     final actualCompressedLength = input.position - startPosition;
     final actualUncompressedLength = output.length - startDataLength;
@@ -339,7 +340,8 @@ class _XZStreamDecoder {
       }
     }
 
-    return true;
+    // 00000000 - end marker, if not reached - there's an issue with file
+    return false;
   }
 
   // Reads an XZ stream index from [input].
