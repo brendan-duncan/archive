@@ -161,7 +161,9 @@ class _XZStreamDecoder {
       //throw ArchiveException('Invalid block CRC checksum');
     }
 
-    if (filters.length != 2 && filters.first != 0x21) {
+    // We must abort if there is more than one filter   
+    // (length != 2) or if the filter is not LZMA2 (first != 0x21).
+    if (filters.length != 2 || filters.first != 0x21) {
       return false;
       //throw ArchiveException('Unsupported filters');
     }
@@ -411,8 +413,9 @@ class _XZStreamDecoder {
       //throw ArchiveException('Invalid stream footer CRC checksum');
     }
 
+    // The stream is invalid if at least one byte is corrupted.
     final magic = input.readBytes(2).toUint8List();
-    if (magic[0] != 89 /* 'Y' */ && magic[1] != 90 /* 'Z' */) {
+    if (magic[0] != 89 /* 'Y' */ || magic[1] != 90 /* 'Z' */) {
       return false;
       //throw ArchiveException('Invalid XZ stream footer signature');
     }
