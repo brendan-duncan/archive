@@ -61,6 +61,7 @@ class LzmaDecoder {
   // Decoded data, which is able to be copied.
   var _dictionary = Uint8List(0);
   var _writePosition = 0;
+  int dictionaryCap = 0;
 
   /// Creates an LZMA decoder.
   LzmaDecoder() {
@@ -168,6 +169,13 @@ class LzmaDecoder {
       while (newLen < finalSize) {
         newLen *= 2;
       }
+
+      if (dictionaryCap > 0 &&
+          newLen > dictionaryCap &&
+          dictionaryCap >= finalSize) {
+        newLen = dictionaryCap;
+      }
+
       final newDictionary = Uint8List(newLen);
       if (_writePosition > 0) {
         newDictionary.setRange(0, _writePosition, _dictionary);
@@ -196,6 +204,13 @@ class LzmaDecoder {
       while (newLen < finalSize) {
         newLen *= 2;
       }
+
+      if (dictionaryCap > 0 &&
+          newLen > dictionaryCap &&
+          dictionaryCap >= finalSize) {
+        newLen = dictionaryCap;
+      }
+
       final newDictionary = Uint8List(newLen);
       if (_writePosition > 0) {
         newDictionary.setRange(0, _writePosition, _dictionary);
