@@ -101,8 +101,7 @@ void main() {
       expect(fs.readUint24(), 117 | (118 << 8) | (119 << 16));
 
       fs.setPosition(testData.length - 4);
-      expect(fs.readUint32(),
-          116 | (117 << 8) | (118 << 16) | (119 << 24));
+      expect(fs.readUint32(), 116 | (117 << 8) | (118 << 16) | (119 << 24));
     });
 
     test("clone", () async {

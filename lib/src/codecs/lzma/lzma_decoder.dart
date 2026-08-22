@@ -24,8 +24,8 @@ class LzmaDecoder {
   int _literalContextBits = 3;
 
   // Cached masks
-  int _contextShift = 5;     // 8 - _literalContextBits
-  int _literalPosMask = 0;   // (1 << _literalPositionBits) - 1
+  int _contextShift = 5; // 8 - _literalContextBits
+  int _literalPosMask = 0; // (1 << _literalPositionBits) - 1
 
   // Bit probabilities for determining which LZMA packet is present.
   final _nonLiteralTables = <RangeDecoderTable>[];
@@ -83,21 +83,21 @@ class LzmaDecoder {
 
     reset();
   }
-  
+
   void trimDictionary(int maxSize) {
-      final threshold = maxSize + (maxSize >> 2);
-      if (_writePosition <= threshold) return;
-  
-      final alignBits = _positionBits > _literalPositionBits
-          ? _positionBits
-          : _literalPositionBits;
-      final posMask = (1 << alignBits) - 1;
-      final alignment = _writePosition & posMask;
-      final keepBytes = maxSize + alignment;
-  
-      final start = _writePosition - keepBytes;
-      _dictionary.setRange(0, keepBytes, _dictionary, start);
-      _writePosition = keepBytes;
+    final threshold = maxSize + (maxSize >> 2);
+    if (_writePosition <= threshold) return;
+
+    final alignBits = _positionBits > _literalPositionBits
+        ? _positionBits
+        : _literalPositionBits;
+    final posMask = (1 << alignBits) - 1;
+    final alignment = _writePosition & posMask;
+    final keepBytes = maxSize + alignment;
+
+    final start = _writePosition - keepBytes;
+    _dictionary.setRange(0, keepBytes, _dictionary, start);
+    _writePosition = keepBytes;
   }
 
   // Reset the decoder.
@@ -270,7 +270,8 @@ class LzmaDecoder {
       value = _rc.decodeByte(table.table, 0);
     } else {
       value = _rc.decodeMatchedByte(
-          table.table, 0,
+          table.table,
+          0,
           _matchLiteralTables0[hash].table,
           _matchLiteralTables1[hash].table,
           _dictionary[_writePosition - _distance0 - 1]);
@@ -371,8 +372,7 @@ class LzmaDecoder {
     final src = _writePosition - distance - 1;
     if (distance >= length) {
       _dictionary.setRange(
-          _writePosition, _writePosition + length,
-          _dictionary, src);
+          _writePosition, _writePosition + length, _dictionary, src);
       _writePosition += length;
     } else {
       final end = _writePosition + length;

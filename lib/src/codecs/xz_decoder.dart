@@ -169,7 +169,7 @@ class _XZStreamDecoder {
       //throw ArchiveException('Invalid block CRC checksum');
     }
 
-    // We must abort if there is more than one filter   
+    // We must abort if there is more than one filter
     // (length != 2) or if the filter is not LZMA2 (first != 0x21).
     if (filters.length != 2 || filters.first != 0x21) {
       return false;

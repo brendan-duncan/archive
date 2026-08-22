@@ -88,8 +88,7 @@ class RangeDecoder {
       final bound = (range >> 11) * probs[baseIndex + symbol];
       if (code < bound) {
         range = bound;
-        probs[baseIndex + symbol] +=
-            (2048 - probs[baseIndex + symbol]) >> 5;
+        probs[baseIndex + symbol] += (2048 - probs[baseIndex + symbol]) >> 5;
         symbol = symbol << 1;
       } else {
         range -= bound;
@@ -101,10 +100,8 @@ class RangeDecoder {
     return symbol & 0xff;
   }
 
-
-  int decodeMatchedByte(Uint16List probs, int baseIndex,
-      Uint16List matchProbs0, Uint16List matchProbs1,
-      int matchByte) {
+  int decodeMatchedByte(Uint16List probs, int baseIndex, Uint16List matchProbs0,
+      Uint16List matchProbs1, int matchByte) {
     var symbol = 1;
     var matched = true;
     for (var i = 7; i >= 0; i--) {
@@ -133,8 +130,7 @@ class RangeDecoder {
         final bound = (range >> 11) * probs[baseIndex + symbol];
         if (code < bound) {
           range = bound;
-          probs[baseIndex + symbol] +=
-              (2048 - probs[baseIndex + symbol]) >> 5;
+          probs[baseIndex + symbol] += (2048 - probs[baseIndex + symbol]) >> 5;
           symbol = symbol << 1;
         } else {
           range -= bound;
