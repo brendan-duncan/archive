@@ -1,7 +1,5 @@
 import 'dart:typed_data';
 
-import '../../util/input_stream.dart';
-
 // Number of bits used for probabilities.
 const _probabilityBitCount = 11;
 
@@ -29,19 +27,20 @@ class RangeDecoderTable {
 
 /// Implements the LZMA range decoder for [LZMADecoder].
 class RangeDecoder {
-  // Data being read from.
-  late InputStream _input;
-
   // Mask showing the current bits in [code].
   var range = 0xffffffff;
 
   // Current code being stored.
   var code = 0;
 
+  Uint8List _buffer = Uint8List(0);
+  int _bufferPos = 0;
+
   // Set the input being read from. Must be set before initializing or reading
   // bits.
-  set input(InputStream value) {
-    _input = value;
+  void setBuffer(Uint8List data) {
+    _buffer = data;
+    _bufferPos = 0;
   }
 
   void reset() {
@@ -52,33 +51,100 @@ class RangeDecoder {
   void initialize() {
     code = 0;
     range = 0xffffffff;
-    // Skip the first byte, then load four for the initial state.
-    _input.skip(1);
+    _bufferPos++;
     for (var i = 0; i < 4; i++) {
-      code = (code << 8 | _input.readByte());
+      code = (code << 8) | _buffer[_bufferPos++];
     }
   }
 
   // Read a single bit from the decoder, using the supplied [index] into a
   // probabilities [table].
   int readBit(RangeDecoderTable table, int index) {
-    _load();
-
+    if (range < 0x1000000) {
+      range <<= 8;
+      code = (code << 8) | _buffer[_bufferPos++];
+    }
     final p = table.table[index];
-    final bound = (range >> _probabilityBitCount) * p;
-    const moveBits = 5;
+    final bound = (range >> 11) * p;
     if (code < bound) {
       range = bound;
-      final oneMinusP = _probabilityOne - p;
-      final shifted = oneMinusP >> moveBits;
-      table.table[index] += shifted;
+      table.table[index] += (2048 - p) >> 5;
       return 0;
     } else {
       range -= bound;
       code -= bound;
-      table.table[index] -= p >> moveBits;
+      table.table[index] -= p >> 5;
       return 1;
     }
+  }
+
+  int decodeByte(Uint16List probs, int baseIndex) {
+    var symbol = 1;
+    for (var i = 0; i < 8; i++) {
+      if (range < 0x1000000) {
+        range <<= 8;
+        code = (code << 8) | _buffer[_bufferPos++];
+      }
+      final bound = (range >> 11) * probs[baseIndex + symbol];
+      if (code < bound) {
+        range = bound;
+        probs[baseIndex + symbol] +=
+            (2048 - probs[baseIndex + symbol]) >> 5;
+        symbol = symbol << 1;
+      } else {
+        range -= bound;
+        code -= bound;
+        probs[baseIndex + symbol] -= probs[baseIndex + symbol] >> 5;
+        symbol = (symbol << 1) | 1;
+      }
+    }
+    return symbol & 0xff;
+  }
+
+
+  int decodeMatchedByte(Uint16List probs, int baseIndex,
+      Uint16List matchProbs0, Uint16List matchProbs1,
+      int matchByte) {
+    var symbol = 1;
+    var matched = true;
+    for (var i = 7; i >= 0; i--) {
+      if (range < 0x1000000) {
+        range <<= 8;
+        code = (code << 8) | _buffer[_bufferPos++];
+      }
+      if (matched) {
+        final matchBit = (matchByte >> i) & 1;
+        final t = matchBit == 0 ? matchProbs0 : matchProbs1;
+        final idx = symbol;
+        final bound = (range >> 11) * t[idx];
+        if (code < bound) {
+          range = bound;
+          t[idx] += (2048 - t[idx]) >> 5;
+          symbol = symbol << 1;
+          matched = matchBit == 0;
+        } else {
+          range -= bound;
+          code -= bound;
+          t[idx] -= t[idx] >> 5;
+          symbol = (symbol << 1) | 1;
+          matched = matchBit == 1;
+        }
+      } else {
+        final bound = (range >> 11) * probs[baseIndex + symbol];
+        if (code < bound) {
+          range = bound;
+          probs[baseIndex + symbol] +=
+              (2048 - probs[baseIndex + symbol]) >> 5;
+          symbol = symbol << 1;
+        } else {
+          range -= bound;
+          code -= bound;
+          probs[baseIndex + symbol] -= probs[baseIndex + symbol] >> 5;
+          symbol = (symbol << 1) | 1;
+        }
+      }
+    }
+    return symbol & 0xff;
   }
 
   // Read a bittree (big endian) of [count] bits from the decoder.
@@ -111,7 +177,10 @@ class RangeDecoder {
   int readDirect(int count) {
     var value = 0;
     for (var i = 0; i < count; i++) {
-      _load();
+      if (range < 0x1000000) {
+        range <<= 8;
+        code = (code << 8) | _buffer[_bufferPos++];
+      }
       range >>= 1;
       code -= range;
       value <<= 1;
@@ -121,16 +190,6 @@ class RangeDecoder {
         value++;
       }
     }
-
     return value;
-  }
-
-  // Load a byte if we can fit it.
-  void _load() {
-    const topValue = 1 << 24;
-    if (range < topValue) {
-      range <<= 8;
-      code = (code << 8) | _input.readByte();
-    }
   }
 }

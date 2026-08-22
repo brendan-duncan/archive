@@ -1,19 +1,11 @@
-// Works around Dart treating 64 bit integers as signed when shifting.
-int shiftDown64(int value) {
-  if (value & 0x8000000000000000 == 0) {
-    return value >> 8;
-  }
-  return (value & 0x7fffffffffffffff) >> 8 | 0x0080000000000000;
-}
-
 bool isCrc64Supported_() => true;
 
 /// Get the CRC-64 checksum of the given array. You can append bytes to an
 /// already computed crc by specifying the previous [crc] value.
 int getCrc64_(List<int> array, [int crc = 0]) {
   crc ^= 0xffffffffffffffff;
-  for (var e in array) {
-    crc = _crc64Table[(crc & 0xff) ^ e] ^ shiftDown64(crc);
+  for (int i = 0; i < array.length; i++) {
+    crc = _crc64Table[(crc & 0xff) ^ array[i]] ^ (crc >>> 8);
   }
   return crc ^ 0xffffffffffffffff;
 }
