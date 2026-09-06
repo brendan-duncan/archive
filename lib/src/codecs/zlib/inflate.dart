@@ -329,6 +329,12 @@ class Inflate {
       }
       final distance =
           _distCodeTable[distCode] + _readBits(_distExtraTable[distCode]);
+      // A match can only reach back into what has been written. Further is
+      // damage, and would index behind the output, or with a distance of
+      // zero never finish
+      if (distance < 1 || distance > _output.length) {
+        return -1;
+      }
 
       // lz77 decode
       _output.writeBackReference(distance, codeLength);

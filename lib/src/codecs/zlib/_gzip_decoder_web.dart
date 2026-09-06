@@ -44,13 +44,9 @@ class _GZipDecoder extends ZLibDecoderBase {
             verify: verify, raw: raw);
       }
       final memberStart = output.length;
-      // A match reaching back further than the output indexes behind the
-      // start of the buffer; a bad archive is a return value here
-      try {
-        Inflate.stream(input, output: output);
-      } on RangeError {
-        return false;
-      }
+      // Damage inside the deflate data stops the inflate short, and is caught
+      // by the trailer checks below
+      Inflate.stream(input, output: output);
 
       // A member cut short before its trailer would otherwise decode to a
       // short result and be reported as a success, which is a truncated

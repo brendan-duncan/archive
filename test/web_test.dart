@@ -86,6 +86,25 @@ void main() {
           isFalse);
     });
 
+    test('damage is a return value with a file output too', () {
+      // Behind a file output a match reaching back past the start used to
+      // seek to a negative position and throw, where the memory output threw
+      // a RangeError that was caught. Inflate now refuses the match itself
+      final compressed = GZipEncoder().encodeBytes(buffer);
+      final path = '$testOutputPath/damaged.bin';
+      for (final at in [18, 19, 20, 21, 22, 23, 154, 158, 164]) {
+        final damaged = Uint8List.fromList(compressed);
+        damaged[at] ^= 0xff;
+        // A small buffer, so the output has been flushed by the time the
+        // bad match arrives
+        final out = OutputFileStream(path, bufferSize: 64);
+        expect(GZipDecoderWeb().decodeStream(InputMemoryStream(damaged), out),
+            isFalse,
+            reason: 'byte $at');
+        out.closeSync();
+      }
+    });
+
     test('multiblock', () async {
       final compressedData = [
         ...GZipEncoder().encodeBytes([1, 2, 3]),
