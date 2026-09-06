@@ -138,6 +138,21 @@ void main() {
         });
       }
 
+      test('a member cut off inside its header', () {
+        // 10 header + 2 deflate + 8 trailer is the least a member can be;
+        // below that the last eight bytes are header, not the trailer
+        for (var n = 1; n < 20; ++n) {
+          final short = Uint8List.sublistView(whole, 0, n);
+          decode(GZipDecoder(), short, ok: false);
+          decodeWeb(short, ok: false);
+        }
+        // The bound is not off by one: an empty file encodes to exactly 20
+        final empty = Uint8List.fromList(GZipEncoder().encodeBytes(<int>[]));
+        expect(empty.length, equals(20));
+        expect(decode(GZipDecoder(), empty, ok: true), 0);
+        expect(decodeWeb(empty, ok: true), 0);
+      });
+
       test('concatenated members are not mistaken for one', () {
         // Every member but the last is checked by the decoder itself, so the
         // point here is that the check added for the last one does not go off

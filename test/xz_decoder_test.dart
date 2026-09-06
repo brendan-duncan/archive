@@ -154,6 +154,14 @@ void main() {
           'Invalid delta filter distance');
     });
 
+    test('rejects a filter whose properties run past the header', () {
+      for (final id in [0x03, 0x04, 0x21]) {
+        expect(reasonFor(streamWith(filters: [1, id, 0x04])),
+            'Invalid filter in block header',
+            reason: 'filter 0x${id.toRadixString(16)}');
+      }
+    });
+
     test('still reaches the data when the header is well formed', () {
       // The same shape with a valid properties byte gets past every check
       // above, so the rejections are about the headers and not the archive

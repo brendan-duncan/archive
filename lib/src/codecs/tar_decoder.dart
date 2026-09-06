@@ -44,9 +44,12 @@ class TarDecoder {
 
     // TarFile paxHeader = null;
     while (!input.isEOS) {
-      // End of archive when two consecutive 0's are found.
-      final endCheck = input.peekBytes(2).toUint8List();
-      if (endCheck.length < 2 || (endCheck[0] == 0 && endCheck[1] == 0)) {
+      // The end of the archive is a block of zeros; two of them can't be told
+      // from a damaged header, which is what verify is there to catch
+      final endCheck = input.peekBytes(verify ? 512 : 2).toUint8List();
+      if (verify
+          ? !endCheck.any((b) => b != 0)
+          : endCheck.length < 2 || (endCheck[0] == 0 && endCheck[1] == 0)) {
         break;
       }
 
@@ -55,7 +58,7 @@ class TarDecoder {
         // eight bytes of the checksum field itself as spaces. It is the only
         // thing that tells a tar apart from an unrelated file, since every
         // other field is free-form enough to read as something.
-        final h = input.peekBytes(512).toUint8List();
+        final h = endCheck;
         if (h.length < 512) {
           throw ArchiveException('Invalid tar header');
         }

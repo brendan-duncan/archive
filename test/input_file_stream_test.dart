@@ -89,9 +89,54 @@ void main() {
       }
     });
 
+    test('peakBytes past the end of the file', () async {
+      // Used to report the whole count and return the buffer's leftovers
+      final fs = InputFileStream(testPath, bufferSize: 8)..open();
+      fs.skip(testData.length - 5);
+      final bs = fs.peekBytes(512);
+      expect(bs.length, 5);
+      final b = bs.toUint8List();
+      expect(b.length, 5);
+      for (var i = 0; i < b.length; ++i) {
+        expect(b[i], testData[testData.length - 5 + i]);
+      }
+      expect(fs.position, testData.length - 5);
+    });
+
+    test('a short peek does not shrink the cache', () async {
+      // The tar decoder's pattern: two bytes peeked ahead of every record
+      // A short peek used to become the size of the cache
+      // A buffer of eight records, and a file too big to sit in one
+      const recordSize = 512;
+      final big = Uint8List(64 * 1024);
+      for (var i = 0; i < big.length; ++i) {
+        big[i] = i & 0xff;
+      }
+      final bigPath = '$testOutputPath/test_cache.bin';
+      File(bigPath)
+        ..createSync(recursive: true)
+        ..writeAsBytesSync(big);
+
+      final handle = _CountingHandle(bigPath);
+      final fs = InputFileStream.withFileBuffer(
+          FileBuffer(handle, bufferSize: 8 * recordSize));
+      var records = 0;
+      while (!fs.isEOS) {
+        expect(fs.peekBytes(2).toUint8List().first,
+            equals((records * recordSize) & 0xff));
+        expect(fs.readBytes(recordSize).toUint8List().length,
+            equals(recordSize));
+        records++;
+      }
+      expect(records, equals(big.length ~/ recordSize));
+      // Eight records per buffer means more than one record per read
+      expect(handle.reads, lessThan(records));
+      fs.closeSync();
+    });
+
     test('read multi-byte value at end of file', () async {
       // Regression test for #410: reading a uint16/24/32 whose last byte is
-      // the final byte of the file used to incorrectly return 0.
+      // the final byte of the file used to incorrectly return 0
       final fs = InputFileStream(testPath, bufferSize: 2)..open();
 
       fs.setPosition(testData.length - 2);
@@ -116,4 +161,43 @@ void main() {
       }
     });
   });
+}
+
+// Counts the reads that reach the file
+class _CountingHandle extends AbstractFileHandle {
+  final FileHandle _inner;
+  int reads = 0;
+
+  _CountingHandle(String path) : _inner = FileHandle(path);
+
+  @override
+  int get position => _inner.position;
+
+  @override
+  set position(int p) => _inner.position = p;
+
+  @override
+  int get length => _inner.length;
+
+  @override
+  bool get isOpen => _inner.isOpen;
+
+  @override
+  bool open({FileAccess mode = FileAccess.read}) => _inner.open(mode: mode);
+
+  @override
+  Future<void> close() => _inner.close();
+
+  @override
+  void closeSync() => _inner.closeSync();
+
+  @override
+  int readInto(Uint8List buffer, [int? length]) {
+    reads++;
+    return _inner.readInto(buffer, length);
+  }
+
+  @override
+  void writeFromSync(List<int> buffer, [int start = 0, int? end]) =>
+      _inner.writeFromSync(buffer, start, end);
 }

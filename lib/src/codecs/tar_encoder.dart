@@ -69,7 +69,14 @@ class TarEncoder {
         ts.nameOfLinkedFile = file.symbolicLink;
       } else {
         ts.fileSize = file.size;
-        ts.contentBytes = file.getContent()?.toUint8List();
+        // As stored: write copies a stream in chunks, where getContent would
+        // read the whole entry into memory first
+        final raw = file.rawContent;
+        if (raw != null && !raw.isCompressed) {
+          ts.content = raw;
+        } else {
+          ts.contentBytes = file.getContent()?.toUint8List();
+        }
       }
     }
     ts.write(_outputStream!);

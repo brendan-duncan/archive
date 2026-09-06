@@ -51,6 +51,10 @@ class _ZLibDecoder extends ZLibDecoderBase {
        *    bits [6, 7] FLEVEL (compression level)
        */
       if (!raw) {
+        // Both reads below are unchecked
+        if (input.length < 2) {
+          return false;
+        }
         final cmf = input.readByte();
         final flg = input.readByte();
 
