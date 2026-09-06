@@ -522,6 +522,24 @@ void main() {
       expect(again[1].symbolicLink, equals('a.txt'));
     });
 
+    test('long names are measured in bytes', () {
+      // The separate file for a long name used to be sized in UTF-16 units
+      // and filled with UTF-8 bytes, so any non-ASCII long name misaligned
+      // the archive; and a name long in bytes but short in characters was
+      // cut to fit the header field
+      for (final name in ['${'é' * 101}.txt', '${'日' * 60}.txt']) {
+        final data = Uint8List.fromList([1, 2, 3]);
+        final tar = TarEncoder().encodeBytes(Archive()
+          ..add(ArchiveFile.bytes(name, data))
+          ..add(ArchiveFile.bytes('b.txt', data)));
+        final back = TarDecoder().decodeBytes(tar, verify: true);
+        expect(back.length, equals(2), reason: name);
+        expect(back[0].name, equals(name));
+        expect(back[0].readBytes(), equals(data));
+        expect(back[1].name, equals('b.txt'));
+      }
+    });
+
     test('verify rejects a damaged header that starts with zeros', () {
       // A header damaged into starting with zeros used to end the archive,
       // dropping every entry behind it
