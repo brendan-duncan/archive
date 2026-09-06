@@ -48,6 +48,8 @@ class TarEncoder {
     if (name.length > 100) {
       final ts = TarFile();
       ts.filename = '././@LongLink';
+      // What other tars key on: the name alone is only read back by this one
+      ts.typeFlag = TarFile.longName;
       ts.fileSize = name.length;
       ts.mode = 0;
       ts.ownerId = 0;
@@ -55,6 +57,23 @@ class TarEncoder {
       ts.lastModTime = 0;
       ts.contentBytes = castToUint8List(name);
       ts.write(_outputStream!, filenameEncoder: filenameEncoding);
+    }
+
+    // After the name, which is the order GNU writes the two in
+    if (entry.isSymbolicLink) {
+      final link = filenameEncoding.encode(entry.symbolicLink!);
+      if (link.length > 100) {
+        final ts = TarFile();
+        ts.filename = '././@LongLink';
+        ts.typeFlag = TarFile.longLinkName;
+        ts.fileSize = link.length;
+        ts.mode = 0;
+        ts.ownerId = 0;
+        ts.groupId = 0;
+        ts.lastModTime = 0;
+        ts.contentBytes = castToUint8List(link);
+        ts.write(_outputStream!, filenameEncoder: filenameEncoding);
+      }
     }
 
     final ts = TarFile();
