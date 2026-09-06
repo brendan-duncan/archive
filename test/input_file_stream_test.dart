@@ -129,8 +129,9 @@ void main() {
         records++;
       }
       expect(records, equals(big.length ~/ recordSize));
-      // Eight records per buffer means more than one record per read
-      expect(handle.reads, lessThan(records));
+      // Eight records per buffer: one read to fill it, and a read that ends
+      // exactly at the end of the buffer is still a hit
+      expect(handle.reads, equals(records ~/ 8));
       fs.closeSync();
     });
 

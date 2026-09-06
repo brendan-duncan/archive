@@ -111,7 +111,7 @@ class FileBuffer {
     if (position > (_fileSize - 2) || position < 0) {
       return 0;
     }
-    if (position < _position || position >= (_position + (_bufferSize - 2))) {
+    if (position < _position || position + 2 > (_position + _bufferSize)) {
       _readBuffer(position);
     }
     var p = position - _position;
@@ -128,7 +128,7 @@ class FileBuffer {
     if (position > (_fileSize - 3) || position < 0) {
       return 0;
     }
-    if (position < _position || position >= (_position + (_bufferSize - 3))) {
+    if (position < _position || position + 3 > (_position + _bufferSize)) {
       _readBuffer(position);
     }
     var p = position - _position;
@@ -146,7 +146,7 @@ class FileBuffer {
     if (position > (_fileSize - 4) || position < 0) {
       return 0;
     }
-    if (position < _position || position >= (_position + (_bufferSize - 4))) {
+    if (position < _position || position + 4 > (_position + _bufferSize)) {
       _readBuffer(position);
     }
     var p = position - _position;
@@ -165,7 +165,7 @@ class FileBuffer {
     if (position > (_fileSize - 8) || position < 0) {
       return 0;
     }
-    if (position < _position || position >= (_position + (_bufferSize - 8))) {
+    if (position < _position || position + 8 > (_position + _bufferSize)) {
       _readBuffer(position);
     }
     var p = position - _position;
@@ -211,7 +211,7 @@ class FileBuffer {
     }
 
     if (position < _position ||
-        (position + count) >= (_position + _bufferSize)) {
+        (position + count) > (_position + _bufferSize)) {
       _readBuffer(position);
     }
 
