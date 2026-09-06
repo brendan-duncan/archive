@@ -19,6 +19,39 @@ void main() {
     expect(inflatedDataString.length, equals(5259));
   });
 
+  test('an incomplete code is a short result, not a hang', () {
+    // A code with gaps, so a lookup lands on an entry no symbol was assigned.
+    // That used to read as symbol 0 with a length of 0, consuming no bits,
+    // so the decoder emitted a zero literal until it ran out of memory
+    final incomplete = _dynamicBlock({0: 1, 2: 1}, (b) {
+      // 257 literal/length lengths: only 65 gets a code, two bits long, so
+      // three of the four table entries are gaps. Then one distance length
+      for (var i = 0; i < 257; ++i) {
+        b.write(i == 65 ? 1 : 0, 1);
+      }
+      b.write(0, 1);
+      // The data: bits that land in a gap, and enough after them to read
+      b.write(3, 2);
+      b.write(0xff, 8);
+      b.write(0xff, 8);
+    });
+    expect(Inflate(incomplete).getBytes(), isEmpty);
+  });
+
+  test('a repeat past the end of the lengths is a short result, not thrown',
+      () {
+    // Repeats that run past the end of the lengths used to index past the
+    // array and throw
+    final overrun = _dynamicBlock({0: 1, 18: 1}, (b) {
+      // Two runs of 138 zeros for 258 lengths
+      for (var i = 0; i < 2; ++i) {
+        b.write(1, 1);
+        b.write(127, 7);
+      }
+    });
+    expect(Inflate(overrun).getBytes(), isEmpty);
+  });
+
   test('stream/NO_COMPRESSION', () {
     // compress the buffer (assumption: deflate works correctly).
     final deflated = Deflate(buffer, level: DeflateLevel.none).getBytes();
@@ -177,3 +210,67 @@ final gitExpectedOutput = Uint8List.fromList(<int>[
   10,
   67, 111, 109, 109, 105, 116, 32, 53, 10
 ]);
+
+// Writes bits least significant first, the way deflate packs them
+class _Bits {
+  final _bytes = <int>[];
+  var _acc = 0;
+  var _n = 0;
+
+  void write(int value, int count) {
+    for (var i = 0; i < count; ++i) {
+      _acc |= ((value >> i) & 1) << _n;
+      if (++_n == 8) {
+        _bytes.add(_acc);
+        _acc = 0;
+        _n = 0;
+      }
+    }
+  }
+
+  Uint8List finish() {
+    if (_n > 0) {
+      _bytes.add(_acc);
+    }
+    return Uint8List.fromList(_bytes);
+  }
+}
+
+// A final dynamic huffman block for 257 literal/length and one distance
+// code, whose code length code gives the given symbols the given lengths.
+// [body] writes the lengths and the data
+Uint8List _dynamicBlock(
+    Map<int, int> codeLengthCode, void Function(_Bits) body) {
+  final b = _Bits();
+  b.write(1, 1); // BFINAL
+  b.write(2, 2); // BTYPE: dynamic
+  b.write(0, 5); // HLIT: 257 codes
+  b.write(0, 5); // HDIST: 1 code
+  b.write(15, 4); // HCLEN: all 19 code length codes
+  const order = [
+    16,
+    17,
+    18,
+    0,
+    8,
+    7,
+    9,
+    6,
+    10,
+    5,
+    11,
+    4,
+    12,
+    3,
+    13,
+    2,
+    14,
+    1,
+    15
+  ];
+  for (final symbol in order) {
+    b.write(codeLengthCode[symbol] ?? 0, 3);
+  }
+  body(b);
+  return b.finish();
+}

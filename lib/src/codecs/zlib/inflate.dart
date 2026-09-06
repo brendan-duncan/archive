@@ -203,6 +203,11 @@ class Inflate {
     // read max length
     final codeWithLength = codeTable[_bitBuffer & ((1 << maxCodeLength) - 1)];
     final codeLength = codeWithLength >> 16;
+    // An entry no code was assigned to: the code is incomplete, which is
+    // damage. Consuming no bits, it would otherwise be read again forever
+    if (codeLength == 0) {
+      return -1;
+    }
 
     _bitBuffer >>= codeLength;
     _bitBufferLen -= codeLength;
@@ -364,6 +369,9 @@ class Inflate {
             return -1;
           }
           repeat += 3;
+          if (i + repeat > num) {
+            return -1;
+          }
           while (repeat-- > 0) {
             codeLengths[i++] = prev;
           }
@@ -375,6 +383,9 @@ class Inflate {
             return -1;
           }
           repeat += 3;
+          if (i + repeat > num) {
+            return -1;
+          }
           while (repeat-- > 0) {
             codeLengths[i++] = 0;
           }
@@ -387,6 +398,11 @@ class Inflate {
             return -1;
           }
           repeat += 11;
+          // A run past the end of the lengths is damage, and would index
+          // past the array
+          if (i + repeat > num) {
+            return -1;
+          }
           while (repeat-- > 0) {
             codeLengths[i++] = 0;
           }
