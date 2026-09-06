@@ -417,6 +417,21 @@ void main() {
       tooWide.ownerId = 1 << 62;
       expect(() => TarEncoder().encodeBytes(Archive()..add(tooWide)),
           throwsA(isA<ArchiveException>()));
+
+      // As is anything the decoder would refuse to read back: it stops at
+      // 2^53-1, the widest integer that is exact on every platform
+      final unreadable = ArchiveFile.bytes('a.txt', Uint8List.fromList([1]));
+      unreadable.ownerId = 1 << 53;
+      expect(() => TarEncoder().encodeBytes(Archive()..add(unreadable)),
+          throwsA(isA<ArchiveException>()));
+      final widestExact = ArchiveFile.bytes('a.txt', Uint8List.fromList([1]));
+      widestExact.ownerId = (1 << 53) - 1;
+      widestExact.groupId = -(1 << 53);
+      final exact = TarEncoder().encodeBytes(Archive()..add(widestExact));
+      expect(TarDecoder().decodeBytes(exact, verify: true)[0].ownerId,
+          equals((1 << 53) - 1));
+      expect(TarDecoder().decodeBytes(exact, verify: true)[0].groupId,
+          equals(-(1 << 53)));
     });
 
     test('an entry given as a stream is not pulled into memory to encode', () {

@@ -53,6 +53,11 @@ class TarFile {
   static const String exHeader = 'x';
   static const String exHeader2 = 'X';
 
+  /// The widest magnitude a base-256 numeric header field is written or read
+  /// with: 2^53-1, the largest integer exact on every platform. A tar field
+  /// can hold more, but it would not survive the trip through an int.
+  static const int maxNumericField = 9007199254740991;
+
   // Pre-POSIX Format
   late String filename; // 100 bytes
   int mode = 644; // 8 bytes
@@ -263,11 +268,12 @@ class TarFile {
         }
         // The field is wide enough for 88 bits, more than an int holds, and
         // a value that doesn't fit would come back as something unrelated
-        // rather than as an error. 2^53-1 is the largest integer exact on
-        // every platform, so refuse anything wider than that.
+        // rather than as an error, so refuse anything wider than
+        // maxNumericField. Checked before the multiply, so the bound is
+        // divided by the base.
         // Built by arithmetic rather than shifts, because on the web an int
         // is a double and the bitwise operators there are 32 bit.
-        if (x > 35184372088831) {
+        if (x > maxNumericField ~/ 256) {
           throw ArchiveException('Tar header field is out of range');
         }
         x = x * 256 + c;
@@ -324,6 +330,11 @@ class TarFile {
     if (value < 0 || s.length > numBytes) {
       final bytes = Uint8List(numBytes);
       var m = value < 0 ? -value - 1 : value;
+      // The same bound _parseInt reads back to, so wider is refused on both
+      // sides
+      if (m > maxNumericField) {
+        throw ArchiveException('Tar header field is out of range: $value');
+      }
       for (var i = numBytes - 1; i >= 0; --i) {
         bytes[i] = value < 0 ? 255 - (m % 256) : m % 256;
         m = m ~/ 256;
