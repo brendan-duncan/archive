@@ -227,10 +227,12 @@ class TarFile {
 
     output.writeBytes(header.getBytes());
 
+    // Through a subset, so that writing never moves the position of the
+    // stream the entry was given: a file output reads it in chunks
     if (_content != null) {
-      output.writeStream(_content!.getStream());
+      output.writeStream(_content!.getStream().subset());
     } else if (_rawContent != null) {
-      output.writeStream(_rawContent!);
+      output.writeStream(_rawContent!.subset());
     }
 
     if (isFile && fileSize > 0) {

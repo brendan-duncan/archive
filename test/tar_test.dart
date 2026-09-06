@@ -428,10 +428,31 @@ void main() {
       TarEncoder().encodeStream(Archive()..add(file), out);
       out.closeSync();
 
-      final back = TarDecoder()
-          .decodeStream(InputFileStream(path), verify: true);
+      final back =
+          TarDecoder().decodeStream(InputFileStream(path), verify: true);
       expect(back.length, equals(1));
       expect(back[0].readBytes(), equals(data));
+    });
+
+    test('encoding a stream entry leaves its stream where it was', () {
+      // A file output copies the stream in chunks, which used to advance it,
+      // so a second encode or a read of the entry afterwards saw nothing
+      final data = Uint8List.fromList(List.generate(3000, (i) => i & 0xff));
+      final archive = Archive()
+        ..add(ArchiveFile.stream('a.txt', InputMemoryStream(data)));
+      for (final name in ['tar_stream_twice_1.tar', 'tar_stream_twice_2.tar']) {
+        final path = p.join(Directory.systemTemp.path, name);
+        final out = OutputFileStream(path);
+        TarEncoder().encodeStream(archive, out);
+        out.closeSync();
+        final input = InputFileStream(path);
+        final back = TarDecoder().decodeStream(input, verify: true);
+        expect(back.length, equals(1));
+        expect(back[0].size, equals(data.length));
+        expect(back[0].readBytes(), equals(data));
+        input.closeSync();
+      }
+      expect(archive[0].readBytes(), equals(data));
     });
 
     test('verify rejects a damaged header that starts with zeros', () {
