@@ -52,6 +52,12 @@ class TarDecoder {
           : endCheck.length < 2 || (endCheck[0] == 0 && endCheck[1] == 0)) {
         break;
       }
+      // Fewer bytes than a header block can't be an entry. Without verify
+      // that is the end of the archive rather than an entry read from junk;
+      // with it, the header check below reports it
+      if (!verify && input.length < 512) {
+        break;
+      }
 
       if (verify) {
         // A tar header carries a checksum of its own 512 bytes, taking the

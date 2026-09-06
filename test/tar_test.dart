@@ -480,6 +480,28 @@ void main() {
       expect(TarFile().content, isNull);
     });
 
+    test('a tail too short for a header ends the archive', () {
+      // Without end blocks, junk after the last entry used to be read as an
+      // entry when it was long enough to hold a name
+      final good = TarEncoder().encodeBytes(Archive()
+        ..add(ArchiveFile.bytes('a.txt', Uint8List.fromList([1, 2, 3])))
+        ..add(ArchiveFile.bytes('b.txt', Uint8List.fromList([4, 5, 6]))));
+      final noEnd = good.sublist(0, good.length - 1024);
+      for (final tail in [1, 2, 100, 511]) {
+        final junk = Uint8List.fromList([...noEnd, ...List.filled(tail, 0x78)]);
+        expect(TarDecoder().decodeBytes(junk).length, equals(2),
+            reason: '$tail bytes');
+        // With verify nothing after the last entry but zeros is accepted
+        expect(() => TarDecoder().decodeBytes(junk, verify: true),
+            throwsA(isA<ArchiveException>()),
+            reason: '$tail bytes');
+        // Past the end blocks it is not looked at
+        final after = Uint8List.fromList([...good, ...List.filled(tail, 0x78)]);
+        expect(TarDecoder().decodeBytes(after, verify: true).length, equals(2),
+            reason: '$tail bytes');
+      }
+    });
+
     test('verify rejects a damaged header that starts with zeros', () {
       // A header damaged into starting with zeros used to end the archive,
       // dropping every entry behind it
