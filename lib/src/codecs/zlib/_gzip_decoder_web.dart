@@ -26,35 +26,45 @@ class _GZipDecoder extends ZLibDecoderBase {
   @override
   bool decodeStream(InputStream input, OutputStream output,
       {bool verify = false, bool raw = false}) {
+    var members = 0;
     while (!input.isEOS) {
       final startPos = input.position;
       if (!_readHeader(input)) {
+        if (members != 0) {
+          // Bytes after a member that do not begin another one. The stream
+          // does not end where it says it does, so it is not whole.
+          return false;
+        }
         // Fall back to ZLib if there is no GZip header. This is to make it
         // consistent with dart's native library behavior.
         input.position = startPos;
         return platformZLibDecoder.decodeStream(input, output,
             verify: verify, raw: raw);
       }
+      final memberStart = output.length;
       Inflate.stream(input, output: output);
 
+      // A member cut short before its trailer would otherwise decode to a
+      // short result and be reported as a success, which is a truncated
+      // archive silently losing files.
+      if (input.length < 8) {
+        return false;
+      }
       /*final crc =*/ input.readUint32();
-      /*final size =*/ input.readUint32();
+      final size = input.readUint32();
 
       output.flush();
 
-      /*if (verify && output is OutputMemoryStream) {
-        final bytes = output.getBytes();
-        final computedCrc = getCrc32(bytes);
-        if (crc != computedCrc) {
-          break;
-        }
-        if (size != bytes.length) {
-          break;
-        }
-      }*/
+      // The trailer records the member's own uncompressed length modulo 2^32,
+      // so it is checked against what this member wrote rather than against
+      // the whole output, which several members share.
+      if ((output.length - memberStart) % 0x100000000 != size) {
+        return false;
+      }
+      members++;
     }
 
-    return true;
+    return members != 0;
   }
 
   bool _readHeader(InputStream input) {
@@ -98,6 +108,13 @@ class _GZipDecoder extends ZLibDecoderBase {
     //          bytes  compressed data
     //        4 bytes  crc32
     //        4 bytes  uncompressed input size modulo 2^32
+
+    // The fixed part of the header is ten bytes, and the reads below are
+    // unchecked, so anything shorter is rejected here rather than as a
+    // RangeError out of the middle of them.
+    if (input.length < 10) {
+      return false;
+    }
 
     final signature = input.readUint16();
     if (signature != GZipFlag.signature) {

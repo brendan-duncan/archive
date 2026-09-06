@@ -1,11 +1,68 @@
+import 'dart:typed_data';
+
 bool isCrc64Supported_() => true;
+
+// Slice-by-eight tables derived from [_crc64Table]. Table k holds the
+// contribution of a byte that sits k positions from the end of the eight byte
+// window, which is what makes the eight lookups independent of each other and
+// lets the loop below fold eight bytes at a time.
+final Int64List _slicingTables = _buildSlicingTables();
+
+Int64List _buildSlicingTables() {
+  final tables = Int64List(8 * 256);
+  for (var i = 0; i < 256; i++) {
+    tables[i] = _crc64Table[i];
+  }
+  for (var k = 1; k < 8; k++) {
+    for (var i = 0; i < 256; i++) {
+      final p = tables[(k - 1) * 256 + i];
+      tables[k * 256 + i] = (p >>> 8) ^ tables[p & 0xff];
+    }
+  }
+  return tables;
+}
 
 /// Get the CRC-64 checksum of the given array. You can append bytes to an
 /// already computed crc by specifying the previous [crc] value.
-int getCrc64_(List<int> array, [int crc = 0]) {
+int getCrc64_(List<int> array, [int crc = 0]) =>
+    array is Uint8List ? _crc64Bytes(array, crc) : _crc64List(array, crc);
+
+// Folds eight bytes per iteration. Every index below is either masked to a
+// byte or bounded by the loop, so the removed bounds checks cannot be reached.
+@pragma('vm:unsafe:no-bounds-checks')
+int _crc64Bytes(Uint8List array, int crc) {
+  final tables = _slicingTables;
+  final bytes = ByteData.view(array.buffer, array.offsetInBytes, array.length);
+  final length = array.length;
+
+  crc ^= 0xffffffffffffffff;
+  var i = 0;
+  final limit = length - 8;
+  while (i <= limit) {
+    crc ^= bytes.getUint64(i, Endian.little);
+    crc = tables[0x700 + (crc & 0xff)] ^
+        tables[0x600 + ((crc >>> 8) & 0xff)] ^
+        tables[0x500 + ((crc >>> 16) & 0xff)] ^
+        tables[0x400 + ((crc >>> 24) & 0xff)] ^
+        tables[0x300 + ((crc >>> 32) & 0xff)] ^
+        tables[0x200 + ((crc >>> 40) & 0xff)] ^
+        tables[0x100 + ((crc >>> 48) & 0xff)] ^
+        tables[crc >>> 56];
+    i += 8;
+  }
+  while (i < length) {
+    crc = tables[(crc & 0xff) ^ array[i]] ^ (crc >>> 8);
+    i++;
+  }
+  return crc ^ 0xffffffffffffffff;
+}
+
+// Folds one byte at a time, for inputs that are not typed data.
+int _crc64List(List<int> array, int crc) {
+  final tables = _slicingTables;
   crc ^= 0xffffffffffffffff;
   for (int i = 0; i < array.length; i++) {
-    crc = _crc64Table[(crc & 0xff) ^ array[i]] ^ (crc >>> 8);
+    crc = tables[(crc & 0xff) ^ array[i]] ^ (crc >>> 8);
   }
   return crc ^ 0xffffffffffffffff;
 }

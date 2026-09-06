@@ -17,6 +17,10 @@ class GZipDecoder {
   /// Decompress the given [bytes] with the GZip format.
   /// [verify] can be used to validate the checksum of the decompressed data,
   /// though it is not guaranteed this will be used.
+  ///
+  /// This has no way to report a failure, so a truncated archive yields
+  /// however much decoded before the data ran out, with nothing to say it is
+  /// not the whole thing. Use [decodeStream] where that matters.
   Uint8List decodeBytes(List<int> bytes, {bool verify = false}) =>
       platformGZipDecoder.decodeBytes(bytes, verify: verify);
 
@@ -24,6 +28,11 @@ class GZipDecoder {
   /// decompressed data to the [output] stream.
   /// [verify] can be used to validate the checksum of the decompressed data,
   /// though it is not guaranteed this will be used.
+  ///
+  /// Returns false if the archive is malformed or truncated, in which case
+  /// [output] holds however much was decoded before the failure and should be
+  /// discarded. Damage within the compressed data is reported by the
+  /// underlying decoder as a [FormatException] instead.
   bool decodeStream(InputStream input, OutputStream output,
           {bool verify = false}) =>
       platformGZipDecoder.decodeStream(input, output, verify: verify);

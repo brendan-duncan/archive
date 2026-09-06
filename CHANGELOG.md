@@ -1,3 +1,41 @@
+# 4.3.0
+
+* Added multithreaded decoding to XZDecoder. Passing an `XZMultithreadOptions`
+  to `decodeBytes` or `decodeStream` spreads the work over isolates, one xz
+  block per job, and reports the result through its `onDone` callback. Both
+  methods behave exactly as before when it is omitted. On a 1.1 GB archive of
+  six blocks: 16.1 s single threaded, 8.0 s on the default three workers,
+  5.0 s on six.
+* `decodeStream` reading from an `InputFileStream` now lets each worker read
+  its own block straight from disk, so the compressed archive never passes
+  through the calling isolate. Decoding a 1.1 GB archive to an
+  `OutputFileStream` peaks at 1.8 GB, below the 3.0 GB the single threaded
+  path uses, while being twice as fast.
+* Multithreaded decoding falls back to the single threaded path on the web,
+  where there are no isolates, and the isolate machinery is tree-shaken out of
+  web builds entirely.
+* Added `InputFileStream.fileBuffer`, `fileOffset` and `fileLength`.
+* Added —x86 flag support to XZDecoder
+* Improved verify: true speed for XZDecoder
+* Improved overall decode speed for XZDecoder
+* Decreased RAM usage for XZDecoder
+* Added concatenated streams support for XZDecoder
+* Added crc64 wasm support (verity true)
+* Added uncompressedSize getter for XZDecoder that returns original file size before its compression
+* Fix: pb=4 flag range error in XZDecoder
+* Fix: padding for _streamStart in XZDecoder
+* Added `throwOnError` to `XZDecoder.decodeBytes`. Without it a malformed or
+  truncated archive still returns the partial output with nothing to say it is
+  not the whole file, which was the only decode with no way at all to report a
+  failure. In multithreaded mode the exception is delivered to
+  `XZMultithreadOptions.onError`, and setting `throwOnError` without an
+  `onError` is now refused rather than losing the failure.
+* Fix: a corrupt xz block lost the part of itself that had already decoded when
+  `verify: true` was used with an output that cannot be read back, such as an
+  `OutputFileStream` or any multithreaded decode. The output now stops in the
+  same place whichever way the decode was asked for.
+
+
 # 4.2.0
 
 * Optimize performance and issues with large files with XZDecoder.

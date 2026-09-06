@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:archive/archive.dart';
@@ -6,6 +7,13 @@ import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
 import '_test_util.dart';
+
+// The name stored in a pax header in _data/tar/pax.tar, too long for the
+// 100 byte name field.
+const _paxLongName = '123456789101112131415161718192021222324252627282930'
+    '313233343536373839404142434445464748495051525354555657585960616263646566'
+    '6768697071727374757677787980818283848586878889909192939495969798991'
+    '00';
 
 var tarTests = [
   {
@@ -205,6 +213,178 @@ void main() {
       }
       x += '.txt';
       expect(archive[0].name, equals(x));
+    });
+
+    test('pax header with binary xattr record', () {
+      // Vendor extensions like SCHILY.xattr store raw binary values, which
+      // can contain invalid UTF-8 and embedded newlines. Those must not
+      // prevent the records around them, like 'path', from being read.
+      final file = File('test/_data/tar/pax_binary_xattr.tar');
+      final bytes = file.readAsBytesSync();
+      final archive = TarDecoder().decodeBytes(bytes, verify: true);
+
+      expect(archive.length, equals(1));
+      expect(archive[0].name, equals('pax/${'p' * 120}.txt'));
+      expect(archive[0].readBytes(), equals(utf8.encode('hello pax\n')));
+      // The name comes from the record after the binary one, the time from
+      // the record before it.
+      expect(archive[0].lastModTime, equals(1788382072));
+    });
+
+    test('GNU long link name', () {
+      // GNU writes both a long name and a long link target as an entry called
+      // '././@LongLink', and only the type flag says which one it is: 'L' for
+      // the name, 'K' for the link target.
+      final file = File('test/_data/tar/gnu_longlink.tar');
+      final archive = TarDecoder()
+          .decodeBytes(file.readAsBytesSync(), verify: true, storeData: false);
+
+      final link = archive.files.firstWhere((f) => f.name.contains('ln_'));
+      expect(link.name.length, equals(149));
+      // 164 bytes, well past the 100 byte field it would otherwise be cut to.
+      expect(link.symbolicLink, equals('${'n' * 160}.txt'));
+    });
+
+    test('verify rejects what is not a tar', () {
+      // Without a checksum check nothing tells a tar apart from an unrelated
+      // file: every other header field reads as something.
+      final zip = File('test/_data/tar/folder.zip').readAsBytesSync();
+      expect(() => TarDecoder().decodeBytes(zip, verify: true),
+          throwsA(isA<ArchiveException>()));
+
+      // Every archive the tests carry has to still pass.
+      for (final path in Directory('test/_data/tar')
+          .listSync()
+          .whereType<File>()
+          .where((f) => f.path.endsWith('.tar'))) {
+        expect(
+            () =>
+                TarDecoder().decodeBytes(path.readAsBytesSync(), verify: true),
+            returnsNormally,
+            reason: path.path);
+      }
+    });
+
+    test('pax header size, mtime, uid and gid records', () {
+      // A pax 'size' record overrides the entry's own header field, which is
+      // left at 0 in this archive. Missing it doesn't just lose the size, it
+      // makes the file's content be read as the next entry's header.
+      final file = File('test/_data/tar/pax_size.tar');
+      final archive = TarDecoder().decodeBytes(file.readAsBytesSync());
+
+      expect(archive.length, equals(1));
+      expect(archive[0].name, equals('f.txt'));
+      expect(archive[0].size, equals(14));
+      expect(archive[0].readBytes(), equals(utf8.encode('pax size wins\n')));
+      expect(archive[0].lastModTime, equals(1600000000));
+      expect(archive[0].ownerId, equals(4242));
+      expect(archive[0].groupId, equals(1717));
+    });
+
+    test('pax size record survives a second metadata header', () {
+      // The record describes the entry it precedes, not the pax header that
+      // happens to sit in between. Applying it there reads the wrong number of
+      // bytes out of that header and leaves the stream inside it, so the file's
+      // own content ends up being parsed as an entry.
+      Uint8List header(String name, int size, String typeFlag) {
+        final h = Uint8List(512);
+        void put(int off, String s) =>
+            h.setRange(off, off + s.length, ascii.encode(s));
+        put(0, name);
+        put(100, '0000644');
+        put(108, '0000000');
+        put(116, '0000000');
+        put(124, size.toRadixString(8).padLeft(11, '0'));
+        put(136, '00000000000');
+        put(148, '        ');
+        put(156, typeFlag);
+        put(257, 'ustar');
+        put(263, '00');
+        var sum = 0;
+        for (final b in h) {
+          sum += b;
+        }
+        put(148, '${sum.toRadixString(8).padLeft(6, '0')}\x00 ');
+        return h;
+      }
+
+      List<int> block(List<int> data) =>
+          [...data, ...Uint8List((512 - data.length % 512) % 512)];
+
+      List<int> record(String keyword, String value) {
+        for (var length = keyword.length + value.length + 3;; length++) {
+          if ('$length'.length + keyword.length + value.length + 3 == length) {
+            return ascii.encode('$length $keyword=$value\n');
+          }
+        }
+      }
+
+      final content = ascii.encode('HELLO WORLD, 21 BYTES');
+      final size = record('size', '${content.length}');
+      final path = record('path', 'renamed_by_pax.txt');
+      final bytes = Uint8List.fromList([
+        ...header('PaxHeader/size', size.length, TarFile.exHeader),
+        ...block(size),
+        ...header('PaxHeader/path', path.length, TarFile.exHeader),
+        ...block(path),
+        ...header('original.txt', 0, TarFile.normalFile),
+        ...block(content),
+        ...Uint8List(1024),
+      ]);
+
+      final archive = TarDecoder().decodeBytes(bytes);
+      expect(archive.length, equals(1));
+      expect(archive[0].name, equals('renamed_by_pax.txt'));
+      expect(archive[0].size, equals(content.length));
+      expect(archive[0].readBytes(), equals(content));
+    });
+
+    test('pax header without storing data', () {
+      // The pax header's own content has to be read even when file data is
+      // being skipped, since it carries the next entry's name.
+      final file = File('test/_data/tar/pax.tar');
+      final bytes = file.readAsBytesSync();
+      final archive = TarDecoder().decodeBytes(bytes, storeData: false);
+
+      expect(archive.length, equals(2));
+      expect(archive[0].name, equals('a/${_paxLongName}'));
+      expect(archive[1].symbolicLink, equals(_paxLongName));
+    });
+
+    test('base 256 encoded header fields', () {
+      // GNU tar encodes values too large for the octal field in base 256.
+      final decoder = TarDecoder();
+      final archive = decoder.decodeBytes(
+          File('test/_data/tar/base256_size.tar').readAsBytesSync());
+      expect(archive.length, equals(1));
+      expect(archive[0].name, equals('base256.txt'));
+      expect(archive[0].readBytes(), equals(utf8.encode('hello base256\n')));
+
+      // A 16GB file, whose size doesn't fit the octal field at all.
+      decoder.decodeBytes(
+          File('test/_data/tar/writer-big.tar').readAsBytesSync(),
+          storeData: false);
+      expect(decoder.files.length, equals(1));
+      expect(decoder.files[0].fileSize, equals(17179869184));
+
+      // The field is 88 bits wide, more than an int holds. A value that
+      // doesn't fit has to be refused, not reported as something unrelated.
+      final tooWide = Uint8List(1024);
+      tooWide.setRange(0, 5, 'a.txt'.codeUnits);
+      tooWide.setRange(124, 136, [0x80, 0x7f, ...List.filled(10, 0xff)]);
+      tooWide[156] = 0x30;
+      tooWide.setRange(257, 263, 'ustar '.codeUnits);
+      expect(() => TarDecoder().decodeBytes(tooWide),
+          throwsA(isA<ArchiveException>()));
+
+      // The encoding can express a negative number, which no size can be.
+      final header = Uint8List(1024);
+      header.setRange(0, 5, 'a.txt'.codeUnits);
+      header.fillRange(124, 136, 0xff);
+      header[156] = 0x30; // normal file
+      header.setRange(257, 263, 'ustar '.codeUnits);
+      expect(() => TarDecoder().decodeBytes(header),
+          throwsA(isA<ArchiveException>()));
     });
 
     test('long file name not null terminated', () async {

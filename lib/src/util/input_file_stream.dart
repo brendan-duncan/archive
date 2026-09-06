@@ -117,6 +117,19 @@ class InputFileStream extends InputStream {
 
   int get fileRemaining => _fileSize - _position;
 
+  /// The [FileBuffer] this stream reads through.
+  ///
+  /// Exposed so that a decoder can find the file behind the stream and read
+  /// parts of it directly, for instance to hand disjoint ranges to isolates
+  /// instead of copying them.
+  FileBuffer get fileBuffer => _file;
+
+  /// Offset of this stream's first byte within the underlying file.
+  int get fileOffset => _fileOffset;
+
+  /// Total number of bytes this stream covers, whatever the read position.
+  int get fileLength => _fileSize;
+
   @override
   void reset() {
     _position = 0;

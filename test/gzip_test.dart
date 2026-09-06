@@ -101,5 +101,79 @@ void main() {
       f.createSync(recursive: true);
       f.writeAsBytesSync(compressed);
     });
+
+    group('a truncated stream is reported', () {
+      // The decoder underneath checks every member whose trailer it reaches,
+      // so what is at stake here is the one case it cannot see: a member that
+      // ends before its trailer. Left unreported that decodes to a short
+      // result and returns true, which for a .tar.gz means files quietly
+      // going missing.
+      final whole = Uint8List.fromList(GZipEncoder().encodeBytes(buffer));
+
+      int decode(GZipDecoder decoder, Uint8List data, {required bool ok}) {
+        final output = OutputMemoryStream();
+        expect(decoder.decodeStream(InputMemoryStream(data), output), ok);
+        return output.length;
+      }
+
+      int decodeWeb(Uint8List data, {required bool ok}) {
+        final output = OutputMemoryStream();
+        expect(
+            GZipDecoderWeb().decodeStream(InputMemoryStream(data), output), ok);
+        return output.length;
+      }
+
+      test('whole input decodes and reports success', () {
+        expect(decode(GZipDecoder(), whole, ok: true), buffer.length);
+        expect(decodeWeb(whole, ok: true), buffer.length);
+      });
+
+      // Eight bytes is exactly the trailer, so this covers losing the trailer
+      // alone as well as losing compressed data with it.
+      for (final cut in [1, 8, 9, 40]) {
+        test('$cut bytes short', () {
+          final short = Uint8List.sublistView(whole, 0, whole.length - cut);
+          decode(GZipDecoder(), short, ok: false);
+          decodeWeb(short, ok: false);
+        });
+      }
+
+      test('concatenated members are not mistaken for one', () {
+        // Every member but the last is checked by the decoder itself, so the
+        // point here is that the check added for the last one does not go off
+        // on a stream that is whole.
+        final two = Uint8List.fromList([...whole, ...whole]);
+        expect(decode(GZipDecoder(), two, ok: true), buffer.length * 2);
+        expect(decodeWeb(two, ok: true), buffer.length * 2);
+
+        final cut = Uint8List.sublistView(two, 0, two.length - 40);
+        decode(GZipDecoder(), cut, ok: false);
+        decodeWeb(cut, ok: false);
+      });
+
+      test('an empty input is not an empty archive', () {
+        decode(GZipDecoder(), Uint8List(0), ok: false);
+        decodeWeb(Uint8List(0), ok: false);
+      });
+
+      test('a zlib stream still goes through unremarked', () {
+        // Both decoders accept a stream with no gzip header at all, to match
+        // what dart:io does. Its trailer is four bytes of Adler-32, which the
+        // check above would fail on sight, so it must not be reached.
+        for (final data in [
+          Uint8List.fromList(ZLibEncoder().encodeBytes(buffer)),
+          Uint8List.fromList(ZLibEncoder().encodeBytes(Uint8List(0))),
+          Uint8List.fromList(ZLibEncoderWeb().encodeBytes(buffer)),
+        ]) {
+          final output = OutputMemoryStream();
+          expect(GZipDecoder().decodeStream(InputMemoryStream(data), output),
+              isTrue);
+          expect(
+              GZipDecoderWeb()
+                  .decodeStream(InputMemoryStream(data), OutputMemoryStream()),
+              isTrue);
+        }
+      });
+    });
   });
 }

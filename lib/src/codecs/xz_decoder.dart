@@ -1,469 +1,566 @@
+import 'dart:async';
 import 'dart:typed_data';
 
-import '../util/crc32.dart';
-import '../util/crc64.dart';
+import '../util/archive_exception.dart';
 import '../util/input_memory_stream.dart';
 import '../util/input_stream.dart';
 import '../util/output_memory_stream.dart';
 import '../util/output_stream.dart';
-import 'lzma/lzma_decoder.dart';
+import 'xz/xz_index.dart';
+import 'xz/xz_multithread_options.dart';
+import 'xz/xz_parallel.dart';
+import 'xz/xz_stream_decoder.dart';
+
+// [XZMultithreadOptions] appears in the signature of both decode methods, so
+// it travels with them rather than having to be imported separately.
+export 'xz/xz_multithread_options.dart';
 
 // The XZ specification can be found at
 // https://tukaani.org/xz/xz-file-format.txt.
 
 /// Decompress data with the xz format decoder.
+///
+/// Both methods decode on the calling isolate by default. Passing an
+/// [XZMultithreadOptions] instead spreads the work over isolates, one xz block
+/// at a time; see the notes on each method for what that costs in memory.
 class XZDecoder {
-  Uint8List decodeBytes(List<int> data, {bool verify = false}) {
-    final output = OutputMemoryStream();
-    decodeStream(InputMemoryStream(data), output, verify: verify);
+  /// Largest output, in bytes, that will be allocated up front on the strength
+  /// of what an archive's stream index claims.
+  ///
+  /// The index is part of the archive, so the size in it is only as trustworthy
+  /// as whoever produced the file. Ratios above 6000:1 are ordinary for
+  /// repetitive data, so a small archive can honestly describe an output of
+  /// hundreds of gigabytes, and a hostile one can describe an output that is
+  /// not there at all. Beyond this the claim is not acted on: the buffer grows
+  /// as the bytes actually arrive, which costs some copying and makes an
+  /// inflated claim harmless. Decoding is not capped by it, nor is splitting
+  /// the work across isolates, and [uncompressedSize] returns null above it
+  /// rather than a number this decoder would not act on.
+  ///
+  /// The default is [xzDefaultMaxPreallocateSize], which is far lower on the
+  /// web because a failed allocation there kills the page instead of throwing.
+  /// Raise it where the memory is known to be there, lower it where a hostile
+  /// archive is a real possibility.
+  final int maxPreallocateSize;
+
+  XZDecoder({int? maxPreallocateSize})
+      : maxPreallocateSize = maxPreallocateSize ?? xzDefaultMaxPreallocateSize {
+    if (this.maxPreallocateSize < 0) {
+      throw ArgumentError.value(
+          maxPreallocateSize, 'maxPreallocateSize', 'Must not be negative');
+    }
+  }
+
+  /// Decompress the given [bytes] with the xz format.
+  ///
+  /// A malformed or truncated archive yields whatever was decoded before the
+  /// failure, with nothing to say that it is not the whole file. Set
+  /// [throwOnError] to get an [ArchiveException] instead, which is the only
+  /// way this method can report a failure: unlike [decodeStream] it has no
+  /// return value to spare for one.
+  ///
+  /// [verify] checks the checksum stored with each block, catching damage that
+  /// decodes without complaint. It costs time and changes only whether a
+  /// failure is noticed, never what a successful decode returns. A block whose
+  /// check does not match is a failure like any other, so without
+  /// [throwOnError] the result is still the bytes up to and including it,
+  /// exactly as [decodeStream] would have left them in its output.
+  ///
+  /// [throwOnError] governs how a bad *archive* is reported and nothing else.
+  /// Arguments that cannot be honoured throw [ArgumentError] whichever way it
+  /// is set, and so does [maxPreallocateSize] on this class.
+  ///
+  /// Pass [multithread] to decode on isolates. The call then returns
+  /// immediately, **the return value is an empty list**, and the result
+  /// arrives through [XZMultithreadOptions.onDone]:
+  ///
+  /// ```dart
+  /// final completer = Completer<Uint8List>();
+  /// XZDecoder().decodeBytes(compressed,
+  ///     multithread: XZMultithreadOptions(onDone: completer.complete));
+  /// final data = await completer.future;
+  /// ```
+  ///
+  /// [throwOnError] keeps working there. The exception cannot be thrown at the
+  /// caller, whose stack is long gone by then, so it is handed to
+  /// [XZMultithreadOptions.onError] instead, and [XZMultithreadOptions.onDone]
+  /// is not called at all. Without [throwOnError] a failed decode reaches
+  /// [XZMultithreadOptions.onDone] as the partial output, exactly as it is
+  /// returned here.
+  ///
+  /// Multithreading only pays off for an archive written in several blocks,
+  /// which is what `xz --block-size=...` produces; a single block archive
+  /// cannot be split and is simply decoded on one isolate. Measured on a 1.1
+  /// GB archive of six 192 MB blocks:
+  ///
+  /// | call | peak memory | time |
+  /// |---|---|---|
+  /// | no `multithread` | 3.0 GB | 16.7 s |
+  /// | with `multithread` | 3.9 GB | 8.0 s |
+  /// | with `multithread`, six workers | 4.4 GB | 5.1 s |
+  ///
+  /// This is the more expensive of the two methods, and by some distance: the
+  /// archive and the decoded output both stay in memory, and every worker holds
+  /// a copy of the block it is decoding, because bytes handed over cannot be
+  /// read from anywhere else. [decodeStream] over an `InputFileStream` and an
+  /// `OutputFileStream` decodes the same archive in the same time using well
+  /// under a third of the memory, and is worth preferring whenever the data is
+  /// on disk anyway.
+  ///
+  /// The default [XZMultithreadOptions.memoryBudget] allowed three workers
+  /// here; raising it buys the six worker row.
+  Uint8List decodeBytes(List<int> data,
+      {bool verify = false,
+      bool throwOnError = false,
+      XZMultithreadOptions<Uint8List>? multithread}) {
+    final bytes = data is Uint8List ? data : Uint8List.fromList(data);
+
+    if (multithread == null) {
+      return _decodeBytes(bytes, verify, throwOnError);
+    }
+    _checkOptions(multithread, throwOnError);
+
+    if (!xzIsolatesSupported) {
+      // No isolates here, so this blocks the caller, but the result is still
+      // delivered the way the caller asked for it.
+      _report(multithread, () => _decodeBytes(bytes, verify, throwOnError),
+          Uint8List(0));
+      return Uint8List(0);
+    }
+
+    _reportAsync(
+        multithread,
+        () => _decodeBytesOnIsolates(bytes, verify, throwOnError, multithread),
+        Uint8List(0));
+    return Uint8List(0);
+  }
+
+  /// Decompress the given [input] with the xz format, writing the
+  /// decompressed data to the [output] stream.
+  ///
+  /// Returns false if the archive is malformed or truncated, in which case
+  /// [output] holds however much was decoded before the failure and should be
+  /// discarded. Set [throwOnError] to get an [ArchiveException] instead; the
+  /// partial data is in [output] either way, because bytes already written
+  /// there cannot be taken back.
+  ///
+  /// [verify] checks the checksum stored with each block, catching damage that
+  /// decodes without complaint. It costs time and changes only whether a
+  /// failure is noticed, never what a successful decode writes.
+  ///
+  /// [throwOnError] governs how a bad *archive* is reported and nothing else.
+  /// Arguments that cannot be honoured throw [ArgumentError] whichever way it
+  /// is set, and so does [maxPreallocateSize] on this class.
+  ///
+  /// Pass [multithread] to decode on isolates. The call then returns
+  /// immediately, **the return value is always false**, and the outcome
+  /// arrives through [XZMultithreadOptions.onDone]. [throwOnError] keeps
+  /// working there, except that the exception cannot be thrown at the caller,
+  /// whose stack is long gone by then: it is handed to
+  /// [XZMultithreadOptions.onError] instead, and [XZMultithreadOptions.onDone]
+  /// is not called at all.
+  ///
+  /// This is the cheaper of the two methods, and the combination of streams
+  /// decides how cheap. When [input] is an `InputFileStream`, each worker
+  /// reads its own block from the file as it decodes it, so neither the
+  /// archive nor any block of it is ever held whole. Measured on a 1.1 GB
+  /// archive of six 192 MB blocks, at the default memory budget:
+  ///
+  /// | input, output | peak memory | time |
+  /// |---|---|---|
+  /// | `InputFileStream`, `OutputFileStream`, no `multithread` | 0.4 GB | 17.6 s |
+  /// | `InputFileStream`, `OutputFileStream` | 0.9 GB | 8.1 s |
+  /// | `InputFileStream`, `OutputFileStream`, six workers | 1.3 GB | 5.1 s |
+  /// | `InputMemoryStream`, `OutputFileStream` | 2.6 GB | 10.1 s |
+  ///
+  /// Note the first row: file to file without [multithread] holds nothing but
+  /// the LZMA dictionary and the two stream buffers, which no multithreaded
+  /// run can match, since each worker needs a dictionary of its own. Every row
+  /// below it buys time with memory. That is the trade to make deliberately,
+  /// and on a drive with a seek penalty it may not be a trade at all: workers
+  /// read different parts of the file at once, so a single threaded sweep can
+  /// win outright. See [XZMultithreadOptions.fileReadBufferSize].
+  ///
+  /// An [input] that is neither of those has no random access to hand the
+  /// workers, so it is decoded on the calling isolate and reported through
+  /// [XZMultithreadOptions.onDone] like everything else.
+  bool decodeStream(InputStream input, OutputStream output,
+      {bool verify = false,
+      bool throwOnError = false,
+      XZMultithreadOptions<bool>? multithread}) {
+    if (multithread == null) {
+      return _decodeStream(input, output, verify, throwOnError);
+    }
+    _checkOptions(multithread, throwOnError);
+
+    if (!xzIsolatesSupported) {
+      _report(multithread,
+          () => _decodeStream(input, output, verify, throwOnError), false);
+      return false;
+    }
+
+    _reportAsync(
+        multithread,
+        () => _decodeStreamOnIsolates(
+            input, output, verify, throwOnError, multithread),
+        false);
+    return false;
+  }
+
+  /// Gets uncompressed size of XZ archive, if it's valid. When archive
+  /// is not valid, return value is null. May be used with [decodeStream]
+  /// for memory efficiency.
+  ///
+  /// ```dart
+  /// final Uint8List from = Uint8List(0); // your archive
+  /// final OutputMemoryStream output = OutputMemoryStream(size: XZDecoder().uncompressedSize(from));
+  /// final bool ok = XZDecoder().decodeStream(InputMemoryStream(from), output);
+  /// if (!ok) throw 'XZ decode failed';
+  /// return output.getBytes();
+  /// ```
+  int? uncompressedSize(List<int> data) => _uSize(
+      data is Uint8List ? data : Uint8List.fromList(data), maxPreallocateSize);
+
+  // The single threaded decode, which is also what the multithreaded path
+  // falls back to when there are no isolates.
+  Uint8List _decodeBytes(Uint8List bytes, bool verify, bool throwOnError) {
+    // The stream indexes give the output size up front, which avoids growing
+    // the output buffer while decoding. A zero size is left to the default
+    // because the buffer cannot grow out of an empty allocation.
+    final int? size = _uSize(bytes, maxPreallocateSize);
+    final OutputMemoryStream output =
+        OutputMemoryStream(size: size != null && size > 0 ? size : null);
+
+    _decodeStream(InputMemoryStream(bytes), output, verify, throwOnError);
     return output.getBytes();
   }
 
-  bool decodeStream(InputStream input, OutputStream output,
-      {bool verify = false}) {
-    final decoder = _XZStreamDecoder(verify: verify);
-    return decoder.decode(input, output);
-  }
-}
-
-/// Decodes an XZ stream.
-class _XZStreamDecoder {
-  // True if checksums are confirmed.
-  final bool verify;
-
-  // LZMA decoder.
-  final decoder = LzmaDecoder();
-
-  // Stream flags, which are sent in both the header and the footer.
-  var streamFlags = 0;
-
-  // Block sizes.
-  final _blockSizes = <_XZBlockSize>[];
-
-  _XZStreamDecoder({this.verify = false});
-
-  /// Decode this stream and return the uncompressed data.
-  bool decode(InputStream input, OutputStream output) {
-    if (!_readStreamHeader(input, output)) {
+  bool _decodeStream(
+      InputStream input, OutputStream output, bool verify, bool throwOnError) {
+    final decoder =
+        XZStreamDecoder(verify: verify, maxPreallocateSize: maxPreallocateSize);
+    try {
+      if (decoder.decode(input, output)) return true;
+    } catch (error) {
+      if (throwOnError) throw ArchiveException('Invalid XZ archive: $error');
       return false;
     }
-
-    while (!input.isEOS) {
-      final blockHeader = input.peekBytes(1).readByte();
-
-      if (blockHeader == 0) {
-        final indexSize = _readStreamIndex(input);
-        if (indexSize < 0) {
-          return false;
-        }
-        return _readStreamFooter(input, indexSize);
-      }
-
-      final blockLength = (blockHeader + 1) * 4;
-      if (!_readBlock(input, output, blockLength)) {
-        return false;
-      }
-    }
-
-    // Valid XZ always goes trough _readStreamFooter
+    // The decoder records why it gave up, so the exception can say more than
+    // that something was wrong somewhere.
+    if (throwOnError) throw _invalid(decoder.failureReason);
     return false;
   }
 
-  // Reads an XZ steam header from [input].
-  bool _readStreamHeader(InputStream input, OutputStream output) {
-    final magic = input.readBytes(6).toUint8List();
-    final magicIsValid = magic[0] == 253 &&
-        magic[1] == 55 /* '7' */ &&
-        magic[2] == 122 /* 'z' */ &&
-        magic[3] == 88 /* 'X' */ &&
-        magic[4] == 90 /* 'Z' */ &&
-        magic[5] == 0;
-    if (!magicIsValid) {
-      return false;
-      //throw ArchiveException('Invalid XZ stream header signature');
-    }
+  // The exception a rejected archive turns into, naming the reason when the
+  // decoder managed to identify one.
+  static ArchiveException _invalid(String? reason) => ArchiveException(
+      reason == null ? 'Invalid XZ archive' : 'Invalid XZ archive: $reason');
 
-    final header = input.readBytes(2);
-    if (header.readByte() != 0) {
-      return false;
-      //throw ArchiveException('Invalid stream flags');
-    }
-    streamFlags = header.readByte();
-    header.reset();
+  Future<Uint8List> _decodeBytesOnIsolates(Uint8List bytes, bool verify,
+      bool throwOnError, XZMultithreadOptions<Uint8List> options) async {
+    // No ceiling here: the layout only says where the blocks are, which is what
+    // decides whether the work can be split up, and reading it allocates
+    // nothing. The ceiling belongs to the buffer decision below.
+    final layout = parseXZLayout(XZMemorySource(bytes));
 
-    final crc = input.readUint32();
-    if (getCrc32(header.toUint8List()) != crc) {
-      return false;
-      //throw ArchiveException('Invalid stream header CRC checksum');
-    }
-
-    return true;
-  }
-
-  // Reads a data block from [input].
-  bool _readBlock(InputStream input, OutputStream output, int headerLength) {
-    final blockStart = input.position;
-    final header = input.readBytes(headerLength - 4);
-
-    header.skip(1); // Skip length field
-    final blockFlags = header.readByte();
-    final nFilters = (blockFlags & 0x3) + 1;
-    final hasCompressedLength = blockFlags & 0x40 != 0;
-    final hasUncompressedLength = blockFlags & 0x80 != 0;
-
-    int? compressedLength;
-    if (hasCompressedLength) {
-      compressedLength = _readMultibyteInteger(header);
-    }
-    int? uncompressedLength;
-    if (hasUncompressedLength) {
-      uncompressedLength = _readMultibyteInteger(header);
-    }
-
-    final filters = <int>[];
-    var dictionarySize = 0;
-
-    for (var i = 0; i < nFilters; i++) {
-      final id = _readMultibyteInteger(header);
-      final propertiesLength = _readMultibyteInteger(header);
-      final properties = header.readBytes(propertiesLength).toUint8List();
-      if (id == 0x03) {
-        // delta filter
-        final distance = properties[0];
-        filters.add(id);
-        filters.add(distance);
-      } else if (id == 0x21) {
-        // lzma2 filter
-        final v = properties[0];
-        if (v > 40) {
-          return false;
-          //throw ArchiveException('Invalid LZMA dictionary size');
-        } else if (v == 40) {
-          dictionarySize = 0xffffffff;
-        } else {
-          final mantissa = 2 | (v & 0x1);
-          final exponent = (v >> 1) + 11;
-          dictionarySize = mantissa << exponent;
-        }
-        filters.add(id);
-        filters.add(dictionarySize);
-      } else {
-        filters.add(id);
-        filters.add(0);
+    if (layout == null || layout.uncompressedSize > maxPreallocateSize) {
+      // Either the archive has no readable index, or it claims an output too
+      // large to take on trust. The index is part of the archive, so a hostile
+      // one can claim any size at all; growing the buffer as the bytes actually
+      // arrive is what makes that claim harmless.
+      //
+      // Blocks still decode in parallel when the layout is known. They finish
+      // out of order and an OutputMemoryStream only appends, so the ones that
+      // run ahead wait their turn in the ordered writer.
+      final output = OutputMemoryStream();
+      final writer = layout == null ? null : _OrderedWriter(output);
+      String? reason;
+      final ok = await xzDecodeMultithreaded(
+        bytes: bytes,
+        layout: layout,
+        verify: verify,
+        maxPreallocateSize: maxPreallocateSize,
+        workers: options.workers,
+        memoryBudget: options.memoryBudget,
+        onChunk: writer == null
+            ? (offset, chunk) => output.writeBytes(chunk)
+            : writer.add,
+        onFailureReason: (r) => reason = r,
+        orderedOutput: writer != null,
+        fileReadBufferSize: options.fileReadBufferSize,
+      );
+      if (!ok && throwOnError) {
+        throw _invalid(reason);
       }
+      // Whether or not it succeeded, this yields what was decoded, which is
+      // what the single threaded path does too.
+      return output.getBytes();
     }
 
-    if (dictionarySize > 0 && dictionarySize < 0x40000000) {
-      decoder.dictionaryCap =
-          dictionarySize + (dictionarySize >> 2) + (2 << 20) + 16;
-    }
+    final blocks = layout.blocks;
+    final output = Uint8List(layout.uncompressedSize);
+    // How much of each block arrived, and whether it can be trusted, so that a
+    // failure can still report the part of the output that is good. Blocks are
+    // taken as trustworthy unless a verdict says otherwise, because verdicts
+    // only arrive when the archive was split up block by block.
+    final received = List<int>.filled(blocks.length, 0);
+    final accepted = List<bool>.filled(blocks.length, true);
+    String? reason;
+    // Set when a block produced more than the index accounted for, which is the
+    // archive contradicting itself.
+    var overran = false;
 
-    if (_readPadding(header) < 0) {
-      return false;
-    }
-    header.reset();
-
-    final crc = input.readUint32();
-    if (getCrc32(header.toUint8List()) != crc) {
-      return false;
-      //throw ArchiveException('Invalid block CRC checksum');
-    }
-
-    // We must abort if there is more than one filter
-    // (length != 2) or if the filter is not LZMA2 (first != 0x21).
-    if (filters.length != 2 || filters.first != 0x21) {
-      return false;
-      //throw ArchiveException('Unsupported filters');
-    }
-
-    final startPosition = input.position;
-    final startDataLength = output.length;
-
-    if (!_readLZMA2(input, output, dictionarySize)) return false;
-
-    final actualCompressedLength = input.position - startPosition;
-    final actualUncompressedLength = output.length - startDataLength;
-
-    if (compressedLength != null &&
-        compressedLength != actualCompressedLength) {
-      return false;
-      //throw ArchiveException("Compressed data doesn't match expected length");
-    }
-
-    uncompressedLength ??= actualUncompressedLength;
-    if (uncompressedLength != actualUncompressedLength) {
-      return false;
-      //throw ArchiveException("Uncompressed data doesn't match expected length");
-    }
-
-    final paddingSize = _readPadding(input);
-    if (paddingSize < 0) {
-      return false;
-    }
-
-    // Checksum
-    final checkType = streamFlags & 0xf;
-    switch (checkType) {
-      case 0: // none
-        break;
-      case 0x1: // CRC32
-        final int expectedCrc = input.readUint32();
-        if (verify && getCrc32(output.subset(startDataLength)) != expectedCrc) {
-          return false;
+    final ok = await xzDecodeMultithreaded(
+      bytes: bytes,
+      layout: layout,
+      verify: verify,
+      maxPreallocateSize: maxPreallocateSize,
+      workers: options.workers,
+      memoryBudget: options.memoryBudget,
+      onChunk: (offset, chunk) {
+        // A block header can declare more output than the index records for
+        // that block, and a damaged one often does. The buffer is sized from
+        // the index, so the surplus has nowhere to go. Keep what fits and mark
+        // the decode failed, rather than letting setRange throw: this runs in a
+        // callback, so the error would surface as a bare RangeError even when
+        // the caller asked for failures to be reported by return value.
+        //
+        // The surplus is not decoded output that is being thrown away. The two
+        // sizes disagree, so the archive is invalid whichever is believed, and
+        // the index is the one the buffer was allocated against. Believing the
+        // block header instead would let a corrupt one demand any allocation it
+        // likes, which is what maxPreallocateSize exists to prevent.
+        var length = chunk.length;
+        if (offset + length > output.length) {
+          length = output.length - offset;
+          overran = true;
+          reason ??= "Uncompressed data doesn't match the length in the index";
         }
-        break;
-      case 0x2:
-      case 0x3:
-        input.skip(4);
-        /*if (verify) {
-          throw ArchiveException('Unknown check type $checkType');
-        }*/
-        break;
-      case 0x4: // CRC64
-        final int expectedCrc = input.readUint64();
-        if (verify &&
-            isCrc64Supported() &&
-            getCrc64(output.subset(startDataLength)) != expectedCrc) {
-          return false;
+        if (length <= 0) {
+          return;
         }
-        break;
-      case 0x5:
-      case 0x6:
-        input.skip(8);
-        /*if (verify) {
-          throw ArchiveException('Unknown check type $checkType');
-        }*/
-        break;
-      case 0x7:
-      case 0x8:
-      case 0x9:
-        input.skip(16);
-        /*if (verify) {
-          throw ArchiveException('Unknown check type $checkType');
-        }*/
-        break;
-      case 0xa: // SHA-256
-        /*final expectedCrc =*/ input.readBytes(32).toUint8List();
-        /*if (verify) {
-          final actualCrc =
-              sha256.convert(data.toBytes().sublist(startDataLength)).bytes;
-          for (var i = 0; i < 32; i++) {
-            if (actualCrc[i] != expectedCrc[i]) {
-              throw ArchiveException('SHA-256 check failed');
-            }
+        output.setRange(
+            offset, offset + length, Uint8List.sublistView(chunk, 0, length));
+        if (blocks.isNotEmpty) {
+          final index = _blockIndexAt(blocks, offset);
+          received[index] += length;
+          if (overran) {
+            // Stops the prefix below at this block: it filled its share of the
+            // output, so it would otherwise pass for whole and sound.
+            accepted[index] = false;
           }
-        }*/
-        break;
-      case 0xb:
-      case 0xc:
-        input.skip(32);
-        /*if (verify) {
-          throw ArchiveException('Unknown check type $checkType');
-        }*/
-        break;
-      case 0xd:
-      case 0xe:
-      case 0xf:
-        input.skip(64);
-        /*if (verify) {
-          throw ArchiveException('Unknown check type $checkType');
-        }*/
-        break;
-      default:
-        //throw ArchiveException('Unknown block check type $checkType');
-        return false;
+        }
+      },
+      onBlockDone: (offset, blockOk) {
+        if (blocks.isNotEmpty) {
+          final index = _blockIndexAt(blocks, offset);
+          accepted[index] = accepted[index] && blockOk;
+        }
+      },
+      onFailureReason: (r) => reason = r,
+      fileReadBufferSize: options.fileReadBufferSize,
+    );
+
+    if (ok && !overran) {
+      return output;
+    }
+    if (throwOnError) {
+      throw _invalid(reason);
     }
 
-    final unpaddedLength = input.position - blockStart - paddingSize;
-    _blockSizes.add(_XZBlockSize(unpaddedLength, uncompressedLength));
-
-    return true;
+    // Blocks are decoded out of order, so the output stops where the single
+    // threaded decode would have given up: at the first block that is not
+    // whole and sound, that block included. A block that failed part way
+    // through contributes what it managed, since chunks within one block
+    // arrive in order. A block that produced everything and then failed its
+    // check contributes all of it, because that is what writing straight
+    // through to an output stream leaves behind, and a decode that cannot be
+    // undone is what the single threaded path is. The bytes are not vouched
+    // for either way: the decode reported failure.
+    var end = 0;
+    for (var i = 0; i < blocks.length; i++) {
+      final whole = received[i] == blocks[i].uncompressedLength;
+      if (!whole) {
+        end = blocks[i].outputOffset + received[i];
+        break;
+      }
+      end = blocks[i].outputOffset + blocks[i].uncompressedLength;
+      if (!accepted[i]) {
+        break;
+      }
+    }
+    return Uint8List.sublistView(output, 0, end);
   }
 
-  // Reads LZMA2 data from [input].
-  bool _readLZMA2(InputStream input, OutputStream output, int dictionarySize) {
-    while (!input.isEOS) {
-      final control = input.readByte();
-      // Control values:
-      // 00000000 - end marker
-      // 00000001 - reset dictionary and uncompresed data
-      // 00000010 - uncompressed data
-      // 1rrxxxxx - LZMA data with reset (r) and high bits of size field (x)
-      if (control & 0x80 == 0) {
-        if (control == 0) {
-          decoder.reset(resetDictionary: true);
-          return true;
-        } else if (control == 1) {
-          decoder.reset(resetDictionary: true);
-          final length = (input.readByte() << 8 | input.readByte()) + 1;
-          output.writeBytes(
-              decoder.decodeUncompressed(input.readBytes(length), length));
-          decoder.trimDictionary(dictionarySize);
-        } else if (control == 2) {
-          // uncompressed data
-          final length = (input.readByte() << 8 | input.readByte()) + 1;
-          output.writeBytes(
-              decoder.decodeUncompressed(input.readBytes(length), length));
-          decoder.trimDictionary(dictionarySize);
-        } else {
-          return false;
-          //throw ArchiveException('Unknown LZMA2 control code $control');
-        }
+  Future<bool> _decodeStreamOnIsolates(
+      InputStream input,
+      OutputStream output,
+      bool verify,
+      bool throwOnError,
+      XZMultithreadOptions<bool> options) async {
+    final region = xzFileRegionOf(input);
+
+    XZLayout? layout;
+    Uint8List? bytes;
+    if (region != null) {
+      layout = xzLayoutOfFile(region);
+    } else if (input is InputMemoryStream) {
+      bytes = input.toUint8List();
+      layout = parseXZLayout(XZMemorySource(bytes));
+    } else {
+      // Any other stream has no random access to give the workers, so it is
+      // decoded on the calling isolate.
+      return _decodeStream(input, output, verify, throwOnError);
+    }
+
+    // An OutputStream can only be appended to, so blocks that finish early are
+    // held back until the blocks in front of them have been written.
+    final writer = _OrderedWriter(output);
+    String? reason;
+
+    final ok = await xzDecodeMultithreaded(
+      bytes: bytes,
+      path: region?.path,
+      fileOffset: region?.offset ?? 0,
+      fileLength: region?.length ?? 0,
+      layout: layout,
+      verify: verify,
+      maxPreallocateSize: maxPreallocateSize,
+      workers: options.workers,
+      memoryBudget: options.memoryBudget,
+      onChunk: writer.add,
+      onFailureReason: (r) => reason = r,
+      orderedOutput: true,
+      fileReadBufferSize: options.fileReadBufferSize,
+    );
+    if (!ok && throwOnError) {
+      throw _invalid(reason);
+    }
+    return ok;
+  }
+
+  // Runs [work] now and hands the result to [options.onDone], routing a
+  // failure to [options.onError].
+  static void _report<T>(
+      XZMultithreadOptions<T> options, T Function() work, T onFailure) {
+    T result;
+    try {
+      result = work();
+    } catch (error, stack) {
+      final onError = options.onError;
+      if (onError != null) {
+        onError(error, stack);
       } else {
-        // Reset flags:
-        // 0 - reset nothing
-        // 1 - reset state
-        // 2 - reset state, properties
-        // 3 - reset state, properties and dictionary
-        final reset = (control >> 5) & 0x3;
-        final uncompressedLength = ((control & 0x1f) << 16 |
-                input.readByte() << 8 |
-                input.readByte()) +
-            1;
-        final compressedLength = (input.readByte() << 8 | input.readByte()) + 1;
-        int? literalContextBits;
-        int? literalPositionBits;
-        int? positionBits;
-        if (reset >= 2) {
-          // The three LZMA decoder properties are combined into a single number.
-          var properties = input.readByte();
-          positionBits = properties ~/ 45;
-          properties -= positionBits * 45;
-          literalPositionBits = properties ~/ 9;
-          literalContextBits = properties - literalPositionBits * 9;
-        }
-        if (reset > 0) {
-          decoder.reset(
-              literalContextBits: literalContextBits,
-              literalPositionBits: literalPositionBits,
-              positionBits: positionBits,
-              resetDictionary: reset == 3);
-        }
-
-        output.writeBytes(decoder.decode(
-            input.readBytes(compressedLength), uncompressedLength));
-        decoder.trimDictionary(dictionarySize);
+        options.onDone(onFailure);
       }
+      return;
     }
-
-    // 00000000 - end marker, if not reached - there's an issue with file
-    return false;
+    options.onDone(result);
   }
 
-  // Reads an XZ stream index from [input].
-  // Returns the length of the index in bytes.
-  int _readStreamIndex(InputStream input) {
-    final startPosition = input.position;
-    input.skip(1); // Skip index indicator
-    final nRecords = _readMultibyteInteger(input);
-    if (nRecords != _blockSizes.length) {
-      return -1;
-      //throw ArchiveException('Stream index block count mismatch');
-    }
-
-    for (var i = 0; i < nRecords; i++) {
-      final unpaddedLength = _readMultibyteInteger(input);
-      final uncompressedLength = _readMultibyteInteger(input);
-      if (_blockSizes[i].unpaddedLength != unpaddedLength) {
-        return -1;
-        //throw ArchiveException('Stream index compressed length mismatch');
+  // As [_report], for work that finishes later.
+  static void _reportAsync<T>(
+      XZMultithreadOptions<T> options, Future<T> Function() work, T onFailure) {
+    unawaited(
+        work().then(options.onDone, onError: (Object error, StackTrace stack) {
+      final onError = options.onError;
+      if (onError != null) {
+        onError(error, stack);
+      } else {
+        // Nothing would observe an unhandled asynchronous error, so the
+        // failure is reported the same way an invalid archive is.
+        options.onDone(onFailure);
       }
-      if (_blockSizes[i].uncompressedLength != uncompressedLength) {
-        return -1;
-        //throw ArchiveException('Stream index uncompressed length mismatch');
-      }
-    }
-    if (_readPadding(input) < 0) {
-      return -1;
-    }
-
-    // Re-read for CRC calculation
-    final indexLength = input.position - startPosition;
-    input.rewind(indexLength);
-    final indexData = input.readBytes(indexLength);
-
-    final crc = input.readUint32();
-    if (getCrc32(indexData.toUint8List()) != crc) {
-      return -1;
-      //throw ArchiveException('Invalid stream index CRC checksum');
-    }
-
-    return indexLength + 4;
+    }));
   }
 
-  // Reads an XZ stream footer from [input] and check the index size matches
-  // [indexSize].
-  bool _readStreamFooter(InputStream input, int indexSize) {
-    final crc = input.readUint32();
-    final footer = input.readBytes(6);
-    final backwardSize = (footer.readUint32() + 1) * 4;
-    if (backwardSize != indexSize) {
-      return false;
-      //throw ArchiveException('Stream footer has invalid index size');
+  // Rejects settings that cannot be honoured, rather than quietly doing
+  // something else. Both of these feed the arithmetic that sizes the pool, and
+  // a nonsensical value there does not fail loudly: a negative read buffer
+  // makes the per worker cost come out negative, which skips the memory budget
+  // altogether and hands out more workers than the budget allows.
+  static void _checkOptions(
+      XZMultithreadOptions<Object?> options, bool throwOnError) {
+    // Asking to be told about failures while leaving nowhere to tell would put
+    // the failure back where it started, so it is refused here, while the
+    // caller is still on the stack to hear about it.
+    if (throwOnError && options.onError == null) {
+      throw ArgumentError.value(
+          null,
+          'onError',
+          'Must be given when throwOnError is set, since that is where the '
+              'exception is delivered');
     }
-    if (footer.readByte() != 0) {
-      return false;
-      //throw ArchiveException('Invalid stream flags');
+    final workers = options.workers;
+    if (workers != null && workers < 1) {
+      throw ArgumentError.value(workers, 'workers', 'Must be at least 1');
     }
-    final footerFlags = footer.readByte();
-    if (footerFlags != streamFlags) {
-      return false;
-      //throw ArchiveException("Stream footer flags don't match header flags");
+    final budget = options.memoryBudget;
+    if (budget != null && budget < 1) {
+      throw ArgumentError.value(budget, 'memoryBudget', 'Must be at least 1');
     }
-    footer.reset();
-
-    if (getCrc32(footer.toUint8List()) != crc) {
-      return false;
-      //throw ArchiveException('Invalid stream footer CRC checksum');
+    if (options.fileReadBufferSize < 1) {
+      throw ArgumentError.value(options.fileReadBufferSize,
+          'fileReadBufferSize', 'Must be at least 1');
     }
-
-    // The stream is invalid if at least one byte is corrupted.
-    final magic = input.readBytes(2).toUint8List();
-    if (magic[0] != 89 /* 'Y' */ || magic[1] != 90 /* 'Z' */) {
-      return false;
-      //throw ArchiveException('Invalid XZ stream footer signature');
-    }
-
-    return true;
   }
+}
 
-  // Reads a multibyte integer from [input].
-  int _readMultibyteInteger(InputStream input) {
-    var value = 0;
-    var shift = 0;
+/// Writes chunks to an append-only [OutputStream] in offset order.
+class _OrderedWriter {
+  final OutputStream _output;
+  final _waiting = <int, Uint8List>{};
+  int _written = 0;
+
+  _OrderedWriter(this._output);
+
+  void add(int offset, Uint8List chunk) {
+    if (offset != _written) {
+      _waiting[offset] = chunk;
+      return;
+    }
+
+    _output.writeBytes(chunk);
+    _written += chunk.length;
+
+    // Writing this chunk may have joined up chunks that arrived before it.
     while (true) {
-      final data = input.readByte();
-      value |= (data & 0x7f) << shift;
-      if (data & 0x80 == 0) {
-        return value;
+      final next = _waiting.remove(_written);
+      if (next == null) {
+        return;
       }
-      shift += 7;
+      _output.writeBytes(next);
+      _written += next.length;
     }
-  }
-
-  // Reads padding from [input] until the read position is aligned to a 4 byte
-  // boundary. The padding bytes are confirmed to be zeros.
-  // Returns he number of padding bytes.
-  int _readPadding(InputStream input) {
-    var count = 0;
-    while (input.position % 4 != 0) {
-      if (input.readByte() != 0) {
-        return -1;
-        //throw ArchiveException('Non-zero padding byte');
-      }
-      count++;
-    }
-    return count;
   }
 }
 
-// Information about a block size.
-class _XZBlockSize {
-  // The block size excluding padding.
-  final int unpaddedLength;
-
-  // The size of the data in the block when uncompressed.
-  final int uncompressedLength;
-
-  const _XZBlockSize(this.unpaddedLength, this.uncompressedLength);
+/// The index of the block that [offset] falls in.
+int _blockIndexAt(List<XZBlockLayout> blocks, int offset) {
+  var low = 0;
+  var high = blocks.length - 1;
+  while (low < high) {
+    final middle = (low + high + 1) >> 1;
+    if (blocks[middle].outputOffset <= offset) {
+      low = middle;
+    } else {
+      high = middle - 1;
+    }
+  }
+  return low;
 }
+
+/// Default for [XZDecoder.maxPreallocateSize].
+///
+/// Two gigabytes where allocation failure is survivable, and 256 MB on the web,
+/// where it is not: dart2js and dart2wasm both kill the page outright rather
+/// than throwing something catchable, and dart2wasm cannot reach a gigabyte in
+/// the first place. The web figure leaves room under that.
+final int xzDefaultMaxPreallocateSize =
+    xzIsolatesSupported ? 1 << 31 : 256 * 1024 * 1024;
+
+// Returns the total uncompressed size of every stream in [d], taken from the
+// stream indexes, or null if it cannot be determined or exceeds [maxSize].
+int? _uSize(Uint8List d, int maxSize) =>
+    parseXZLayout(XZMemorySource(d), maxUncompressedSize: maxSize)
+        ?.uncompressedSize;
