@@ -96,9 +96,11 @@ class FileBuffer {
   }
 
   /// Read an 8-bit unsigned int at the given [position] within the file.
-  /// [fileSize] is used to ensure bytes aren't read past the end of
-  /// an [InputFileStream].
-  int readUint8(int position, [int? fileSize]) {
+  ///
+  /// The [fileSize] of the read methods is ignored: the buffer never reads
+  /// past the end of the file, and a stream over part of the file keeps to
+  /// its own bounds.
+  int readUint8(int position, [@Deprecated('Ignored') int? fileSize]) {
     if (position >= _fileSize || position < 0) {
       return 0;
     }
@@ -110,7 +112,7 @@ class FileBuffer {
   }
 
   /// Read a 16-bit unsigned int at the given [position] within the file.
-  int readUint16(int position, [int? fileSize]) {
+  int readUint16(int position, [@Deprecated('Ignored') int? fileSize]) {
     if (position > (_fileSize - 2) || position < 0) {
       return 0;
     }
@@ -127,7 +129,7 @@ class FileBuffer {
   }
 
   /// Read a 24-bit unsigned int at the given [position] within the file.
-  int readUint24(int position, [int? fileSize]) {
+  int readUint24(int position, [@Deprecated('Ignored') int? fileSize]) {
     if (position > (_fileSize - 3) || position < 0) {
       return 0;
     }
@@ -145,7 +147,7 @@ class FileBuffer {
   }
 
   /// Read a 32-bit unsigned int at the given [position] within the file.
-  int readUint32(int position, [int? fileSize]) {
+  int readUint32(int position, [@Deprecated('Ignored') int? fileSize]) {
     if (position > (_fileSize - 4) || position < 0) {
       return 0;
     }
@@ -164,7 +166,7 @@ class FileBuffer {
   }
 
   /// Read a 64-bit unsigned int at the given [position] within the file.
-  int readUint64(int position, [int? fileSize]) {
+  int readUint64(int position, [@Deprecated('Ignored') int? fileSize]) {
     if (position > (_fileSize - 8) || position < 0) {
       return 0;
     }
@@ -202,7 +204,8 @@ class FileBuffer {
   }
 
   /// Read [count] bytes starting at the given [position] within the file.
-  Uint8List readBytes(int position, int count, [int? fileSize]) {
+  Uint8List readBytes(int position, int count,
+      [@Deprecated('Ignored') int? fileSize]) {
     if (count > buffer.length) {
       if (position + count >= _fileSize) {
         count = _fileSize - position;
