@@ -220,6 +220,9 @@ class XZStreamDecoder {
         return _fail('Invalid filter in block header');
       }
       final properties = header.readBytes(propertiesLength).toUint8List();
+      if (properties.length != propertiesLength) {
+        return _fail('Invalid filter in block header');
+      }
       if (id == 0x03) {
         // delta filter
         if (properties.isEmpty) {

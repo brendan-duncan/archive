@@ -95,6 +95,11 @@ class _GZipDecoder extends ZLibDecoderBase {
     if (trailerLength < 8) {
       return false;
     }
+    // 10 header + 2 deflate + 8 trailer. Below that the last eight bytes are
+    // header, not the trailer read next
+    if (seen < 20) {
+      return false;
+    }
     final declared = trailer[4] |
         (trailer[5] << 8) |
         (trailer[6] << 16) |

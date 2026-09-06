@@ -13,6 +13,20 @@ void main() {
       final uncompressed = ZLibDecoder().decodeBytes(compressed);
       compareBytes(uncompressed, origData);
     });
+
+    test('an input too short for a header is refused, not thrown', () {
+      // Without a gzip header the gzip decoder falls back to zlib, whose own
+      // two byte header was read unchecked
+      final short = Uint8List(1);
+      expect(
+          ZLibDecoderWeb()
+              .decodeStream(InputMemoryStream(short), OutputMemoryStream()),
+          isFalse);
+      expect(
+          GZipDecoderWeb()
+              .decodeStream(InputMemoryStream(short), OutputMemoryStream()),
+          isFalse);
+    });
   });
 
   group('gzip web', () {
@@ -26,6 +40,50 @@ void main() {
       final compressed = GZipEncoder().encodeBytes(origData);
       final uncompressed = GZipDecoder().decodeBytes(compressed);
       compareBytes(uncompressed, origData);
+    });
+
+    test('verify checks the member CRC', () {
+      final compressed = GZipEncoder().encodeBytes(buffer);
+      expect(GZipDecoderWeb().decodeBytes(compressed, verify: true).length,
+          equals(buffer.length));
+
+      // The stored checksum, not the data: the length still matches, so only
+      // the checksum is left to notice
+      final damaged = Uint8List.fromList(compressed);
+      damaged[damaged.length - 8] ^= 0xff;
+      expect(
+          GZipDecoderWeb().decodeStream(
+              InputMemoryStream(damaged), OutputMemoryStream(),
+              verify: true),
+          isFalse);
+      // A second pass over the output, so without verify it is not read
+      expect(
+          GZipDecoderWeb()
+              .decodeStream(InputMemoryStream(damaged), OutputMemoryStream()),
+          isTrue);
+    });
+
+    test('damage is reported by return value, not thrown', () {
+      // These used to come out as a RangeError from inside the decoder
+      final compressed = GZipEncoder().encodeBytes(buffer);
+      // Bytes that damage a match into reaching back past the output
+      for (final at in [18, 19, 20, 21, 22, 23, 154, 158, 164]) {
+        final damaged = Uint8List.fromList(compressed);
+        damaged[at] ^= 0xff;
+        expect(
+            GZipDecoderWeb().decodeStream(
+                InputMemoryStream(damaged), OutputMemoryStream()),
+            isFalse,
+            reason: 'byte $at');
+      }
+
+      // A header whose optional fields claim more than the input holds
+      final short = Uint8List.fromList(compressed.take(12).toList());
+      short[3] = 0x1f; // extra, name, comment and hcrc all present
+      expect(
+          GZipDecoderWeb()
+              .decodeStream(InputMemoryStream(short), OutputMemoryStream()),
+          isFalse);
     });
 
     test('multiblock', () async {
@@ -51,7 +109,7 @@ void main() {
   group('tar web', () {
     // On the web an int is a double and the bitwise operators are 32 bit, so
     // a base 256 header field has to be read with arithmetic to survive the
-    // trip. 9437184000 needs 34 bits and would come back truncated otherwise.
+    // trip. 9437184000 needs 34 bits and would come back truncated otherwise
     test('base 256 size', () {
       final h = Uint8List(1024);
       h.setRange(0, 5, 'a.txt'.codeUnits);

@@ -73,9 +73,16 @@ class InputFileStream extends InputStream {
             ? new FileBuffer.from(other._file, bufferSize: bufferSize)
             : other._file,
         _fileOffset = other._fileOffset + (position ?? 0),
-        _fileSize = length ?? other._fileSize,
         _position = 0,
-        super(byteOrder: other.byteOrder);
+        super(byteOrder: other.byteOrder) {
+    // A subset ends where its source does. peekBytes asks past the end of a
+    // file, where the buffer still holds earlier bytes
+    final available = other._fileSize - (position ?? 0);
+    _fileSize = length == null || length > available ? available : length;
+    if (_fileSize < 0) {
+      _fileSize = 0;
+    }
+  }
 
   @override
   bool open() => _file.open();

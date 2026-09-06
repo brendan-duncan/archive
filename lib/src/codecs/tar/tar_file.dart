@@ -165,6 +165,8 @@ class TarFile {
     return _content;
   }
 
+  set content(FileContent? data) => _content = data;
+
   Uint8List? get contentBytes => content?.readBytes();
 
   set contentBytes(Uint8List? data) =>
@@ -314,6 +316,24 @@ class TarFile {
 
   void _writeInt(OutputStream output, int value, int numBytes) {
     var s = value.toRadixString(8);
+    // Too wide for the octal field: base 256, which _parseInt reads back
+    // Switched a digit later than GNU tar, because digits with no terminator
+    // are read by older versions of this package and base 256 is not
+    if (value < 0 || s.length > numBytes) {
+      final bytes = Uint8List(numBytes);
+      var m = value < 0 ? -value - 1 : value;
+      for (var i = numBytes - 1; i >= 0; --i) {
+        bytes[i] = value < 0 ? 255 - (m % 256) : m % 256;
+        m = m ~/ 256;
+      }
+      // Bits 0x80 and 0x40 of the first byte are the marker and the sign
+      if (m != 0 || (value < 0 ? bytes[0] < 0xc0 : bytes[0] >= 0x40)) {
+        throw ArchiveException('Tar header field is out of range: $value');
+      }
+      bytes[0] |= 0x80;
+      output.writeBytes(bytes);
+      return;
+    }
     while (s.length < numBytes - 1) {
       s = '0$s';
     }

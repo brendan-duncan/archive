@@ -387,6 +387,80 @@ void main() {
           throwsA(isA<ArchiveException>()));
     });
 
+    test('base 256 encoded header fields on the way out', () {
+      // Too wide for the octal field used to be truncated to its leading
+      // digits: a different number, in an archive nothing reports as damaged
+      final file = ArchiveFile.bytes('a.txt', Uint8List.fromList([1, 2, 3]));
+      file.ownerId = 16777216;
+      file.groupId = -1;
+      final encoded = TarEncoder().encodeBytes(Archive()..add(file));
+      // The bytes libarchive writes for the same uid
+      expect(encoded.sublist(108, 116),
+          equals([0x80, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00]));
+      expect(encoded.sublist(116, 124), equals(List.filled(8, 0xff)));
+
+      final back = TarDecoder().decodeBytes(encoded, verify: true);
+      expect(back[0].ownerId, equals(16777216));
+      expect(back[0].groupId, equals(-1));
+
+      // One less still fits as digits and stays there, since older readers
+      // read those but not base 256
+      final widest = ArchiveFile.bytes('a.txt', Uint8List.fromList([1]));
+      widest.ownerId = 16777215;
+      final octal = TarEncoder().encodeBytes(Archive()..add(widest));
+      expect(octal.sublist(108, 116), equals('77777777'.codeUnits));
+      expect(TarDecoder().decodeBytes(octal, verify: true)[0].ownerId,
+          equals(16777215));
+
+      // Reaching the marker and sign bits of the first byte is refused
+      final tooWide = ArchiveFile.bytes('a.txt', Uint8List.fromList([1]));
+      tooWide.ownerId = 1 << 62;
+      expect(() => TarEncoder().encodeBytes(Archive()..add(tooWide)),
+          throwsA(isA<ArchiveException>()));
+    });
+
+    test('an entry given as a stream is not pulled into memory to encode', () {
+      // Reading an entry whole fails past the size one read can return
+      final data = Uint8List.fromList(List.generate(4096, (i) => i & 0xff));
+      final file = ArchiveFile.stream('a.txt', _RefusesBulkRead(data));
+      final path = p.join(Directory.systemTemp.path, 'tar_stream_entry.tar');
+      final out = OutputFileStream(path);
+      TarEncoder().encodeStream(Archive()..add(file), out);
+      out.closeSync();
+
+      final back = TarDecoder()
+          .decodeStream(InputFileStream(path), verify: true);
+      expect(back.length, equals(1));
+      expect(back[0].readBytes(), equals(data));
+    });
+
+    test('verify rejects a damaged header that starts with zeros', () {
+      // A header damaged into starting with zeros used to end the archive,
+      // dropping every entry behind it
+      final good = TarEncoder().encodeBytes(Archive()
+        ..add(ArchiveFile.bytes('a.txt', Uint8List.fromList([1, 2, 3])))
+        ..add(ArchiveFile.bytes('b.txt', Uint8List.fromList([4, 5, 6]))));
+      expect(TarDecoder().decodeBytes(good, verify: true).length, equals(2));
+
+      // This encoder zeroes everything past the link name, so blanking more
+      // than that is a real end block
+      for (final zeros in [2, 8, 100]) {
+        final damaged = Uint8List.fromList(good);
+        damaged.fillRange(1024, 1024 + zeros, 0);
+        expect(() => TarDecoder().decodeBytes(damaged, verify: true),
+            throwsA(isA<ArchiveException>()),
+            reason: '$zeros leading zeros');
+        // Without verify nothing is checked, so the archive still ends there
+        expect(TarDecoder().decodeBytes(damaged).length, equals(1),
+            reason: '$zeros leading zeros');
+      }
+
+      // A whole block of zeros is the end of the archive, and stays that way
+      final ended = Uint8List.fromList(good);
+      ended.fillRange(1024, 1536, 0);
+      expect(TarDecoder().decodeBytes(ended, verify: true).length, equals(1));
+    });
+
     test('long file name not null terminated', () async {
       final bytes = await http.readBytes(Uri.parse(
           'https://pub.dev/packages/firebase_messaging/versions/10.0.8.tar.gz'));
@@ -522,4 +596,12 @@ void main() {
       });
     }
   });
+}
+
+// A stream that can be read a piece at a time but never all at once
+class _RefusesBulkRead extends InputMemoryStream {
+  _RefusesBulkRead(super.bytes);
+
+  @override
+  Uint8List toUint8List() => throw StateError('entry pulled into memory');
 }

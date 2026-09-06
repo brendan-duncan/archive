@@ -1,5 +1,7 @@
+import 'dart:math';
 import 'dart:typed_data';
 
+import '../../util/crc32.dart';
 import '../../util/input_memory_stream.dart';
 import '../../util/input_stream.dart';
 import '../../util/output_memory_stream.dart';
@@ -42,7 +44,13 @@ class _GZipDecoder extends ZLibDecoderBase {
             verify: verify, raw: raw);
       }
       final memberStart = output.length;
-      Inflate.stream(input, output: output);
+      // A match reaching back further than the output indexes behind the
+      // start of the buffer; a bad archive is a return value here
+      try {
+        Inflate.stream(input, output: output);
+      } on RangeError {
+        return false;
+      }
 
       // A member cut short before its trailer would otherwise decode to a
       // short result and be reported as a success, which is a truncated
@@ -50,7 +58,7 @@ class _GZipDecoder extends ZLibDecoderBase {
       if (input.length < 8) {
         return false;
       }
-      /*final crc =*/ input.readUint32();
+      final crc = input.readUint32();
       final size = input.readUint32();
 
       output.flush();
@@ -60,6 +68,22 @@ class _GZipDecoder extends ZLibDecoderBase {
       // the whole output, which several members share.
       if ((output.length - memberStart) % 0x100000000 != size) {
         return false;
+      }
+
+      // The length above says nothing about the bytes. Read back rather than
+      // summed while writing, so it costs a second pass and waits to be asked
+      // for. In pieces, since a member can be larger than memory
+      if (verify) {
+        var sum = 0;
+        var at = memberStart;
+        while (at < output.length) {
+          final end = min(at + 65536, output.length);
+          sum = getCrc32(output.subset(at, end), sum);
+          at = end;
+        }
+        if (sum != crc) {
+          return false;
+        }
       }
       members++;
     }
@@ -133,24 +157,49 @@ class _GZipDecoder extends ZLibDecoderBase {
     /*int extraFlags =*/ input.readByte();
     /*int osType =*/ input.readByte();
 
+    // The header sizes these itself, so a damaged one can point past the end
+    // of the input
     if (flags & GZipFlag.extra != 0) {
+      if (input.length < 2) {
+        return false;
+      }
       final t = input.readUint16();
+      if (input.length < t) {
+        return false;
+      }
       input.readBytes(t);
     }
 
     if (flags & GZipFlag.name != 0) {
-      input.readString();
+      if (!_skipString(input)) {
+        return false;
+      }
     }
 
     if (flags & GZipFlag.comment != 0) {
-      input.readString();
+      if (!_skipString(input)) {
+        return false;
+      }
     }
 
     // just throw away for now
     if (flags & GZipFlag.hcrc != 0) {
+      if (input.length < 2) {
+        return false;
+      }
       input.readUint16();
     }
 
     return true;
+  }
+
+  // False if the string never terminates
+  bool _skipString(InputStream input) {
+    while (!input.isEOS) {
+      if (input.readByte() == 0) {
+        return true;
+      }
+    }
+    return false;
   }
 }
