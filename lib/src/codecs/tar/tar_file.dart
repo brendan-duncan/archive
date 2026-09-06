@@ -163,10 +163,10 @@ class TarFile {
   InputStream? get rawContent => _rawContent;
 
   FileContent? get content {
-    if (_rawContent == null) {
-      return null;
+    // What was set, or what was read, whichever there is
+    if (_content == null && _rawContent != null) {
+      _content = FileContentMemory(_rawContent!.toUint8List());
     }
-    _content ??= FileContentMemory(_rawContent!.toUint8List());
     return _content;
   }
 

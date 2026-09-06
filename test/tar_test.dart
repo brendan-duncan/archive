@@ -470,6 +470,16 @@ void main() {
       expect(archive[0].readBytes(), equals(data));
     });
 
+    test('content set on a TarFile reads back', () {
+      // The getter used to answer null for a file with no raw content, even
+      // after content was set
+      final file = TarFile()..content = FileContentMemory([1, 2, 3]);
+      expect(file.contentBytes, equals([1, 2, 3]));
+      final bytes = TarFile()..contentBytes = Uint8List.fromList([4, 5]);
+      expect(bytes.contentBytes, equals([4, 5]));
+      expect(TarFile().content, isNull);
+    });
+
     test('verify rejects a damaged header that starts with zeros', () {
       // A header damaged into starting with zeros used to end the archive,
       // dropping every entry behind it
