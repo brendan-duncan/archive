@@ -540,6 +540,45 @@ void main() {
       }
     });
 
+    test('a long name is written with the GNU type flag', () {
+      // The '././@LongLink' entry used to go out as a regular file. This
+      // decoder reads the name back either way, but every other tar keys on
+      // the type flag alone and cut the name to the 100 byte field without it
+      final name = '${'c' * 150}.txt';
+      final tar = TarEncoder()
+          .encodeBytes(Archive()..add(ArchiveFile.bytes(name, Uint8List(3))));
+      expect(String.fromCharCode(tar[156]), equals(TarFile.longName));
+      expect(String.fromCharCode(tar[512 + 512 + 156]), equals('0'));
+      expect(TarDecoder().decodeBytes(tar, verify: true)[0].name, equals(name));
+    });
+
+    test('a long link target is written with the GNU type flag', () {
+      // A target too long for the 100 byte field used to be cut to fit, so
+      // even this decoder read back a different link than was written
+      final target = '${'t' * 150}.txt';
+      final tar = TarEncoder()
+          .encodeBytes(Archive()..add(ArchiveFile.symlink('link.txt', target)));
+      expect(String.fromCharCode(tar[156]), equals(TarFile.longLinkName));
+      expect(String.fromCharCode(tar[512 + 512 + 156]),
+          equals(TarFile.symbolicLink));
+      final back = TarDecoder().decodeBytes(tar, verify: true)[0];
+      expect(back.name, equals('link.txt'));
+      expect(back.symbolicLink, equals(target));
+    });
+
+    test('a long name and a long target are both written, name first', () {
+      final name = '${'n' * 150}.txt';
+      final target = '${'t' * 150}.txt';
+      final tar = TarEncoder()
+          .encodeBytes(Archive()..add(ArchiveFile.symlink(name, target)));
+      expect(String.fromCharCode(tar[156]), equals(TarFile.longName));
+      expect(String.fromCharCode(tar[512 + 512 + 156]),
+          equals(TarFile.longLinkName));
+      final back = TarDecoder().decodeBytes(tar, verify: true)[0];
+      expect(back.name, equals(name));
+      expect(back.symbolicLink, equals(target));
+    });
+
     test('verify rejects a damaged header that starts with zeros', () {
       // A header damaged into starting with zeros used to end the archive,
       // dropping every entry behind it
