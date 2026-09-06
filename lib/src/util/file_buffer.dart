@@ -13,7 +13,10 @@ class FileBuffer {
   Uint8List? _buffer;
   int _fileSize = 0;
   int _position = 0;
+  // The size of the buffer, and how much of it holds bytes of the file: less
+  // than the size after a read near the end of the file
   int _bufferSize = 0;
+  int _bufferLength = 0;
 
   /// The buffer size should be at least 8 bytes, so reading a 64-bit value
   /// doesn't have to deal with buffer overflow.
@@ -47,7 +50,7 @@ class FileBuffer {
   FileBuffer.from(FileBuffer other, {int? bufferSize})
       : this.byteOrder = other.byteOrder,
         this.file = other.file {
-    _bufferSize = bufferSize ?? other._bufferSize;
+    _bufferSize = max(bufferSize ?? other._bufferSize, kMinBufferSize);
     _position = other._position;
     _fileSize = other._fileSize;
     _buffer = Uint8List(_bufferSize);
@@ -99,7 +102,7 @@ class FileBuffer {
     if (position >= _fileSize || position < 0) {
       return 0;
     }
-    if (position < _position || position >= (_position + _bufferSize)) {
+    if (position < _position || position >= (_position + _bufferLength)) {
       _readBuffer(position);
     }
     final p = position - _position;
@@ -111,7 +114,7 @@ class FileBuffer {
     if (position > (_fileSize - 2) || position < 0) {
       return 0;
     }
-    if (position < _position || position + 2 > (_position + _bufferSize)) {
+    if (position < _position || position + 2 > (_position + _bufferLength)) {
       _readBuffer(position);
     }
     var p = position - _position;
@@ -128,7 +131,7 @@ class FileBuffer {
     if (position > (_fileSize - 3) || position < 0) {
       return 0;
     }
-    if (position < _position || position + 3 > (_position + _bufferSize)) {
+    if (position < _position || position + 3 > (_position + _bufferLength)) {
       _readBuffer(position);
     }
     var p = position - _position;
@@ -146,7 +149,7 @@ class FileBuffer {
     if (position > (_fileSize - 4) || position < 0) {
       return 0;
     }
-    if (position < _position || position + 4 > (_position + _bufferSize)) {
+    if (position < _position || position + 4 > (_position + _bufferLength)) {
       _readBuffer(position);
     }
     var p = position - _position;
@@ -165,7 +168,7 @@ class FileBuffer {
     if (position > (_fileSize - 8) || position < 0) {
       return 0;
     }
-    if (position < _position || position + 8 > (_position + _bufferSize)) {
+    if (position < _position || position + 8 > (_position + _bufferLength)) {
       _readBuffer(position);
     }
     var p = position - _position;
@@ -211,7 +214,7 @@ class FileBuffer {
     }
 
     if (position < _position ||
-        (position + count) > (_position + _bufferSize)) {
+        (position + count) > (_position + _bufferLength)) {
       _readBuffer(position);
     }
 
@@ -228,10 +231,10 @@ class FileBuffer {
       _buffer = Uint8List(_bufferSize);
     }
     file.position = position;
-    // Fill the buffer, not just the bytes the read asked for: that count
-    // would become _bufferSize and every later read would miss the cache
-    final size = min(_fileSize - position, _buffer!.length);
-    _bufferSize = file.readInto(_buffer!, size);
+    // Fill the buffer, not just the bytes the read asked for, so that every
+    // later read within it is a hit
+    final size = max(0, min(_fileSize - position, _bufferSize));
+    _bufferLength = file.readInto(_buffer!, size);
     _position = position;
   }
 }

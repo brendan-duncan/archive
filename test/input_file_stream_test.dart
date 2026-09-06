@@ -135,6 +135,29 @@ void main() {
       fs.closeSync();
     });
 
+    test('the cache keeps its size past a short read at the end', () {
+      // The count of a short read at the end of the file used to become the
+      // size of the buffer allocated after a close, or for a copy
+      final whole = FileBuffer(FileHandle(testPath));
+      final first = whole.readUint64(0);
+      final last = whole.readUint64(testData.length - 8);
+
+      final closed = FileBuffer(FileHandle(testPath), bufferSize: 16);
+      closed.readUint8(testData.length - 3);
+      closed.closeSync();
+      expect(closed.readUint64(0), equals(first));
+      expect(closed.readUint64(testData.length - 8), equals(last));
+
+      final other = FileBuffer(FileHandle(testPath), bufferSize: 16);
+      other.readUint8(testData.length - 3);
+      final copy = FileBuffer.from(other);
+      expect(copy.readUint64(0), equals(first));
+      expect(copy.readUint64(testData.length - 8), equals(last));
+      // Nor can a copy be given a buffer too small for a 64-bit read
+      expect(
+          FileBuffer.from(other, bufferSize: 2).readUint64(0), equals(first));
+    });
+
     test('read multi-byte value at end of file', () async {
       // Regression test for #410: reading a uint16/24/32 whose last byte is
       // the final byte of the file used to incorrectly return 0
