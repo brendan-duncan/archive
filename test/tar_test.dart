@@ -502,6 +502,26 @@ void main() {
       }
     });
 
+    test('a decoded file is not a symbolic link', () {
+      // The link name field is read for every header, and its empty string
+      // used to be kept, so a decoded file re-encoded as a symbolic link
+      final data = Uint8List.fromList([1, 2, 3]);
+      final tar = TarEncoder().encodeBytes(Archive()
+        ..add(ArchiveFile.bytes('a.txt', data))
+        ..add(ArchiveFile.symlink('b.txt', 'a.txt')));
+      final decoded = TarDecoder().decodeBytes(tar, verify: true);
+      expect(decoded[0].isSymbolicLink, isFalse);
+      expect(decoded[0].symbolicLink, isNull);
+      expect(decoded[1].isSymbolicLink, isTrue);
+      expect(decoded[1].symbolicLink, equals('a.txt'));
+
+      final again = TarDecoder()
+          .decodeBytes(TarEncoder().encodeBytes(decoded), verify: true);
+      expect(again[0].size, equals(data.length));
+      expect(again[0].readBytes(), equals(data));
+      expect(again[1].symbolicLink, equals('a.txt'));
+    });
+
     test('verify rejects a damaged header that starts with zeros', () {
       // A header damaged into starting with zeros used to end the archive,
       // dropping every entry behind it

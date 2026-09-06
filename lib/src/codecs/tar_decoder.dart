@@ -243,7 +243,8 @@ class TarDecoder {
         file.ownerId = tf.ownerId;
         file.groupId = tf.groupId;
         file.lastModTime = tf.lastModTime;
-        if (tf.nameOfLinkedFile != null) {
+        // Every header has the field; only a link has anything in it
+        if (tf.nameOfLinkedFile?.isNotEmpty ?? false) {
           file.symbolicLink = tf.nameOfLinkedFile!;
         }
 
@@ -258,7 +259,8 @@ class TarDecoder {
         file.ownerId = tf.ownerId;
         file.groupId = tf.groupId;
         file.lastModTime = tf.lastModTime;
-        if (tf.nameOfLinkedFile != null) {
+        // Every header has the field; only a link has anything in it
+        if (tf.nameOfLinkedFile?.isNotEmpty ?? false) {
           file.symbolicLink = tf.nameOfLinkedFile!;
         }
 
