@@ -71,8 +71,8 @@ void main() {
         final damaged = Uint8List.fromList(compressed);
         damaged[at] ^= 0xff;
         expect(
-            GZipDecoderWeb().decodeStream(
-                InputMemoryStream(damaged), OutputMemoryStream()),
+            GZipDecoderWeb()
+                .decodeStream(InputMemoryStream(damaged), OutputMemoryStream()),
             isFalse,
             reason: 'byte $at');
       }

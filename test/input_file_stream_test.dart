@@ -124,8 +124,8 @@ void main() {
       while (!fs.isEOS) {
         expect(fs.peekBytes(2).toUint8List().first,
             equals((records * recordSize) & 0xff));
-        expect(fs.readBytes(recordSize).toUint8List().length,
-            equals(recordSize));
+        expect(
+            fs.readBytes(recordSize).toUint8List().length, equals(recordSize));
         records++;
       }
       expect(records, equals(big.length ~/ recordSize));
