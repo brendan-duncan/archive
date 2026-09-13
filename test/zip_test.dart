@@ -252,11 +252,13 @@ void main() async {
         }
       }
     });
+
     test('short malformed streams terminate', () {
       for (var length = 0; length < 9; length++) {
         expect(ZipDecoder().decodeBytes(List.filled(length, 0)), isEmpty);
       }
     });
+
     test('EOCD remains covered when approaching the first chunk', () {
       final dir = Directory.systemTemp.createTempSync('archive-first-chunk-');
       addTearDown(() => dir.deleteSync(recursive: true));
@@ -291,6 +293,78 @@ void main() async {
             } finally {
               input.closeSync();
             }
+          }
+        }
+      }
+    });
+
+    test('the EOCD of a nested zip is not mistaken for the outer one', () {
+      final dir = Directory.systemTemp.createTempSync('archive-nested-');
+      addTearDown(() => dir.deleteSync(recursive: true));
+      final inner = ZipEncoder().encodeBytes(
+          Archive()..addFile(ArchiveFile.string('inner.txt', 'i' * 50)),
+          level: 0);
+      // The padding shifts the nested archive's own EOCD away from the end of
+      // the outer file, so the search meets it both inside the first chunk it
+      // reads and several chunks in.
+      for (final pad in [0, 1, 2, 20, 500, 1000, 1024, 1100, 2048]) {
+        final outer = Archive()
+          ..addFile(ArchiveFile.bytes('inner.zip', Uint8List.fromList(inner)))
+          ..addFile(ArchiveFile.string('pad.txt', 'p' * pad));
+        final bytes = ZipEncoder().encodeBytes(outer, level: 0);
+        final path = '${dir.path}/nested.zip';
+        File(path).writeAsBytesSync(bytes);
+        for (final createInput in <InputStream Function()>[
+          () => InputMemoryStream(bytes),
+          () => InputFileStream(path)
+        ]) {
+          final input = createInput();
+          try {
+            final decoder = ZipDecoder();
+            final archive = decoder.decodeStream(input);
+            expect(decoder.directory.filePosition, bytes.length - 22,
+                reason: 'pad=$pad, ${input.runtimeType}');
+            expect(archive.length, 2);
+            expect(archive.findFile('inner.zip')!.content, inner);
+            expect(archive.findFile('pad.txt')!.content.length, pad);
+          } finally {
+            input.closeSync();
+          }
+        }
+      }
+    });
+
+    test('a signature in the trailing comment bytes is too late to be an EOCD',
+        () {
+      final dir = Directory.systemTemp.createTempSync('archive-tail-sig-');
+      addTearDown(() => dir.deleteSync(recursive: true));
+      final content = 'known payload' * 400;
+      // A record needs 22 bytes, so a signature closer than that to the end of
+      // the file cannot start one and must not end the search.
+      for (var trailing = 0; trailing <= 22 - 4 - 1; trailing++) {
+        final comment = '${'x' * 40}PK${'y' * trailing}';
+        final bytes = ZipEncoder().encodeBytes(
+            Archive()
+              ..comment = comment
+              ..addFile(ArchiveFile.string('hello.txt', content)),
+            level: 0);
+        final path = '${dir.path}/tail.zip';
+        File(path).writeAsBytesSync(bytes);
+        for (final createInput in <InputStream Function()>[
+          () => InputMemoryStream(bytes),
+          () => InputFileStream(path)
+        ]) {
+          final input = createInput();
+          try {
+            final decoder = ZipDecoder();
+            final archive = decoder.decodeStream(input);
+            expect(decoder.directory.filePosition,
+                bytes.length - 22 - comment.length,
+                reason: 'trailing=$trailing, ${input.runtimeType}');
+            expect(archive.length, 1);
+            expect(archive.first.content, content.codeUnits);
+          } finally {
+            input.closeSync();
           }
         }
       }
