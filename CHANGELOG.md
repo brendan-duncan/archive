@@ -15,16 +15,18 @@
   where there are no isolates, and the isolate machinery is tree-shaken out of
   web builds entirely.
 * Added `InputFileStream.fileBuffer`, `fileOffset` and `fileLength`.
-* Added —x86 flag support to XZDecoder
+* Added `--x86` flag support to XZDecoder
 * Improved verify: true speed for XZDecoder
 * Improved overall decode speed for XZDecoder
 * Decreased RAM usage for XZDecoder
 * Added concatenated streams support for XZDecoder
-* Added crc64 wasm support (verity true)
-* Added uncompressedSize getter for XZDecoder that returns original file size before its compression
+* Added crc64 wasm support (`verify: true`)
+* Added `uncompressedSize` getter for XZDecoder, returning the original file
+  size before compression.
 * Fix: pb=4 flag range error in XZDecoder
 * Fix: padding for _streamStart in XZDecoder
-* Added `throwOnError` to `XZDecoder.decodeBytes`. Without it a malformed or
+* Added `throwOnError` to `XZDecoder.decodeBytes` and `decodeStream`. Without
+  it a malformed or
   truncated archive still returns the partial output with nothing to say it is
   not the whole file, which was the only decode with no way at all to report a
   failure. In multithreaded mode the exception is delivered to
@@ -34,6 +36,75 @@
   `verify: true` was used with an output that cannot be read back, such as an
   `OutputFileStream` or any multithreaded decode. The output now stops in the
   same place whichever way the decode was asked for.
+* Added `XZDecoder.maxPreallocateSize`, capping how large an output buffer is
+  allocated from a size the archive itself declares. Defaults to
+  `xzDefaultMaxPreallocateSize`, 2 GB natively and 256 MB on the web.
+* Added `XZMultithreadOptions.fileReadBufferSize`.
+* Fix: an `xz --check=none` archive with corrupt blocks passed `verify: true`.
+* Fix: the xz block header reader trusted its own fields, accepting an
+  unterminated multibyte integer, a filter properties length past the end of
+  the header, empty delta or LZMA2 properties, and a bad stream header or
+  footer CRC.
+* Fix: the zip End of Central Directory record was missed when its signature
+  straddled a chunk of the backwards search, or sat within the last 21 bytes of
+  the file, so a valid archive could decode as empty.
+* `TarDecoder` with `verify: true` now checks each header's own checksum and
+  throws `ArchiveException` on a mismatch.
+* Fix: GNU base-256 numeric tar header fields were read as octal, so sizes of
+  8 GB or more and large uid, gid and mtime values decoded as garbage.
+* Fix: tar PAX extended headers are walked by each record's declared length
+  instead of split on newlines, so a record holding binary no longer corrupts
+  the rest of the header.
+* Fix: a PAX `size` record was applied to the metadata headers following it
+  rather than to the entry it describes.
+* Fix: a GNU `././@LongLink` header of type `K` set the next entry's name
+  instead of its symlink target.
+* Fix: `storeData: false` skipped the tar long name and PAX headers along with
+  the file data, losing the names they carry.
+* Fix: a negative size in a tar header is refused instead of read as an entry.
+* Fix: with `verify: true` the end of a tar is a full 512 byte zero block, which
+  two zero bytes could not be told apart from a damaged header. A tail shorter
+  than a header block now ends the archive instead of decoding as junk.
+* Fix: tar base-256 fields wider than `TarFile.maxNumericField` are refused on
+  read and write instead of overflowing silently.
+* Fix: decoded regular tar files were given an empty link name and re-encoded
+  as symlinks.
+* Fix: long tar names and symlink targets were written without the `L` and `K`
+  type flags, so other tar implementations truncated them to 100 bytes, and
+  long symlink targets were not written at all.
+* Fix: the GNU long name record was sized in characters rather than encoded
+  bytes and ignored `filenameEncoding`.
+* Fix: encoding a tar entry consumed the stream it was given, so a second
+  encode of the same archive wrote empty entries.
+* Fix: tar values too wide for the octal header field are written in GNU
+  base-256 form instead of producing a corrupt header.
+* `TarEncoder` copies a stored stream through in chunks rather than reading the
+  whole entry into memory.
+* `TarFile.content` is now settable and reads back what was set.
+* Fix: `GZipDecoder.decodeStream` returned true for a truncated or corrupt
+  archive, silently losing files.
+* Fix: the web gzip decoder never checked the member CRC32 despite
+  `verify: true`.
+* Fix: the web gzip header reader trusted its own length fields, reading past
+  the end on a damaged extra field, an unterminated name or comment, or a
+  header under ten bytes.
+* Fix: a gzip input under 20 bytes had header bytes read as a trailer.
+* The native gzip decoder now reads in 8 KB chunks instead of 1 KB.
+* Fix: an incomplete Huffman code table entry consumed no bits and looped
+  forever, and a code length repeat past the end of the table indexed out of
+  range.
+* Fix: an Inflate back-reference distance reaching past everything written
+  indexed behind the output buffer.
+* Fix: the web zlib decoder read its two byte header without checking two bytes
+  were there.
+* Fix: a short read near the end of a file overwrote the buffer's size with the
+  bytes read, so every later read missed the cache and went back to disk.
+* Fix: multi-byte `FileBuffer` reads refilled the cache one byte early, costing
+  a re-read on every buffer-aligned access.
+* Fix: `InputFileStream.subset` did not clamp its length to what remains of the
+  source, so peeking past the end returned stale bytes.
+* Deprecated the `fileSize` parameter of the `FileBuffer` read methods, which
+  is ignored.
 
 
 # 4.2.0
