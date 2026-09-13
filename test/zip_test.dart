@@ -211,6 +211,91 @@ final zipTests = <dynamic>[
 
 void main() async {
   group('zip', () {
+    test('EOCD may span two reverse-search chunks', () {
+      final dir = Directory.systemTemp.createTempSync('archive-comment-');
+      addTearDown(() => dir.deleteSync(recursive: true));
+      for (final size in [
+        0,
+        1005,
+        1006,
+        1007,
+        1008,
+        1009,
+        1010,
+        2030,
+        2031,
+        2032,
+        2033,
+        2034,
+        65535
+      ]) {
+        final content = 'known payload' * 400;
+        final archive = Archive()
+          ..comment = 'x' * size
+          ..addFile(ArchiveFile.string('hello.txt', content));
+        final bytes = ZipEncoder().encodeBytes(archive, level: 0);
+        final path = '${dir.path}/fixture.zip';
+        File(path).writeAsBytesSync(bytes);
+        for (final createInput in <InputStream Function()>[
+          () => InputMemoryStream(bytes),
+          () => InputFileStream(path)
+        ]) {
+          final input = createInput();
+          try {
+            final decoded = ZipDecoder().decodeStream(input);
+            expect(decoded.length, 1,
+                reason: 'comment=$size, ${input.runtimeType}');
+            expect(decoded.first.content, content.codeUnits);
+          } finally {
+            input.closeSync();
+          }
+        }
+      }
+    });
+    test('short malformed streams terminate', () {
+      for (var length = 0; length < 9; length++) {
+        expect(ZipDecoder().decodeBytes(List.filled(length, 0)), isEmpty);
+      }
+    });
+    test('EOCD remains covered when approaching the first chunk', () {
+      final dir = Directory.systemTemp.createTempSync('archive-first-chunk-');
+      addTearDown(() => dir.deleteSync(recursive: true));
+      final empty = ZipEncoder().encodeBytes(
+          Archive()..addFile(ArchiveFile.string('data.bin', '')),
+          level: 0);
+      final overhead = empty.length - 22;
+      for (var position = 1020; position <= 1024; position++) {
+        for (var comment = 1006; comment <= 1010; comment++) {
+          final content = 'a' * (position - overhead);
+          final bytes = ZipEncoder().encodeBytes(
+              Archive()
+                ..comment = 'x' * comment
+                ..addFile(ArchiveFile.string('data.bin', content)),
+              level: 0);
+          expect(bytes.length - 22 - comment, position);
+          final path = '${dir.path}/fixture.zip';
+          File(path).writeAsBytesSync(bytes);
+          for (final createInput in <InputStream Function()>[
+            () => InputMemoryStream(bytes),
+            () => InputFileStream(path)
+          ]) {
+            final input = createInput();
+            try {
+              final decoder = ZipDecoder();
+              final archive = decoder.decodeStream(input);
+              expect(decoder.directory.filePosition, position,
+                  reason:
+                      'position=$position comment=$comment ${input.runtimeType}');
+              expect(archive.length, 1);
+              expect(archive.first.content, content.codeUnits);
+            } finally {
+              input.closeSync();
+            }
+          }
+        }
+      }
+    });
+
     test('ArchiveFile compression level', () async {
       final testArchive = Archive();
       final list = Uint8List(1000);
