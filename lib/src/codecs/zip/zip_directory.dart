@@ -140,7 +140,8 @@ class ZipDirectory {
   }
 
   int _findSignature(InputStream input) {
-    if (input.length <= 4) {
+    const signatureSize = 4;
+    if (input.length <= signatureSize) {
       return -1;
     }
     // The directory and archive contents are written to the end of the zip
@@ -151,20 +152,22 @@ class ZipDirectory {
     // back by chunks and then read those chunks of bytes, to avoid
     // thrashing the buffer updates.
     final pos = input.position;
-    final length = input.length - 4;
+    final length = input.length - signatureSize;
     const bufferSize = 1024;
     final chunkSize = min(length, bufferSize);
 
     var startPos = length - chunkSize;
 
-    while (startPos >= 0) {
+    while (true) {
       input.setPosition(startPos);
       // Need to search for hte signature backwards from the end of the file,
       // without incurring file io seeking performance issues, so we read a
       // chunk of data starting from the end of the file and search backwards
       // within that. This avoids signatures from nested zips being found.
       final chunk = InputMemoryStream(input.readBytes(chunkSize).toUint8List());
-      for (var chunkPos = chunkSize - 4; chunkPos >= 0; --chunkPos) {
+      for (var chunkPos = chunkSize - signatureSize;
+          chunkPos >= 0;
+          --chunkPos) {
         chunk.setPosition(chunkPos);
         final sig = chunk.readUint32();
         if (sig == eocdSignature) {
@@ -172,11 +175,12 @@ class ZipDirectory {
           return startPos + chunkPos;
         }
       }
-      if (startPos > 0 && startPos < chunkSize) {
-        startPos = 0;
-      } else {
-        startPos -= chunkSize;
+      if (startPos == 0) {
+        break;
       }
+      // Keep all four-byte signature candidates covered, including the
+      // transition to the first chunk of the file.
+      startPos = max(0, startPos - (chunkSize - (signatureSize - 1)));
     }
 
     return -1;
