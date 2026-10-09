@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import '../../util/archive_exception.dart';
 import '../../util/input_memory_stream.dart';
 import '../../util/input_stream.dart';
 import '../../util/output_memory_stream.dart';
@@ -36,6 +37,24 @@ class Inflate {
   Inflate.stream(this._input, {OutputStream? output, int? uncompressedSize})
       : _output = output ?? OutputMemoryStream(size: uncompressedSize) {
     _inflate();
+  }
+
+  /// Set up to decompress [input] into [output] a block at a time with
+  /// [inflateBlock], rather than all at once.
+  Inflate.lazy(this._input, {OutputStream? output})
+      : _output = output ?? OutputMemoryStream();
+
+  bool _failed = false;
+
+  /// Decompresses the next deflate block. Returns false once the final block
+  /// has been decompressed. Throws an [ArchiveException] if the data is
+  /// malformed or ends early.
+  bool inflateBlock() {
+    final more = _parseBlock();
+    if (!more && _failed) {
+      throw ArchiveException('Invalid deflate data');
+    }
+    return more;
   }
 
   /// Add compressed data to be decompressed.
@@ -134,20 +153,24 @@ class Inflate {
     switch (blockType) {
       case 0: // Uncompressed block
         if (_parseUncompressedBlock() == -1) {
+          _failed = true;
           return false;
         }
         break;
       case 1: // Fixed huffman block
         if (_parseFixedHuffmanBlock() == -1) {
+          _failed = true;
           return false;
         }
         break;
       case 2: // Dynamic huffman block
         if (_parseDynamicHuffmanBlock() == -1) {
+          _failed = true;
           return false;
         }
         break;
       default:
+        _failed = true;
         return false;
     }
 

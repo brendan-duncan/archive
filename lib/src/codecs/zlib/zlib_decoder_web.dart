@@ -17,4 +17,9 @@ class ZLibDecoderWeb extends ZLibDecoderBase {
   bool decodeStream(InputStream input, OutputStream output,
           {bool verify = false, bool raw = false}) =>
       platformZLibDecoder.decodeStream(input, output, verify: verify, raw: raw);
+
+  @override
+  InputStream decodeLazy(InputStream input,
+          {bool verify = false, bool raw = false}) =>
+      platformZLibDecoder.decodeLazy(input, verify: verify, raw: raw);
 }

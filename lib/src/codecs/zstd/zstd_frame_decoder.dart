@@ -111,6 +111,20 @@ class ZstdFrameDecoder {
   /// Decodes one frame, whose magic number has already been read, from
   /// [input] to [output].
   void decodeFrame(InputStream input, OutputStream output) {
+    startFrame(input);
+    while (decodeBlock(input, output)) {}
+  }
+
+  // The frame in progress, between startFrame and the last decodeBlock.
+  bool _inFrame = false;
+  int _frameContentSize = -1;
+  bool _frameHasChecksum = false;
+  XxHash64? _frameHash;
+  int _frameTotal = 0;
+
+  /// Reads the header of a frame whose magic number has already been read,
+  /// after which [decodeBlock] decodes its blocks one at a time.
+  void startFrame(InputStream input) {
     final descriptor = _byte(input);
     final fcsFlag = descriptor >> 6;
     final singleSegment = descriptor & 0x20 != 0;
@@ -155,71 +169,83 @@ class ZstdFrameDecoder {
 
     _startFrame(windowSize, contentSize, dict);
 
-    final hash = verify && hasChecksum ? (_hash ??= XxHash64()) : null;
-    hash?.reset();
-    var total = 0;
+    _frameHash = verify && hasChecksum ? (_hash ??= XxHash64()) : null;
+    _frameHash?.reset();
+    _frameTotal = 0;
+    _frameContentSize = contentSize;
+    _frameHasChecksum = hasChecksum;
+    _inFrame = true;
+  }
 
-    for (;;) {
-      if (input.length < 3) {
-        throw ZstdFormatError('Truncated block header');
-      }
-      final header =
-          input.readByte() | (input.readByte() << 8) | (input.readByte() << 16);
-      final last = header & 1 != 0;
-      final type = (header >> 1) & 3;
-      final size = header >> 3;
+  /// Decodes the next block of the frame begun by [startFrame], writing its
+  /// output. Returns false once the frame's last block has been decoded and
+  /// its content size and checksum checked.
+  bool decodeBlock(InputStream input, OutputStream output) {
+    if (!_inFrame) {
+      return false;
+    }
+    if (input.length < 3) {
+      throw ZstdFormatError('Truncated block header');
+    }
+    final header =
+        input.readByte() | (input.readByte() << 8) | (input.readByte() << 16);
+    final last = header & 1 != 0;
+    final type = (header >> 1) & 3;
+    final size = header >> 3;
 
-      _ensureSpace();
-      final start = _pos;
-      final limit = math.min(start + _blockMax, _winLength);
+    _ensureSpace();
+    final start = _pos;
+    final limit = math.min(start + _blockMax, _winLength);
 
-      switch (type) {
-        case 0:
-          if (start + size > limit) {
-            throw ZstdFormatError('Raw block too large');
-          }
-          _win.setRange(start, start + size, _readBlock(input, size));
-          _pos = start + size;
-        case 1:
-          if (start + size > limit) {
-            throw ZstdFormatError('RLE block too large');
-          }
-          _win.fillRange(start, start + size, _byte(input));
-          _pos = start + size;
-        case 2:
-          if (size > _blockMax) {
-            throw ZstdFormatError('Compressed block too large');
-          }
-          _block.setRange(0, size, _readBlock(input, size));
-          final pos = _decodeLiterals(_block, 0, size);
-          _decodeSequences(_block, pos, size, limit);
-        default:
-          throw ZstdFormatError('Reserved block type');
-      }
-
-      if (_pos > start) {
-        output.writeBytes(Uint8List.sublistView(_win, start, _pos));
-        hash?.update(_win, start, _pos);
-        total += _pos - start;
-      }
-      if (last) {
-        break;
-      }
+    switch (type) {
+      case 0:
+        if (start + size > limit) {
+          throw ZstdFormatError('Raw block too large');
+        }
+        _win.setRange(start, start + size, _readBlock(input, size));
+        _pos = start + size;
+      case 1:
+        if (start + size > limit) {
+          throw ZstdFormatError('RLE block too large');
+        }
+        _win.fillRange(start, start + size, _byte(input));
+        _pos = start + size;
+      case 2:
+        if (size > _blockMax) {
+          throw ZstdFormatError('Compressed block too large');
+        }
+        _block.setRange(0, size, _readBlock(input, size));
+        final pos = _decodeLiterals(_block, 0, size);
+        _decodeSequences(_block, pos, size, limit);
+      default:
+        throw ZstdFormatError('Reserved block type');
     }
 
-    if (contentSize >= 0 && total != contentSize) {
-      throw ZstdFormatError(
-          'Frame decoded to $total bytes, its header says $contentSize');
+    if (_pos > start) {
+      output.writeBytes(Uint8List.sublistView(_win, start, _pos));
+      _frameHash?.update(_win, start, _pos);
+      _frameTotal += _pos - start;
     }
-    if (hasChecksum) {
+    if (!last) {
+      return true;
+    }
+    _inFrame = false;
+
+    if (_frameContentSize >= 0 && _frameTotal != _frameContentSize) {
+      throw ZstdFormatError('Frame decoded to $_frameTotal bytes, its header '
+          'says $_frameContentSize');
+    }
+    if (_frameHasChecksum) {
       if (input.length < 4) {
         throw ZstdFormatError('Truncated checksum');
       }
       final stored = readLittleEndian(input, 4);
+      final hash = _frameHash;
       if (hash != null && hash.digestLow32() != stored) {
         throw ZstdFormatError('Checksum mismatch');
       }
     }
+    return false;
   }
 
   static Uint8List _readBlock(InputStream input, int size) {

@@ -1,5 +1,24 @@
 # 4.3.0
 
+* Added `InputDecodeStream`, an `InputStream` that decodes another stream as
+  it is read, holding only a window of the decoded data in memory, and
+  `decodeLazy` methods on `GZipDecoder`, `ZLibDecoder`, `BZip2Decoder` and
+  `ZstdDecoder` that return one. Decoding is done a block at a time as the
+  stream is read, so a multi-gigabyte archive can be fed to another decoder
+  without a temp file.
+* `extractFileToDisk` extracts `.tar.gz`, `.tar.bz2` and `.tar.zst` in one
+  pass, decompressing as it reads and writing each entry as it is reached,
+  rather than decompressing to a temp tar first. Extracting a 1 GB `.tar.gz`
+  peaks at 24 MB of memory, and no longer needs disk space for the temp
+  file. `.tar.xz` still goes through a temp file. The `callback` is now
+  called after each entry is written.
+* Fixed `XZEncoder`, which wrote variable length integers with the groups in
+  the wrong order and uncompressed data as a single LZMA2 chunk, so that any
+  input of 128 bytes or more produced an archive xz rejected, and any of 64
+  KB or more one it could not read.
+* `TarDecoder` no longer asks its input for its length, and
+  `OutputFileStream.writeStream` reads until the stream ends rather than for
+  its length, so that both work with a stream decoding as it goes.
 * Streaming through the native gzip and zlib codecs no longer holds the whole
   output in memory. Decoding a 1 GB gzip was taking 1 GB of memory; now it takes 24 MB, while being 10% faster.
 * The native codecs are fed 64 KB at a time rather than 1 KB, which is about

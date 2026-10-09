@@ -1,7 +1,9 @@
 import 'dart:typed_data';
 
+import '../util/input_decode_stream.dart';
 import '../util/input_stream.dart';
 import '../util/output_stream.dart';
+import 'tar_decoder.dart';
 import 'zlib/_gzip_decoder.dart';
 
 /// Decompress data with the gzip format decoder.
@@ -36,4 +38,17 @@ class GZipDecoder {
   bool decodeStream(InputStream input, OutputStream output,
           {bool verify = false}) =>
       platformGZipDecoder.decodeStream(input, output, verify: verify);
+
+  /// Returns an [InputStream] that decompresses [input] as it is read.
+  ///
+  /// Nothing is decoded until the returned stream is read, and only a window
+  /// of the decoded data is held in memory, so a multi-gigabyte `.gz` can be
+  /// fed to another decoder, such as [TarDecoder], without a temp file. The
+  /// stream is read forwards: see [InputDecodeStream] for what that means.
+  ///
+  /// A malformed or truncated input throws an [ArchiveException] from the
+  /// read that runs into it. The length recorded in each member's trailer is
+  /// checked; the CRC is checked where the decoder underneath does so.
+  InputStream decodeLazy(InputStream input, {bool verify = false}) =>
+      platformGZipDecoder.decodeLazy(input, verify: verify);
 }

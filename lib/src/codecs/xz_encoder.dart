@@ -173,16 +173,21 @@ class XZEncoder {
   // Write [data] to [output] in uncompressed LZMA2 format.
   void _writeLZMA2UncompressedData(OutputStream output, Uint8List data,
       {bool resetDictionary = true}) {
-    // Reset dictionary and uncompressed data.
-    output.writeByte(resetDictionary ? 1 : 2);
-
-    final inputLength = data.length;
-    // Length.
-    output.writeByte(((inputLength - 1) >> 8) & 0xff);
-    output.writeByte((inputLength - 1) & 0xff);
-
-    // Uncompressed data.
-    output.writeBytes(data);
+    // An uncompressed chunk holds at most 64 KB, its length being a 16-bit
+    // field, so longer data goes out as a series of them.
+    const maxChunk = 65536;
+    var start = 0;
+    do {
+      final end =
+          data.length - start > maxChunk ? start + maxChunk : data.length;
+      final length = end - start;
+      // Uncompressed data, resetting the dictionary before the first chunk.
+      output.writeByte(resetDictionary && start == 0 ? 1 : 2);
+      output.writeByte(((length - 1) >> 8) & 0xff);
+      output.writeByte((length - 1) & 0xff);
+      output.writeBytes(Uint8List.sublistView(data, start, end));
+      start = end;
+    } while (start < data.length);
   }
 
   // Write an LZMA2 end marker to [output].
@@ -226,16 +231,14 @@ class XZEncoder {
   }
 
   // Write [value] to output in multi-byte format.
+  // Seven bits per byte, least significant group first, with the high bit
+  // set on every byte but the last.
   void _writeMultibyteInteger(OutputStream output, int value) {
-    var shift = 0;
-    while (value >> (shift + 7) != 0) {
-      shift += 7;
+    while (value >= 0x80) {
+      output.writeByte(0x80 | (value & 0x7f));
+      value >>= 7;
     }
-    while (shift > 0) {
-      output.writeByte(0x80 | (value >> shift) & 0x7f);
-      shift -= 7;
-    }
-    output.writeByte(value & 0x7f);
+    output.writeByte(value);
   }
 
   // Add empty bytes to make [output] align to a 32 bit boundary.

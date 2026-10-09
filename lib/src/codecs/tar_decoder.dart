@@ -45,8 +45,10 @@ class TarDecoder {
     // TarFile paxHeader = null;
     while (!input.isEOS) {
       // The end of the archive is a block of zeros; two of them can't be told
-      // from a damaged header, which is what verify is there to catch
-      final endCheck = input.peekBytes(verify ? 512 : 2).toUint8List();
+      // from a damaged header, which is what verify is there to catch.
+      // Peeked rather than measured with the input's length, which a stream
+      // decoding as it goes cannot give without decoding everything.
+      final endCheck = input.peekBytes(512).toUint8List();
       if (verify
           ? !endCheck.any((b) => b != 0)
           : endCheck.length < 2 || (endCheck[0] == 0 && endCheck[1] == 0)) {
@@ -55,7 +57,7 @@ class TarDecoder {
       // Fewer bytes than a header block can't be an entry. Without verify
       // that is the end of the archive rather than an entry read from junk;
       // with it, the header check below reports it
-      if (!verify && input.length < 512) {
+      if (!verify && endCheck.length < 512) {
         break;
       }
 

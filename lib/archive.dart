@@ -47,6 +47,7 @@ export 'src/util/file_access.dart';
 export 'src/util/file_buffer.dart';
 export 'src/util/file_content.dart';
 export 'src/util/file_handle.dart';
+export 'src/util/input_decode_stream.dart';
 export 'src/util/input_file_stream.dart';
 export 'src/util/input_memory_stream.dart';
 export 'src/util/input_stream.dart';

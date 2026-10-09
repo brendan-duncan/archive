@@ -123,16 +123,14 @@ class OutputFileStream extends OutputStream {
 
   @override
   void writeStream(InputStream stream) {
-    var size = stream.length;
+    // Until the stream ends rather than for its length, which a stream that
+    // decodes as it is read can only give by decoding everything first.
     const chunkSize = 1024 * 1024;
-    Uint8List? bytes;
-    while (size > chunkSize) {
-      bytes = stream.readBytes(chunkSize).toUint8List();
-      writeBytes(bytes);
-      size -= chunkSize;
-    }
-    if (size > 0) {
-      bytes = stream.readBytes(size).toUint8List();
+    while (!stream.isEOS) {
+      final bytes = stream.readBytes(chunkSize).toUint8List();
+      if (bytes.isEmpty) {
+        break;
+      }
       writeBytes(bytes);
     }
   }

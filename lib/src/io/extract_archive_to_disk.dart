@@ -160,12 +160,28 @@ String getInputExtension(String inputPath) {
   return path.extension(lowerPath);
 }
 
+/// Extracts the archive at [inputPath] into the directory [outputPath].
+///
+/// The archive may be a `.zip`, `.tar`, or a tar compressed as `.tar.gz`,
+/// `.tgz`, `.tar.bz2`, `.tbz`, `.tar.xz`, `.txz`, `.tar.zst` or `.tzst`.
+///
+/// A compressed tar is decompressed as it is read and every entry written out
+/// as it is reached, so no more than a few megabytes of it are in memory at a
+/// time and no temp file is needed, except for `.tar.xz`, which is still
+/// decompressed to a temp file first.
+///
+/// [callback] is called for each entry once it has been written. For a
+/// compressed tar the entry's content has gone by then and cannot be read
+/// from the entry; it is in the file on disk.
+///
+/// [bufferSize] is the size of the write buffer for each extracted file, and
+/// [password] decrypts an encrypted zip.
 Future<void> extractFileToDisk(String inputPath, String outputPath,
     {String? password, int? bufferSize, ArchiveCallback? callback}) async {
   Directory? tempDir;
   var archivePath = inputPath;
 
-  var posixSupported = posix.isPosixSupported();
+  final posixSupported = posix.isPosixSupported();
 
   const String extensionMsg =
       '.tar.gz, .tgz, .tar.bz2, .tbz, .tar.xz, .txz, .tar.zst, .tzst, .tar '
@@ -182,25 +198,7 @@ Future<void> extractFileToDisk(String inputPath, String outputPath,
     );
   }
 
-  if (archiveExt == '.tar.gz' || archiveExt == '.tgz') {
-    tempDir = Directory.systemTemp.createTempSync('dart_archive');
-    archivePath = path.join(tempDir.path, 'temp.tar');
-    final input = InputFileStream(inputPath);
-    final output = OutputFileStream(archivePath, bufferSize: bufferSize);
-    GZipDecoder().decodeStream(input, output);
-    await input.close();
-    await output.close();
-    archiveExt = '.tar';
-  } else if (archiveExt == '.tar.bz2' || archiveExt == '.tbz') {
-    tempDir = Directory.systemTemp.createTempSync('dart_archive');
-    archivePath = path.join(tempDir.path, 'temp.tar');
-    final input = InputFileStream(inputPath);
-    final output = OutputFileStream(archivePath, bufferSize: bufferSize);
-    BZip2Decoder().decodeStream(input, output);
-    await input.close();
-    await output.close();
-    archiveExt = '.tar';
-  } else if (archiveExt == '.tar.xz' || archiveExt == '.txz') {
+  if (archiveExt == '.tar.xz' || archiveExt == '.txz') {
     tempDir = Directory.systemTemp.createTempSync('dart_archive');
     archivePath = path.join(tempDir.path, 'temp.tar');
     final input = InputFileStream(inputPath);
@@ -209,48 +207,23 @@ Future<void> extractFileToDisk(String inputPath, String outputPath,
     await input.close();
     await output.close();
     archiveExt = '.tar';
-  } else if (archiveExt == '.tar.zst' || archiveExt == '.tzst') {
-    tempDir = Directory.systemTemp.createTempSync('dart_archive');
-    archivePath = path.join(tempDir.path, 'temp.tar');
-    final input = InputFileStream(inputPath);
-    final output = OutputFileStream(archivePath, bufferSize: bufferSize);
-    ZstdDecoder().decodeStream(input, output);
-    await input.close();
-    await output.close();
-    archiveExt = '.tar';
   }
 
-  InputStream? toClose;
-
-  Archive archive;
-  if (archiveExt == '.tar') {
-    final input = InputFileStream(archivePath);
-    archive = TarDecoder().decodeStream(input, callback: callback);
-    toClose = input;
-  } else if (archiveExt == '.zip') {
-    final input = InputFileStream(archivePath);
-    archive = ZipDecoder()
-        .decodeStream(input, password: password, callback: callback);
-    toClose = input;
-  } else {
-    throw ArgumentError.value(inputPath, 'inputPath', 'Must end $extensionMsg');
-  }
-
-  for (final file in archive) {
+  void extractEntry(ArchiveFile file) {
     final filePath = path.join(outputPath, path.normalize(file.name));
     if (!_isWithinOutputPath(outputPath, filePath)) {
-      continue;
+      return;
     }
 
     if (file.isSymbolicLink) {
       if (!_isValidSymLink(outputPath, file)) {
-        continue;
+        return;
       }
     }
 
     if (file.isDirectory && !file.isSymbolicLink) {
       Directory(filePath).createSync(recursive: true);
-      continue;
+      return;
     }
 
     if (file.isSymbolicLink) {
@@ -273,14 +246,50 @@ Future<void> extractFileToDisk(String inputPath, String outputPath,
       if (posixSupported) {
         posix.chmod(filePath, file.unixPermissions.toRadixString(8));
       }
-
-      await output.close();
+      output.closeSync();
     }
   }
 
-  await toClose.close();
-
-  await archive.clear();
+  if (archiveExt == '.zip') {
+    final input = InputFileStream(archivePath);
+    final archive = ZipDecoder()
+        .decodeStream(input, password: password, callback: callback);
+    for (final file in archive) {
+      extractEntry(file);
+    }
+    await input.close();
+    await archive.clear();
+  } else {
+    final file = InputFileStream(archivePath);
+    final InputStream input;
+    switch (archiveExt) {
+      case '.tar.gz':
+      case '.tgz':
+        input = GZipDecoder().decodeLazy(file);
+      case '.tar.bz2':
+      case '.tbz':
+        input = BZip2Decoder().decodeLazy(file);
+      case '.tar.zst':
+      case '.tzst':
+        input = ZstdDecoder().decodeLazy(file);
+      case '.tar':
+        input = file;
+      default:
+        await file.close();
+        throw ArgumentError.value(
+            inputPath, 'inputPath', 'Must end $extensionMsg');
+    }
+    // Each entry is written as the decoder reaches it, which is the only
+    // time its content is at hand when the tar is being decompressed on the
+    // way in.
+    final archive = TarDecoder().decodeStream(input, callback: (entry) {
+      extractEntry(entry);
+      callback?.call(entry);
+    });
+    await input.close();
+    await file.close();
+    await archive.clear();
+  }
 
   if (tempDir != null) {
     await tempDir.delete(recursive: true);

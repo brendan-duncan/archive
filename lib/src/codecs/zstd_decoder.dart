@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import '../util/archive_exception.dart';
+import '../util/input_decode_stream.dart';
 import '../util/input_memory_stream.dart';
 import '../util/input_stream.dart';
 import '../util/output_memory_stream.dart';
@@ -130,48 +131,92 @@ class ZstdDecoder {
   /// [verify] checks the content checksum of each frame that has one.
   bool decodeStream(InputStream input, OutputStream output,
       {bool verify = false, bool throwOnError = false}) {
-    final decoder = ZstdFrameDecoder(
-        maxWindowSize: maxWindowSize, dictionary: _dictionary, verify: verify);
-    String? failure;
+    final decoder = _ZstdChunkDecoder(_frameDecoder(verify), input);
     try {
-      var frames = 0;
-      while (!input.isEOS) {
-        if (input.length < 4) {
-          throw ZstdFormatError('Truncated frame header');
-        }
-        final magic = ZstdFrameDecoder.readLittleEndian(input, 4);
-        if (magic == zstdFrameMagic) {
-          decoder.decodeFrame(input, output);
-        } else if (magic >= zstdSkippableMagic &&
-            magic < zstdSkippableMagic + 16) {
-          if (input.length < 4) {
-            throw ZstdFormatError('Truncated skippable frame');
-          }
-          final size = ZstdFrameDecoder.readLittleEndian(input, 4);
-          if (input.length < size) {
-            throw ZstdFormatError('Truncated skippable frame');
-          }
-          input.skip(size);
-        } else {
-          throw ZstdFormatError(frames == 0
-              ? 'Not zstd data'
-              : 'Unrecognized data after frame $frames');
-        }
-        frames++;
-      }
-      if (frames == 0) {
-        throw ZstdFormatError('No zstd frames');
-      }
+      while (decoder.decodeChunk(output)) {}
       return true;
+    } on ArchiveException {
+      if (throwOnError) {
+        rethrow;
+      }
+      return false;
+    }
+  }
+
+  /// Returns an [InputStream] that decompresses [input] as it is read.
+  ///
+  /// Nothing is decoded until the returned stream is read, and only a window
+  /// of the decoded data is held in memory, so a multi-gigabyte `.zst` can
+  /// be fed to another decoder, such as a tar decoder, without a temp file.
+  /// The stream is read forwards: see [InputDecodeStream] for what that
+  /// means. A malformed or truncated input throws an [ArchiveException] from
+  /// the read that runs into it. [verify] is as for [decodeStream].
+  InputStream decodeLazy(InputStream input, {bool verify = false}) =>
+      InputDecodeStream(_ZstdChunkDecoder(_frameDecoder(verify), input));
+
+  ZstdFrameDecoder _frameDecoder(bool verify) => ZstdFrameDecoder(
+      maxWindowSize: maxWindowSize, dictionary: _dictionary, verify: verify);
+}
+
+/// Decodes a zstd input a block at a time, passing over skippable frames.
+class _ZstdChunkDecoder implements ChunkDecoder {
+  final ZstdFrameDecoder _decoder;
+  final InputStream _input;
+  int _frames = 0;
+  bool _inFrame = false;
+
+  _ZstdChunkDecoder(this._decoder, this._input);
+
+  @override
+  int get history => 0;
+
+  @override
+  bool decodeChunk(OutputStream output) {
+    try {
+      return _decodeChunk(output);
     } on ZstdFormatError catch (e) {
-      failure = e.message;
+      throw ArchiveException('Invalid zstd data: ${e.message}');
     } on RangeError catch (e) {
       // An index out of range is malformed data that got past the checks.
-      failure = e.toString();
+      throw ArchiveException('Invalid zstd data: $e');
     }
-    if (throwOnError) {
-      throw ArchiveException('Invalid zstd data: $failure');
+  }
+
+  bool _decodeChunk(OutputStream output) {
+    if (_inFrame) {
+      if (!_decoder.decodeBlock(_input, output)) {
+        _inFrame = false;
+      }
+      return true;
     }
-    return false;
+    if (_input.isEOS) {
+      if (_frames == 0) {
+        throw ZstdFormatError('No zstd frames');
+      }
+      return false;
+    }
+    if (_input.length < 4) {
+      throw ZstdFormatError('Truncated frame header');
+    }
+    final magic = ZstdFrameDecoder.readLittleEndian(_input, 4);
+    if (magic == zstdFrameMagic) {
+      _decoder.startFrame(_input);
+      _inFrame = true;
+    } else if (magic >= zstdSkippableMagic && magic < zstdSkippableMagic + 16) {
+      if (_input.length < 4) {
+        throw ZstdFormatError('Truncated skippable frame');
+      }
+      final size = ZstdFrameDecoder.readLittleEndian(_input, 4);
+      if (_input.length < size) {
+        throw ZstdFormatError('Truncated skippable frame');
+      }
+      _input.skip(size);
+    } else {
+      throw ZstdFormatError(_frames == 0
+          ? 'Not zstd data'
+          : 'Unrecognized data after frame $_frames');
+    }
+    _frames++;
+    return true;
   }
 }
