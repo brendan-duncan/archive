@@ -1,10 +1,10 @@
-import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
 
 import '../../util/input_stream.dart';
 import '../../util/output_stream.dart';
+import '_output_stream_sink.dart';
 import '_zlib_decoder_base.dart';
 
 const platformGZipDecoder = _GZipDecoder();
@@ -21,9 +21,6 @@ class _GZipDecoder extends ZLibDecoderBase {
   @override
   bool decodeStream(InputStream input, OutputStream output,
       {bool verify = false, bool raw = false}) {
-    // Counted here rather than read back off [output], whose length is its own
-    // business: this is the number of bytes this call put there.
-    var written = 0;
     // The last eight bytes of the input, kept as a sliding window so that
     // nothing has to be seeked or held on to. See the check after the loop for
     // what they are for.
@@ -34,18 +31,11 @@ class _GZipDecoder extends ZLibDecoderBase {
     var isGZip = false;
     var seen = 0;
 
-    final outSink = ChunkedConversionSink<List<int>>.withCallback((chunks) {
-      for (final chunk in chunks) {
-        output.writeBytes(chunk);
-        written += chunk.length;
-      }
-      output.flush();
-    });
-
+    final outSink = OutputStreamSink(output);
     final inSink = GZipCodec().decoder.startChunkedConversion(outSink);
 
     while (!input.isEOS) {
-      final chunkSize = min(8 * 1024, input.length);
+      final chunkSize = min(zlibChunkSize, input.length);
       final chunk = input.readBytes(chunkSize).toUint8List();
       if (chunk.isNotEmpty) {
         if (seen == 0) {
@@ -64,6 +54,9 @@ class _GZipDecoder extends ZLibDecoderBase {
       inSink.add(chunk);
     }
     inSink.close();
+    // Counted by the sink rather than read back off [output], whose length is
+    // its own business: this is the number of bytes this call put there.
+    final written = outSink.written;
 
     // The decoder underneath checks the CRC and the length of every member
     // whose trailer it reaches, and rejects trailing bytes that do not begin

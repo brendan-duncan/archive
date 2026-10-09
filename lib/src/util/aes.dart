@@ -45,9 +45,21 @@ class Aes {
   late PcHMac _macGen;
   late Uint8List mac;
 
+  /// Encrypts or decrypts all of the data in one call, leaving the
+  /// authentication code in [mac].
   int processData(Uint8List buff, int start, int len) {
+    update(buff, start, len);
+    finish();
+    return len;
+  }
+
+  /// Encrypts or decrypts the next [len] bytes of the data in place.
+  ///
+  /// The counter advances a block at a time, so every call but the last has
+  /// to pass a multiple of 16 bytes. Call [finish] after the last one.
+  void update(Uint8List buff, int start, int len) {
     if (!encrypt) {
-      _macGen.update(buff, 0, len);
+      _macGen.update(buff, start, len);
     }
 
     for (int j = start; j < start + len; j += 16) {
@@ -61,15 +73,18 @@ class Aes {
     }
 
     if (encrypt) {
-      _macGen.update(buff, 0, len);
+      _macGen.update(buff, start, len);
     }
+  }
 
+  /// Computes the authentication code of everything passed to [update],
+  /// storing it in [mac] and returning it.
+  Uint8List finish() {
     mac = Uint8List(_macGen.macSize);
     _macGen.doFinal(mac, 0);
     mac = mac.sublist(0, 10);
     _macGen.reset();
-
-    return len;
+    return mac;
   }
 
   Aes(this.derivedKey, Uint8List hmacDerivedKey, this.aesKeyStrength,

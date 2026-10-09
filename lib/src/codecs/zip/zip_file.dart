@@ -107,6 +107,21 @@ class ZipFile extends FileContent {
     // Read compressedSize bytes for the compressed data.
     _rawContent = input.readBytes(header!.compressedSize);
 
+    // A zip64 extra field in the local header decides the width of the sizes
+    // in a data descriptor, so look for one before anything else.
+    var localZip64 = false;
+    if (exLen >= 4) {
+      final extra = InputMemoryStream(extraField!);
+      while (extra.length >= 4) {
+        final id = extra.readUint16();
+        final size = extra.readUint16();
+        if (id == 1) {
+          localZip64 = true;
+        }
+        extra.skip(size);
+      }
+    }
+
     if (_encryptionType != ZipEncryptionMode.none && exLen > 2) {
       final extra = InputMemoryStream(extraField!);
       while (!extra.isEOS) {
@@ -141,6 +156,9 @@ class ZipFile extends FileContent {
     // local header are filled with zero, and the CRC-32 and size are
     // appended in a 12-byte structure (optionally preceded by a 4-byte
     // signature) immediately after the compressed data:
+    // The sizes are 8 bytes when the local header has a zip64 extra field
+    // (APPNOTE 4.3.9.2), which is what a streaming writer puts there for an
+    // entry that may grow past 4 GB.
     if (flags & 0x08 != 0) {
       final sigOrCrc = input.readUint32();
       if (sigOrCrc == 0x08074b50) {
@@ -149,8 +167,16 @@ class ZipFile extends FileContent {
         crc32 = sigOrCrc;
       }
 
-      compressedSize = input.readUint32();
-      uncompressedSize = input.readUint32();
+      final descCompressedSize =
+          localZip64 ? input.readUint64() : input.readUint32();
+      final descUncompressedSize =
+          localZip64 ? input.readUint64() : input.readUint32();
+      // The central directory already supplied the sizes, and is the
+      // reliable place for them: the descriptor is only consulted without it.
+      if (header == null) {
+        compressedSize = descCompressedSize;
+        uncompressedSize = descUncompressedSize;
+      }
     }
   }
 

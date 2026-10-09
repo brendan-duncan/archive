@@ -1,5 +1,13 @@
 # 4.3.0
 
+* Streaming through the native gzip and zlib codecs no longer holds the whole
+  output in memory. Decoding a 1 GB gzip was taking 1 GB of memory; now it takes 24 MB, while being 10% faster.
+* The native codecs are fed 64 KB at a time rather than 1 KB, which is about
+  20% faster when encoding.
+* `ZipEncoder` compresses entries straight into the output instead of into
+  memory first, and computes the CRC in the same pass rather than reading the
+  input twice. Writing a 1 GB file into a zip peaked at 1.35 GB of memory; it
+  now peaks at 20 MB.
 * Added `ZstdDecoder`, a pure Dart decoder for the zstd (Zstandard) format. 
 * Added `ZstdEncoder`, a pure Dart zstd encoder for the VM, JavaScript and
   wasm, at levels -7 to 22.

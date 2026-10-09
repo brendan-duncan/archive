@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 import 'dart:typed_data';
 import 'package:archive/archive_io.dart';
 import 'package:path/path.dart' as p;
@@ -832,6 +833,109 @@ void main() async {
         for (final f in decoded) {
           expect(f.compression, CompressionType.zstd);
         }
+      });
+    });
+
+    group('streamed entries', () {
+      // An entry that is not compressed yet is compressed straight into the
+      // output, so its header goes out before the CRC and sizes are known
+      // and they follow the data in a data descriptor.
+      late Uint8List content;
+      late String path;
+
+      setUp(() {
+        final r = Random(7);
+        // Compressible, but not trivially so, and longer than the chunks
+        // the encoders work in. Not a multiple of the AES block size.
+        content = Uint8List.fromList(List.generate(
+            200 * 1024 + 7, (i) => i % 251 == 0 ? r.nextInt(256) : (i >> 3)));
+        path = p.join(testOutputPath, 'streamed.bin');
+        File(path)
+          ..createSync(recursive: true)
+          ..writeAsBytesSync(content);
+      });
+
+      void checkStreamed(Uint8List zipped, CompressionType compression,
+          {String? password}) {
+        final header = InputMemoryStream(zipped);
+        header.setPosition(6);
+        expect(header.readUint16() & ZipEncoder.dataDescriptorBit,
+            ZipEncoder.dataDescriptorBit);
+        // The CRC was not known when the header was written.
+        header.setPosition(14);
+        expect(header.readUint32(), 0);
+
+        final file = File(p.join(testOutputPath, 'streamed.zip'))
+          ..writeAsBytesSync(zipped);
+        final fileInput = InputFileStream(file.path);
+        for (final archive in [
+          ZipDecoder().decodeBytes(zipped, password: password),
+          ZipDecoder().decodeStream(fileInput, password: password),
+        ]) {
+          expect(archive.length, 1);
+          final entry = archive.first;
+          expect(entry.name, 'streamed.bin');
+          expect(entry.size, content.length);
+          expect(entry.compression, compression);
+          expect(entry.crc32, getCrc32(content));
+          expect((entry.rawContent as ZipFile).verifyCrc32(), isTrue);
+          compareBytes(entry.readBytes()!, content);
+        }
+        fileInput.closeSync();
+      }
+
+      for (final compression in CompressionType.values) {
+        test('$compression', () {
+          final stream = InputFileStream(path);
+          final archive = Archive()
+            ..add(ArchiveFile.stream('streamed.bin', stream)
+              ..compression = compression);
+          final zipped = ZipEncoder().encodeBytes(archive);
+          stream.closeSync();
+          checkStreamed(zipped, compression);
+        });
+      }
+
+      test('encrypted', () {
+        final stream = InputFileStream(path);
+        final archive = Archive()
+          ..add(ArchiveFile.stream('streamed.bin', stream));
+        final zipped = ZipEncoder(password: 'secret').encodeBytes(archive);
+        stream.closeSync();
+        checkStreamed(zipped, CompressionType.deflate, password: 'secret');
+        // Decoding is lazy, so a wrong password only shows when the
+        // content is read.
+        expect(
+            () => ZipDecoder()
+                .decodeBytes(zipped, password: 'wrong')
+                .first
+                .readBytes(),
+            throwsException);
+      });
+
+      test('zip64 data descriptor', () {
+        // An entry that says it is larger than 4 GB gets a zip64 extra field
+        // in its local header, which makes the sizes in the data descriptor
+        // 8 bytes wide. The content is small, so the test is only that both
+        // sides agree on the layout.
+        final stream = InputFileStream(path);
+        final archive = Archive()
+          ..add(ArchiveFile.file('streamed.bin', 5 * 1024 * 1024 * 1024,
+              FileContentStream(stream)));
+        final zipped = ZipEncoder().encodeBytes(archive);
+        stream.closeSync();
+
+        final header = InputMemoryStream(zipped);
+        header.setPosition(18);
+        expect(header.readUint32(), 0xFFFFFFFF); // compressed size
+        expect(header.readUint32(), 0xFFFFFFFF); // uncompressed size
+        header.setPosition(28);
+        final extraLength = header.readUint16();
+        expect(extraLength, 20);
+        header.setPosition(30 + 'streamed.bin'.length);
+        expect(header.readUint16(), 1); // zip64 extra field id
+
+        checkStreamed(zipped, CompressionType.deflate);
       });
     });
 
