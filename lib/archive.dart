@@ -34,6 +34,7 @@ export 'src/codecs/zlib/zlib_encoder_web.dart';
 export 'src/codecs/zlib_decoder.dart';
 export 'src/codecs/zlib_encoder.dart';
 export 'src/codecs/zstd_decoder.dart';
+export 'src/codecs/zstd_encoder.dart';
 export 'src/util/abstract_file_handle.dart';
 export 'src/util/adler32.dart';
 export 'src/util/aes_decrypt.dart';

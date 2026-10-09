@@ -188,6 +188,102 @@ void main() {
     });
   });
 
+  group('zstd encoder', () {
+    Uint8List roundTrip(List<int> data,
+        {int level = 3, bool checksum = false}) {
+      final z =
+          ZstdEncoder().encodeBytes(data, level: level, checksum: checksum);
+      return ZstdDecoder().decodeBytes(z, verify: true, throwOnError: true);
+    }
+
+    final sample = synth(300000, 21);
+
+    test('every level', () {
+      for (var level = zstdMinLevel; level <= zstdMaxLevel; level++) {
+        compareBytes(roundTrip(sample, level: level), sample);
+      }
+    });
+
+    test('higher levels compress better', () {
+      // This library's own source, as real text that is always at hand
+      final files = Directory('lib')
+          .listSync(recursive: true)
+          .whereType<File>()
+          .where((f) => f.path.endsWith('.dart'))
+          .toList()
+        ..sort((a, b) => a.path.compareTo(b.path));
+      final text = concat([for (final f in files) f.readAsBytesSync()]);
+      var previous = text.length;
+      for (final level in [-5, 1, 3, 5, 9, 19]) {
+        final z = ZstdEncoder().encodeBytes(text, level: level);
+        expect(z.length, lessThan(previous), reason: 'level $level');
+        compareBytes(ZstdDecoder().decodeBytes(z), text);
+        previous = z.length;
+      }
+    });
+
+    test('all sorts of input', () {
+      for (final data in <List<int>>[
+        [],
+        [7],
+        [1, 2],
+        List.filled(100000, 42),
+        randomBytes(50000, 3),
+        rleLiterals(200000, 4),
+        nibbles(30000, 5),
+        concat(
+            [randomBytes(200000, 6), synth(200000, 7), List.filled(300000, 0)]),
+      ]) {
+        for (final level in [-3, 1, 3, 7, 16]) {
+          compareBytes(roundTrip(data, level: level, checksum: true), data);
+        }
+      }
+    });
+
+    test('checksum', () {
+      final plain = ZstdEncoder().encodeBytes(sample);
+      final checked = ZstdEncoder().encodeBytes(sample, checksum: true);
+      expect(checked.length, plain.length + 4);
+      final damaged = Uint8List.fromList(checked);
+      damaged[damaged.length - 1] ^= 1;
+      expect(
+          ZstdDecoder().decodeStream(
+              InputMemoryStream(damaged), OutputMemoryStream(),
+              verify: true),
+          isFalse);
+    });
+
+    test('encodeStream between files matches encodeBytes', () {
+      // Larger than the window and its buffer, so the file is read in pieces
+      // and the match finders' tables slide along with it.
+      final data = synth(3000000, 8);
+      final inPath = '$testOutputPath/zstd_encode_in.bin';
+      File(inPath).writeAsBytesSync(data);
+      for (final level in [1, 3, 5]) {
+        final outPath = '$testOutputPath/zstd_encode_out.$level.zst';
+        final input = InputFileStream(inPath);
+        final output = OutputFileStream(outPath);
+        ZstdEncoder().encodeStream(input, output, level: level, checksum: true);
+        output.closeSync();
+        input.closeSync();
+        final fromFile = File(outPath).readAsBytesSync();
+        compareBytes(fromFile,
+            ZstdEncoder().encodeBytes(data, level: level, checksum: true));
+        compareBytes(ZstdDecoder().decodeBytes(fromFile, verify: true), data);
+      }
+    });
+
+    test('levels out of range are refused', () {
+      expect(() => ZstdEncoder().encodeBytes([1], level: zstdMaxLevel + 1),
+          throwsArgumentError);
+      expect(() => ZstdEncoder().encodeBytes([1], level: zstdMinLevel - 1),
+          throwsArgumentError);
+      // Zero is the default level
+      expect(ZstdEncoder().encodeBytes(sample, level: 0),
+          ZstdEncoder().encodeBytes(sample));
+    });
+  });
+
   group('zstd internals', () {
     // The web implementations are compiled on the VM here too, against the
     // native ones, which the fixtures check against the reference library.

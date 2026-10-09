@@ -134,6 +134,19 @@ void main() {
           isFalse);
     });
 
+    test('encodes', () {
+      // Hashing and reading words are done differently where ints are 32
+      // bits wide, so the encoder's output differs between platforms, but it
+      // must decode to the same thing everywhere.
+      final data = synth(100000, 12);
+      for (final level in [-3, 1, 3, 5, 9, 16]) {
+        final z = ZstdEncoder().encodeBytes(data, level: level, checksum: true);
+        expect(ZstdDecoder().decodeBytes(z, verify: true, throwOnError: true),
+            data,
+            reason: 'level $level');
+      }
+    });
+
     test('truncations are refused', () {
       final data = base64.decode(_synthZst);
       for (var n = 0; n < data.length; n += 7) {

@@ -25,10 +25,20 @@ class ZstdHuffmanTable {
   /// Reads a Huffman tree description starting at [pos] and builds the table
   /// from it, returning the position of the first byte after the description.
   int readDescription(Uint8List src, int pos, int end) {
+    final int count;
+    (count, pos) = readWeights(src, pos, end, _weights);
+    _build(_weights, count);
+    return pos;
+  }
+
+  /// Reads the weights from a Huffman tree description starting at [pos] into
+  /// [weights], all but the last symbol's, returning how many there are and
+  /// the position of the first byte after the description.
+  static (int, int) readWeights(
+      Uint8List src, int pos, int end, Uint8List weights) {
     if (pos >= end) {
       throw ZstdFormatError('Truncated Huffman tree description');
     }
-    final weights = _weights;
     final header = src[pos++];
     int count;
 
@@ -89,8 +99,7 @@ class ZstdHuffmanTable {
       pos = streamEnd;
     }
 
-    _build(weights, count);
-    return pos;
+    return (count, pos);
   }
 
   // Builds the table from the weights of all symbols but the last, whose

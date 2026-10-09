@@ -14,46 +14,55 @@ const int zstdLlMaxLog = 9;
 const int zstdMlMaxLog = 9;
 const int zstdOfMaxLog = 8;
 
-const List<int> _llBase = [
+/// The baseline of each literals length code.
+const List<int> zstdLlBase = [
   0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, //
   16, 18, 20, 22, 24, 28, 32, 40, 48, 64, 128, 256, 512, 1024, 2048, 4096,
   8192, 16384, 32768, 65536,
 ];
 
-const List<int> _llBits = [
+/// The number of extra bits each literals length code takes.
+const List<int> zstdLlBits = [
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, //
   1, 1, 1, 1, 2, 2, 3, 3, 4, 6, 7, 8, 9, 10, 11, 12,
   13, 14, 15, 16,
 ];
 
-const List<int> _mlBase = [
+/// The baseline of each match length code.
+const List<int> zstdMlBase = [
   3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, //
   19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34,
   35, 37, 39, 41, 43, 47, 51, 59, 67, 83, 99, 131, 259, 515, 1027, 2051,
   4099, 8195, 16387, 32771, 65539,
 ];
 
-const List<int> _mlBits = [
+/// The number of extra bits each match length code takes.
+const List<int> zstdMlBits = [
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, //
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
   1, 1, 1, 1, 2, 2, 3, 3, 4, 4, 5, 7, 8, 9, 10, 11,
   12, 13, 14, 15, 16,
 ];
 
-const List<int> _llDefaultNorm = [
+/// The predefined distributions, and their accuracy logs below.
+const List<int> zstdLlDefaultNorm = [
   4, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 1, 1, //
   2, 2, 2, 2, 2, 2, 2, 2, 2, 3, 2, 1, 1, 1, 1, 1,
   -1, -1, -1, -1,
 ];
 
-const List<int> _mlDefaultNorm = [
+const List<int> zstdMlDefaultNorm = [
   1, 4, 3, 2, 2, 2, 2, 2, 2, 1, 1, 1, 1, 1, 1, 1, //
   1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
   1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, -1, -1,
   -1, -1, -1, -1, -1,
 ];
 
-const List<int> _ofDefaultNorm = [
+const int zstdLlDefaultLog = 6;
+const int zstdMlDefaultLog = 6;
+const int zstdOfDefaultLog = 5;
+
+const List<int> zstdOfDefaultNorm = [
   1, 1, 1, 1, 1, 1, 2, 2, 2, 1, 1, 1, 1, 1, 1, 1, //
   1, 1, 1, 1, 1, 1, 1, 1, -1, -1, -1, -1, -1,
 ];
@@ -102,13 +111,13 @@ class ZstdFseTable {
   /// Builds the table for one of the predefined distributions.
   static ZstdFseTable predefined(ZstdFseKind kind) {
     final (norm, log) = switch (kind) {
-      ZstdFseKind.literalsLength => (_llDefaultNorm, 6),
-      ZstdFseKind.matchLength => (_mlDefaultNorm, 6),
-      ZstdFseKind.offset => (_ofDefaultNorm, 5),
+      ZstdFseKind.literalsLength => (zstdLlDefaultNorm, zstdLlDefaultLog),
+      ZstdFseKind.matchLength => (zstdMlDefaultNorm, zstdMlDefaultLog),
+      ZstdFseKind.offset => (zstdOfDefaultNorm, zstdOfDefaultLog),
       ZstdFseKind.plain => throw ArgumentError.value(kind),
     };
     final table = ZstdFseTable(kind, log);
-    table._build(Int16List.fromList(norm), norm.length, log);
+    table.build(Int16List.fromList(norm), norm.length, log);
     return table;
   }
 
@@ -224,11 +233,14 @@ class ZstdFseTable {
     if (remaining != 1 || bitPos > endBit) {
       throw ZstdFormatError('Corrupt FSE table description');
     }
-    _build(norm, symbols, log);
+    build(norm, symbols, log);
     return (bitPos + 7) >> 3;
   }
 
-  void _build(Int16List norm, int numSymbols, int log) {
+  /// Builds the table from the probabilities of the first [numSymbols]
+  /// symbols in [norm], which sum to 2^[log], with -1 standing for a
+  /// probability below one.
+  void build(Int16List norm, int numSymbols, int log) {
     final size = 1 << log;
     final symbol = this.symbol;
     final nbBits = this.nbBits;
@@ -283,14 +295,14 @@ class ZstdFseTable {
       case ZstdFseKind.literalsLength:
         for (var i = 0; i < size; i++) {
           final s = symbol[i];
-          baseValue[i] = _llBase[s];
-          extraBits[i] = _llBits[s];
+          baseValue[i] = zstdLlBase[s];
+          extraBits[i] = zstdLlBits[s];
         }
       case ZstdFseKind.matchLength:
         for (var i = 0; i < size; i++) {
           final s = symbol[i];
-          baseValue[i] = _mlBase[s];
-          extraBits[i] = _mlBits[s];
+          baseValue[i] = zstdMlBase[s];
+          extraBits[i] = zstdMlBits[s];
         }
       case ZstdFseKind.offset:
         for (var i = 0; i < size; i++) {

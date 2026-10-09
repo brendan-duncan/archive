@@ -519,6 +519,20 @@ void main() {
     await encoder.close();
   });
 
+  test('TarFileEncoder zstd', () async {
+    final tarPath = '$testOutputPath/example3.tar';
+    final zstPath = '$testOutputPath/example3.tar.zst';
+    await TarFileEncoder().tarDirectory(Directory('test/_data/test2'),
+        filename: tarPath, compression: TarFileEncoder.store);
+    await TarFileEncoder().tarDirectory(Directory('test/_data/test2'),
+        filename: zstPath, compression: TarFileEncoder.zstd);
+
+    final tar = File(tarPath).readAsBytesSync();
+    final decoded = ZstdDecoder().decodeBytes(File(zstPath).readAsBytesSync(),
+        verify: true, throwOnError: true);
+    compareBytes(decoded, tar);
+  });
+
   test('stream zip encode async', () async {
     final encoder = ZipFileEncoder();
     encoder.create('$testOutputPath/example2.zip');

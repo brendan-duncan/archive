@@ -820,14 +820,18 @@ void main() async {
             CompressionType.zstd);
       });
 
-      test('a file to compress with zstd is deflated instead', () {
-        final archive = Archive()
-          ..add(ArchiveFile.bytes('hello.txt', expected['hello.txt']!)
+      test('encode', () {
+        final archive = Archive();
+        for (final e in expected.entries) {
+          archive.add(ArchiveFile.bytes(e.key, e.value)
             ..compression = CompressionType.zstd);
-        final decoded = ZipDecoder()
-            .decodeBytes(ZipEncoder().encodeBytes(archive), verify: true);
-        expect(decoded.single.compression, CompressionType.deflate);
-        compareBytes(decoded.single.readBytes()!, expected['hello.txt']!);
+        }
+        final zipped = ZipEncoder().encodeBytes(archive);
+        final decoded = ZipDecoder().decodeBytes(zipped, verify: true);
+        checkContents(decoded);
+        for (final f in decoded) {
+          expect(f.compression, CompressionType.zstd);
+        }
       });
     });
 

@@ -17,6 +17,7 @@ import 'zip/zip_file.dart';
 import 'zip/zip_file_header.dart';
 import 'zlib/_zlib_encoder.dart';
 import 'zlib/deflate.dart';
+import 'zstd_encoder.dart';
 
 class _ZipFileData {
   late String name;
@@ -242,11 +243,6 @@ class ZipEncoder {
         // Otherwise we need to compress it now.
         crc32 = getFileCrc32(file);
 
-        if (compressionType == CompressionType.zstd) {
-          // There is no zstd encoder yet.
-          compressionType = CompressionType.deflate;
-        }
-
         if (compressionType == CompressionType.deflate) {
           final content = file.rawContent;
           final output = OutputMemoryStream();
@@ -260,6 +256,18 @@ class ZipEncoder {
           final output = OutputMemoryStream();
           final bzip2 = BZip2Encoder();
           bzip2.encodeStream(content!.getStream(decompress: false), output);
+          compressedData = InputMemoryStream(output.getBytes());
+        } else if (compressionType == CompressionType.zstd) {
+          final content = file.rawContent;
+          final output = OutputMemoryStream();
+          // The zip format's CRC covers the content, so the frame needs no
+          // checksum of its own.
+          ZstdEncoder().encodeStream(
+              content!.getStream(decompress: false), output,
+              level: level ??
+                  file.compressionLevel ??
+                  _data.level ??
+                  zstdDefaultLevel);
           compressedData = InputMemoryStream(output.getBytes());
         } else {
           // no compression

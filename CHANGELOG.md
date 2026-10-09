@@ -7,12 +7,19 @@
   the memory a frame can ask for, 128 MB by default as in the reference
   decoder. Decoding speed on the VM (AOT) is roughly 350 to 700 MB/s, between
   1.2 and 1.8 times slower than the reference C implementation.
+* Added `ZstdEncoder`, a pure Dart zstd encoder for the VM, JavaScript and
+  wasm, at levels -7 to 22. Up to about level 15 its output is close to the
+  size the reference library produces at the same level; at the highest
+  levels it is up to 15% larger. On the VM (AOT) it encodes text at about
+  230 MB/s at level 1, 215 MB/s at level 3 and 45 MB/s at level 9, two to
+  three and a half times slower than the reference C implementation.
 * Zip entries compressed with zstd, method 93, are now decoded. They used to
   be returned still compressed, as if they were stored. Added
-  `CompressionType.zstd`; re-encoding such an archive keeps the zstd data as
-  it is, and a file that has to be compressed anew with zstd is deflated
-  instead, as there is no zstd encoder yet.
-* `extractFileToDisk` and the tar command accept `.tar.zst` and `.tzst`.
+  `CompressionType.zstd`, which `ZipEncoder` now compresses with, and
+  re-encoding a zip keeps zstd data as it is.
+* `extractFileToDisk` and the tar command accept `.tar.zst` and `.tzst`, and
+  `TarFileEncoder.tarDirectory` can write `.tar.zst` with
+  `compression: TarFileEncoder.zstd`.
 * Added multithreaded decoding to XZDecoder. Passing an `XZMultithreadOptions`
   to `decodeBytes` or `decodeStream` spreads the work over isolates, one xz
   block per job, and reports the result through its `onDone` callback. Both
