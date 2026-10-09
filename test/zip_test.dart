@@ -910,7 +910,46 @@ void main() async {
                 .decodeBytes(zipped, password: 'wrong')
                 .first
                 .readBytes(),
-            throwsException);
+            throwsA(isA<ArchiveException>()));
+        expect(() => ZipDecoder().decodeBytes(zipped).first.readBytes(),
+            throwsA(isA<ArchiveException>()));
+
+        // Decrypted as it is read, and readable more than once.
+        final entry =
+            ZipDecoder().decodeBytes(zipped, password: 'secret').first;
+        final zf = entry.rawContent as ZipFile;
+        expect(zf.verifyCrc32(), isTrue);
+        final out = OutputMemoryStream();
+        zf.decompress(out);
+        compareBytes(out.getBytes(), content);
+        compareBytes(zf.getStream().toUint8List(), content);
+        compareBytes(entry.readBytes()!, content);
+        // The stored form is the compressed data, which still decodes.
+        compareBytes(
+            ZLibDecoder().decodeBytes(
+                zf.getStream(decompress: false).toUint8List(),
+                raw: true),
+            content);
+      });
+
+      test('zipCrypto entries are decrypted as they are read', () {
+        final bytes = File('test/_data/zip/zipCrypto.zip').readAsBytesSync();
+        final archive = ZipDecoder().decodeBytes(bytes, password: '12345');
+        for (final entry in archive) {
+          final zf = entry.rawContent as ZipFile;
+          expect(zf.verifyCrc32(), isTrue, reason: entry.name);
+          final expected =
+              File('test/_data/zip/${entry.name}').readAsBytesSync();
+          compareBytes(entry.readBytes()!, expected);
+          // Again: the archive bytes were not decrypted in place.
+          compareBytes(entry.readBytes()!, expected);
+        }
+        expect(
+            () => ZipDecoder()
+                .decodeBytes(bytes, password: 'wrong')
+                .first
+                .readBytes(),
+            throwsA(anything));
       });
 
       test('zip64 data descriptor', () {

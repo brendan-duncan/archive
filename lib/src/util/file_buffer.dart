@@ -21,7 +21,18 @@ class FileBuffer {
   /// The buffer size should be at least 8 bytes, so reading a 64-bit value
   /// doesn't have to deal with buffer overflow.
   static const kMinBufferSize = 8;
-  static const kDefaultBufferSize = 1024;
+
+  /// How much of the file is read at a time when it is being read through
+  /// sequentially, which is what a decoder does. A read somewhere else in
+  /// the file is a seek, after which only [kSeekReadSize] bytes are read,
+  /// since a reader that jumps around, such as the zip decoder going from
+  /// one local header to the next, would otherwise pull in this much at
+  /// every stop.
+  static const kDefaultBufferSize = 64 * 1024;
+
+  /// How much is read after a seek. Sequential reads from there on fill the
+  /// whole buffer.
+  static const kSeekReadSize = 4 * 1024;
 
   /// Create a FileBuffer with the given [file].
   /// [byteOrder] determines if multi-byte values should be read in bigEndian
@@ -117,7 +128,7 @@ class FileBuffer {
       return 0;
     }
     if (position < _position || position + 2 > (_position + _bufferLength)) {
-      _readBuffer(position);
+      _readBuffer(position, 2);
     }
     var p = position - _position;
     final b1 = _buffer![p++];
@@ -134,7 +145,7 @@ class FileBuffer {
       return 0;
     }
     if (position < _position || position + 3 > (_position + _bufferLength)) {
-      _readBuffer(position);
+      _readBuffer(position, 3);
     }
     var p = position - _position;
     final b1 = _buffer![p++];
@@ -152,7 +163,7 @@ class FileBuffer {
       return 0;
     }
     if (position < _position || position + 4 > (_position + _bufferLength)) {
-      _readBuffer(position);
+      _readBuffer(position, 4);
     }
     var p = position - _position;
     final b1 = _buffer![p++];
@@ -171,7 +182,7 @@ class FileBuffer {
       return 0;
     }
     if (position < _position || position + 8 > (_position + _bufferLength)) {
-      _readBuffer(position);
+      _readBuffer(position, 8);
     }
     var p = position - _position;
     final b1 = _buffer![p++];
@@ -218,7 +229,7 @@ class FileBuffer {
 
     if (position < _position ||
         (position + count) > (_position + _bufferLength)) {
-      _readBuffer(position);
+      _readBuffer(position, count);
     }
 
     final start = position - _position;
@@ -226,7 +237,9 @@ class FileBuffer {
     return bytes;
   }
 
-  void _readBuffer(int position) {
+  // Loads the buffer from [position], with at least [need] bytes of the file
+  // where there are that many.
+  void _readBuffer(int position, [int need = 0]) {
     if (!file.isOpen) {
       file.open();
     }
@@ -235,8 +248,18 @@ class FileBuffer {
     }
     file.position = position;
     // Fill the buffer, not just the bytes the read asked for, so that every
-    // later read within it is a hit
-    final size = max(0, min(_fileSize - position, _bufferSize));
+    // later read within it is a hit. Unless this is a seek rather than the
+    // continuation of a sequential read, when a smaller read is made in case
+    // the next read is a seek too.
+    final sequential =
+        _bufferLength > 0 && position == _position + _bufferLength;
+    final size = max(
+        0,
+        min(
+            _fileSize - position,
+            sequential
+                ? _bufferSize
+                : max(need, min(_bufferSize, kSeekReadSize))));
     _bufferLength = file.readInto(_buffer!, size);
     _position = position;
   }

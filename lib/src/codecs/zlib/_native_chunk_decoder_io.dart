@@ -63,8 +63,10 @@ class NativeChunkDecoder implements ChunkDecoder {
       return false;
     }
 
-    final chunk =
-        input.readBytes(min(zlibChunkSize, input.length)).toUint8List();
+    // Not clipped by the input's length, which a stream that decodes as it
+    // is read can only give by decoding everything: a short read is what
+    // every stream gives at its end.
+    final chunk = input.readBytes(zlibChunkSize).toUint8List();
     if (chunk.isNotEmpty) {
       if (_seen == 0) {
         _isGZip = chunk[0] == 0x1f && (chunk.length < 2 || chunk[1] == 0x8b);

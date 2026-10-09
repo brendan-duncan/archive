@@ -1,5 +1,17 @@
 # 4.3.0
 
+* Encrypted zip entries are decrypted as they are read rather than whole in
+  memory, for both ZipCrypto and AES. A wrong password or a failed
+  authentication code throws an `ArchiveException` from the read. ZipCrypto
+  no longer runs a `BigInt` operation per byte. `ZipFile.verifyCrc32` sums
+  the content as it decompresses instead of holding it, and `ZipFile.length`
+  no longer reads the entry to measure it.
+* `getCrc32` is three times faster on typed data, taking eight bytes at a
+  time: 1.3 GB/s where it was 440 MB/s.
+* `InputFileStream` reads 64 KB at a time instead of 1 KB when read
+  sequentially, and 4 KB after a seek, so that a decoder reading byte by
+  byte makes far fewer system calls while a zip decoder visiting every local
+  header does not pull in 64 KB at each.
 * Added `InputDecodeStream`, an `InputStream` that decodes another stream as
   it is read, holding only a window of the decoded data in memory, and
   `decodeLazy` methods on `GZipDecoder`, `ZLibDecoder`, `BZip2Decoder` and

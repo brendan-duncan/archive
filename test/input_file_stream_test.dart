@@ -17,6 +17,41 @@ void main() {
     ..writeAsBytesSync(testData);
 
   group('InputStreamFile', () {
+    test('reads after a seek and across the buffer', () {
+      // Larger than the read buffer, so that sequential reads cross it and
+      // a seek lands outside it.
+      final big = Uint8List.fromList(
+          List.generate(300 * 1024 + 7, (i) => (i * 13 + (i >> 8)) & 0xff));
+      final path = '$testOutputPath/test_big.bin';
+      File(path).writeAsBytesSync(big);
+      final fs = InputFileStream(path);
+      compareBytes(fs.readBytes(100).toUint8List(), big.sublist(0, 100));
+      // A seek, then a read longer than the short read after a seek.
+      fs.setPosition(150000);
+      compareBytes(
+          fs.readBytes(60000).toUint8List(), big.sublist(150000, 210000));
+      // Back before the buffer, byte by byte and in words.
+      fs.setPosition(99);
+      expect(fs.readByte(), big[99]);
+      expect(fs.readUint32(),
+          big[100] | (big[101] << 8) | (big[102] << 16) | (big[103] << 24));
+      // Sequentially through the rest, in reads of every size.
+      fs.setPosition(0);
+      var pos = 0;
+      var n = 1;
+      while (!fs.isEOS) {
+        final bytes = fs.readBytes(n).toUint8List();
+        compareBytes(bytes, big.sublist(pos, pos + bytes.length));
+        pos += bytes.length;
+        n = n * 3 + 1;
+        if (n > 100000) {
+          n = 1;
+        }
+      }
+      expect(pos, big.length);
+      fs.closeSync();
+    });
+
     test('length', () async {
       final fs = InputFileStream(testPath)..open();
       expect(fs.length, testData.length);

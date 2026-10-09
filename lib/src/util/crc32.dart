@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 /// Get the CRC-32 checksum of the given int.
 int getCrc32Byte(int crc, int b) => _crc32Table[(crc ^ b) & 0xff] ^ (crc >> 8);
 
@@ -7,6 +9,27 @@ int getCrc32(List<int> array, [int crc = 0]) {
   var len = array.length;
   crc = crc ^ 0xffffffff;
   var ip = 0;
+  if (array is Uint8List && len >= 16) {
+    // Slicing by eight: two 32-bit words at a time, each byte of them looked
+    // up in its own table, which is about three times the speed of a byte at
+    // a time. Only for typed data, where the words can be read whole.
+    final t = _crc32Tables;
+    final data = ByteData.sublistView(array);
+    while (len >= 8) {
+      final one = data.getUint32(ip, Endian.little) ^ crc;
+      final two = data.getUint32(ip + 4, Endian.little);
+      crc = t[0x700 + (one & 0xff)] ^
+          t[0x600 + ((one >>> 8) & 0xff)] ^
+          t[0x500 + ((one >>> 16) & 0xff)] ^
+          t[0x400 + (one >>> 24)] ^
+          t[0x300 + (two & 0xff)] ^
+          t[0x200 + ((two >>> 8) & 0xff)] ^
+          t[0x100 + ((two >>> 16) & 0xff)] ^
+          t[two >>> 24];
+      ip += 8;
+      len -= 8;
+    }
+  }
   while (len >= 8) {
     crc = _crc32Table[(crc ^ array[ip++]) & 0xff] ^ (crc >> 8);
     crc = _crc32Table[(crc ^ array[ip++]) & 0xff] ^ (crc >> 8);
@@ -24,6 +47,25 @@ int getCrc32(List<int> array, [int crc = 0]) {
     } while (--len > 0);
   }
   return crc ^ 0xffffffff;
+}
+
+// The eight tables for slicing by eight, one after another: table k at
+// k * 256 gives the effect of a byte that is k bytes further from the end
+// of the word than table 0 does.
+final Uint32List _crc32Tables = _buildCrc32Tables();
+
+Uint32List _buildCrc32Tables() {
+  final t = Uint32List(8 * 256);
+  for (var n = 0; n < 256; n++) {
+    t[n] = _crc32Table[n];
+  }
+  for (var k = 1; k < 8; k++) {
+    for (var n = 0; n < 256; n++) {
+      final prev = t[(k - 1) * 256 + n];
+      t[k * 256 + n] = _crc32Table[prev & 0xff] ^ (prev >>> 8);
+    }
+  }
+  return t;
 }
 
 // Precomputed CRC table for faster calculations.
