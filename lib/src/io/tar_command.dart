@@ -20,6 +20,8 @@ void listTarFiles(String path) {
     GZipDecoder().decodeStream(input, output);
   } else if (path.endsWith('tar.bz2') || path.endsWith('tbz')) {
     BZip2Decoder().decodeStream(input, output);
+  } else if (path.endsWith('tar.zst') || path.endsWith('tzst')) {
+    ZstdDecoder().decodeStream(input, output);
   }
 
   final tarInput = InputFileStream(tempTarPath);
@@ -46,6 +48,14 @@ Directory extractTarFiles(String inputPath, String outputPath) {
     final input = InputFileStream(inputPath);
     final tarOutput = OutputFileStream(tarPath);
     GZipDecoder().decodeStream(input, tarOutput);
+    input.closeSync();
+    tarOutput.closeSync();
+  } else if (inputPath.endsWith('tar.zst') || inputPath.endsWith('tzst')) {
+    tempDir = Directory.systemTemp.createTempSync('dart_archive');
+    tarPath = '${tempDir.path}${Platform.pathSeparator}temp.tar';
+    final input = InputFileStream(inputPath);
+    final tarOutput = OutputFileStream(tarPath);
+    ZstdDecoder().decodeStream(input, tarOutput);
     input.closeSync();
     tarOutput.closeSync();
   }

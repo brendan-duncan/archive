@@ -134,6 +134,9 @@ void main() {
     expect(getInputExtension('test.TAR.xz') == '.tar.xz', isTrue);
     expect(getInputExtension('test.txz') == '.txz', isTrue);
     expect(getInputExtension('TEST.TXZ') == '.txz', isTrue);
+    expect(getInputExtension('test.tar.zst') == '.tar.zst', isTrue);
+    expect(getInputExtension('test.TAR.ZST') == '.tar.zst', isTrue);
+    expect(getInputExtension('test.tzst') == '.tzst', isTrue);
   });
 
   test('extractFileToDisk zip bzip2', () async {
@@ -635,6 +638,19 @@ void main() {
   test('extractFileToDisk tar.tbz', () async {
     final inPath = 'test/_data/test2.tar.bz2';
     final outPath = '$testOutputPath/extractFileToDisk_tbz';
+    final dir = Directory(outPath);
+    if (dir.existsSync()) {
+      dir.deleteSync(recursive: true);
+    }
+    await extractFileToDisk(inPath, outPath);
+
+    final files = dir.listSync(recursive: true);
+    expect(files.length, 4);
+  });
+
+  test('extractFileToDisk tar.zst', () async {
+    final inPath = 'test/_data/zstd/test2.tar.zst';
+    final outPath = '$testOutputPath/extractFileToDisk_tzst';
     final dir = Directory(outPath);
     if (dir.existsSync()) {
       dir.deleteSync(recursive: true);

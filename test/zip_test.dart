@@ -781,6 +781,56 @@ void main() async {
       }
     });
 
+    group('zstd', () {
+      // Entries using method 93, zstd, and one deflated, made by
+      // test/_data/zstd/gen_fixtures.js from files in test/_data/zip.
+      final expected = {
+        for (final name in [
+          'hello.txt',
+          'gophercolor16x16.png',
+          'readme.notzip'
+        ])
+          name: File('test/_data/zip/$name').readAsBytesSync(),
+      };
+
+      void checkContents(Archive archive) {
+        expect(archive.length, equals(3));
+        for (final f in archive) {
+          compareBytes(f.readBytes()!, expected[f.name]!);
+        }
+      }
+
+      test('decode', () {
+        final bytes = File('test/_data/zstd/zstd.zip').readAsBytesSync();
+        final archive = ZipDecoder().decodeBytes(bytes, verify: true);
+        checkContents(archive);
+        expect(
+            archive.findFile('hello.txt')!.compression, CompressionType.zstd);
+        expect(archive.findFile('readme.notzip')!.compression,
+            CompressionType.deflate);
+      });
+
+      test('reencoding keeps the zstd data and its method', () {
+        final bytes = File('test/_data/zstd/zstd.zip').readAsBytesSync();
+        final zipped = ZipEncoder()
+            .encodeBytes(ZipDecoder().decodeBytes(bytes, verify: true));
+        final archive = ZipDecoder().decodeBytes(zipped, verify: true);
+        checkContents(archive);
+        expect(archive.findFile('gophercolor16x16.png')!.compression,
+            CompressionType.zstd);
+      });
+
+      test('a file to compress with zstd is deflated instead', () {
+        final archive = Archive()
+          ..add(ArchiveFile.bytes('hello.txt', expected['hello.txt']!)
+            ..compression = CompressionType.zstd);
+        final decoded = ZipDecoder()
+            .decodeBytes(ZipEncoder().encodeBytes(archive), verify: true);
+        expect(decoded.single.compression, CompressionType.deflate);
+        compareBytes(decoded.single.readBytes()!, expected['hello.txt']!);
+      });
+    });
+
     test('encode password', () {
       final archive = Archive();
       final bdata = 'hello world';

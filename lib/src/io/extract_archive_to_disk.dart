@@ -9,6 +9,7 @@ import '../codecs/gzip_decoder.dart';
 import '../codecs/tar_decoder.dart';
 import '../codecs/xz_decoder.dart';
 import '../codecs/zip_decoder.dart';
+import '../codecs/zstd_decoder.dart';
 import '../util/input_file_stream.dart';
 import '../util/input_stream.dart';
 import '../util/output_file_stream.dart';
@@ -153,6 +154,8 @@ String getInputExtension(String inputPath) {
     return '.tar.bz2';
   } else if (lowerPath.endsWith('.tar.xz')) {
     return '.tar.xz';
+  } else if (lowerPath.endsWith('.tar.zst')) {
+    return '.tar.zst';
   }
   return path.extension(lowerPath);
 }
@@ -165,7 +168,8 @@ Future<void> extractFileToDisk(String inputPath, String outputPath,
   var posixSupported = posix.isPosixSupported();
 
   const String extensionMsg =
-      '.tar.gz, .tgz, .tar.bz2, .tbz, .tar.xz, .txz, .tar or .zip';
+      '.tar.gz, .tgz, .tar.bz2, .tbz, .tar.xz, .txz, .tar.zst, .tzst, .tar '
+      'or .zip';
 
   // get the extension of the input file with up to 2 components
   // e.g. for file.tar.gz, it will return '.tar.gz'
@@ -202,6 +206,15 @@ Future<void> extractFileToDisk(String inputPath, String outputPath,
     final input = InputFileStream(inputPath);
     final output = OutputFileStream(archivePath, bufferSize: bufferSize);
     XZDecoder().decodeStream(input, output);
+    await input.close();
+    await output.close();
+    archiveExt = '.tar';
+  } else if (archiveExt == '.tar.zst' || archiveExt == '.tzst') {
+    tempDir = Directory.systemTemp.createTempSync('dart_archive');
+    archivePath = path.join(tempDir.path, 'temp.tar');
+    final input = InputFileStream(inputPath);
+    final output = OutputFileStream(archivePath, bufferSize: bufferSize);
+    ZstdDecoder().decodeStream(input, output);
     await input.close();
     await output.close();
     archiveExt = '.tar';

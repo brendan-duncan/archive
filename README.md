@@ -32,6 +32,7 @@ The archive library currently supports the following codecs:
 - GZip
 - BZip2
 - XZ
+- Zstandard (zstd), decoding only
 
 ---
 

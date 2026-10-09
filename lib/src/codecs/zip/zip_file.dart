@@ -11,6 +11,7 @@ import '../../util/output_memory_stream.dart';
 import '../../util/output_stream.dart';
 import '../bzip2_decoder.dart';
 import '../zlib_decoder.dart';
+import '../zstd_decoder.dart';
 import 'zip_file_header.dart';
 
 /// Internal class used by [ZipDecoder].
@@ -31,7 +32,8 @@ enum ZipEncryptionMode { none, zipCrypto, aes }
 const _compressionTypes = <int, CompressionType>{
   0: CompressionType.none,
   8: CompressionType.deflate,
-  12: CompressionType.bzip2
+  12: CompressionType.bzip2,
+  93: CompressionType.zstd,
 };
 
 /// A file object used by [ZipDecoder].
@@ -40,6 +42,7 @@ class ZipFile extends FileContent {
   static const zipCompressionStore = 0;
   static const zipCompressionDeflate = 8;
   static const zipCompressionBZip2 = 12;
+  static const zipCompressionZstd = 93;
   static const zipCompressionAexEncryption = 99;
 
   int version = 0;
@@ -187,6 +190,10 @@ class ZipFile extends FileContent {
       final savePos = _rawContent!.position;
       BZip2Decoder().decodeStream(_rawContent!, output);
       _rawContent!.setPosition(savePos);
+    } else if (compressionMethod == CompressionType.zstd) {
+      final savePos = _rawContent!.position;
+      ZstdDecoder().decodeStream(_rawContent!, output);
+      _rawContent!.setPosition(savePos);
     } else {
       output.writeStream(_rawContent!);
     }
@@ -238,6 +245,13 @@ class ZipFile extends FileContent {
       final output = OutputMemoryStream();
       final savePos = _rawContent!.position;
       BZip2Decoder().decodeStream(_rawContent!, output);
+      final content = output.getBytes();
+      _rawContent!.setPosition(savePos);
+      return InputMemoryStream(content);
+    } else if (compressionMethod == CompressionType.zstd) {
+      final output = OutputMemoryStream();
+      final savePos = _rawContent!.position;
+      ZstdDecoder().decodeStream(_rawContent!, output);
       final content = output.getBytes();
       _rawContent!.setPosition(savePos);
       return InputMemoryStream(content);

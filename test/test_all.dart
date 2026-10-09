@@ -18,6 +18,8 @@ import 'tar_test.dart' as tar_test;
 import 'xz_test.dart' as xz_test;
 import 'zip_test.dart' as zip_test;
 import 'zlib_test.dart' as zlib_test;
+import 'zstd_test.dart' as zstd_test;
+import 'zstd_web_test.dart' as zstd_web_test;
 
 void main() {
   adler32_test.main();
@@ -38,4 +40,6 @@ void main() {
   zip_test.main();
   zlib_test.main();
   xz_test.main();
+  zstd_test.main();
+  zstd_web_test.main();
 }

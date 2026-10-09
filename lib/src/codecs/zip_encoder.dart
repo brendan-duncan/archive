@@ -242,6 +242,11 @@ class ZipEncoder {
         // Otherwise we need to compress it now.
         crc32 = getFileCrc32(file);
 
+        if (compressionType == CompressionType.zstd) {
+          // There is no zstd encoder yet.
+          compressionType = CompressionType.deflate;
+        }
+
         if (compressionType == CompressionType.deflate) {
           final content = file.rawContent;
           final output = OutputMemoryStream();
@@ -344,15 +349,19 @@ class ZipEncoder {
     return out.getBytes();
   }
 
+  // The zip compression method number for [compression].
+  static int _zipMethod(CompressionType compression) => switch (compression) {
+        CompressionType.deflate => ZipFile.zipCompressionDeflate,
+        CompressionType.bzip2 => ZipFile.zipCompressionBZip2,
+        CompressionType.zstd => ZipFile.zipCompressionZstd,
+        CompressionType.none => ZipFile.zipCompressionStore,
+      };
+
   List<int> _getAexExtraData(_ZipFileData fileData) {
     // https://www.winzip.com/en/support/aes-encryption/#zip-format
     final out = OutputMemoryStream();
 
-    final compressionMethod = fileData.compression == CompressionType.deflate
-        ? ZipFile.zipCompressionDeflate
-        : fileData.compression == CompressionType.bzip2
-            ? ZipFile.zipCompressionBZip2
-            : ZipFile.zipCompressionStore;
+    final compressionMethod = _zipMethod(fileData.compression);
 
     out.writeUint16(_aesEncryptionExtraHeaderId); // AE-x encryption ID
     out.writeUint16(0x0007); // field length
@@ -383,11 +392,7 @@ class ZipEncoder {
 
     final compressionMethod = password != null
         ? ZipFile.zipCompressionAexEncryption
-        : fileData.compression == CompressionType.deflate
-            ? ZipFile.zipCompressionDeflate
-            : fileData.compression == CompressionType.bzip2
-                ? ZipFile.zipCompressionBZip2
-                : ZipFile.zipCompressionStore;
+        : _zipMethod(fileData.compression);
     final lastModFileTime = fileData.time;
     final lastModFileDate = fileData.date;
     final crc32 = fileData.crc32;
@@ -475,11 +480,7 @@ class ZipEncoder {
       }
       final compressionMethod = password != null
           ? ZipFile.zipCompressionAexEncryption
-          : fileData.compression == CompressionType.deflate
-              ? ZipFile.zipCompressionDeflate
-              : fileData.compression == CompressionType.bzip2
-                  ? ZipFile.zipCompressionBZip2
-                  : ZipFile.zipCompressionStore;
+          : _zipMethod(fileData.compression);
       final lastModifiedFileTime = fileData.time;
       final lastModifiedFileDate = fileData.date;
       final crc32 = fileData.crc32;

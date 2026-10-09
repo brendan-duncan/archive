@@ -2,7 +2,7 @@ name: archive
 version: 4.3.0
 description: >-
   Provides encoders and decoders for various archive and compression formats
-  such as zip, tar, bzip2, gzip, and zlib.
+  such as zip, tar, bzip2, gzip, zlib, xz and zstd.
 repository: https://github.com/brendan-duncan/archive
 topics:
   - archive
