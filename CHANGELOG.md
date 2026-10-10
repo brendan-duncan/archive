@@ -12,6 +12,10 @@
   `extractArchiveToDisk` and `extractArchiveToDiskSync`.
 * A zip entry is no longer decoded past the uncompressed size the archive
   gives for it, so `ArchiveFile.size` can be checked before reading.
+* Security: `ZstdDecoder` sized its window and output from the frame header,
+  so a 10 byte input committed hundreds of MB, even past `maxWindowSize`.
+  The content size is now checked as each block decodes, and one that
+  overflows is refused.
 
 # 4.4.0
 

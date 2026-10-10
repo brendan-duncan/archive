@@ -186,6 +186,69 @@ void main() {
         }
       }
     });
+
+    test('refuses a content size that overflows', () {
+      // Eight byte content size with the top bit set.
+      final frame = [
+        0x28,
+        0xb5,
+        0x2f,
+        0xfd,
+        0xc0,
+        0x00,
+        ...List.filled(8, 0xff)
+      ];
+      expect(
+          ZstdDecoder()
+              .decodeStream(InputMemoryStream(frame), OutputMemoryStream()),
+          isFalse);
+    });
+
+    test('stops at the content size, not after the frame', () {
+      const magic = [0x28, 0xb5, 0x2f, 0xfd];
+      // A 64 KB window, kept for the frame that follows.
+      final first = [...magic, 0x00, 0x30, 0x03, 0x00, 0x08, 0x61];
+      // A 1 KB window and a content size of 256, then a hundred 1 KB RLE
+      // blocks.
+      final second = [
+        ...magic,
+        0x40,
+        0x00,
+        0x00,
+        0x00,
+        for (var i = 0; i < 99; i++) ...[0x02, 0x20, 0x00, 0x62],
+        0x03,
+        0x20,
+        0x00,
+        0x62,
+      ];
+      final output = OutputMemoryStream();
+      expect(
+          ZstdDecoder()
+              .decodeStream(InputMemoryStream([...first, ...second]), output),
+          isFalse);
+      expect(output.length, lessThanOrEqualTo(65536 + 1024));
+    });
+
+    test('a header with no blocks after it is refused', () {
+      // A 128 MB window and a content size of 192 MB, with no blocks.
+      final frame = [
+        0x28,
+        0xb5,
+        0x2f,
+        0xfd,
+        0x80,
+        0x88,
+        0xff,
+        0xff,
+        0xff,
+        0x0b
+      ];
+      final output = OutputMemoryStream();
+      expect(ZstdDecoder().decodeStream(InputMemoryStream(frame), output),
+          isFalse);
+      expect(ZstdDecoder().decodeBytes(frame), isEmpty);
+    });
   });
 
   group('zstd encoder', () {

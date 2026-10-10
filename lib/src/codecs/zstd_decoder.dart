@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:typed_data';
 
 import '../util/_limited_output_stream.dart';
@@ -81,7 +82,15 @@ class ZstdDecoder {
     // Sized up front from what the first frame declares, which saves growing
     // the buffer as the output arrives. The declaration is only as trustworthy
     // as the data, so above a ceiling it is not acted on.
-    final size = _declaredSize(data);
+    // Nor past what the input could possibly decode to, which keeps a header
+    // of a few bytes from claiming hundreds of megabytes.
+    var size = _declaredSize(data);
+    if (size != null) {
+      size = math.min(size, data.length * _maxRatio);
+      if (maxOutputSize != null) {
+        size = math.min(size, maxOutputSize);
+      }
+    }
     final output = OutputMemoryStream(
         size:
             size != null && size > 0 && size <= _maxPreallocate ? size : null);
@@ -93,6 +102,10 @@ class ZstdDecoder {
   }
 
   static const int _maxPreallocate = 256 * 1024 * 1024;
+
+  // The most a byte of input can decode to: an RLE block takes four bytes,
+  // its header and the byte, to give a 128 KB block.
+  static const int _maxRatio = 32 * 1024;
 
   // The content size the first frame declares, if the data starts with a
   // frame that declares one.

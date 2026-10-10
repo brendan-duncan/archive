@@ -115,6 +115,8 @@ class ZstdFrameDecoder {
     while (decodeBlock(input, output)) {}
   }
 
+  static const int _maxContentSize = 9007199254740991;
+
   // The frame in progress, between startFrame and the last decodeBlock.
   bool _inFrame = false;
   int _frameContentSize = -1;
@@ -152,6 +154,11 @@ class ZstdFrameDecoder {
       contentSize = readLittleEndian(input, fcsSize == 0 ? 1 : fcsSize);
       if (fcsSize == 2) {
         contentSize += 256;
+      }
+      // An 8 byte size can overflow to negative, and past 2^53 it can't be
+      // held exactly on the web; no frame that large can be decoded anyway.
+      if (contentSize < 0 || contentSize > _maxContentSize) {
+        throw ZstdFormatError('Frame content size is too large');
       }
     }
     if (singleSegment) {
@@ -225,6 +232,12 @@ class ZstdFrameDecoder {
       output.writeBytes(Uint8List.sublistView(_win, start, _pos));
       _frameHash?.update(_win, start, _pos);
       _frameTotal += _pos - start;
+      // Checked as it goes, not only at the end: a window left large by an
+      // earlier frame would otherwise let this one decode far past it.
+      if (_frameContentSize >= 0 && _frameTotal > _frameContentSize) {
+        throw ZstdFormatError('Frame decoded to more than the '
+            '$_frameContentSize bytes its header says');
+      }
     }
     if (!last) {
       return true;
@@ -266,12 +279,13 @@ class ZstdFrameDecoder {
     final extra =
         math.max(2 * zstdBlockSizeMax, math.min(windowSize, 64 * 1024 * 1024));
     _capMax = dictLength + windowSize + extra;
-    var initial = math.min(_capMax, dictLength + 4 * zstdBlockSizeMax);
     if (contentSize >= 0 && dictLength + contentSize < _capMax) {
-      // Everything fits, so the window never has to slide, or grow.
+      // Everything fits, so the window never has to slide.
       _capMax = dictLength + contentSize;
-      initial = _capMax;
     }
+    // Grown as blocks arrive rather than sized from the header, which costs
+    // a few bytes to write and is checked only once the frame has decoded.
+    final initial = math.min(_capMax, dictLength + 4 * zstdBlockSizeMax);
     if (_winLength < initial) {
       _win = Uint8List(initial + _slack);
       _winData = ByteData.sublistView(_win);
