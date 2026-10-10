@@ -76,12 +76,17 @@ class InputFileStream extends InputStream {
         _position = 0,
         super(byteOrder: other.byteOrder) {
     // A subset ends where its source does. peekBytes asks past the end of a
-    // file, where the buffer still holds earlier bytes
-    final available = other._fileSize - (position ?? 0);
-    _fileSize = length == null || length > available ? available : length;
-    if (_fileSize < 0) {
-      _fileSize = 0;
+    // file, where the buffer still holds earlier bytes. [length] can come
+    // straight from a size field in an archive, so it is clamped against the
+    // bytes actually available rather than trusted: an over-large value is an
+    // over-read or, where a view is built from it, an out-of-range crash.
+    final pos = position ?? 0;
+    var available = other._fileSize - pos;
+    if (available < 0) {
+      available = 0;
     }
+    _fileSize =
+        length == null || length < 0 || length > available ? available : length;
   }
 
   @override
@@ -220,8 +225,12 @@ class InputFileStream extends InputStream {
     if (isEOS) {
       return InputFileStream.fromFileStream(this, length: 0);
     }
-    if ((_position + count) > _fileSize) {
-      count = _fileSize - _position;
+    // Clamp against the bytes left rather than testing `_position + count >
+    // _fileSize`, which overflows for a count near the 64-bit maximum, such as
+    // one taken from a crafted archive's size field, and would skip the clamp.
+    final available = _fileSize - _position;
+    if (count < 0 || count > available) {
+      count = available;
     }
     final bytes = InputFileStream.fromFileStream(this,
         position: _position, length: count);

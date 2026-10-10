@@ -16,9 +16,20 @@ class InputMemoryStream extends InputStream {
       {super.byteOrder = ByteOrder.littleEndian, int? offset, int? length})
       : _position = 0 {
     offset ??= 0;
-    length ??= bytes.length - offset;
-    if ((offset + length) > bytes.length) {
-      length = bytes.length - offset;
+    // Clamp the window to the buffer. A length can arrive here straight from a
+    // size field in an archive, so the comparison is written as a subtraction
+    // from a value known to be non-negative rather than as `offset + length >
+    // bytes.length`, which overflows for a length near the 64-bit maximum and
+    // would let an out-of-range view be built over a tiny buffer.
+    if (offset < 0) {
+      offset = 0;
+    } else if (offset > bytes.length) {
+      offset = bytes.length;
+    }
+    final available = bytes.length - offset;
+    length ??= available;
+    if (length < 0 || length > available) {
+      length = available;
     }
 
     final data = bytes is Uint8List ? bytes : Uint8List.fromList(bytes);
@@ -131,8 +142,9 @@ class InputMemoryStream extends InputStream {
       return Uint8List(0);
     }
     var len = length;
-    if ((_position + len) > buffer!.length) {
-      len = buffer!.length - _position;
+    final available = buffer!.length - _position;
+    if (len < 0 || len > available) {
+      len = available;
     }
 
     final bytes =

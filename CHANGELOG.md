@@ -1,5 +1,14 @@
 # 4.3.0
 
+* Security: a crafted zip whose zip64 extra field declared a compressed size
+  near the 64-bit maximum overflowed the bounds checks in `InputMemoryStream`,
+  `InputFileStream` and `FileBuffer`, so reading an entry built an
+  out-of-range `Uint8List` over a small buffer. Depending on the platform
+  that threw an unhandled `RangeError` or crashed the process while decoding
+  an untrusted archive. The checks now clamp against the bytes actually
+  present, so an entry read returns at most what the file holds, and the
+  decode of an entry's content preallocation no longer trusts the archive's
+  declared uncompressed size.
 * Encrypted zip entries are decrypted as they are read rather than whole in
   memory, for both ZipCrypto and AES. A wrong password or a failed
   authentication code throws an `ArchiveException` from the read. ZipCrypto

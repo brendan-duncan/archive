@@ -267,7 +267,14 @@ class ZipFile extends FileContent {
         if (_rawContent!.length <= maxDecodeBufferSize) {
           bytes = ZLibDecoder().decodeBytes(content.toUint8List(), raw: true);
         } else {
-          final output = OutputMemoryStream(size: uncompressedSize);
+          // [uncompressedSize] is only a hint for the initial buffer and
+          // comes from the archive, so a crafted value is not trusted to
+          // size an allocation: the stream grows into what the data needs.
+          final output = OutputMemoryStream(
+              size: uncompressedSize > 0 &&
+                      uncompressedSize <= maxDecodeBufferSize
+                  ? uncompressedSize
+                  : null);
           ZLibDecoder().decodeStream(content, output, raw: true);
           bytes = output.getBytes();
         }

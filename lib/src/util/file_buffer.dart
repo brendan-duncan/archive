@@ -218,8 +218,13 @@ class FileBuffer {
   Uint8List readBytes(int position, int count,
       [@Deprecated('Ignored') int? fileSize]) {
     if (count > buffer.length) {
-      if (position + count >= _fileSize) {
-        count = _fileSize - position;
+      // Clamp against the bytes left in the file rather than testing
+      // `position + count >= _fileSize`, which overflows for a count near the
+      // 64-bit maximum and would leave [count] huge, allocating an enormous
+      // buffer. Written as a subtraction from the non-negative remainder.
+      final available = position >= _fileSize ? 0 : _fileSize - position;
+      if (count < 0 || count > available) {
+        count = available;
       }
       final bytes = Uint8List(count);
       file.position = position;
