@@ -28,16 +28,23 @@ import '../lzma/lzma_decoder.dart';
 /// instead.
 ({bool ok, String? reason}) decodeXZBlock(
     InputStream input, int streamFlags, OutputStream output,
-    {required int maxPreallocateSize}) {
+    {required int maxPreallocateSize,
+    int maxDictionarySize = xzDefaultMaxDictionarySize}) {
   final headerByte = input.peekBytes(1).readByte();
   if (headerByte == 0) {
     return (ok: false, reason: 'Expected a block but found the stream index');
   }
-  final decoder = XZStreamDecoder(maxPreallocateSize: maxPreallocateSize)
+  final decoder = XZStreamDecoder(
+      maxPreallocateSize: maxPreallocateSize,
+      maxDictionarySize: maxDictionarySize)
     ..streamFlags = streamFlags;
   final ok = decoder.readBlock(input, output, (headerByte + 1) * 4);
   return (ok: ok, reason: ok ? null : decoder.failureReason);
 }
+
+/// Default for [XZStreamDecoder.maxDictionarySize]: four times the largest
+/// dictionary any of xz's presets uses.
+const int xzDefaultMaxDictionarySize = 256 * 1024 * 1024;
 
 /// Decodes an XZ stream.
 class XZStreamDecoder {
@@ -69,7 +76,15 @@ class XZStreamDecoder {
   // Upper bound on a buffer sized from a length the archive declares.
   final int maxPreallocateSize;
 
-  XZStreamDecoder({this.verify = false, required this.maxPreallocateSize});
+  // The largest LZMA2 dictionary a block may declare. The dictionary is held
+  // in memory as the data decodes, up to a quarter more than its size, so a
+  // small archive declaring 4 GB could otherwise take that much memory.
+  final int maxDictionarySize;
+
+  XZStreamDecoder(
+      {this.verify = false,
+      required this.maxPreallocateSize,
+      this.maxDictionarySize = xzDefaultMaxDictionarySize});
 
   // Records why the decode gave up and reports the failure. The first reason
   // is kept, because it is the innermost one: the returns above it only pass
@@ -347,6 +362,10 @@ class XZStreamDecoder {
           final mantissa = 2 | (v & 0x1);
           final exponent = (v >> 1) + 11;
           dictionarySize = mantissa << exponent;
+        }
+        if (dictionarySize > maxDictionarySize) {
+          return _fail('LZMA dictionary size $dictionarySize exceeds '
+              'maxDictionarySize $maxDictionarySize');
         }
         filters.add(id);
         filters.add(dictionarySize);

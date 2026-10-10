@@ -8,6 +8,7 @@ import 'dart:typed_data';
 // file_handle.dart, whose conditional export resolves to the web class when
 // the analyser has no platform in mind, and that one has no path.
 import '../../util/_file_handle_io.dart';
+import '../../util/_limited_output_stream.dart';
 import '../../util/byte_order.dart';
 import '../../util/crc32.dart';
 import '../../util/crc64.dart';
@@ -135,6 +136,7 @@ Future<bool> xzDecodeMultithreaded({
   required XZLayout? layout,
   required bool verify,
   required int maxPreallocateSize,
+  int maxDictionarySize = xzDefaultMaxDictionarySize,
   int? workers,
   int? memoryBudget,
   required void Function(int outputOffset, Uint8List chunk) onChunk,
@@ -170,11 +172,16 @@ Future<bool> xzDecodeMultithreaded({
             length: block.compressedLength,
             streamFlags: block.streamFlags,
             outputOffset: block.outputOffset,
+            uncompressedLength: block.uncompressedLength,
             verify: verify,
             maxPreallocateSize: maxPreallocateSize,
+            maxDictionarySize: maxDictionarySize,
             fileReadBufferSize: fileReadBufferSize,
           )
-      ], count, onChunk, onBlockDone, onFailureReason);
+      ], count, onChunk, onBlockDone, onFailureReason,
+          // Blocks that finish ahead of the one being written wait in memory
+          // for it, so only so many are let run ahead.
+          maxAhead: orderedOutput ? 2 * count : null);
     }
   }
 
@@ -194,8 +201,10 @@ Future<bool> xzDecodeMultithreaded({
       length: bytes?.length ?? fileLength,
       streamFlags: 0,
       outputOffset: 0,
+      uncompressedLength: -1,
       verify: verify,
       maxPreallocateSize: maxPreallocateSize,
+      maxDictionarySize: maxDictionarySize,
       fileReadBufferSize: fileReadBufferSize,
     )
   ], 1, onChunk, null, onFailureReason);
@@ -327,8 +336,12 @@ class _Job {
   final int length;
   final int streamFlags;
   final int outputOffset;
+
+  /// What the index says the block decodes to, or -1 for a whole stream.
+  final int uncompressedLength;
   final bool verify;
   final int maxPreallocateSize;
+  final int maxDictionarySize;
   final int fileReadBufferSize;
 
   const _Job({
@@ -339,8 +352,10 @@ class _Job {
     required this.length,
     required this.streamFlags,
     required this.outputOffset,
+    required this.uncompressedLength,
     required this.verify,
     required this.maxPreallocateSize,
+    required this.maxDictionarySize,
     required this.fileReadBufferSize,
   });
 
@@ -368,6 +383,8 @@ class _Job {
       verify,
       fileReadBufferSize,
       maxPreallocateSize,
+      maxDictionarySize,
+      uncompressedLength,
     ];
   }
 
@@ -381,11 +398,29 @@ Future<bool> _runJobs(
     int workerCount,
     void Function(int outputOffset, Uint8List chunk) onChunk,
     void Function(int outputOffset, bool ok)? onBlockDone,
-    void Function(String reason)? onFailureReason) async {
+    void Function(String reason)? onFailureReason,
+    {int? maxAhead}) async {
   final receive = ReceivePort();
   final isolates = <Isolate>[];
   final completer = Completer<bool>();
   final pending = Queue<int>()..addAll(Iterable<int>.generate(jobs.length));
+  // Which job each worker has, and which jobs are done, to know the first
+  // job not yet finished. Jobs more than [maxAhead] past it wait for it.
+  final assigned = <SendPort, int>{};
+  final done = List<bool>.filled(jobs.length, false);
+  final idle = <SendPort>[];
+  var firstUnfinished = 0;
+
+  void dispatch() {
+    while (idle.isNotEmpty &&
+        pending.isNotEmpty &&
+        (maxAhead == null || pending.first < firstUnfinished + maxAhead)) {
+      final worker = idle.removeLast();
+      final index = pending.removeFirst();
+      assigned[worker] = index;
+      worker.send(jobs[index].toMessage());
+    }
+  }
 
   var remaining = jobs.length;
   var ok = true;
@@ -459,16 +494,21 @@ Future<bool> _runJobs(
             if (error != null) {
               failure ??= StateError('XZ decode failed: $error');
             }
+            final index = assigned.remove(message[1]);
+            if (index != null) {
+              done[index] = true;
+              while (firstUnfinished < jobs.length && done[firstUnfinished]) {
+                firstUnfinished++;
+              }
+            }
             remaining--;
             if (remaining == 0) {
               finish();
               return;
             }
           }
-          if (pending.isNotEmpty) {
-            final index = pending.removeFirst();
-            (message[1] as SendPort).send(jobs[index].toMessage());
-          }
+          idle.add(message[1] as SendPort);
+          dispatch();
           break;
       }
     } catch (error, stack) {
@@ -540,6 +580,8 @@ void _xzWorker(SendPort toMain) {
     final verify = job[8] as bool;
     final fileReadBufferSize = job[9] as int;
     final maxPreallocateSize = job[10] as int;
+    final maxDictionarySize = job[11] as int;
+    final uncompressedLength = job[12] as int;
 
     // Failing to get hold of the compressed data is a failure of the decode
     // itself rather than a statement about the archive, so it is reported as
@@ -584,15 +626,25 @@ void _xzWorker(SendPort toMain) {
     // block to be held in memory.
     final verifyHere = verify && kind == _kindBlock;
     final sink = _PortSink(toMain, outputOffset, verifyHere ? checkType : 0);
+    // A block is placed in the output by what the index says it holds, so one
+    // that decodes to more or less than that would land in the wrong place,
+    // or leave a gap the ordered writer waits on for good.
+    const mismatch = "Uncompressed data doesn't match the length in the index";
+    final limited = kind == _kindBlock
+        ? LimitedOutputStream(sink, uncompressedLength)
+        : null;
     try {
-      if (kind == _kindBlock) {
-        final result = decodeXZBlock(input, streamFlags, sink,
-            maxPreallocateSize: maxPreallocateSize);
+      if (limited != null) {
+        final result = decodeXZBlock(input, streamFlags, limited,
+            maxPreallocateSize: maxPreallocateSize,
+            maxDictionarySize: maxDictionarySize);
         ok = result.ok;
         reason = result.reason;
       } else {
         final decoder = XZStreamDecoder(
-            verify: verify, maxPreallocateSize: maxPreallocateSize);
+            verify: verify,
+            maxPreallocateSize: maxPreallocateSize,
+            maxDictionarySize: maxDictionarySize);
         ok = decoder.decode(input, sink);
         reason = decoder.failureReason;
       }
@@ -601,7 +653,7 @@ void _xzWorker(SendPort toMain) {
       // threaded path swallows that and reports false, and so does this one,
       // keeping the text for whoever wants to know what went wrong.
       ok = false;
-      reason = '$error';
+      reason = limited != null && limited.exceeded ? mismatch : '$error';
     } finally {
       // Flushing even after a failure keeps what was decoded before it, which
       // is what the single threaded path leaves in its output stream.
@@ -611,6 +663,11 @@ void _xzWorker(SendPort toMain) {
         ok = false;
         reason ??= '$error';
       }
+    }
+
+    if (ok && limited != null && sink.length != uncompressedLength) {
+      ok = false;
+      reason = mismatch;
     }
 
     if (ok && verifyHere) {

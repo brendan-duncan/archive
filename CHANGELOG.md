@@ -16,6 +16,14 @@
   so a 10 byte input committed hundreds of MB, even past `maxWindowSize`.
   The content size is now checked as each block decodes, and one that
   overflows is refused.
+* Security: `XZDecoder` limits the LZMA2 dictionary an archive may declare
+  to `maxDictionarySize` (256 MB by default), which bounds the memory a
+  streaming decode takes. It also takes `maxOutputSize`, and no longer
+  preallocates gigabytes because a tiny archive's index claims them.
+* Multithreaded xz decoding checks each block against the size the index
+  gives it. An index that misstated one used to make the ordered output
+  hold everything after it in memory and report success with the output
+  cut short. Blocks are no longer let run far ahead of the output.
 
 # 4.4.0
 

@@ -34,6 +34,7 @@ Future<bool> xzDecodeMultithreaded({
   required XZLayout? layout,
   required bool verify,
   required int maxPreallocateSize,
+  int maxDictionarySize = 0,
   int? workers,
   int? memoryBudget,
   required void Function(int outputOffset, Uint8List chunk) onChunk,

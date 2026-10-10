@@ -1028,5 +1028,83 @@ void main() {
       expect(ok, isTrue);
       expect(output.getBytes(), equals(expected));
     });
+
+    group('an index that misstates a block', () {
+      // Rewrites the size the index gives the first 64 KB block, keeping the
+      // index CRC valid. Each block is placed by the index, so the decoded
+      // blocks no longer meet: before blocks were checked against it, the
+      // ordered writer held everything after the first block in memory and
+      // the decode reported success with the output cut short.
+      Uint8List misstate(Uint8List compressed, List<int> size) {
+        final bytes = Uint8List.fromList(compressed);
+        final footer = bytes.length - 12;
+        final backwardSize = ByteData.sublistView(bytes, footer + 4, footer + 8)
+            .getUint32(0, Endian.little);
+        final indexStart = footer - (backwardSize + 1) * 4;
+        // Indicator and a one byte record count, then the first record's
+        // unpadded size, which is under 16 KB here so two bytes.
+        final at = indexStart + 2 + 2;
+        expect(bytes.sublist(at, at + 3), equals([0x80, 0x80, 0x04]));
+        bytes.setRange(at, at + 3, size);
+        final crcAt = footer - 4;
+        ByteData.sublistView(bytes, crcAt, crcAt + 4).setUint32(
+            0, getCrc32(bytes.sublist(indexStart, crcAt)), Endian.little);
+        return bytes;
+      }
+
+      for (final (name, size) in [
+        ('too small', [0xff, 0xff, 0x03]),
+        ('too large', [0x81, 0x80, 0x04]),
+      ]) {
+        test('$name is refused by decodeStream', () async {
+          final compressed = misstate(
+              xzCompress(expected, ['--block-size=65536', '--lzma2=preset=1']),
+              size);
+          final output = OutputMemoryStream();
+          final ok = await decodeStreamOnIsolates(
+              InputMemoryStream(compressed), output,
+              workers: 4);
+          expect(ok, isFalse);
+          expect(output.length, lessThanOrEqualTo(65536));
+        });
+
+        test('$name is refused by decodeBytes', () async {
+          final compressed = misstate(
+              xzCompress(expected, ['--block-size=65536', '--lzma2=preset=1']),
+              size);
+          final completer = Completer<Uint8List>();
+          XZDecoder().decodeBytes(compressed,
+              throwOnError: true,
+              multithread: XZMultithreadOptions(
+                  workers: 4,
+                  onDone: completer.complete,
+                  onError: completer.completeError));
+          await expectLater(completer.future, throwsA(isA<ArchiveException>()));
+        });
+      }
+    });
+
+    test('maxOutputSize', () async {
+      final compressed =
+          xzCompress(expected, ['--block-size=65536', '--lzma2=preset=1']);
+      final completer = Completer<bool>();
+      XZDecoder().decodeStream(
+          InputMemoryStream(compressed), OutputMemoryStream(),
+          maxOutputSize: expected.length - 1,
+          multithread: XZMultithreadOptions(
+              workers: 4,
+              onDone: completer.complete,
+              onError: completer.completeError));
+      await expectLater(completer.future, throwsA(isA<ArchiveException>()));
+
+      final output = OutputMemoryStream();
+      final ok = Completer<bool>();
+      XZDecoder().decodeStream(InputMemoryStream(compressed), output,
+          maxOutputSize: expected.length,
+          multithread: XZMultithreadOptions(
+              workers: 4, onDone: ok.complete, onError: ok.completeError));
+      expect(await ok.future, isTrue);
+      expect(output.getBytes(), equals(expected));
+    });
   });
 }

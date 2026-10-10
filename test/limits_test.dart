@@ -69,9 +69,33 @@ void main() {
           .decodeStream(InputMemoryStream(zst), output, maxOutputSize: max));
     });
 
+    test('xz', () {
+      final xz = XZEncoder().encodeBytes(data);
+      expectLimit((max) => XZDecoder().decodeBytes(xz, maxOutputSize: max));
+      expectStreamLimit((output, max) => XZDecoder()
+          .decodeStream(InputMemoryStream(xz), output, maxOutputSize: max));
+    });
+
     test('rejects a negative limit', () {
       expect(() => ZstdDecoder().decodeBytes(Uint8List(0), maxOutputSize: -1),
           throwsArgumentError);
+    });
+  });
+
+  group('xz maxDictionarySize', () {
+    final xz = XZEncoder().encodeBytes(data);
+
+    test('refuses a block declaring a larger dictionary', () {
+      expect(XZDecoder().decodeBytes(xz), equals(data));
+      final strict = XZDecoder(maxDictionarySize: 0);
+      expect(strict.decodeStream(InputMemoryStream(xz), OutputMemoryStream()),
+          isFalse);
+      expect(() => strict.decodeBytes(xz, throwOnError: true),
+          throwsA(isA<ArchiveException>()));
+    });
+
+    test('rejects a negative limit', () {
+      expect(() => XZDecoder(maxDictionarySize: -1), throwsArgumentError);
     });
   });
 
