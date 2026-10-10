@@ -5,6 +5,13 @@
 * Security: tar long name and pax header entries are limited to
   `TarFile.maxMetadataSize` (1 MB). A small `.tar.gz` could declare one
   large enough to take gigabytes of memory to read.
+* Security: decoding had no output limit, so a small archive could expand
+  to fill memory or disk. Added `maxOutputSize` to `decodeBytes` and
+  `decodeStream` on `GZipDecoder`, `ZLibDecoder`, `BZip2Decoder` and
+  `ZstdDecoder`, and `maxSize` to `extractFileToDisk`,
+  `extractArchiveToDisk` and `extractArchiveToDiskSync`.
+* A zip entry is no longer decoded past the uncompressed size the archive
+  gives for it, so `ArchiveFile.size` can be checked before reading.
 
 # 4.4.0
 

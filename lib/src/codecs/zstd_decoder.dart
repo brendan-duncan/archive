@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import '../util/_limited_output_stream.dart';
 import '../util/archive_exception.dart';
 import '../util/input_decode_stream.dart';
 import '../util/input_memory_stream.dart';
@@ -71,8 +72,12 @@ class ZstdDecoder {
   /// [verify] checks the content checksum of each frame that has one, which
   /// catches damage that decodes without complaint. It changes only whether a
   /// failure is noticed, never what a successful decode returns.
+  ///
+  /// With [maxOutputSize], an [ArchiveException] is thrown as soon as the
+  /// decoded data would pass that many bytes, rather than decoding a small
+  /// input that expands without limit.
   Uint8List decodeBytes(List<int> data,
-      {bool verify = false, bool throwOnError = false}) {
+      {bool verify = false, bool throwOnError = false, int? maxOutputSize}) {
     // Sized up front from what the first frame declares, which saves growing
     // the buffer as the output arrives. The declaration is only as trustworthy
     // as the data, so above a ceiling it is not acted on.
@@ -81,7 +86,9 @@ class ZstdDecoder {
         size:
             size != null && size > 0 && size <= _maxPreallocate ? size : null);
     decodeStream(InputMemoryStream(data), output,
-        verify: verify, throwOnError: throwOnError);
+        verify: verify,
+        throwOnError: throwOnError,
+        maxOutputSize: maxOutputSize);
     return output.getBytes();
   }
 
@@ -129,19 +136,26 @@ class ZstdDecoder {
   /// partial data is in [output] either way.
   ///
   /// [verify] checks the content checksum of each frame that has one.
+  ///
+  /// With [maxOutputSize], an [ArchiveException] is thrown as soon as more
+  /// than that many bytes would be written to [output], whatever
+  /// [throwOnError] is.
   bool decodeStream(InputStream input, OutputStream output,
-      {bool verify = false, bool throwOnError = false}) {
-    final decoder = _ZstdChunkDecoder(_frameDecoder(verify), input);
-    try {
-      while (decoder.decodeChunk(output)) {}
-      return true;
-    } on ArchiveException {
-      if (throwOnError) {
-        rethrow;
-      }
-      return false;
-    }
-  }
+          {bool verify = false,
+          bool throwOnError = false,
+          int? maxOutputSize}) =>
+      decodeLimited(output, maxOutputSize, (output) {
+        final decoder = _ZstdChunkDecoder(_frameDecoder(verify), input);
+        try {
+          while (decoder.decodeChunk(output)) {}
+          return true;
+        } on ArchiveException {
+          if (throwOnError) {
+            rethrow;
+          }
+          return false;
+        }
+      });
 
   /// Returns an [InputStream] that decompresses [input] as it is read.
   ///

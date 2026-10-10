@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import '../util/_limited_output_stream.dart';
 import '../util/archive_exception.dart';
 import '../util/input_decode_stream.dart';
 import '../util/input_memory_stream.dart';
@@ -12,23 +13,34 @@ import 'bzip2/bzip2.dart';
 /// Decompress bzip2 compressed data.
 /// Derived from libbzip2 (http://www.bzip.org).
 class BZip2Decoder {
-  Uint8List decodeBytes(List<int> data, {bool verify = false}) {
+  /// Decompress [data].
+  ///
+  /// With [maxOutputSize], an [ArchiveException] is thrown as soon as the
+  /// decoded data would pass that many bytes, rather than decoding a small
+  /// input that expands without limit.
+  Uint8List decodeBytes(List<int> data,
+      {bool verify = false, int? maxOutputSize}) {
     final input = InputMemoryStream(data);
     final output = OutputMemoryStream();
-    decodeStream(input, output, verify: verify);
+    decodeStream(input, output, verify: verify, maxOutputSize: maxOutputSize);
     return output.getBytes();
   }
 
+  /// Decompress [input] into [output], returning false if it is malformed.
+  ///
+  /// With [maxOutputSize], an [ArchiveException] is thrown as soon as more
+  /// than that many bytes would be written to [output].
   bool decodeStream(InputStream input, OutputStream output,
-      {bool verify = false}) {
-    final decoder = _Bzip2ChunkDecoder(this, input, verify);
-    try {
-      while (decoder.decodeChunk(output)) {}
-    } on ArchiveException {
-      return false;
-    }
-    return true;
-  }
+          {bool verify = false, int? maxOutputSize}) =>
+      decodeLimited(output, maxOutputSize, (output) {
+        final decoder = _Bzip2ChunkDecoder(this, input, verify);
+        try {
+          while (decoder.decodeChunk(output)) {}
+        } on ArchiveException {
+          return false;
+        }
+        return true;
+      });
 
   /// Returns an [InputStream] that decompresses [input] as it is read.
   ///

@@ -2,6 +2,7 @@ import 'dart:math';
 import 'dart:typed_data';
 
 import '../../archive/compression_type.dart';
+import '../../util/_limited_output_stream.dart';
 import '../../util/aes.dart';
 import '../../util/archive_exception.dart';
 import '../../util/byte_order.dart';
@@ -230,17 +231,25 @@ class ZipFile extends FileContent {
 
     final content = _storedContent();
     final savePos = content.position;
-    switch (compressionMethod) {
-      case CompressionType.deflate:
-        ZLibDecoder().decodeStream(content, output, raw: true);
-      case CompressionType.bzip2:
-        BZip2Decoder().decodeStream(content, output);
-      case CompressionType.zstd:
-        ZstdDecoder().decodeStream(content, output);
-      case CompressionType.none:
-        output.writeStream(content);
+    // The archive says how large the entry is, which is what a caller can
+    // check before reading it, so the data is not let decode past that.
+    try {
+      decodeLimited(output, uncompressedSize, (output) {
+        switch (compressionMethod) {
+          case CompressionType.deflate:
+            ZLibDecoder().decodeStream(content, output, raw: true);
+          case CompressionType.bzip2:
+            BZip2Decoder().decodeStream(content, output);
+          case CompressionType.zstd:
+            ZstdDecoder().decodeStream(content, output);
+          case CompressionType.none:
+            output.writeStream(content);
+        }
+        return true;
+      });
+    } finally {
+      content.setPosition(savePos);
     }
-    content.setPosition(savePos);
   }
 
   @override
@@ -262,32 +271,18 @@ class ZipFile extends FileContent {
 
     final savePos = content.position;
     final Uint8List bytes;
-    switch (compressionMethod) {
-      case CompressionType.deflate:
-        if (_rawContent!.length <= maxDecodeBufferSize) {
-          bytes = ZLibDecoder().decodeBytes(content.toUint8List(), raw: true);
-        } else {
-          // [uncompressedSize] is only a hint for the initial buffer and
-          // comes from the archive, so a crafted value is not trusted to
-          // size an allocation: the stream grows into what the data needs.
-          final output = OutputMemoryStream(
-              size: uncompressedSize > 0 &&
-                      uncompressedSize <= maxDecodeBufferSize
-                  ? uncompressedSize
-                  : null);
-          ZLibDecoder().decodeStream(content, output, raw: true);
-          bytes = output.getBytes();
-        }
-      case CompressionType.bzip2:
-        final output = OutputMemoryStream();
-        BZip2Decoder().decodeStream(content, output);
-        bytes = output.getBytes();
-      case CompressionType.zstd:
-        final output = OutputMemoryStream();
-        ZstdDecoder().decodeStream(content, output);
-        bytes = output.getBytes();
-      case CompressionType.none:
-        bytes = content.toUint8List();
+    if (compressionMethod == CompressionType.none) {
+      bytes = content.toUint8List();
+    } else {
+      // [uncompressedSize] comes from the archive, so a crafted value is not
+      // trusted to size an allocation: the stream grows into what the data
+      // needs. It does bound that growth, as in [decompress].
+      final output = OutputMemoryStream(
+          size: uncompressedSize > 0 && uncompressedSize <= maxDecodeBufferSize
+              ? uncompressedSize
+              : null);
+      this.decompress(output);
+      bytes = output.getBytes();
     }
     content.setPosition(savePos);
     return InputMemoryStream(bytes);

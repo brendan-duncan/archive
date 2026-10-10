@@ -1,7 +1,10 @@
 import 'dart:typed_data';
 
+import '../util/_limited_output_stream.dart';
 import '../util/input_decode_stream.dart';
+import '../util/input_memory_stream.dart';
 import '../util/input_stream.dart';
+import '../util/output_memory_stream.dart';
 import '../util/output_stream.dart';
 import 'tar_decoder.dart';
 import 'zlib/_gzip_decoder.dart';
@@ -23,8 +26,20 @@ class GZipDecoder {
   /// This has no way to report a failure, so a truncated archive yields
   /// however much decoded before the data ran out, with nothing to say it is
   /// not the whole thing. Use [decodeStream] where that matters.
-  Uint8List decodeBytes(List<int> bytes, {bool verify = false}) =>
-      platformGZipDecoder.decodeBytes(bytes, verify: verify);
+  ///
+  /// With [maxOutputSize], an [ArchiveException] is thrown as soon as the
+  /// decoded data would pass that many bytes, rather than decoding a small
+  /// input that expands without limit.
+  Uint8List decodeBytes(List<int> bytes,
+      {bool verify = false, int? maxOutputSize}) {
+    if (maxOutputSize == null) {
+      return platformGZipDecoder.decodeBytes(bytes, verify: verify);
+    }
+    final output = OutputMemoryStream();
+    decodeStream(InputMemoryStream(bytes), output,
+        verify: verify, maxOutputSize: maxOutputSize);
+    return output.getBytes();
+  }
 
   /// Decompress the given [input] with the GZip format, writing the
   /// decompressed data to the [output] stream.
@@ -35,9 +50,16 @@ class GZipDecoder {
   /// [output] holds however much was decoded before the failure and should be
   /// discarded. Damage within the compressed data is reported by the
   /// underlying decoder as a [FormatException] instead.
+  ///
+  /// With [maxOutputSize], an [ArchiveException] is thrown as soon as more
+  /// than that many bytes would be written to [output].
   bool decodeStream(InputStream input, OutputStream output,
-          {bool verify = false}) =>
-      platformGZipDecoder.decodeStream(input, output, verify: verify);
+          {bool verify = false, int? maxOutputSize}) =>
+      decodeLimited(
+          output,
+          maxOutputSize,
+          (output) =>
+              platformGZipDecoder.decodeStream(input, output, verify: verify));
 
   /// Returns an [InputStream] that decompresses [input] as it is read.
   ///

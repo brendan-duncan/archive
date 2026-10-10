@@ -10,6 +10,7 @@ import '../codecs/tar_decoder.dart';
 import '../codecs/xz_decoder.dart';
 import '../codecs/zip_decoder.dart';
 import '../codecs/zstd_decoder.dart';
+import '../util/archive_exception.dart';
 import '../util/input_file_stream.dart';
 import '../util/input_stream.dart';
 import '../util/output_file_stream.dart';
@@ -36,6 +37,16 @@ bool _isValidSymLink(String outputPath, ArchiveFile file) {
     return false;
   }
   return true;
+}
+
+// Adds [size] to what has been written so far, refusing to go past [maxSize].
+int _addToTotal(int total, int size, int? maxSize) {
+  total += size;
+  if (maxSize != null && total > maxSize) {
+    throw ArchiveException(
+        'Extracting the archive would write more than $maxSize bytes');
+  }
+  return total;
 }
 
 void _prepareOutDir(String outDirPath) {
@@ -85,22 +96,36 @@ void _extractArchiveEntryToDiskSync(
   }
 }
 
+/// Writes the entries of [archive] into the directory [outputPath].
+///
+/// [maxSize] limits the total size of the files written. An entry that would
+/// take it past that throws an [ArchiveException] before it is written. A zip
+/// entry is never decoded past the size the archive gives for it.
 void extractArchiveToDiskSync(
   Archive archive,
   String outputPath, {
   int? bufferSize,
+  int? maxSize,
 }) {
   _prepareOutDir(outputPath);
+  var total = 0;
   for (final entry in archive) {
     final filePath = _prepareArchiveFilePath(entry, outputPath);
     if (filePath != null) {
+      if (entry.isFile && !entry.isSymbolicLink) {
+        total = _addToTotal(total, entry.size, maxSize);
+      }
       _extractArchiveEntryToDiskSync(entry, filePath, bufferSize: bufferSize);
     }
   }
 }
 
+/// Writes the entries of [archive] into the directory [outputPath].
+///
+/// [maxSize] is as for [extractArchiveToDiskSync].
 Future<void> extractArchiveToDisk(Archive archive, String outputPath,
-    {int? bufferSize}) async {
+    {int? bufferSize, int? maxSize}) async {
+  var total = 0;
   final outDir = Directory(outputPath);
   if (!outDir.existsSync()) {
     outDir.createSync(recursive: true);
@@ -131,6 +156,7 @@ Future<void> extractArchiveToDisk(Archive archive, String outputPath,
     }
 
     ArchiveFile file = entry;
+    total = _addToTotal(total, file.size, maxSize);
 
     bufferSize ??= OutputFileStream.kDefaultBufferSize;
     final fileSize = file.size;
@@ -175,8 +201,17 @@ String getInputExtension(String inputPath) {
 ///
 /// [bufferSize] is the size of the write buffer for each extracted file, and
 /// [password] decrypts an encrypted zip.
+///
+/// [maxSize] limits the total size of the files written, which a small
+/// compressed archive can otherwise make as large as it likes. An entry that
+/// would take it past that throws an [ArchiveException] before it is
+/// written. A zip entry is never decoded past the size the archive gives for
+/// it.
 Future<void> extractFileToDisk(String inputPath, String outputPath,
-    {String? password, int? bufferSize, ArchiveCallback? callback}) async {
+    {String? password,
+    int? bufferSize,
+    ArchiveCallback? callback,
+    int? maxSize}) async {
   final archivePath = inputPath;
 
   final posixSupported = posix.isPosixSupported();
@@ -195,6 +230,8 @@ Future<void> extractFileToDisk(String inputPath, String outputPath,
       'No file extension detected, must end with $extensionMsg',
     );
   }
+
+  var total = 0;
 
   void extractEntry(ArchiveFile file) {
     final filePath = path.join(outputPath, path.normalize(file.name));
@@ -218,6 +255,7 @@ Future<void> extractFileToDisk(String inputPath, String outputPath,
       final p = path.normalize(file.symbolicLink ?? "");
       link.createSync(p, recursive: true);
     } else if (file.isFile) {
+      total = _addToTotal(total, file.size, maxSize);
       // The buffer is allocated per file, so for a small file it is cut down
       // to the file's size rather than the full default. With 20,000 files of
       // 2 KB that is a quarter of the extraction time.
@@ -239,13 +277,16 @@ Future<void> extractFileToDisk(String inputPath, String outputPath,
 
   if (archiveExt == '.zip') {
     final input = InputFileStream(archivePath);
-    final archive = ZipDecoder()
-        .decodeStream(input, password: password, callback: callback);
-    for (final file in archive) {
-      extractEntry(file);
+    try {
+      final archive = ZipDecoder()
+          .decodeStream(input, password: password, callback: callback);
+      for (final file in archive) {
+        extractEntry(file);
+      }
+      await archive.clear();
+    } finally {
+      await input.close();
     }
-    await input.close();
-    await archive.clear();
   } else {
     final file = InputFileStream(archivePath);
     final InputStream input;
@@ -272,12 +313,15 @@ Future<void> extractFileToDisk(String inputPath, String outputPath,
     // Each entry is written as the decoder reaches it, which is the only
     // time its content is at hand when the tar is being decompressed on the
     // way in.
-    final archive = TarDecoder().decodeStream(input, callback: (entry) {
-      extractEntry(entry);
-      callback?.call(entry);
-    });
-    await input.close();
-    await file.close();
-    await archive.clear();
+    try {
+      final archive = TarDecoder().decodeStream(input, callback: (entry) {
+        extractEntry(entry);
+        callback?.call(entry);
+      });
+      await archive.clear();
+    } finally {
+      await input.close();
+      await file.close();
+    }
   }
 }
