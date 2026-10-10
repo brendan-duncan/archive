@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import '../archive/archive.dart';
 import '../archive/archive_file.dart';
@@ -104,9 +105,9 @@ class TarDecoder {
           tf.typeFlag == TarFile.longName ||
           tf.typeFlag == TarFile.longLinkName) {
         if (tf.typeFlag == TarFile.longLinkName) {
-          nextLinkName = tf.rawContent!.readString();
+          nextLinkName = _readLongName(tf.rawContent!);
         } else {
-          nextName = tf.rawContent!.readString();
+          nextName = _readLongName(tf.rawContent!);
         }
         continue;
       }
@@ -275,5 +276,20 @@ class TarDecoder {
     }
 
     return archive;
+  }
+
+  // The content of a long name entry, up to its terminating null. Taken as
+  // a view rather than byte by byte, which grew a list of ints.
+  static String _readLongName(InputStream content) {
+    final bytes = content.toUint8List();
+    var end = bytes.indexOf(0);
+    if (end < 0) {
+      end = bytes.length;
+    }
+    try {
+      return utf8.decode(Uint8List.sublistView(bytes, 0, end));
+    } catch (_) {
+      return String.fromCharCodes(bytes, 0, end);
+    }
   }
 }

@@ -2,6 +2,9 @@
 
 * Security: `XZDecoder` hung forever on a truncated `.xz` read from a
   file or a decode stream, including `.tar.xz` in `extractFileToDisk`.
+* Security: tar long name and pax header entries are limited to
+  `TarFile.maxMetadataSize` (1 MB). A small `.tar.gz` could declare one
+  large enough to take gigabytes of memory to read.
 
 # 4.4.0
 

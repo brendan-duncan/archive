@@ -58,6 +58,11 @@ class TarFile {
   /// can hold more, but it would not survive the trip through an int.
   static const int maxNumericField = 9007199254740991;
 
+  /// The most a long name or pax header may hold. Their content is read
+  /// whole, so without a limit a small compressed archive could declare one
+  /// large enough to exhaust memory.
+  static const int maxMetadataSize = 1024 * 1024;
+
   // Pre-POSIX Format
   late String filename; // 100 bytes
   int mode = 644; // 8 bytes
@@ -131,6 +136,10 @@ class TarFile {
     // A size field can hold a negative number, which no entry can have.
     if (fileSize < 0) {
       throw ArchiveException('Invalid tar file size: $fileSize');
+    }
+    if (isMetadata && fileSize > maxMetadataSize) {
+      throw ArchiveException('Tar metadata entry of $fileSize bytes is larger '
+          'than the $maxMetadataSize allowed');
     }
 
     // The decoder needs the content of the headers that carry the next

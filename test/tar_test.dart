@@ -156,6 +156,32 @@ var tarTests = [
   },
 ];
 
+/// A ustar header block for an entry called [name] of [size] bytes.
+Uint8List tarHeader(String name, int size, String typeFlag) {
+  final h = Uint8List(512);
+  void put(int off, String s) =>
+      h.setRange(off, off + s.length, ascii.encode(s));
+  put(0, name);
+  put(100, '0000644');
+  put(108, '0000000');
+  put(116, '0000000');
+  put(124, size.toRadixString(8).padLeft(11, '0'));
+  put(136, '00000000000');
+  put(148, '        ');
+  put(156, typeFlag);
+  put(257, 'ustar');
+  put(263, '00');
+  var sum = 0;
+  for (final b in h) {
+    sum += b;
+  }
+  put(148, '${sum.toRadixString(8).padLeft(6, '0')}\x00 ');
+  return h;
+}
+
+List<int> tarBlock(List<int> data) =>
+    [...data, ...Uint8List((512 - data.length % 512) % 512)];
+
 void main() {
   group('tar', () {
     test('invalid archive', () {
@@ -245,6 +271,49 @@ void main() {
       expect(link.symbolicLink, equals('${'n' * 160}.txt'));
     });
 
+    test('long name entry without a terminating null', () {
+      final name = 'n' * 300;
+      final bytes = Uint8List.fromList([
+        ...tarHeader('././@LongLink', name.length, TarFile.longName),
+        ...tarBlock(ascii.encode(name)),
+        ...tarHeader('short', 0, TarFile.normalFile),
+        ...Uint8List(1024),
+      ]);
+      final archive = TarDecoder().decodeBytes(bytes);
+      expect(archive.length, equals(1));
+      expect(archive[0].name, equals(name));
+    });
+
+    test('refuses metadata entries larger than maxMetadataSize', () {
+      // Their content is read whole, so a few KB of .tar.gz declaring a long
+      // name of hundreds of MB used to take gigabytes to decode.
+      for (final type in [
+        TarFile.longName,
+        TarFile.longLinkName,
+        TarFile.exHeader,
+        TarFile.gExHeader,
+      ]) {
+        final bytes = Uint8List.fromList([
+          ...tarHeader('././@LongLink', TarFile.maxMetadataSize + 1, type),
+          ...Uint8List(TarFile.maxMetadataSize + 512),
+          ...Uint8List(1024),
+        ]);
+        expect(() => TarDecoder().decodeBytes(bytes),
+            throwsA(isA<ArchiveException>()),
+            reason: type);
+      }
+      // Up to the limit is still read.
+      final name = 'n' * TarFile.maxMetadataSize;
+      final bytes = Uint8List.fromList([
+        ...tarHeader('././@LongLink', name.length, TarFile.longName),
+        ...tarBlock(ascii.encode(name)),
+        ...tarHeader('short', 0, TarFile.normalFile),
+        ...Uint8List(1024),
+      ]);
+      expect(TarDecoder().decodeBytes(bytes)[0].name.length,
+          equals(TarFile.maxMetadataSize));
+    });
+
     test('verify rejects what is not a tar', () {
       // Without a checksum check nothing tells a tar apart from an unrelated
       // file: every other header field reads as something.
@@ -286,31 +355,6 @@ void main() {
       // happens to sit in between. Applying it there reads the wrong number of
       // bytes out of that header and leaves the stream inside it, so the file's
       // own content ends up being parsed as an entry.
-      Uint8List header(String name, int size, String typeFlag) {
-        final h = Uint8List(512);
-        void put(int off, String s) =>
-            h.setRange(off, off + s.length, ascii.encode(s));
-        put(0, name);
-        put(100, '0000644');
-        put(108, '0000000');
-        put(116, '0000000');
-        put(124, size.toRadixString(8).padLeft(11, '0'));
-        put(136, '00000000000');
-        put(148, '        ');
-        put(156, typeFlag);
-        put(257, 'ustar');
-        put(263, '00');
-        var sum = 0;
-        for (final b in h) {
-          sum += b;
-        }
-        put(148, '${sum.toRadixString(8).padLeft(6, '0')}\x00 ');
-        return h;
-      }
-
-      List<int> block(List<int> data) =>
-          [...data, ...Uint8List((512 - data.length % 512) % 512)];
-
       List<int> record(String keyword, String value) {
         for (var length = keyword.length + value.length + 3;; length++) {
           if ('$length'.length + keyword.length + value.length + 3 == length) {
@@ -323,12 +367,12 @@ void main() {
       final size = record('size', '${content.length}');
       final path = record('path', 'renamed_by_pax.txt');
       final bytes = Uint8List.fromList([
-        ...header('PaxHeader/size', size.length, TarFile.exHeader),
-        ...block(size),
-        ...header('PaxHeader/path', path.length, TarFile.exHeader),
-        ...block(path),
-        ...header('original.txt', 0, TarFile.normalFile),
-        ...block(content),
+        ...tarHeader('PaxHeader/size', size.length, TarFile.exHeader),
+        ...tarBlock(size),
+        ...tarHeader('PaxHeader/path', path.length, TarFile.exHeader),
+        ...tarBlock(path),
+        ...tarHeader('original.txt', 0, TarFile.normalFile),
+        ...tarBlock(content),
         ...Uint8List(1024),
       ]);
 
