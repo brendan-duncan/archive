@@ -706,7 +706,9 @@ class XZStreamDecoder {
   int _readPadding(InputStream input, [int origin = 0]) {
     var count = 0;
     while ((input.position - origin) % 4 != 0) {
-      if (input.readByte() != 0) {
+      // A file or decode stream reads 0 past its end without moving, which
+      // would never reach the boundary.
+      if (input.isEOS || input.readByte() != 0) {
         return -1;
         //throw ArchiveException('Non-zero padding byte');
       }

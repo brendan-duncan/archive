@@ -1,3 +1,8 @@
+# 4.5.0
+
+* Security: `XZDecoder` hung forever on a truncated `.xz` read from a
+  file or a decode stream, including `.tar.xz` in `extractFileToDisk`.
+
 # 4.4.0
 
 * Security: a crafted zip64 compressed size overflowed the stream bounds
