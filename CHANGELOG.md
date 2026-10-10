@@ -1,55 +1,27 @@
+# 4.4.0
+
+* Security: a crafted zip64 compressed size overflowed the stream bounds
+  checks and could crash the decoder while reading an untrusted archive.
+  Sizes are now clamped to the bytes actually present.
+* Added `InputDecodeStream` and `decodeLazy` on `GZipDecoder`, `ZLibDecoder`,
+  `BZip2Decoder`, `ZstdDecoder` and `XZDecoder`, which decode a stream as it
+  is read so a large archive can be piped into another decoder without a temp
+  file.
+* `extractFileToDisk` extracts `.tar.gz`, `.tar.bz2`, `.tar.xz` and
+  `.tar.zst` in a single pass, writing each entry as it is reached, with no
+  temp file.
+* Decoding and encoding no longer buffer the whole file: gzip and zlib
+  streaming, `ZipEncoder`, and encrypted zip entries (ZipCrypto and AES) now
+  work in a bounded amount of memory whatever the file size.
+* Encrypted zip entries are decrypted as they are read; a wrong password now
+  surfaces when the content is read.
+* Faster decoding: `getCrc32` is about three times quicker on typed data, and
+  `InputFileStream` reads in larger blocks.
+* Fixed `XZEncoder`, which produced archives other tools rejected for inputs
+  of 128 bytes or more.
+
 # 4.3.0
 
-* Security: a crafted zip whose zip64 extra field declared a compressed size
-  near the 64-bit maximum overflowed the bounds checks in `InputMemoryStream`,
-  `InputFileStream` and `FileBuffer`, so reading an entry built an
-  out-of-range `Uint8List` over a small buffer. Depending on the platform
-  that threw an unhandled `RangeError` or crashed the process while decoding
-  an untrusted archive. The checks now clamp against the bytes actually
-  present, so an entry read returns at most what the file holds, and the
-  decode of an entry's content preallocation no longer trusts the archive's
-  declared uncompressed size.
-* Encrypted zip entries are decrypted as they are read rather than whole in
-  memory, for both ZipCrypto and AES. A wrong password or a failed
-  authentication code throws an `ArchiveException` from the read. ZipCrypto
-  no longer runs a `BigInt` operation per byte. `ZipFile.verifyCrc32` sums
-  the content as it decompresses instead of holding it, and `ZipFile.length`
-  no longer reads the entry to measure it.
-* `getCrc32` is three times faster on typed data, taking eight bytes at a
-  time: 1.3 GB/s where it was 440 MB/s.
-* `InputFileStream` reads 64 KB at a time instead of 1 KB when read
-  sequentially, and 4 KB after a seek, so that a decoder reading byte by
-  byte makes far fewer system calls while a zip decoder visiting every local
-  header does not pull in 64 KB at each.
-* Added `InputDecodeStream`, an `InputStream` that decodes another stream as
-  it is read, holding only a window of the decoded data in memory, and
-  `decodeLazy` methods on `GZipDecoder`, `ZLibDecoder`, `BZip2Decoder`,
-  `ZstdDecoder` and `XZDecoder` that return one. Decoding is done a block at a time as the
-  stream is read, so a multi-gigabyte archive can be fed to another decoder
-  without a temp file.
-* `extractFileToDisk` extracts `.tar.gz`, `.tar.bz2`, `.tar.xz` and
-  `.tar.zst` in one pass, decompressing as it reads and writing each entry as
-  it is reached, rather than decompressing to a temp tar first. Extracting a
-  1 GB `.tar.gz` peaks at 52 MB of memory, and no longer needs disk space for
-  the temp file. The `callback` is now called after each entry is written.
-* `XZDecoder` verifies a block's CRC-32 or CRC-64 as the data is decoded
-  rather than by reading the block back, so verifying no longer needs the
-  block in memory.
-* Fixed `XZEncoder`, which wrote variable length integers with the groups in
-  the wrong order and uncompressed data as a single LZMA2 chunk, so that any
-  input of 128 bytes or more produced an archive xz rejected, and any of 64
-  KB or more one it could not read.
-* `TarDecoder` no longer asks its input for its length, and
-  `OutputFileStream.writeStream` reads until the stream ends rather than for
-  its length, so that both work with a stream decoding as it goes.
-* Streaming through the native gzip and zlib codecs no longer holds the whole
-  output in memory. Decoding a 1 GB gzip was taking 1 GB of memory; now it takes 24 MB, while being 10% faster.
-* The native codecs are fed 64 KB at a time rather than 1 KB, which is about
-  20% faster when encoding.
-* `ZipEncoder` compresses entries straight into the output instead of into
-  memory first, and computes the CRC in the same pass rather than reading the
-  input twice. Writing a 1 GB file into a zip peaked at 1.35 GB of memory; it
-  now peaks at 20 MB.
 * Added `ZstdDecoder`, a pure Dart decoder for the zstd (Zstandard) format. 
 * Added `ZstdEncoder`, a pure Dart zstd encoder for the VM, JavaScript and
   wasm, at levels -7 to 22.
