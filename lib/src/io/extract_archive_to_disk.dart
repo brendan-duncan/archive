@@ -167,8 +167,7 @@ String getInputExtension(String inputPath) {
 ///
 /// A compressed tar is decompressed as it is read and every entry written out
 /// as it is reached, so no more than a few megabytes of it are in memory at a
-/// time and no temp file is needed, except for `.tar.xz`, which is still
-/// decompressed to a temp file first.
+/// time and no temp file is needed.
 ///
 /// [callback] is called for each entry once it has been written. For a
 /// compressed tar the entry's content has gone by then and cannot be read
@@ -178,8 +177,7 @@ String getInputExtension(String inputPath) {
 /// [password] decrypts an encrypted zip.
 Future<void> extractFileToDisk(String inputPath, String outputPath,
     {String? password, int? bufferSize, ArchiveCallback? callback}) async {
-  Directory? tempDir;
-  var archivePath = inputPath;
+  final archivePath = inputPath;
 
   final posixSupported = posix.isPosixSupported();
 
@@ -189,24 +187,13 @@ Future<void> extractFileToDisk(String inputPath, String outputPath,
 
   // get the extension of the input file with up to 2 components
   // e.g. for file.tar.gz, it will return '.tar.gz'
-  var archiveExt = getInputExtension(archivePath);
+  final archiveExt = getInputExtension(archivePath);
   if (archiveExt.isEmpty) {
     throw ArgumentError.value(
       inputPath,
       'inputPath',
       'No file extension detected, must end with $extensionMsg',
     );
-  }
-
-  if (archiveExt == '.tar.xz' || archiveExt == '.txz') {
-    tempDir = Directory.systemTemp.createTempSync('dart_archive');
-    archivePath = path.join(tempDir.path, 'temp.tar');
-    final input = InputFileStream(inputPath);
-    final output = OutputFileStream(archivePath, bufferSize: bufferSize);
-    XZDecoder().decodeStream(input, output);
-    await input.close();
-    await output.close();
-    archiveExt = '.tar';
   }
 
   void extractEntry(ArchiveFile file) {
@@ -272,6 +259,9 @@ Future<void> extractFileToDisk(String inputPath, String outputPath,
       case '.tar.zst':
       case '.tzst':
         input = ZstdDecoder().decodeLazy(file);
+      case '.tar.xz':
+      case '.txz':
+        input = XZDecoder().decodeLazy(file);
       case '.tar':
         input = file;
       default:
@@ -289,9 +279,5 @@ Future<void> extractFileToDisk(String inputPath, String outputPath,
     await input.close();
     await file.close();
     await archive.clear();
-  }
-
-  if (tempDir != null) {
-    await tempDir.delete(recursive: true);
   }
 }

@@ -14,16 +14,18 @@
   header does not pull in 64 KB at each.
 * Added `InputDecodeStream`, an `InputStream` that decodes another stream as
   it is read, holding only a window of the decoded data in memory, and
-  `decodeLazy` methods on `GZipDecoder`, `ZLibDecoder`, `BZip2Decoder` and
-  `ZstdDecoder` that return one. Decoding is done a block at a time as the
+  `decodeLazy` methods on `GZipDecoder`, `ZLibDecoder`, `BZip2Decoder`,
+  `ZstdDecoder` and `XZDecoder` that return one. Decoding is done a block at a time as the
   stream is read, so a multi-gigabyte archive can be fed to another decoder
   without a temp file.
-* `extractFileToDisk` extracts `.tar.gz`, `.tar.bz2` and `.tar.zst` in one
-  pass, decompressing as it reads and writing each entry as it is reached,
-  rather than decompressing to a temp tar first. Extracting a 1 GB `.tar.gz`
-  peaks at 24 MB of memory, and no longer needs disk space for the temp
-  file. `.tar.xz` still goes through a temp file. The `callback` is now
-  called after each entry is written.
+* `extractFileToDisk` extracts `.tar.gz`, `.tar.bz2`, `.tar.xz` and
+  `.tar.zst` in one pass, decompressing as it reads and writing each entry as
+  it is reached, rather than decompressing to a temp tar first. Extracting a
+  1 GB `.tar.gz` peaks at 52 MB of memory, and no longer needs disk space for
+  the temp file. The `callback` is now called after each entry is written.
+* `XZDecoder` verifies a block's CRC-32 or CRC-64 as the data is decoded
+  rather than by reading the block back, so verifying no longer needs the
+  block in memory.
 * Fixed `XZEncoder`, which wrote variable length integers with the groups in
   the wrong order and uncompressed data as a single LZMA2 chunk, so that any
   input of 128 bytes or more produced an archive xz rejected, and any of 64

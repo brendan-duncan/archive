@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:typed_data';
 
 import '../util/archive_exception.dart';
+import '../util/input_decode_stream.dart';
 import '../util/input_memory_stream.dart';
 import '../util/input_stream.dart';
 import '../util/output_memory_stream.dart';
@@ -223,6 +224,23 @@ class XZDecoder {
 
   // The single threaded decode, which is also what the multithreaded path
   // falls back to when there are no isolates.
+  /// Returns an [InputStream] that decompresses [input] as it is read.
+  ///
+  /// Nothing is decoded until the returned stream is read, and only a window
+  /// of the decoded data is held in memory, so a multi-gigabyte `.xz` can be
+  /// fed to another decoder, such as a tar decoder, without a temp file. The
+  /// stream is read forwards: see [InputDecodeStream] for what that means.
+  /// A malformed or truncated input throws an [ArchiveException] from the
+  /// read that runs into it. [verify] is as for [decodeStream]; the check is
+  /// summed as the data is decoded. A block behind the x86 BCJ filter is
+  /// still decoded whole before any of it can be read, since the filter
+  /// works on the whole block.
+  InputStream decodeLazy(InputStream input, {bool verify = false}) =>
+      InputDecodeStream(_XZChunkDecoder(
+          XZStreamDecoder(
+              verify: verify, maxPreallocateSize: maxPreallocateSize),
+          input));
+
   Uint8List _decodeBytes(Uint8List bytes, bool verify, bool throwOnError) {
     // The stream indexes give the output size up front, which avoids growing
     // the output buffer while decoding. A zero size is left to the default
@@ -564,3 +582,31 @@ final int xzDefaultMaxPreallocateSize =
 int? _uSize(Uint8List d, int maxSize) =>
     parseXZLayout(XZMemorySource(d), maxUncompressedSize: maxSize)
         ?.uncompressedSize;
+
+/// Decodes an xz input a piece at a time.
+class _XZChunkDecoder implements ChunkDecoder {
+  final XZStreamDecoder _decoder;
+  final InputStream _input;
+
+  _XZChunkDecoder(this._decoder, this._input);
+
+  @override
+  int get history => 0;
+
+  @override
+  bool decodeChunk(OutputStream output) {
+    final bool more;
+    try {
+      more = _decoder.step(_input, output);
+    } on ArchiveException {
+      rethrow;
+    } catch (error) {
+      throw ArchiveException('Invalid XZ archive: $error');
+    }
+    final reason = _decoder.failureReason;
+    if (reason != null) {
+      throw ArchiveException('Invalid XZ archive: $reason');
+    }
+    return more;
+  }
+}

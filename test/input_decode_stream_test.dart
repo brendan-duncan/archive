@@ -256,6 +256,35 @@ void main() {
       expect(() => readAll(decoder2), throwsA(isA<ArchiveException>()));
     });
 
+    test('xz', () {
+      final x = XZEncoder().encodeBytes(data);
+      compareBytes(
+          readAll(XZDecoder().decodeLazy(InputMemoryStream(x), verify: true),
+              64 * 1024),
+          data);
+
+      final cut = x.sublist(0, x.length ~/ 2);
+      expect(() => readAll(XZDecoder().decodeLazy(InputMemoryStream(cut))),
+          throwsA(isA<ArchiveException>()));
+
+      // Real archives: checks summed on the way, concatenated streams, and
+      // the x86 filter, which has to see the whole block.
+      for (final name in ['crc32', 'crc64', 'sha256', 'concatenated', 'x86']) {
+        final bytes = File('test/_data/xz/$name.xz').readAsBytesSync();
+        final expected = XZDecoder().decodeBytes(bytes, verify: true);
+        final lazy =
+            XZDecoder().decodeLazy(InputMemoryStream(bytes), verify: true);
+        compareBytes(readAll(lazy, 777), expected);
+      }
+      // A damaged check is caught when the block ends.
+      final bytes = File('test/_data/xz/crc32.xz').readAsBytesSync();
+      final index = bytes.length - 12 - 4 - 8;
+      bytes[index] ^= 0xff;
+      final lazy =
+          XZDecoder().decodeLazy(InputMemoryStream(bytes), verify: true);
+      expect(() => readAll(lazy), throwsA(isA<ArchiveException>()));
+    });
+
     test('from a file', () {
       final dir = Directory.systemTemp.createTempSync('archive-lazy-');
       addTearDown(() => dir.deleteSync(recursive: true));

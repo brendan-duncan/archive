@@ -89,54 +89,100 @@ class XZStreamDecoder {
   /// Decode this stream and return the uncompressed data.
   bool decode(InputStream input, OutputStream output) {
     failureReason = null;
-    while (true) {
-      if (!_decodeStream(input, output)) {
-        return false;
-      }
+    _state = _XZState.streamHeader;
+    while (step(input, output)) {}
+    return failureReason == null;
+  }
 
-      // Streams can be concatenated, and each one may be followed by padding.
-      if (!_skipStreamPadding(input)) {
-        return false;
-      }
-      if (input.isEOS) {
+  // Where the decoder is between steps.
+  _XZState _state = _XZState.streamHeader;
+
+  /// Decodes the next piece of the input: a stream header, a block header, an
+  /// LZMA2 chunk, the end of a block, or the index and footer of a stream.
+  ///
+  /// Returns false once the input has been decoded, or decoding has failed,
+  /// in which case [failureReason] says why. Decoding a piece at a time is
+  /// what lets the output be pulled out of the decoder as it is read, by
+  /// `XZDecoder.decodeLazy`, rather than pushed into it all at once.
+  bool step(InputStream input, OutputStream output) {
+    switch (_state) {
+      case _XZState.streamHeader:
+        if (!_startStream(input)) {
+          return _stop();
+        }
+        _state = _XZState.block;
         return true;
-      }
+
+      case _XZState.block:
+        if (input.isEOS) {
+          // Valid XZ always goes through the stream footer.
+          _fail('Stream ended without a footer');
+          return _stop();
+        }
+        final blockHeader = input.peekBytes(1).readByte();
+        if (blockHeader == 0) {
+          final indexSize = _readStreamIndex(input);
+          if (indexSize < 0 || !_readStreamFooter(input, indexSize)) {
+            return _stop();
+          }
+          // Streams can be concatenated, and each one may be followed by
+          // padding.
+          if (!_skipStreamPadding(input)) {
+            return _stop();
+          }
+          if (input.isEOS) {
+            _state = _XZState.done;
+            return false;
+          }
+          _state = _XZState.streamHeader;
+          return true;
+        }
+        if (!_startBlock(input, output, (blockHeader + 1) * 4)) {
+          return _stop();
+        }
+        _state = _XZState.chunk;
+        return true;
+
+      case _XZState.chunk:
+        final int result;
+        try {
+          result = _readLZMA2Chunk(input, _blockOutput!);
+        } catch (_) {
+          _abandonBlock(output);
+          rethrow;
+        }
+        if (result < 0) {
+          _abandonBlock(output);
+          return _stop();
+        }
+        if (result == 0) {
+          if (!_finishBlock(input, output)) {
+            return _stop();
+          }
+          _state = _XZState.block;
+        }
+        return true;
+
+      case _XZState.done:
+        return false;
     }
   }
 
-  // Decodes a single stream from [input].
-  bool _decodeStream(InputStream input, OutputStream output) {
-    // Each stream has its own flags, block list and dictionary.
+  bool _stop() {
+    _state = _XZState.done;
+    return false;
+  }
+
+  // Begins a stream. Each stream has its own flags, block list and
+  // dictionary.
+  bool _startStream(InputStream input) {
     _streamStart = input.position;
     streamFlags = 0;
     _blockSizes.clear();
     decoder.dictionaryCap = 0;
     decoder.dictionaryLimit = 0;
     decoder.reset(resetDictionary: true);
-
-    if (!_readStreamHeader(input, output)) {
-      return false;
-    }
-
-    while (!input.isEOS) {
-      final blockHeader = input.peekBytes(1).readByte();
-
-      if (blockHeader == 0) {
-        final indexSize = _readStreamIndex(input);
-        if (indexSize < 0) {
-          return false;
-        }
-        return _readStreamFooter(input, indexSize);
-      }
-
-      final blockLength = (blockHeader + 1) * 4;
-      if (!readBlock(input, output, blockLength)) {
-        return false;
-      }
-    }
-
-    // Valid XZ always goes trough _readStreamFooter
-    return _fail('Stream ended without a footer');
+    return _readStreamHeader(input);
   }
 
   // Skips the padding that may follow a stream. Padding is zero bytes in
@@ -157,7 +203,7 @@ class XZStreamDecoder {
   }
 
   // Reads an XZ steam header from [input].
-  bool _readStreamHeader(InputStream input, OutputStream output) {
+  bool _readStreamHeader(InputStream input) {
     final magic = input.readBytes(6).toUint8List();
     final magicIsValid = magic[0] == 253 &&
         magic[1] == 55 /* '7' */ &&
@@ -186,6 +232,51 @@ class XZStreamDecoder {
 
   // Reads a data block from [input].
   bool readBlock(InputStream input, OutputStream output, int headerLength) {
+    if (!_startBlock(input, output, headerLength)) {
+      return false;
+    }
+    try {
+      while (true) {
+        final result = _readLZMA2Chunk(input, _blockOutput!);
+        if (result < 0) {
+          _abandonBlock(output);
+          return false;
+        }
+        if (result == 0) {
+          break;
+        }
+      }
+    } catch (_) {
+      // A failure part way through leaves the temporary buffer holding
+      // whatever was decoded before it. Handing that over leaves the caller
+      // with the same output they would have got had the block been written
+      // straight through, so what survives a corrupt archive does not depend
+      // on which kind of stream was passed in. The filter is not applied to
+      // it, matching the branch below, which gives up before filtering too.
+      _abandonBlock(output);
+      rethrow;
+    }
+    return _finishBlock(input, output);
+  }
+
+  // The block being decoded, between _startBlock and _finishBlock.
+  int _blockStart = 0;
+  int _blockDataStart = 0;
+  int _blockOutputStart = 0;
+  int? _blockCompressedLength;
+  int? _blockUncompressedLength;
+  int _dictionarySize = 0;
+  bool _hasX86 = false;
+  int _x86StartOffset = 0;
+  // Where the LZMA2 chunks are written: the output, or a buffer of the block
+  // when a filter has to be applied to the whole of it first, either behind
+  // a stream that sums the check as the data goes past.
+  OutputStream? _blockOutput;
+  OutputMemoryStream? _blockBuffer;
+  _CheckOutputStream? _blockCheck;
+
+  // Reads a block header from [input] and gets ready to decode its chunks.
+  bool _startBlock(InputStream input, OutputStream output, int headerLength) {
     final blockStart = input.position;
     final header = input.readBytes(headerLength - 4);
 
@@ -291,73 +382,84 @@ class XZStreamDecoder {
       return _fail('Unsupported filter chain; only LZMA2, optionally behind '
           'the x86 BCJ filter, is supported');
     }
-    final x86StartOffset = hasX86 ? filters[1] : 0;
 
-    final startPosition = input.position;
-    final startDataLength = output.length;
+    _blockStart = blockStart;
+    _blockDataStart = input.position;
+    _blockOutputStart = output.length;
+    _blockCompressedLength = compressedLength;
+    _blockUncompressedLength = uncompressedLength;
+    _dictionarySize = dictionarySize;
+    _hasX86 = hasX86;
+    _x86StartOffset = hasX86 ? filters[1] : 0;
 
-    // The decoded block is needed again when a filter has to be applied or a
-    // checksum verified.
+    // The x86 filter works on the whole block, so unless the output can be
+    // reached back into the block is decoded into a buffer and appended
+    // afterwards. The declared length is only a hint, so it is not trusted
+    // past [maxPreallocateSize]; the buffer grows into what the block needs.
+    _blockBuffer = hasX86 && output is! OutputMemoryStream
+        ? OutputMemoryStream(
+            size: uncompressedLength != null &&
+                    uncompressedLength <= maxPreallocateSize
+                ? uncompressedLength
+                : null)
+        : null;
+    final OutputStream target = _blockBuffer ?? output;
+
+    // The check is summed as the data goes past, so that nothing has to be
+    // read back. Not when a filter still has to run over the data, since the
+    // check covers its result.
     final checkType = streamFlags & 0xf;
-    final needsBlockData = hasX86 ||
-        (verify &&
-            (checkType == 0x1 || (checkType == 0x4 && isCrc64Supported())));
-    Uint8List? blockData;
+    _blockCheck = verify &&
+            !hasX86 &&
+            (checkType == 0x1 || (checkType == 0x4 && isCrc64Supported()))
+        ? _CheckOutputStream(target, crc64: checkType == 0x4)
+        : null;
+    _blockOutput = _blockCheck ?? target;
+    return true;
+  }
 
-    if (needsBlockData && output is! OutputMemoryStream) {
-      // Streams that are not backed by a contiguous buffer cannot be read back
-      // after the data has been written, so the block is decoded into a
-      // temporary buffer and appended afterwards.
-      // The declared length is only a hint, so it is not trusted past
-      // [maxPreallocateSize]; the stream grows into what the block needs.
-      final block = OutputMemoryStream(
-          size: uncompressedLength != null &&
-                  uncompressedLength <= maxPreallocateSize
-              ? uncompressedLength
-              : null);
-      final bool read;
-      try {
-        read = _readLZMA2(input, block, dictionarySize);
-      } catch (_) {
-        // A failure part way through leaves the temporary buffer holding
-        // whatever was decoded before it. Handing that over leaves the caller
-        // with the same output they would have got had the block been written
-        // straight through, so what survives a corrupt archive does not depend
-        // on which kind of stream was passed in. The filter is not applied to
-        // it, matching the branch below, which gives up before filtering too.
-        output.writeBytes(block.getBytes());
-        rethrow;
-      }
-      if (!read) {
-        output.writeBytes(block.getBytes());
-        return false;
-      }
-      blockData = block.getBytes();
-      if (hasX86) {
-        bcjX86Decode(blockData, x86StartOffset);
-      }
-      output.writeBytes(blockData);
-    } else {
-      if (!_readLZMA2(input, output, dictionarySize)) {
-        return false;
-      }
-      if (hasX86) {
+  // What a failed block leaves behind: the buffered part of it, if it was
+  // being buffered, goes to the output so that what survives a corrupt
+  // archive does not depend on the kind of output.
+  void _abandonBlock(OutputStream output) {
+    final buffer = _blockBuffer;
+    if (buffer != null) {
+      output.writeBytes(buffer.getBytes());
+      _blockBuffer = null;
+    }
+  }
+
+  // Applies the filter, checks the lengths and the check, and records the
+  // block in the sizes the index is compared against.
+  bool _finishBlock(InputStream input, OutputStream output) {
+    Uint8List? blockData;
+    if (_hasX86) {
+      final buffer = _blockBuffer;
+      if (buffer != null) {
+        blockData = buffer.getBytes();
+        bcjX86Decode(blockData, _x86StartOffset);
+        output.writeBytes(blockData);
+        _blockBuffer = null;
+      } else {
         // subset() returns a view into the output buffer, so the filter is
         // applied in place without allocating a copy of the block.
-        bcjX86Decode(output.subset(startDataLength), x86StartOffset);
+        blockData = output.subset(_blockOutputStart);
+        bcjX86Decode(blockData, _x86StartOffset);
       }
     }
 
-    final actualCompressedLength = input.position - startPosition;
-    final actualUncompressedLength = output.length - startDataLength;
+    final actualCompressedLength = input.position - _blockDataStart;
+    final actualUncompressedLength = output.length - _blockOutputStart;
 
+    final compressedLength = _blockCompressedLength;
     if (compressedLength != null &&
         compressedLength != actualCompressedLength) {
       return _fail("Compressed data doesn't match the length in the block "
           'header');
     }
 
-    uncompressedLength ??= actualUncompressedLength;
+    final uncompressedLength =
+        _blockUncompressedLength ?? actualUncompressedLength;
     if (uncompressedLength != actualUncompressedLength) {
       return _fail("Uncompressed data doesn't match the length in the block "
           'header');
@@ -369,166 +471,146 @@ class XZStreamDecoder {
     }
 
     // Checksum
+    final checkType = streamFlags & 0xf;
+    final check = _blockCheck;
     switch (checkType) {
       case 0: // none
         break;
       case 0x1: // CRC32
         final int expectedCrc = input.readUint32();
-        if (verify &&
-            getCrc32(blockData ?? output.subset(startDataLength)) !=
-                expectedCrc) {
-          return _fail('CRC32 check failed');
+        if (verify) {
+          final actual = check != null ? check.crc : getCrc32(blockData!);
+          if (actual != expectedCrc) {
+            return _fail('CRC32 check failed');
+          }
         }
         break;
       case 0x2:
       case 0x3:
         input.skip(4);
-        /*if (verify) {
-          throw ArchiveException('Unknown check type $checkType');
-        }*/
         break;
       case 0x4: // CRC64
         final int expectedCrc = input.readUint64();
-        if (verify &&
-            isCrc64Supported() &&
-            getCrc64(blockData ?? output.subset(startDataLength)) !=
-                expectedCrc) {
-          return _fail('CRC64 check failed');
+        if (verify && isCrc64Supported()) {
+          final actual = check != null ? check.crc : getCrc64(blockData!);
+          if (actual != expectedCrc) {
+            return _fail('CRC64 check failed');
+          }
         }
         break;
       case 0x5:
       case 0x6:
         input.skip(8);
-        /*if (verify) {
-          throw ArchiveException('Unknown check type $checkType');
-        }*/
         break;
       case 0x7:
       case 0x8:
       case 0x9:
         input.skip(16);
-        /*if (verify) {
-          throw ArchiveException('Unknown check type $checkType');
-        }*/
         break;
       case 0xa: // SHA-256
-        /*final expectedCrc =*/
         input.readBytes(32).toUint8List();
-        /*if (verify) {
-          final actualCrc =
-              sha256.convert(data.toBytes().sublist(startDataLength)).bytes;
-          for (var i = 0; i < 32; i++) {
-            if (actualCrc[i] != expectedCrc[i]) {
-              throw ArchiveException('SHA-256 check failed');
-            }
-          }
-        }*/
         break;
       case 0xb:
       case 0xc:
         input.skip(32);
-        /*if (verify) {
-          throw ArchiveException('Unknown check type $checkType');
-        }*/
         break;
       case 0xd:
       case 0xe:
       case 0xf:
         input.skip(64);
-        /*if (verify) {
-          throw ArchiveException('Unknown check type $checkType');
-        }*/
         break;
       default:
         return _fail('Unknown block check type $checkType');
     }
 
-    final unpaddedLength = input.position - blockStart - paddingSize;
+    final unpaddedLength = input.position - _blockStart - paddingSize;
     _blockSizes.add(_XZBlockSize(unpaddedLength, uncompressedLength));
 
     return true;
   }
 
-  // Reads LZMA2 data from [input].
-  bool _readLZMA2(InputStream input, OutputStream output, int dictionarySize) {
-    while (!input.isEOS) {
-      final control = input.readByte();
-      // Control values:
-      // 00000000 - end marker
-      // 00000001 - reset dictionary and uncompresed data
-      // 00000010 - uncompressed data
-      // 1rrxxxxx - LZMA data with reset (r) and high bits of size field (x)
-      if (control & 0x80 == 0) {
-        if (control == 0) {
-          decoder.reset(resetDictionary: true);
-          return true;
-        } else if (control == 1) {
-          decoder.reset(resetDictionary: true);
-          final length = (input.readByte() << 8 | input.readByte()) + 1;
-          output.writeBytes(
-              decoder.decodeUncompressed(input.readBytes(length), length));
-          decoder.trimDictionary(dictionarySize);
-        } else if (control == 2) {
-          // uncompressed data
-          final length = (input.readByte() << 8 | input.readByte()) + 1;
-          output.writeBytes(
-              decoder.decodeUncompressed(input.readBytes(length), length));
-          decoder.trimDictionary(dictionarySize);
-        } else {
-          return _fail('Unknown LZMA2 control code $control');
-        }
-      } else {
-        // Reset flags:
-        // 0 - reset nothing
-        // 1 - reset state
-        // 2 - reset state, properties
-        // 3 - reset state, properties and dictionary
-        final reset = (control >> 5) & 0x3;
-        final uncompressedLength = ((control & 0x1f) << 16 |
-                input.readByte() << 8 |
-                input.readByte()) +
-            1;
-        final compressedLength = (input.readByte() << 8 | input.readByte()) + 1;
-        int? literalContextBits;
-        int? literalPositionBits;
-        int? positionBits;
-        if (reset >= 2) {
-          // The three LZMA decoder properties are combined into a single number.
-          var properties = input.readByte();
-          if (properties > 224) {
-            return _fail('Invalid LZMA properties byte');
-          }
-          positionBits = properties ~/ 45;
-          properties -= positionBits * 45;
-          literalPositionBits = properties ~/ 9;
-          literalContextBits = properties - literalPositionBits * 9;
-          if (literalContextBits + literalPositionBits > 4) {
-            return _fail('Invalid LZMA literal context and position bits');
-          }
-        }
-        if (reset > 0) {
-          decoder.reset(
-              literalContextBits: literalContextBits,
-              literalPositionBits: literalPositionBits,
-              positionBits: positionBits,
-              resetDictionary: reset == 3);
-        }
-
-        decoder.decodeToOutput(
-            input.readBytes(compressedLength), uncompressedLength, output);
-        // Checking this can catch some corrupt files, especially if they don't
-        // have any other integrity check. An end of payload marker is not
-        // allowed in LZMA2, so a chunk that reached its uncompressed size
-        // without emptying the range coder is a data error.
-        if (!decoder.isRangeCoderFinished) {
-          return _fail('LZMA data is corrupt');
-        }
+  // Reads one LZMA2 chunk from [input], writing its data to [output].
+  // Returns 1 when there are more chunks to come, 0 at the end marker, and
+  // -1 for bad data.
+  int _readLZMA2Chunk(InputStream input, OutputStream output) {
+    if (input.isEOS) {
+      // 00000000 - end marker, if not reached - there's an issue with file
+      return _failLength('LZMA2 data ended without an end marker');
+    }
+    final dictionarySize = _dictionarySize;
+    final control = input.readByte();
+    // Control values:
+    // 00000000 - end marker
+    // 00000001 - reset dictionary and uncompresed data
+    // 00000010 - uncompressed data
+    // 1rrxxxxx - LZMA data with reset (r) and high bits of size field (x)
+    if (control & 0x80 == 0) {
+      if (control == 0) {
+        decoder.reset(resetDictionary: true);
+        return 0;
+      } else if (control == 1) {
+        decoder.reset(resetDictionary: true);
+        final length = (input.readByte() << 8 | input.readByte()) + 1;
+        output.writeBytes(
+            decoder.decodeUncompressed(input.readBytes(length), length));
         decoder.trimDictionary(dictionarySize);
+      } else if (control == 2) {
+        // uncompressed data
+        final length = (input.readByte() << 8 | input.readByte()) + 1;
+        output.writeBytes(
+            decoder.decodeUncompressed(input.readBytes(length), length));
+        decoder.trimDictionary(dictionarySize);
+      } else {
+        return _failLength('Unknown LZMA2 control code $control');
       }
+      return 1;
     }
 
-    // 00000000 - end marker, if not reached - there's an issue with file
-    return _fail('LZMA2 data ended without an end marker');
+    // Reset flags:
+    // 0 - reset nothing
+    // 1 - reset state
+    // 2 - reset state, properties
+    // 3 - reset state, properties and dictionary
+    final reset = (control >> 5) & 0x3;
+    final uncompressedLength =
+        ((control & 0x1f) << 16 | input.readByte() << 8 | input.readByte()) + 1;
+    final compressedLength = (input.readByte() << 8 | input.readByte()) + 1;
+    int? literalContextBits;
+    int? literalPositionBits;
+    int? positionBits;
+    if (reset >= 2) {
+      // The three LZMA decoder properties are combined into a single number.
+      var properties = input.readByte();
+      if (properties > 224) {
+        return _failLength('Invalid LZMA properties byte');
+      }
+      positionBits = properties ~/ 45;
+      properties -= positionBits * 45;
+      literalPositionBits = properties ~/ 9;
+      literalContextBits = properties - literalPositionBits * 9;
+      if (literalContextBits + literalPositionBits > 4) {
+        return _failLength('Invalid LZMA literal context and position bits');
+      }
+    }
+    if (reset > 0) {
+      decoder.reset(
+          literalContextBits: literalContextBits,
+          literalPositionBits: literalPositionBits,
+          positionBits: positionBits,
+          resetDictionary: reset == 3);
+    }
+
+    decoder.decodeToOutput(
+        input.readBytes(compressedLength), uncompressedLength, output);
+    // Checking this can catch some corrupt files, especially if they don't
+    // have any other integrity check. An end of payload marker is not
+    // allowed in LZMA2, so a chunk that reached its uncompressed size
+    // without emptying the range coder is a data error.
+    if (!decoder.isRangeCoderFinished) {
+      return _failLength('LZMA data is corrupt');
+    }
+    decoder.trimDictionary(dictionarySize);
+    return 1;
   }
 
   // Reads an XZ stream index from [input].
@@ -643,4 +725,56 @@ class _XZBlockSize {
   final int uncompressedLength;
 
   const _XZBlockSize(this.unpaddedLength, this.uncompressedLength);
+}
+
+enum _XZState { streamHeader, block, chunk, done }
+
+/// Passes what is written through to another stream, summing its CRC-32 or
+/// CRC-64 on the way.
+class _CheckOutputStream extends OutputStream {
+  final OutputStream _output;
+  final bool _crc64;
+  int crc = 0;
+  final _one = Uint8List(1);
+
+  _CheckOutputStream(this._output, {required bool crc64})
+      : _crc64 = crc64,
+        super(byteOrder: _output.byteOrder);
+
+  @override
+  int get length => _output.length;
+
+  void _sum(List<int> bytes) {
+    crc = _crc64 ? getCrc64(bytes, crc) : getCrc32(bytes, crc);
+  }
+
+  @override
+  void writeByte(int value) {
+    _one[0] = value;
+    _sum(_one);
+    _output.writeByte(value);
+  }
+
+  @override
+  void writeBytes(List<int> bytes, {int? length}) {
+    if (length != null && length != bytes.length) {
+      bytes = bytes is Uint8List
+          ? Uint8List.sublistView(bytes, 0, length)
+          : bytes.sublist(0, length);
+    }
+    _sum(bytes);
+    _output.writeBytes(bytes);
+  }
+
+  @override
+  void writeStream(InputStream stream) => writeBytes(stream.toUint8List());
+
+  @override
+  void flush() => _output.flush();
+
+  @override
+  void clear() => _output.clear();
+
+  @override
+  Uint8List subset(int start, [int? end]) => _output.subset(start, end);
 }
