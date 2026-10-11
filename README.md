@@ -2,6 +2,16 @@
 [![Dart CI](https://github.com/brendan-duncan/archive/actions/workflows/build.yaml/badge.svg)](https://github.com/brendan-duncan/archive/actions/workflows/build.yaml)
 [![pub package](https://img.shields.io/pub/v/archive.svg)](https://pub.dev/packages/archive)
 
+## Documentation
+
+* [Overview](docs/README.md): archive formats vs compression codecs, and the two libraries
+* [Platforms](docs/platforms.md): native, JavaScript and WebAssembly
+* [Memory and streaming](docs/streaming.md): in-memory bytes vs file streams, and `decodeLazy`
+* [Reading archives](docs/reading-archives.md): zip, tar, encrypted zips, extracting to disk
+* [Creating archives](docs/creating-archives.md): zip and tar encoding, directories
+* [Compression codecs](docs/compression.md): gzip, zlib, bzip2, xz, zstd
+* [Untrusted input](docs/security.md): size limits and safe extraction
+
 ## 4.0 Update
 
 The Archive library was originally written when the web was the primary use of Dart. File IO was less of a concern
