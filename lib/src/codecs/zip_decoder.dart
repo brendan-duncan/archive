@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import '../archive/archive.dart';
 import '../archive/archive_file.dart';
+import '../util/archive_exception.dart';
 import '../util/input_memory_stream.dart';
 import '../util/input_stream.dart';
 import 'zip/zip_directory.dart';
@@ -18,7 +19,12 @@ class ZipDecoder {
   Archive decodeStream(InputStream input,
       {bool verify = false, String? password, ArchiveCallback? callback}) {
     directory = ZipDirectory();
-    directory.read(input, password: password);
+    try {
+      directory.read(input, password: password);
+    } on RangeError {
+      // A length in a header that runs past the data it describes.
+      throw ArchiveException('Invalid or truncated zip');
+    }
 
     final archive = Archive();
     for (final zfh in directory.fileHeaders) {

@@ -1240,5 +1240,80 @@ void main() async {
         });
       }
     });
+
+    group('malformed headers throw ArchiveException', () {
+      // One stored entry 'a' holding 'x', with [extra] in its local header,
+      // [flags] in both headers and [beforeEocd] just before the end record.
+      Uint8List craft(
+          {List<int> extra = const [],
+          int flags = 0,
+          List<int> beforeEocd = const []}) {
+        final local = OutputMemoryStream()
+          ..writeUint32(0x04034b50)
+          ..writeUint16(20)
+          ..writeUint16(flags)
+          ..writeUint16(0)
+          ..writeUint32(0)
+          ..writeUint32(0)
+          ..writeUint32(1)
+          ..writeUint32(1)
+          ..writeUint16(1)
+          ..writeUint16(extra.length)
+          ..writeBytes(ascii.encode('a'))
+          ..writeBytes(extra)
+          ..writeBytes(ascii.encode('x'));
+        final localBytes = local.getBytes();
+        final cd = OutputMemoryStream()
+          ..writeUint32(0x02014b50)
+          ..writeUint16(20)
+          ..writeUint16(20)
+          ..writeUint16(flags)
+          ..writeUint16(0)
+          ..writeUint32(0)
+          ..writeUint32(0)
+          ..writeUint32(1)
+          ..writeUint32(1)
+          ..writeUint16(1)
+          ..writeUint16(0)
+          ..writeUint16(0)
+          ..writeUint16(0)
+          ..writeUint16(0)
+          ..writeUint32(0)
+          ..writeUint32(0)
+          ..writeBytes(ascii.encode('a'));
+        final cdBytes = cd.getBytes();
+        final eocd = OutputMemoryStream()
+          ..writeUint32(0x06054b50)
+          ..writeUint16(0)
+          ..writeUint16(0)
+          ..writeUint16(1)
+          ..writeUint16(1)
+          ..writeUint32(cdBytes.length)
+          ..writeUint32(localBytes.length)
+          ..writeUint16(0);
+        return Uint8List.fromList(
+            [...localBytes, ...cdBytes, ...beforeEocd, ...eocd.getBytes()]);
+      }
+
+      test('an encrypted entry with an odd length extra field', () {
+        // The search for an AES record read two bytes past the field.
+        for (final length in [1, 3, 5, 7, 11]) {
+          final bytes = craft(extra: List.filled(length, 0x11), flags: 0x1);
+          expect(ZipDecoder().decodeBytes(bytes, password: 'x'), hasLength(1),
+              reason: '$length');
+        }
+      });
+
+      test('a zip64 locator pointing past the file', () {
+        final locator = OutputMemoryStream()
+          ..writeUint32(0x07064b50)
+          ..writeUint32(0)
+          ..writeUint64(0x7fffffffffff)
+          ..writeUint32(1);
+        final bytes = craft(beforeEocd: locator.getBytes());
+        expect(() => ZipDecoder().decodeBytes(bytes),
+            throwsA(isA<ArchiveException>()));
+      });
+    });
   });
 }

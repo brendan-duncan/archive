@@ -1,4 +1,5 @@
 import 'dart:math';
+import '../../util/archive_exception.dart';
 import '../../util/input_memory_stream.dart';
 import '../../util/input_stream.dart';
 import 'zip_file_header.dart';
@@ -96,6 +97,11 @@ class ZipDirectory {
     final zip64DirOffset = zip64.readUint64();
     /*final numZip64Disks =*/ zip64.readUint32();
 
+    // The record comes before the locator, and is 56 bytes before any
+    // extensible data.
+    if (zip64DirOffset < 0 || zip64DirOffset > locPos - 56) {
+      throw ArchiveException('Invalid zip64 end of central directory offset');
+    }
     input.setPosition(zip64DirOffset);
 
     // Zip64 end of central directory record

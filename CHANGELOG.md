@@ -38,8 +38,12 @@
   target from the link's own directory.
 * `TarDecoder.decodeStream` and `decodeBytes` take `keepEntries`. False
   passes entries only to the callback, so memory no longer grows with the
-  entry count; `extractFileToDisk` uses it, and a `.tar.gz` of a million
-  empty entries now extracts in 39 MB rather than 326 MB.
+  entry count; `extractFileToDisk` uses it. A `.tar.gz` of a million empty
+  entries now decodes in 39 MB rather than 326 MB.
+* Malformed zip headers, such as an odd length extra field on an encrypted
+  entry or a zip64 locator pointing past the file, threw `RangeError`
+  instead of `ArchiveException`. The AES extra field is also found when
+  other extra fields come before it.
 
 # 4.4.0
 

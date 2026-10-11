@@ -125,16 +125,18 @@ class ZipFile extends FileContent {
       }
     }
 
-    if (_encryptionType != ZipEncryptionMode.none && exLen > 2) {
+    if (_encryptionType != ZipEncryptionMode.none && exLen >= 4) {
+      // Walked record by record, each an id and a data size, as for zip64
+      // above. A record cut short by the end of the field is ignored.
       final extra = InputMemoryStream(extraField!);
-      while (!extra.isEOS) {
+      while (extra.length >= 4) {
         final id = extra.readUint16();
-        if (id == ZipAesHeader.signature) {
-          extra.readUint16(); // dataSize = 7
-          final vendorVersion = extra.readUint16();
-          final vendorId = extra.readString(size: 2);
-          final encryptionStrength = extra.readByte();
-          final compressionMethod = extra.readUint16();
+        final data = extra.readBytes(extra.readUint16());
+        if (id == ZipAesHeader.signature && data.length >= 7) {
+          final vendorVersion = data.readUint16();
+          final vendorId = data.readString(size: 2);
+          final encryptionStrength = data.readByte();
+          final compressionMethod = data.readUint16();
 
           _encryptionType = ZipEncryptionMode.aes;
           _aesHeader = ZipAesHeader(
