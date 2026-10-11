@@ -559,8 +559,8 @@ void main() {
           File(path).writeAsBytesSync(compressed.sublist(0, n));
           final input = InputFileStream(path);
           try {
-            expect(XZDecoder().decodeStream(input, OutputMemoryStream()),
-                isFalse,
+            expect(
+                XZDecoder().decodeStream(input, OutputMemoryStream()), isFalse,
                 reason: 'cut at $n');
           } catch (e) {
             expect(e, isA<ArchiveException>(), reason: 'cut at $n');
