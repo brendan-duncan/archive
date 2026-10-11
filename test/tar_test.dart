@@ -314,6 +314,24 @@ void main() {
           equals(TarFile.maxMetadataSize));
     });
 
+    test('keepEntries false passes entries only to the callback', () {
+      final bytes = Uint8List.fromList([
+        for (var i = 0; i < 3; i++) ...[
+          ...tarHeader('f$i', 1, TarFile.normalFile),
+          ...tarBlock([0x30 + i]),
+        ],
+        ...Uint8List(1024),
+      ]);
+      final seen = <String>[];
+      final decoder = TarDecoder();
+      final archive = decoder.decodeBytes(bytes,
+          keepEntries: false,
+          callback: (f) => seen.add('${f.name}=${f.readBytes()![0]}'));
+      expect(seen, equals(['f0=48', 'f1=49', 'f2=50']));
+      expect(archive, isEmpty);
+      expect(decoder.files, isEmpty);
+    });
+
     test('verify rejects what is not a tar', () {
       // Without a checksum check nothing tells a tar apart from an unrelated
       // file: every other header field reads as something.

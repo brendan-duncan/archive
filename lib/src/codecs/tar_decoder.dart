@@ -24,17 +24,33 @@ class TarDecoder {
   /// Decode [data] as a tar archive. With [verify], every entry's header
   /// checksum is checked and an [ArchiveException] thrown if one is wrong,
   /// which is what tells a tar apart from an unrelated file.
+  ///
+  /// [keepEntries] is as for [decodeStream].
   Archive decodeBytes(List<int> data,
-      {bool verify = false, bool storeData = true, ArchiveCallback? callback}) {
+      {bool verify = false,
+      bool storeData = true,
+      ArchiveCallback? callback,
+      bool keepEntries = true}) {
     return decodeStream(InputMemoryStream(data),
-        verify: verify, storeData: storeData, callback: callback);
+        verify: verify,
+        storeData: storeData,
+        callback: callback,
+        keepEntries: keepEntries);
   }
 
   /// Decode [input] as a tar archive. With [verify], every entry's header
   /// checksum is checked and an [ArchiveException] thrown if one is wrong,
   /// which is what tells a tar apart from an unrelated file.
+  ///
+  /// [callback] is called with each entry as it is reached. With
+  /// [keepEntries] false, that is the only place the entries go: the archive
+  /// returned is empty and [files] is left empty, so that memory does not
+  /// grow with the number of entries, which costs a few hundred bytes each.
   Archive decodeStream(InputStream input,
-      {bool verify = false, bool storeData = true, ArchiveCallback? callback}) {
+      {bool verify = false,
+      bool storeData = true,
+      ArchiveCallback? callback,
+      bool keepEntries = true}) {
     final archive = Archive();
     files.clear();
 
@@ -243,7 +259,9 @@ class TarDecoder {
         tf.nameOfLinkedFile = path.posix.relative(tf.nameOfLinkedFile!,
             from: path.posix.dirname(tf.filename));
       }
-      files.add(tf);
+      if (keepEntries) {
+        files.add(tf);
+      }
 
       final filename = tf.filename;
 
@@ -261,7 +279,9 @@ class TarDecoder {
           file.symbolicLink = tf.nameOfLinkedFile!;
         }
 
-        archive.add(file);
+        if (keepEntries) {
+          archive.add(file);
+        }
 
         if (callback != null) {
           callback(file);
@@ -277,7 +297,9 @@ class TarDecoder {
           file.symbolicLink = tf.nameOfLinkedFile!;
         }
 
-        archive.add(file);
+        if (keepEntries) {
+          archive.add(file);
+        }
 
         if (callback != null) {
           callback(file);

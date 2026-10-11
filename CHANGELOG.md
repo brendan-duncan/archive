@@ -36,6 +36,10 @@
   write buffer.
 * A tar hard link, which is extracted as a symbolic link, now points at its
   target from the link's own directory.
+* `TarDecoder.decodeStream` and `decodeBytes` take `keepEntries`. False
+  passes entries only to the callback, so memory no longer grows with the
+  entry count; `extractFileToDisk` uses it, and a `.tar.gz` of a million
+  empty entries now extracts in 39 MB rather than 326 MB.
 
 # 4.4.0
 

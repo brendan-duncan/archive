@@ -133,7 +133,7 @@ Future<void> extractFileToDisk(String inputPath, String outputPath,
       // time its content is at hand when the tar is being decompressed on the
       // way in.
       try {
-        TarDecoder().decodeStream(input, callback: (entry) {
+        TarDecoder().decodeStream(input, keepEntries: false, callback: (entry) {
           writer.write(entry);
           callback?.call(entry);
         });

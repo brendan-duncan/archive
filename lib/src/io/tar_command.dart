@@ -36,7 +36,8 @@ Directory extractTarFiles(String inputPath, String outputPath) {
   final input = InputFileStream(inputPath);
   try {
     final writer = EntryWriter(outputPath);
-    TarDecoder().decodeStream(_tarStream(inputPath, input), callback: (entry) {
+    TarDecoder().decodeStream(_tarStream(inputPath, input), keepEntries: false,
+        callback: (entry) {
       final path = writer.write(entry);
       if (path != null && entry.isFile && !entry.isSymbolicLink) {
         print('  extracted $path');
