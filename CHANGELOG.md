@@ -14,6 +14,11 @@
   stream, which `unzip` rejected, and carry the MS-DOS directory
   attribute. In a zip with a password they are no longer marked
   encrypted.
+* Entries whose content is in memory, and stored entries that can be read
+  twice, have their CRC and sizes in the local header again rather than in
+  a data descriptor after the data. Java's `ZipInputStream` refuses a
+  stored entry with a descriptor, and OpenDocument and EPUB files need
+  their stored `mimetype` entry without one (#421).
 
 # 4.5.0
 

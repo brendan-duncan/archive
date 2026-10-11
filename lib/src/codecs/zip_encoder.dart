@@ -8,6 +8,8 @@ import '../archive/compression_type.dart';
 import '../util/aes.dart';
 import '../util/byte_order.dart';
 import '../util/crc32.dart';
+import '../util/file_content.dart';
+import '../util/input_decode_stream.dart';
 import '../util/input_memory_stream.dart';
 import '../util/input_stream.dart';
 import '../util/output_memory_stream.dart';
@@ -150,6 +152,25 @@ class ZipEncoder {
     _output = output;
   }
 
+  // Whether [file] can be written with its CRC and sizes in its local header
+  // rather than in a data descriptor after the data, which takes a pass over
+  // the content first. That is the most widely read form, and some readers
+  // need it for a stored entry: Java's ZipInputStream refuses a stored entry
+  // with a descriptor, and an OpenDocument or EPUB file's stored mimetype
+  // entry must not have one. So it is used for content already in memory,
+  // and for stored content that can be read twice, which a stream decoding
+  // as it goes cannot.
+  bool _canWriteSizesFirst(ArchiveFile file, CompressionType compression) {
+    final content = file.rawContent;
+    if (content is FileContentMemory) {
+      return true;
+    }
+    return compression == CompressionType.none &&
+        password == null &&
+        content is FileContentStream &&
+        content.stream is! InputDecodeStream;
+  }
+
   int getFileCrc32(ArchiveFile file) {
     final content = file.rawContent;
     if (content == null) {
@@ -245,7 +266,9 @@ class ZipEncoder {
 
     if (entry.isFile) {
       final file = entry;
-      if (!file.isCompressed && file.rawContent != null) {
+      if (!file.isCompressed &&
+          file.rawContent != null &&
+          !_canWriteSizesFirst(file, compressionType)) {
         // Not compressed yet, so it goes through the compressor straight
         // into the output rather than through memory first.
         _writeStreamed(file, fileData, compressionType, level);

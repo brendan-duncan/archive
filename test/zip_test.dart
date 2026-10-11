@@ -857,13 +857,17 @@ void main() async {
 
       void checkStreamed(Uint8List zipped, CompressionType compression,
           {String? password}) {
+        // A stored entry's CRC and sizes are worked out first instead, since
+        // some readers can't do without them in the header of a stored entry.
+        final streamed =
+            compression != CompressionType.none || password != null;
         final header = InputMemoryStream(zipped);
         header.setPosition(6);
         expect(header.readUint16() & ZipEncoder.dataDescriptorBit,
-            ZipEncoder.dataDescriptorBit);
+            streamed ? ZipEncoder.dataDescriptorBit : 0);
         // The CRC was not known when the header was written.
         header.setPosition(14);
-        expect(header.readUint32(), 0);
+        expect(header.readUint32(), streamed ? 0 : getCrc32(content));
 
         final file = File(p.join(testOutputPath, 'streamed.zip'))
           ..writeAsBytesSync(zipped);
@@ -1364,6 +1368,77 @@ void main() async {
           expect(central[1].$2 & 1, 0);
         });
       }
+    });
+
+    group('sizes in the local header', () {
+      // (flags, method, compressed size, extra length) of each local header.
+      List<(int, int, int, int)> localHeaders(Uint8List zip) {
+        final view = ByteData.sublistView(zip);
+        return [
+          for (var i = 0; i + 4 <= zip.length; i++)
+            if (view.getUint32(i, Endian.little) == 0x04034b50)
+              (
+                view.getUint16(i + 6, Endian.little),
+                view.getUint16(i + 8, Endian.little),
+                view.getUint32(i + 18, Endian.little),
+                view.getUint16(i + 28, Endian.little),
+              )
+        ];
+      }
+
+      test('for content in memory, with no data descriptor', () {
+        // An OpenDocument file starts with a stored mimetype entry, which
+        // must have its sizes in the local header and no data descriptor.
+        final archive = Archive()
+          ..add(ArchiveFile.string('mimetype', 'application/x')
+            ..compression = CompressionType.none)
+          ..add(ArchiveFile.string('content.xml', '<x>${'y' * 2000}</x>'));
+        final zip = ZipEncoder().encodeBytes(archive);
+        final headers = localHeaders(zip);
+        expect(headers[0], (0x800, 0, 13, 0));
+        expect(headers[1].$1 & 8, 0);
+        expect(headers[1].$3, greaterThan(0));
+        final decoded = ZipDecoder().decodeBytes(zip);
+        expect(utf8.decode(decoded[1].readBytes()!), '<x>${'y' * 2000}</x>');
+      });
+
+      test('for stored content from a file', () {
+        final dir = Directory.systemTemp.createTempSync('zip_sizes');
+        try {
+          final path = p.join(dir.path, 'data.bin');
+          File(path).writeAsBytesSync(List.generate(5000, (i) => i & 0xff));
+          final input = InputFileStream(path);
+          final archive = Archive()
+            ..add(ArchiveFile.stream('data.bin', input)
+              ..compression = CompressionType.none);
+          final zip = ZipEncoder().encodeBytes(archive);
+          input.closeSync();
+          expect(localHeaders(zip).single, (0x800, 0, 5000, 0));
+          expect(ZipDecoder().decodeBytes(zip)[0].readBytes(),
+              List.generate(5000, (i) => i & 0xff));
+        } finally {
+          dir.deleteSync(recursive: true);
+        }
+      });
+
+      test('but not for compressed content streamed from a file', () {
+        // That is compressed straight into the output, so its sizes follow
+        // it in a data descriptor, flagged in both headers.
+        final dir = Directory.systemTemp.createTempSync('zip_sizes');
+        try {
+          final path = p.join(dir.path, 'data.txt');
+          File(path).writeAsStringSync('z' * 5000);
+          final input = InputFileStream(path);
+          final zip = ZipEncoder().encodeBytes(
+              Archive()..add(ArchiveFile.stream('data.txt', input)));
+          input.closeSync();
+          expect(localHeaders(zip).single.$1 & 8, 8);
+          expect(utf8.decode(ZipDecoder().decodeBytes(zip)[0].readBytes()!),
+              'z' * 5000);
+        } finally {
+          dir.deleteSync(recursive: true);
+        }
+      });
     });
   });
 }
