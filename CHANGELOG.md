@@ -1,3 +1,15 @@
+# 4.5.1
+
+* Fixed zips written by `ZipEncoder` since 4.4.0, which 7-Zip reported
+  as having header errors: the data descriptor flag was set in each
+  entry's local header but not its central directory header. The UTF-8
+  flag also went into the central directory even for names that were not
+  UTF-8.
+* Directory entries are stored rather than written as an empty deflate
+  stream, which `unzip` rejected, and carry the MS-DOS directory
+  attribute. In a zip with a password they are no longer marked
+  encrypted.
+
 # 4.5.0
 
 * Security: `XZDecoder` hung forever on a truncated `.xz` read from a

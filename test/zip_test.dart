@@ -1315,5 +1315,55 @@ void main() async {
             throwsA(isA<ArchiveException>()));
       });
     });
+
+    group('local and central headers agree', () {
+      // 7-Zip reports a header error when an entry's flags differ between its
+      // local and central headers, which every streamed entry's did: only the
+      // local one had the data descriptor flag.
+      Archive sample() => Archive()
+        ..add(ArchiveFile.string('a.txt', 'hello hello hello'))
+        ..add(ArchiveFile.directory('dir/'))
+        ..add(ArchiveFile.bytes('empty.txt', []));
+
+      for (final (name, encoder) in [
+        ('plain', ZipEncoder()),
+        ('password', ZipEncoder(password: 'pw')),
+        ('latin1', ZipEncoder(filenameEncoding: latin1)),
+      ]) {
+        test(name, () {
+          final zip = encoder.encodeBytes(sample());
+          final view = ByteData.sublistView(zip);
+          final local = <int, (int, int)>{};
+          final central = <(int, int, int)>[];
+          for (var i = 0; i + 4 <= zip.length; i++) {
+            final signature = view.getUint32(i, Endian.little);
+            if (signature == 0x04034b50) {
+              local[i] = (
+                view.getUint16(i + 6, Endian.little),
+                view.getUint16(i + 8, Endian.little)
+              );
+            } else if (signature == 0x02014b50) {
+              central.add((
+                view.getUint32(i + 42, Endian.little),
+                view.getUint16(i + 8, Endian.little),
+                view.getUint16(i + 10, Endian.little),
+              ));
+            }
+          }
+          expect(central, hasLength(3));
+          for (final (offset, flags, method) in central) {
+            expect(local[offset], equals((flags, method)));
+          }
+          // The UTF-8 flag only when the names are UTF-8.
+          expect(central.every((c) => c.$2 & 0x800 != 0), name != 'latin1');
+          // The directory is stored, not an empty deflate stream, and not
+          // encrypted.
+          final dir = ZipDecoder().decodeBytes(zip, password: 'pw');
+          expect(dir.findFile('dir/')!.isDirectory, isTrue);
+          expect(central[1].$3, ZipFile.zipCompressionStore);
+          expect(central[1].$2 & 1, 0);
+        });
+      }
+    });
   });
 }

@@ -33,6 +33,13 @@ class _ZipFileData {
   int position = 0;
   int mode = 0;
   bool isFile = true;
+
+  /// The general purpose flags the local header was written with, which the
+  /// central directory has to repeat: readers such as 7-Zip check that they
+  /// agree.
+  int flags = 0;
+
+  bool get encrypted => flags & ZipEncoder.fileEncryptionBit != 0;
 }
 
 int? _getTime(DateTime? dateTime) {
@@ -229,7 +236,11 @@ class ZipEncoder {
     InputStream? compressedData;
     int crc32 = 0;
 
-    var compressionType = entry.compression ?? CompressionType.deflate;
+    // A directory has no data, and an empty deflate stream is not valid
+    // deflate, which unzip rejects.
+    var compressionType = entry.isFile
+        ? entry.compression ?? CompressionType.deflate
+        : CompressionType.none;
 
     if (entry.isFile) {
       final file = entry;
@@ -432,6 +443,7 @@ class ZipEncoder {
     if (password != null) {
       flags |= fileEncryptionBit;
     }
+    fileData.flags = flags;
 
     final extra = <int>[];
     if (zip64) {
@@ -559,15 +571,18 @@ class ZipEncoder {
     if (filenameEncoding.name == "utf-8") {
       flags |= languageEncodingBitUtf8;
     }
-    if (password != null) {
+    // Only an entry with data is encrypted; a directory has none.
+    if (password != null && salt != null) {
       flags |= fileEncryptionBit;
     }
+    fileData.flags = flags;
+    final encrypted = fileData.encrypted;
 
     final extra = <int>[];
     if (needsZip64) {
       extra.addAll(_getZip64ExtraData(fileData));
     }
-    if (password != null) {
+    if (encrypted) {
       extra.addAll(_getAexExtraData(fileData));
     }
 
@@ -576,7 +591,7 @@ class ZipEncoder {
     _writeLocalHeader(output,
         name: fileData.name,
         flags: flags,
-        compressionMethod: password != null
+        compressionMethod: encrypted
             ? ZipFile.zipCompressionAexEncryption
             : _zipMethod(fileData.compression),
         time: fileData.time,
@@ -634,11 +649,8 @@ class ZipEncoder {
 
       final versionMadeBy = (os << 8) | version;
       final versionNeededToExtract = version;
-      var generalPurposeBitFlag = languageEncodingBitUtf8;
-      if (password != null) {
-        generalPurposeBitFlag |= fileEncryptionBit;
-      }
-      final compressionMethod = password != null
+      final generalPurposeBitFlag = fileData.flags;
+      final compressionMethod = fileData.encrypted
           ? ZipFile.zipCompressionAexEncryption
           : _zipMethod(fileData.compression);
       final lastModifiedFileTime = fileData.time;
@@ -649,17 +661,19 @@ class ZipEncoder {
           needsZip64 ? 0xFFFFFFFF : fileData.uncompressedSize;
       final diskNumberStart = 0;
       final internalFileAttributes = 0;
-      final externalFileAttributes = fileData.mode << 16;
-      /*if (!fileData.isFile) {
-        externalFileAttributes |= 0x4000;
-      }*/
+      var externalFileAttributes = fileData.mode << 16;
+      if (!fileData.isFile) {
+        // The MS-DOS directory attribute, which is what readers check for an
+        // archive made on MS-DOS.
+        externalFileAttributes |= 0x10;
+      }
       final localHeaderOffset = needsZip64 ? 0xFFFFFFFF : fileData.position;
 
       var extraField = <int>[];
       if (needsZip64) {
         extraField.addAll(_getZip64CfhData(fileData));
       }
-      if (password != null) {
+      if (fileData.encrypted) {
         extraField.addAll(_getAexExtraData(fileData));
       }
 
