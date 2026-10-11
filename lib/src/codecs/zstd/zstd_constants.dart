@@ -11,7 +11,7 @@ const zstdBlockMaximumSize = 128 * 1024;
 
 /// The format allows up to 3.75 TB. This matches the reference decoder's own
 /// default ceiling, above which a frame is rejected rather than allocated for
-const zstdDefaultWindowSizeLimit = 1 << 27;
+const zstdDefaultMaxWindowSize = 1 << 27;
 
 const zstdBlockRaw = 0;
 const zstdBlockRle = 1;

@@ -10,4 +10,7 @@ abstract class ZLibDecoderBase {
 
   bool decodeStream(InputStream input, OutputStream output,
       {bool verify = false, bool raw = false, bool throwOnError = false});
+
+  InputStream decodeLazy(InputStream input,
+      {bool verify = false, bool raw = false});
 }

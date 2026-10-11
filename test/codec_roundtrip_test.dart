@@ -234,16 +234,16 @@ void main() {
       ('no frame checksum', 3, false, null),
       ('dictionary', 3, true, dictionary),
     ]) {
-      final encoder =
-          ZstdEncoder(level: level, checksum: checksum, dictionary: dict);
+      final encoder = ZstdEncoder(level: level, dictionary: dict);
       final codec =
           ZstdCodec(level: level, frameChecksum: checksum, dictionary: dict);
       final decoder = ZstdDecoder(dictionary: dict);
       _matrix(
           'zstd $label',
           {
-            'encodeBytes': (s) => encoder.encodeBytes(s),
-            'encodeStream': (s) => _stream(encoder.encodeStream, s),
+            'encodeBytes': (s) => encoder.encodeBytes(s, checksum: checksum),
+            'encodeStream': (s) => _stream(
+                (i, o) => encoder.encodeStream(i, o, checksum: checksum), s),
             'converter': (s) => _through(codec.encoder, s),
           },
           {

@@ -18,7 +18,9 @@ import 'xz_index.dart';
 /// check. Blocks are independent, so they can run in separate isolates.
 ({bool ok, String? reason, int unpaddedLength}) decodeXZBlock(
     InputStream input, int streamFlags, OutputStream output,
-    {required int maxPreallocateSize, bool verify = false}) {
+    {required int maxPreallocateSize,
+    bool verify = false,
+    int maxDictionarySize = xzDefaultMaxDictionarySize}) {
   final headerByte = input.peekBytes(1).readByte();
   if (headerByte == 0) {
     return (
@@ -27,7 +29,9 @@ import 'xz_index.dart';
       unpaddedLength: -1
     );
   }
-  final decoder = XZStreamDecoder(maxPreallocateSize: maxPreallocateSize)
+  final decoder = XZStreamDecoder(
+      maxPreallocateSize: maxPreallocateSize,
+      maxDictionarySize: maxDictionarySize)
     ..streamFlags = streamFlags
     ..checkRangeCoderStart = verify;
   final ok = decoder.readBlock(input, output, (headerByte + 1) * 4);
@@ -37,6 +41,10 @@ import 'xz_index.dart';
     unpaddedLength: ok ? decoder._blockSizes.last.unpaddedLength : -1
   );
 }
+
+/// Default for [XZStreamDecoder.maxDictionarySize]: four times the largest
+/// dictionary any of xz's presets uses.
+const int xzDefaultMaxDictionarySize = 256 * 1024 * 1024;
 
 const xzCrc32Failed = 'CRC32 check failed';
 const xzCrc64Failed = 'CRC64 check failed';
@@ -95,7 +103,15 @@ class XZStreamDecoder {
   var blockHasX86 = false;
   var blockX86StartOffset = 0;
 
-  XZStreamDecoder({this.verify = false, required this.maxPreallocateSize});
+  // The largest LZMA2 dictionary a block may declare. The dictionary is held
+  // in memory as the data decodes, up to a quarter more than its size, so a
+  // small archive declaring 4 GB could otherwise take that much memory.
+  final int maxDictionarySize;
+
+  XZStreamDecoder(
+      {this.verify = false,
+      required this.maxPreallocateSize,
+      this.maxDictionarySize = xzDefaultMaxDictionarySize});
 
   // Records why the decode gave up and reports the failure. The first reason
   // is kept, because it is the innermost one: the returns above it only pass
@@ -512,6 +528,10 @@ class XZStreamDecoder {
           final mantissa = 2 | (v & 0x1);
           final exponent = (v >> 1) + 11;
           dictionarySize = mantissa << exponent;
+        }
+        if (dictionarySize > maxDictionarySize) {
+          return _fail('LZMA dictionary size $dictionarySize exceeds '
+              'maxDictionarySize $maxDictionarySize');
         }
         filters.add(id);
         filters.add(dictionarySize);

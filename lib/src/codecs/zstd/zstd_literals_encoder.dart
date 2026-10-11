@@ -34,6 +34,10 @@ class ZstdLiteralsEncoder {
   /// A tree from a dictionary lowers the floor to six, since reusing it
   /// costs the block nothing to describe
   int minSize = 64;
+
+  /// `ZSTD_literalsCompressionIsDisabled`: the `--fast` levels store their
+  /// literals as they stand
+  bool disabled = false;
   bool _trusted = false;
   bool _nextTrusted = false;
 
@@ -88,7 +92,7 @@ class ZstdLiteralsEncoder {
     _nextReady = _ready;
     _nextTrusted = _trusted;
     final size = end - start;
-    if (size < _floor) {
+    if (disabled || size < _floor) {
       return _writeStored(out, at, src, start, size, zstdLiteralsRaw);
     }
 

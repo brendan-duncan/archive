@@ -1,13 +1,17 @@
 import 'dart:async';
 import 'dart:typed_data';
 
+import '../util/_limited_output_stream.dart';
 import '../util/archive_exception.dart';
+import '../util/chunked_sink.dart';
 import '../util/decode_guard.dart';
+import '../util/input_decode_stream.dart';
 import '../util/input_memory_stream.dart';
 import '../util/input_stream.dart';
 import '../util/output_memory_stream.dart';
 import '../util/output_stream.dart';
 import 'xz/_xz_no_result.dart';
+import 'xz/xz_chunked.dart';
 import 'xz/xz_index.dart';
 import 'xz/xz_multithread_options.dart';
 import 'xz/xz_parallel.dart';
@@ -27,11 +31,19 @@ class XZDecoder {
   /// page instead of throwing
   final int maxPreallocateSize;
 
-  XZDecoder({int? maxPreallocateSize})
-      : maxPreallocateSize = maxPreallocateSize ?? xzDefaultMaxPreallocateSize {
+  /// {@macro archive.xz.max_dictionary_size}
+  final int maxDictionarySize;
+
+  XZDecoder({int? maxPreallocateSize, int? maxDictionarySize})
+      : maxPreallocateSize = maxPreallocateSize ?? xzDefaultMaxPreallocateSize,
+        maxDictionarySize = maxDictionarySize ?? xzDefaultMaxDictionarySize {
     if (this.maxPreallocateSize < 0) {
       throw ArgumentError.value(
           maxPreallocateSize, 'maxPreallocateSize', 'Must not be negative');
+    }
+    if (this.maxDictionarySize < 0) {
+      throw ArgumentError.value(
+          maxDictionarySize, 'maxDictionarySize', 'Must not be negative');
     }
   }
 
@@ -48,28 +60,35 @@ class XZDecoder {
   /// | with `multithread` | 3.9 GB | 8.0 s |
   /// | with `multithread`, six workers | 4.4 GB | 5.1 s |
   /// See `XZMultithreadOptions` for more details
+  ///
+  /// {@macro archive.max_output_size.bytes}
   Uint8List decodeBytes(List<int> data,
       {bool verify = false,
       bool throwOnError = false,
+      int? maxOutputSize,
       XZMultithreadOptions<Uint8List>? multithread}) {
+    _checkMaxOutputSize(maxOutputSize);
     final bytes = data is Uint8List ? data : Uint8List.fromList(data);
 
     if (multithread == null) {
-      return _decodeBytes(bytes, verify, throwOnError);
+      return _decodeBytes(bytes, verify, throwOnError, maxOutputSize);
     }
     _checkOptions(multithread, verify || throwOnError);
 
     if (!xzIsolatesSupported) {
       // No isolates here, so this blocks the caller, but the result is still
       // delivered the way the caller asked for it.
-      _report(multithread, () => _decodeBytes(bytes, verify, throwOnError),
+      _report(
+          multithread,
+          () => _decodeBytes(bytes, verify, throwOnError, maxOutputSize),
           Uint8List(0));
       return Uint8List(0);
     }
 
     _reportAsync(
         multithread,
-        () => _decodeBytesOnIsolates(bytes, verify, throwOnError, multithread),
+        () => _decodeBytesOnIsolates(
+            bytes, verify, throwOnError, maxOutputSize, multithread),
         Uint8List(0),
         verify,
         throwOnError);
@@ -88,30 +107,46 @@ class XZDecoder {
   /// | `InputFileStream`, `OutputFileStream`, six workers | 1.3 GB | 5.1 s |
   /// | `InputMemoryStream`, `OutputFileStream` | 2.6 GB | 10.1 s |
   /// See `XZMultithreadOptions` for more details
+  ///
+  /// {@macro archive.max_output_size.stream}
   bool decodeStream(InputStream input, OutputStream output,
       {bool verify = false,
       bool throwOnError = false,
+      int? maxOutputSize,
       XZMultithreadOptions<bool>? multithread}) {
+    _checkMaxOutputSize(maxOutputSize);
     if (multithread == null) {
-      return _decodeStream(input, output, verify, throwOnError);
+      return _decodeStream(input, output, verify, throwOnError, maxOutputSize);
     }
     _checkOptions(multithread, verify || throwOnError);
 
     if (!xzIsolatesSupported) {
-      _report(multithread,
-          () => _decodeStream(input, output, verify, throwOnError), false);
+      _report(
+          multithread,
+          () =>
+              _decodeStream(input, output, verify, throwOnError, maxOutputSize),
+          false);
       return false;
     }
 
     _reportAsync(
         multithread,
         () => _decodeStreamOnIsolates(
-            input, output, verify, throwOnError, multithread),
+            input, output, verify, throwOnError, maxOutputSize, multithread),
         false,
         verify,
         throwOnError);
     return false;
   }
+
+  /// {@macro archive.decode_lazy}
+  ///
+  /// [verify] checks each block against its check as the block ends.
+  InputStream decodeLazy(InputStream input, {bool verify = false}) =>
+      InputDecodeStream(ChunkedSinkDecoder(
+          input,
+          (output) => XzChunkedDecoder(output,
+              verify: verify, maxDictionarySize: maxDictionarySize)));
 
   /// Gets uncompressed size of XZ archive, if it's valid. When archive
   /// is not valid, return value is null. May be used with [decodeStream]
@@ -129,22 +164,85 @@ class XZDecoder {
 
   // The single threaded decode, which is also what the multithreaded path
   // falls back to when there are no isolates.
-  Uint8List _decodeBytes(Uint8List bytes, bool verify, bool throwOnError) {
+  Uint8List _decodeBytes(
+      Uint8List bytes, bool verify, bool throwOnError, int? maxOutputSize) {
     // The stream indexes give the output size up front, which avoids growing
     // the output buffer while decoding. A zero size is left to the default
     // because the buffer cannot grow out of an empty allocation.
-    final int? size = _uSize(bytes, maxPreallocateSize);
+    var size = _uSize(bytes, maxPreallocateSize);
+    if (size != null && size > bytes.length * _maxPreallocateRatio) {
+      size = bytes.length * _maxPreallocateRatio;
+    }
+    if (size != null && maxOutputSize != null && size > maxOutputSize) {
+      size = maxOutputSize;
+    }
     final OutputMemoryStream output =
         OutputMemoryStream(size: size != null && size > 0 ? size : null);
 
-    _decodeStream(InputMemoryStream(bytes), output, verify, throwOnError);
+    _decodeStream(
+        InputMemoryStream(bytes), output, verify, throwOnError, maxOutputSize);
     return output.getBytes();
   }
 
-  bool _decodeStream(
+  // An index that declares more output than maxOutputSize is refused before
+  // any worker starts
+  static void _checkLayoutSize(XZLayout? layout, int? maxOutputSize) {
+    if (maxOutputSize != null &&
+        layout != null &&
+        layout.uncompressedSize > maxOutputSize) {
+      throw _LimitExceeded(ArchiveException(
+          'The decoded data is larger than the $maxOutputSize bytes allowed'));
+    }
+  }
+
+  // guardDecode in _reportAsync turns an ArchiveException into an empty result
+  // without throwOnError, so an exceeded maxOutputSize is thrown as
+  // _LimitExceeded and reaches onError like the single threaded throw
+  static Future<T> _limitAsync<T>(
+      LimitedOutputStream? limited, Future<T> work) async {
+    final T result;
+    try {
+      result = await work;
+    } catch (_) {
+      _throwIfExceeded(limited);
+      rethrow;
+    }
+    _throwIfExceeded(limited);
+    return result;
+  }
+
+  static void _throwIfExceeded(LimitedOutputStream? limited) {
+    if (limited != null && limited.exceeded) {
+      throw _LimitExceeded(ArchiveException('The decoded data is larger than '
+          'the ${limited.maxLength} bytes allowed'));
+    }
+  }
+
+  // The most a byte of xz is taken to decode to when sizing a buffer from
+  // what the index claims. Real archives of repetitive data reach about
+  // 7000:1; a larger claim is let grow as the data arrives instead.
+  static const int _maxPreallocateRatio = 8192;
+
+  static void _checkMaxOutputSize(int? maxOutputSize) {
+    if (maxOutputSize != null && maxOutputSize < 0) {
+      throw ArgumentError.value(maxOutputSize, 'maxOutputSize', 'is negative');
+    }
+  }
+
+  bool _decodeStream(InputStream input, OutputStream output, bool verify,
+          bool throwOnError, int? maxOutputSize) =>
+      decodeLimited(
+          output,
+          maxOutputSize,
+          (output) =>
+              _decodeStreamUnlimited(input, output, verify, throwOnError));
+
+  bool _decodeStreamUnlimited(
       InputStream input, OutputStream output, bool verify, bool throwOnError) {
-    final decoder =
-        XZStreamDecoder(verify: verify, maxPreallocateSize: maxPreallocateSize);
+    final decoder = XZStreamDecoder(
+        verify: verify,
+        maxPreallocateSize: maxPreallocateSize,
+        maxDictionarySize: maxDictionarySize);
     return guardDecode('XZ', verify, throwOnError, () {
       try {
         if (decoder.decode(input, output)) return true;
@@ -173,14 +271,21 @@ class XZDecoder {
         : ArchiveException(message);
   }
 
-  Future<Uint8List> _decodeBytesOnIsolates(Uint8List bytes, bool verify,
-      bool throwOnError, XZMultithreadOptions<Uint8List> options) async {
+  Future<Uint8List> _decodeBytesOnIsolates(
+      Uint8List bytes,
+      bool verify,
+      bool throwOnError,
+      int? maxOutputSize,
+      XZMultithreadOptions<Uint8List> options) async {
     // No ceiling here: the layout only says where the blocks are, which is what
     // decides whether the work can be split up, and reading it allocates
     // nothing. The ceiling belongs to the buffer decision below.
     final layout = parseXZLayout(XZMemorySource(bytes));
+    _checkLayoutSize(layout, maxOutputSize);
 
-    if (layout == null || layout.uncompressedSize > maxPreallocateSize) {
+    if (layout == null ||
+        layout.uncompressedSize > maxPreallocateSize ||
+        layout.uncompressedSize > bytes.length * _maxPreallocateRatio) {
       // Either the archive has no readable index, or it claims an output too
       // large to take on trust. The index is part of the archive, so a hostile
       // one can claim any size at all; growing the buffer as the bytes actually
@@ -189,31 +294,38 @@ class XZDecoder {
       // Blocks still decode in parallel when the layout is known. They finish
       // out of order and an OutputMemoryStream only appends, so the ones that
       // run ahead wait their turn in the ordered writer.
-      final output = OutputMemoryStream();
+      final memory = OutputMemoryStream();
+      final limited = maxOutputSize == null
+          ? null
+          : LimitedOutputStream(memory, maxOutputSize);
+      final OutputStream output = limited ?? memory;
       final writer =
           layout == null ? null : _OrderedWriter(output, layout.blocks);
       String? reason;
-      final ok = await xzDecodeMultithreaded(
-        bytes: bytes,
-        layout: layout,
-        verify: verify,
-        maxPreallocateSize: maxPreallocateSize,
-        workers: options.workers,
-        memoryBudget: options.memoryBudget,
-        onChunk: writer == null
-            ? (offset, chunk) => output.writeBytes(chunk)
-            : writer.add,
-        onBlockDone: writer?.blockDone,
-        onFailureReason: (r) => reason = r,
-        orderedOutput: writer != null,
-        fileReadBufferSize: options.fileReadBufferSize,
-      );
+      final ok = await _limitAsync(
+          limited,
+          xzDecodeMultithreaded(
+            bytes: bytes,
+            layout: layout,
+            verify: verify,
+            maxPreallocateSize: maxPreallocateSize,
+            maxDictionarySize: maxDictionarySize,
+            workers: options.workers,
+            memoryBudget: options.memoryBudget,
+            onChunk: writer == null
+                ? (offset, chunk) => output.writeBytes(chunk)
+                : writer.add,
+            onBlockDone: writer?.blockDone,
+            onFailureReason: (r) => reason = r,
+            orderedOutput: writer != null,
+            fileReadBufferSize: options.fileReadBufferSize,
+          ));
       if (!ok) {
         throwIfStrict(_invalid(reason), verify, throwOnError);
       }
       // Whether or not it succeeded, this yields what was decoded, which is
       // what the single threaded path does too.
-      return output.getBytes();
+      return memory.getBytes();
     }
 
     final blocks = layout.blocks;
@@ -234,6 +346,7 @@ class XZDecoder {
       layout: layout,
       verify: verify,
       maxPreallocateSize: maxPreallocateSize,
+      maxDictionarySize: maxDictionarySize,
       workers: options.workers,
       memoryBudget: options.memoryBudget,
       onChunk: (offset, chunk) {
@@ -311,8 +424,12 @@ class XZDecoder {
       OutputStream output,
       bool verify,
       bool throwOnError,
+      int? maxOutputSize,
       XZMultithreadOptions<bool> options) async {
     final region = xzFileRegionOf(input);
+    final limited = maxOutputSize == null
+        ? null
+        : LimitedOutputStream(output, maxOutputSize);
 
     XZLayout? layout;
     Uint8List? bytes;
@@ -324,30 +441,37 @@ class XZDecoder {
     } else {
       // Any other stream has no random access to give the workers, so it is
       // decoded on the calling isolate.
-      return _decodeStream(input, output, verify, throwOnError);
+      return _limitAsync(
+          limited,
+          Future.sync(() => _decodeStreamUnlimited(
+              input, limited ?? output, verify, throwOnError)));
     }
+    _checkLayoutSize(layout, maxOutputSize);
 
     // An OutputStream can only be appended to, so blocks that finish early are
     // held back until the blocks in front of them have been written.
-    final writer = _OrderedWriter(output, layout?.blocks);
+    final writer = _OrderedWriter(limited ?? output, layout?.blocks);
     String? reason;
 
-    final ok = await xzDecodeMultithreaded(
-      bytes: bytes,
-      path: region?.path,
-      fileOffset: region?.offset ?? 0,
-      fileLength: region?.length ?? 0,
-      layout: layout,
-      verify: verify,
-      maxPreallocateSize: maxPreallocateSize,
-      workers: options.workers,
-      memoryBudget: options.memoryBudget,
-      onChunk: writer.add,
-      onBlockDone: layout == null ? null : writer.blockDone,
-      onFailureReason: (r) => reason = r,
-      orderedOutput: true,
-      fileReadBufferSize: options.fileReadBufferSize,
-    );
+    final ok = await _limitAsync(
+        limited,
+        xzDecodeMultithreaded(
+          bytes: bytes,
+          path: region?.path,
+          fileOffset: region?.offset ?? 0,
+          fileLength: region?.length ?? 0,
+          layout: layout,
+          verify: verify,
+          maxPreallocateSize: maxPreallocateSize,
+          maxDictionarySize: maxDictionarySize,
+          workers: options.workers,
+          memoryBudget: options.memoryBudget,
+          onChunk: writer.add,
+          onBlockDone: layout == null ? null : writer.blockDone,
+          onFailureReason: (r) => reason = r,
+          orderedOutput: true,
+          fileReadBufferSize: options.fileReadBufferSize,
+        ));
     if (ok) {
       input.skip(input.length);
     }
@@ -381,6 +505,15 @@ class XZDecoder {
       Future<T> Function() work, T onFailure, bool verify, bool throwOnError) {
     unawaited(work().then(options.onDone,
         onError: (Object failure, StackTrace trace) {
+      if (failure is _LimitExceeded) {
+        final onError = options.onError;
+        if (onError != null) {
+          onError(failure.error, trace);
+        } else {
+          options.onDone(onFailure);
+        }
+        return;
+      }
       try {
         guardDecode('XZ', verify, throwOnError,
             () => Error.throwWithStackTrace(failure, trace));
@@ -531,6 +664,12 @@ int _blockIndexAt(List<XZBlockLayout> blocks, int offset) {
 /// dart2wasm cannot reach 1 GB at all. 256 MB stays under that
 final int xzDefaultMaxPreallocateSize =
     xzIsolatesSupported ? 1 << 31 : 256 * 1024 * 1024;
+
+class _LimitExceeded {
+  final ArchiveException error;
+
+  const _LimitExceeded(this.error);
+}
 
 // Returns the total uncompressed size of every stream in [d], taken from the
 // stream indexes, or null if it cannot be determined or exceeds [maxSize].

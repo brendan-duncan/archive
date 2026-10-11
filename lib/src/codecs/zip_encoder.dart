@@ -12,6 +12,7 @@ import '../util/byte_order.dart';
 import '../util/chunked_sink.dart';
 import '../util/crc32.dart';
 import '../util/file_content.dart';
+import '../util/input_decode_stream.dart';
 import '../util/input_memory_stream.dart';
 import '../util/input_stream.dart';
 import '../util/output_memory_stream.dart';
@@ -27,7 +28,6 @@ import 'zlib/_zlib_encoder.dart';
 import 'zlib/_zlib_encoder_base.dart';
 import 'zlib/deflate.dart';
 import 'zstd/zstd_chunked.dart';
-import 'zstd/zstd_level_params.dart';
 import 'zstd_encoder.dart';
 
 class _Crc32Sink implements Sink<List<int>> {
@@ -53,6 +53,7 @@ class _ZipFileData {
   /// Set instead of [compressedData] where the entry is deflated straight into
   /// the output rather than into a buffer first
   InputStream? source;
+  Aes? cipher;
 
   /// What [source] is compressed at, resolved where the entry is added: the
   /// buffered path reads the same three places and must not disagree with it
@@ -74,10 +75,16 @@ class _ZipFileData {
   int methodFlags = 0;
   String? comment = '';
   int position = 0;
+
+  /// The general purpose flags the local header was written with, which the
+  /// central directory has to repeat: readers such as 7-Zip check that they
+  /// agree.
+  int flags = 0;
+
+  bool get encrypted => flags & ZipEncoder.fileEncryptionBit != 0;
   int mode = 0;
   bool isFile = true;
   bool unixHost = false;
-  int Function()? pendingCrc32;
 }
 
 DateTime _dosRange(DateTime t) => t.year < 1980
@@ -150,6 +157,9 @@ class ZipEncoder {
 
   /// Bit 1 of the general purpose flag, File encryption flag
   static const fileEncryptionBit = 1;
+
+  /// Bit 3 of the general purpose flag, CRC and sizes in data descriptor
+  static const dataDescriptorBit = 8;
 
   /// Bit 11 of the general purpose flag, Language encoding flag
   static const languageEncodingBitUtf8 = 2048;
@@ -224,6 +234,18 @@ class ZipEncoder {
     }
   }
 
+  // Java's ZipInputStream refuses a stored entry with a data descriptor, and
+  // EPUB and ODF need their stored mimetype entry without one (#421)
+  bool _canWriteSizesFirst(FileContent content, CompressionType compression) {
+    if (content is FileContentMemory) {
+      return true;
+    }
+    return compression == CompressionType.none &&
+        password == null &&
+        content is FileContentStream &&
+        content.stream is! InputDecodeStream;
+  }
+
   int getFileCrc32(ArchiveFile file) {
     final content = file.rawContent;
     if (content == null) {
@@ -278,7 +300,7 @@ class ZipEncoder {
   Uint8List? _mac;
   Uint8List? _pwdVer;
 
-  Uint8List _encryptCompressedData(Uint8List data, Uint8List salt) {
+  Aes _startEncryption(Uint8List salt) {
     // keySize = 32 bytes (256 bits), because of 0x3 as compression type
 
     final keySize = 32;
@@ -291,7 +313,11 @@ class ZipEncoder {
 
     _pwdVer = derivedKey.sublist(keySize * 2, keySize * 2 + 2);
 
-    final aes = Aes(keyData, hmacKeyData, keySize, encrypt: true);
+    return Aes(keyData, hmacKeyData, keySize, encrypt: true);
+  }
+
+  Uint8List _encryptCompressedData(Uint8List data, Uint8List salt) {
+    final aes = _startEncryption(salt);
     aes.processData(data, 0, data.length);
     _mac = aes.mac;
     return data;
@@ -422,27 +448,29 @@ class ZipEncoder {
             (file.rawContent?.length ?? 0) == 0) {
           compressionType = CompressionType.none;
         }
-        final streamedDeflate = streamed &&
-            compressionType == CompressionType.deflate &&
-            password == null;
-        final streamedOther = streamed &&
-            password == null &&
-            (compressionType == CompressionType.zstd ||
+        final content = file.rawContent;
+        final viaStream =
+            content != null && !_canWriteSizesFirst(content, compressionType);
+        final streamedDeflate = (streamed || viaStream) &&
+            compressionType == CompressionType.deflate;
+        final streamedOther = (compressionType == CompressionType.zstd ||
                 compressionType == CompressionType.xz ||
                 compressionType == CompressionType.bzip2) &&
-            file.rawContent != null &&
-            file.size > _bufferedMax;
-        if (streamedOther) {
-          fileData.pendingCrc32 = () => getFileCrc32(file);
-        } else if (!streamedDeflate) {
+            content != null &&
+            (viaStream || streamed && file.size > _bufferedMax);
+        final streamedStored =
+            viaStream && compressionType == CompressionType.none;
+        if (!streamedDeflate && !streamedOther && !streamedStored) {
           crc32 = getFileCrc32(file);
         }
 
         final chosen = level ?? file.compressionLevel ?? _data.level ?? 6;
-        final maxLevel =
-            compressionType == CompressionType.zstd ? zstdMaxLevel : 9;
-        if (chosen < -1 || chosen > maxLevel) {
-          throw ArgumentError.value(chosen, 'level', 'Must be -1 to $maxLevel');
+        final zstd = compressionType == CompressionType.zstd;
+        final minLevel = zstd ? zstdMinLevel : -1;
+        final maxLevel = zstd ? zstdMaxLevel : 9;
+        if (chosen < minLevel || chosen > maxLevel) {
+          throw ArgumentError.value(
+              chosen, 'level', 'Must be $minLevel to $maxLevel');
         }
         // An entry with no content at all cannot be deflated: a zero length
         // deflate stream is two bytes, not none, and a reader given neither
@@ -452,8 +480,9 @@ class ZipEncoder {
           compressedData = InputMemoryStream(Uint8List(0));
         } else if (streamedOther) {
           final requested = level ?? file.compressionLevel ?? _data.level;
-          fileData.level =
-              requested == null || requested < 1 ? zstdDefaultLevel : requested;
+          fileData.level = requested == null || requested == 0
+              ? zstdDefaultLevel
+              : requested;
           fileData.source = file.rawContent?.getStream(decompress: false);
           fileData.source?.reset();
           // Of zstd, xz and bzip2, bzip2 grows data that does not compress the
@@ -470,6 +499,11 @@ class ZipEncoder {
           fileData.zip64 =
               size + (size >> 12) + (size >> 14) + (size >> 25) + 13 >
                   0xFFFFFFFF;
+        } else if (streamedStored) {
+          fileData.source = file.rawContent?.getStream(decompress: false);
+          fileData.source?.reset();
+          final size = entry.size;
+          fileData.zip64 = size + 4096 > 0xFFFFFFFF;
         } else if (compressionType == CompressionType.deflate) {
           final content = file.rawContent;
           final output = OutputMemoryStream();
@@ -505,7 +539,7 @@ class ZipEncoder {
           try {
             if (compressionType == CompressionType.zstd) {
               ZstdEncoder().encodeStream(source, output,
-                  level: requested == null || requested < 1 ? null : requested);
+                  level: requested == 0 ? null : requested);
             } else {
               XZEncoder().encodeStream(source, output);
             }
@@ -544,6 +578,9 @@ class ZipEncoder {
           salt);
 
       compressedData = InputMemoryStream(encryptedBytes);
+    } else if (password != null && fileData.source != null) {
+      salt = _generateSalt(16);
+      fileData.cipher = _startEncryption(salt);
     }
 
     final dataLen = (compressedData?.length ?? 0) +
@@ -678,12 +715,13 @@ class ZipEncoder {
 
     var flags = 0;
     if (fileData.deferred) {
-      flags |= 0x08;
+      flags |= dataDescriptorBit;
     }
     if (filenameEncoding.name == "utf-8") {
       flags |= languageEncodingBitUtf8;
     }
-    if (password != null) {
+    // Only an entry with data is encrypted; a directory has none.
+    if (password != null && salt != null) {
       flags |= fileEncryptionBit;
     }
     final lzma = fileData.compression == CompressionType.lzma;
@@ -691,8 +729,10 @@ class ZipEncoder {
       flags |= 0x02;
     }
     flags |= fileData.methodFlags;
+    fileData.flags = flags;
+    final encrypted = fileData.encrypted;
 
-    final compressionMethod = password != null
+    final compressionMethod = encrypted
         ? ZipFile.zipCompressionAexEncryption
         : _compressionMethod(fileData);
     final lastModFileTime = fileData.time;
@@ -716,12 +756,10 @@ class ZipEncoder {
       extra.addAll(const [0, 0, 0, 0, 0, 0, 0, 0]);
     }
     // archive 4.3.0 reads local extra 2 bytes at a time after AES record and
-    // throws RangeError on 9-byte UT field, so password entries keep UT only
-    // in central directory
-    if (password != null) {
+    // throws RangeError on 9-byte UT field, and EPUB and ODF need a stored
+    // mimetype entry without one, so every entry keeps UT only in central
+    if (encrypted) {
       extra.addAll(_getAexExtraData(fileData));
-    } else {
-      extra.addAll(_getUtExtraData(fileData));
     }
 
     final compressedData = fileData.compressedData;
@@ -825,16 +863,16 @@ class ZipEncoder {
         generalPurposeBitFlag |= languageEncodingBitUtf8;
       }
       if (fileData.deferred) {
-        generalPurposeBitFlag |= 0x08;
+        generalPurposeBitFlag |= dataDescriptorBit;
       }
-      if (password != null) {
+      if (fileData.encrypted) {
         generalPurposeBitFlag |= fileEncryptionBit;
       }
       if (lzma && fileData.lzmaEndMarker) {
         generalPurposeBitFlag |= 0x02;
       }
       generalPurposeBitFlag |= fileData.methodFlags;
-      final compressionMethod = password != null
+      final compressionMethod = fileData.encrypted
           ? ZipFile.zipCompressionAexEncryption
           : _compressionMethod(fileData);
       final lastModifiedFileTime = fileData.time;
@@ -845,17 +883,19 @@ class ZipEncoder {
           needsZip64 ? 0xFFFFFFFF : fileData.uncompressedSize;
       final diskNumberStart = 0;
       final internalFileAttributes = 0;
-      final externalFileAttributes = fileData.mode << 16;
-      /*if (!fileData.isFile) {
-        externalFileAttributes |= 0x4000;
-      }*/
+      var externalFileAttributes = fileData.mode << 16;
+      if (!fileData.isFile) {
+        // The MS-DOS directory attribute, which is what readers check for an
+        // archive made on MS-DOS.
+        externalFileAttributes |= 0x10;
+      }
       final localHeaderOffset = needsZip64 ? 0xFFFFFFFF : fileData.position;
 
       var extraField = <int>[];
       if (needsZip64) {
         extraField.addAll(_getZip64CfhData(fileData));
       }
-      if (password != null) {
+      if (fileData.encrypted) {
         extraField.addAll(_getAexExtraData(fileData));
       }
       extraField.addAll(_getUtExtraData(fileData));
@@ -949,12 +989,11 @@ class ZipEncoder {
 /// is compressed
 class ZipEntryBody {
   ZipEntryBody._(this._source, this._output, this._data, this._done)
-      : _before = _output.length,
+      : _before = _output.length - (_data.cipher == null ? 0 : 18),
         _start = _source.position,
-        _sink = _data.deferred && _data.compression == CompressionType.deflate
-            ? platformZLibEncoder.startEncode(_output,
-                level: _data.level, raw: true)
-            : null;
+        _aes = _data.cipher == null
+            ? null
+            : _AesOutputStream(_output, _data.cipher!);
 
   /// How much one [step] deflates. It still feeds the deflate in 1024 byte
   /// reads, so the output bytes do not change
@@ -966,10 +1005,16 @@ class ZipEntryBody {
   final void Function() _done;
   final int _before;
   final int _start;
+  final _AesOutputStream? _aes;
+  late final OutputStream _out = _aes ?? _output;
+  var _read = 0;
 
   /// Null on the web, where deflate only runs whole, and on an entry that is
   /// not a deflate. Then [finish] does a web deflate in one call
-  final Sink<List<int>>? _sink;
+  late final Sink<List<int>>? _sink =
+      _data.deferred && _data.compression == CompressionType.deflate
+          ? platformZLibEncoder.startEncode(_out, level: _data.level, raw: true)
+          : null;
 
   Sink<List<int>>? _encoder;
 
@@ -978,6 +1023,9 @@ class ZipEntryBody {
   bool step() {
     if (!_data.deferred) {
       return _copy();
+    }
+    if (_data.compression == CompressionType.none) {
+      return _store();
     }
     if (_data.compression != CompressionType.deflate) {
       return _encode();
@@ -998,9 +1046,22 @@ class ZipEntryBody {
       }
       final bytes = _source.readBytes(take).toUint8List();
       _data.crc32 = getCrc32(bytes, _data.crc32);
+      _read += bytes.length;
       sink.add(bytes);
       left -= take;
     }
+    return true;
+  }
+
+  bool _store() {
+    final take = _source.length < _piece ? _source.length : _piece;
+    if (_closed || take <= 0) {
+      return false;
+    }
+    final bytes = _source.readBytes(take).toUint8List();
+    _data.crc32 = getCrc32(bytes, _data.crc32);
+    _read += bytes.length;
+    _out.writeBytes(bytes);
     return true;
   }
 
@@ -1018,17 +1079,20 @@ class ZipEntryBody {
     if (_closed || take <= 0) {
       return false;
     }
-    final encoder = _encoder ??= switch (_data.compression) {
-      CompressionType.zstd => ZstdChunkedEncoder(ZLibOutputSink(_output),
-          level: _data.level, contentSize: _source.length),
-      CompressionType.xz => XzChunkedEncoder(ZLibOutputSink(_output)),
-      _ => BZip2ChunkedEncoder(ZLibOutputSink(_output)),
-    };
+    final encoder = _startEncoder();
     final bytes = _source.readBytes(take).toUint8List();
     _data.crc32 = getCrc32(bytes, _data.crc32);
+    _read += bytes.length;
     encoder.add(bytes);
     return true;
   }
+
+  Sink<List<int>> _startEncoder() => _encoder ??= switch (_data.compression) {
+        CompressionType.zstd => ZstdChunkedEncoder(ZLibOutputSink(_out),
+            level: _data.level, contentSize: _source.length),
+        CompressionType.xz => XzChunkedEncoder(ZLibOutputSink(_out)),
+        _ => BZip2ChunkedEncoder(ZLibOutputSink(_out)),
+      };
 
   /// Lets the entry go without finishing it. The archive is being abandoned,
   /// so we skip the descriptor and only release what the entry holds
@@ -1061,20 +1125,25 @@ class ZipEntryBody {
       return;
     }
     final sink = _sink;
-    if (_data.compression != CompressionType.deflate) {
+    if (_data.compression == CompressionType.none) {
+      while (_store()) {}
+    } else if (_data.compression != CompressionType.deflate) {
       _finishEncoder();
     } else if (sink == null) {
       final bytes = _source.toUint8List();
       _data.crc32 = getCrc32(bytes);
-      platformZLibEncoder.encodeStream(InputMemoryStream(bytes), _output,
+      _read = bytes.length;
+      platformZLibEncoder.encodeStream(InputMemoryStream(bytes), _out,
           level: _data.level, raw: true);
     } else {
       while (step()) {}
       sink.close();
     }
+    _aes?.finish();
     _closed = true;
     _source.reset();
     _data.compressedSize = _output.length - _before;
+    _data.uncompressedSize = _read;
     _output
       ..writeUint32(ZipEncoder._dataDescriptorSignature)
       ..writeUint32(_data.crc32);
@@ -1097,16 +1166,181 @@ class ZipEntryBody {
       encoder.close();
       return;
     }
-    _data.crc32 = _data.pendingCrc32?.call() ?? _data.crc32;
+    final source = _Crc32InputStream(_source);
     // ZstdChunkedEncoder was 4% slower on 100 MB and wrote other frames than
     // the buffered path on 10 MB, so an entry without steps keeps encodeStream
     switch (_data.compression) {
       case CompressionType.zstd:
-        ZstdEncoder().encodeStream(_source, _output, level: _data.level);
+        ZstdEncoder().encodeStream(source, _out, level: _data.level);
       case CompressionType.xz:
-        XZEncoder().encodeStream(_source, _output);
+        XZEncoder().encodeStream(source, _out);
       default:
-        BZip2Encoder().encodeStream(_source, _output);
+        BZip2Encoder().encodeStream(source, _out);
+    }
+    _data.crc32 = source.crc32;
+    _read = source.count;
+  }
+}
+
+/// Reads through another stream, keeping the CRC-32 and the count of the
+/// bytes read, so that a compressor pulling its input through this one
+/// produces the checksum of the entry in the same pass.
+///
+/// Bytes come back in memory streams, because a compressor asks for the bytes
+/// of what it reads and that would otherwise read a file subset twice.
+class _Crc32InputStream extends InputStream {
+  final InputStream _input;
+  int crc32 = 0;
+  int count = 0;
+  final _one = Uint8List(1);
+
+  _Crc32InputStream(this._input) : super(byteOrder: _input.byteOrder);
+
+  @override
+  int get position => _input.position;
+
+  @override
+  set position(int v) => _input.position = v;
+
+  @override
+  int get length => _input.length;
+
+  @override
+  bool get isEOS => _input.isEOS;
+
+  @override
+  bool open() => _input.open();
+
+  @override
+  Future<void> close() => _input.close();
+
+  @override
+  void closeSync() => _input.closeSync();
+
+  @override
+  void reset() => _input.reset();
+
+  @override
+  void setPosition(int v) => _input.setPosition(v);
+
+  @override
+  void rewind([int length = 1]) => _input.rewind(length);
+
+  @override
+  void skip(int length) => _input.skip(length);
+
+  @override
+  InputStream subset({int? position, int? length, int? bufferSize}) =>
+      _input.subset(position: position, length: length, bufferSize: bufferSize);
+
+  @override
+  int readByte() {
+    final b = _input.readByte();
+    _one[0] = b;
+    crc32 = getCrc32(_one, crc32);
+    count++;
+    return b;
+  }
+
+  @override
+  InputStream readBytes(int count) {
+    final bytes = _input.readBytes(count).toUint8List();
+    crc32 = getCrc32(bytes, crc32);
+    this.count += bytes.length;
+    return InputMemoryStream(bytes);
+  }
+
+  // The zstd encoder reads megabytes at a time into its window, and the
+  // inherited readInto copied each read twice through readBytes: +29 MB peak
+  // on a 300 MB entry
+  @override
+  int readInto(Uint8List into, int at, int count) {
+    final got = _input.readInto(into, at, count);
+    crc32 = getCrc32(Uint8List.sublistView(into, at, at + got), crc32);
+    this.count += got;
+    return got;
+  }
+
+  @override
+  Uint8List toUint8List() {
+    final bytes = _input.toUint8List();
+    crc32 = getCrc32(bytes, crc32);
+    count += bytes.length;
+    return bytes;
+  }
+}
+
+class _AesOutputStream extends OutputStream {
+  final OutputStream _output;
+  final Aes _aes;
+  final _buffer = Uint8List(16 * 1024);
+  var _held = 0;
+  var _length = 0;
+
+  _AesOutputStream(this._output, this._aes)
+      : super(byteOrder: ByteOrder.littleEndian);
+
+  @override
+  int get length => _length;
+
+  @override
+  void writeByte(int value) {
+    if (_held == _buffer.length) {
+      _encrypt();
+    }
+    _buffer[_held++] = value;
+    _length++;
+  }
+
+  @override
+  void writeBytes(List<int> bytes, {int? length}) {
+    final count = length ?? bytes.length;
+    var at = 0;
+    while (at < count) {
+      if (_held == _buffer.length) {
+        _encrypt();
+      }
+      final n = min(count - at, _buffer.length - _held);
+      _buffer.setRange(_held, _held + n, bytes, at);
+      _held += n;
+      at += n;
+    }
+    _length += count;
+  }
+
+  @override
+  void writeStream(InputStream stream) {
+    while (!stream.isEOS) {
+      writeBytes(
+          stream.readBytes(min(_buffer.length, stream.length)).toUint8List());
     }
   }
+
+  void _encrypt() {
+    if (_held > 0) {
+      _aes.processPart(_buffer, 0, _held);
+      _output.writeBytes(_buffer, length: _held);
+      _held = 0;
+    }
+  }
+
+  /// Encrypts what is held and writes the authentication code after it
+  void finish() {
+    _encrypt();
+    _aes.finishMac();
+    _output.writeBytes(_aes.mac);
+  }
+
+  @override
+  void flush() {}
+
+  @override
+  void clear() {
+    _held = 0;
+    _length = 0;
+  }
+
+  @override
+  Uint8List subset(int start, [int? end]) =>
+      throw UnsupportedError('An encrypting stream keeps no bytes');
 }

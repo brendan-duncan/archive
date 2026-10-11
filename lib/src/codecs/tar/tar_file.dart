@@ -61,6 +61,11 @@ class TarFile {
   /// can hold more, but it would not survive the trip through an int.
   static const int maxNumericField = 9007199254740991;
 
+  /// The most a long name or pax header may hold. Their content is read
+  /// whole, so without a limit a small compressed archive could declare one
+  /// large enough to exhaust memory.
+  static const int maxMetadataSize = 1024 * 1024;
+
   // Pre-POSIX Format
   late String filename; // 100 bytes
   int mode = 644; // 8 bytes
@@ -155,6 +160,10 @@ class TarFile {
     // A size field can hold a negative number, which no entry can have.
     if (fileSize < 0) {
       throw ArchiveException('Invalid tar file size: $fileSize');
+    }
+    if (isMetadata && fileSize > maxMetadataSize) {
+      throw ArchiveException('Tar metadata entry of $fileSize bytes is larger '
+          'than the $maxMetadataSize allowed');
     }
     if ((typeFlag == hardLink &&
             fileSize > 0 &&
@@ -257,7 +266,7 @@ class TarFile {
     final sparse = TarSparse();
     this.sparse = sparse;
     sparse.extended = _readSparseRegions(header, 4, sparse);
-    while (sparse.extended && input.length >= 512) {
+    while (sparse.extended && input.peekBytes(512).length >= 512) {
       readSparseExtension(input.readBytes(512));
     }
   }

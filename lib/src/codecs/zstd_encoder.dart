@@ -14,22 +14,22 @@ import 'zstd/zstd_mt_frame_encoder.dart';
 import 'zstd/zstd_mt_parallel.dart';
 import 'zstd/zstd_multithread_options.dart';
 
+export 'zstd/zstd_level_params.dart'
+    show zstdDefaultLevel, zstdMaxLevel, zstdMinLevel;
 export 'zstd/zstd_multithread_options.dart';
 
 /// Compress data with the zstd format encoder
 class ZstdEncoder {
-  /// Whether the frame has an XXH64 of its content
-  final bool checksum;
-
   final int level;
 
   /// Placed before the content so matches can reach into it, and named in the
   /// frame header, so only the same dictionary reads the frame back
   final ZstdDictionary? dictionary;
 
-  const ZstdEncoder(
-      {this.checksum = true, this.level = zstdDefaultLevel, this.dictionary});
+  const ZstdEncoder({this.level = zstdDefaultLevel, this.dictionary});
 
+  /// [checksum] is whether the frame has an XXH64 of its content.
+  ///
   /// With [multithread] the frame is the one `zstd -T` writes, not the one the
   /// single threaded encoder writes, and it arrives through `onDone` rather
   /// than as the return value. The return value is then empty.
@@ -38,10 +38,13 @@ class ZstdEncoder {
   /// the call returns; only a failure of the work itself reaches
   /// `onError`, and without one it reaches `onDone` as empty output
   Uint8List encodeBytes(List<int> data,
-      {int? level, ZstdMultithreadOptions<Uint8List>? multithread}) {
+      {int? level,
+      bool checksum = true,
+      ZstdMultithreadOptions<Uint8List>? multithread}) {
     if (multithread == null) {
       final output = OutputMemoryStream();
-      encodeStream(InputMemoryStream(data), output, level: level);
+      encodeStream(InputMemoryStream(data), output,
+          level: level, checksum: checksum);
       return output.getBytes();
     }
     final bytes = data is Uint8List ? data : Uint8List.fromList(data);
@@ -49,17 +52,19 @@ class ZstdEncoder {
     // The work runs after this call returns, so we check the level here: an
     // ArgumentError thrown inside the job reaches onDone as an empty result
     final chosen = zstdEffectiveLevel(level ?? this.level);
-    _reportAsync(multithread,
-        () => _multithreadBytes(bytes, chosen, multithread), Uint8List(0));
+    _reportAsync(
+        multithread,
+        () => _multithreadBytes(bytes, chosen, checksum, multithread),
+        Uint8List(0));
     return Uint8List(0);
   }
 
   /// `ZSTDMT_JOBSIZE_MIN`: the reference turns its workers off below this, so
   /// the frame is the single threaded one
-  Future<Uint8List> _multithreadBytes(
-      Uint8List bytes, int level, ZstdMultithreadOptions<Object?> options) {
+  Future<Uint8List> _multithreadBytes(Uint8List bytes, int level, bool checksum,
+      ZstdMultithreadOptions<Object?> options) {
     if (bytes.length <= zstdMtJobSizeMin) {
-      final encoded = encodeBytes(bytes, level: level);
+      final encoded = encodeBytes(bytes, level: level, checksum: checksum);
       reportProgress(options.onProgress, bytes.length);
       return Future.value(encoded);
     }
@@ -111,7 +116,9 @@ class ZstdEncoder {
   /// so the input never sits in this isolate; over any other stream the bytes
   /// are read in first. `onDone` is called with true when the frame is written
   void encodeStream(InputStream input, OutputStream output,
-      {int? level, ZstdMultithreadOptions<bool>? multithread}) {
+      {int? level,
+      bool checksum = true,
+      ZstdMultithreadOptions<bool>? multithread}) {
     if (multithread != null) {
       _checkMultithread(multithread);
       final chosen = zstdEffectiveLevel(level ?? this.level);
@@ -128,8 +135,8 @@ class ZstdEncoder {
             _dictionary != null) {
           final bytes = input.toUint8List();
           input.skip(input.length);
-          output
-              .writeBytes(await _multithreadBytes(bytes, chosen, multithread));
+          output.writeBytes(
+              await _multithreadBytes(bytes, chosen, checksum, multithread));
           return true;
         }
         input.skip(input.length);

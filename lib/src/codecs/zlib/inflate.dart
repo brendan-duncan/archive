@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import '../../util/archive_exception.dart';
 import '../../util/decode_guard.dart';
 import '../../util/input_memory_stream.dart';
 import '../../util/input_stream.dart';
@@ -46,6 +47,28 @@ class Inflate {
       : _output = output ?? OutputMemoryStream(size: uncompressedSize),
         _throwOnError = throwOnError {
     _inflate();
+  }
+
+  /// Set up to decompress [input] into [output] a block at a time with
+  /// [inflateBlock], rather than all at once.
+  Inflate.lazy(this._input, {OutputStream? output})
+      : _output = output ?? OutputMemoryStream(),
+        _throwOnError = false;
+
+  /// Decompresses the next deflate block. Returns false once the final block
+  /// has been decompressed. Throws an [ArchiveException] if the data is
+  /// malformed or ends early.
+  bool inflateBlock() {
+    final bool more;
+    try {
+      more = _parseBlock();
+    } on RangeError {
+      throw ArchiveException('Invalid deflate data');
+    }
+    if (!more && !_finished) {
+      throw ArchiveException('Invalid deflate data');
+    }
+    return more;
   }
 
   /// Add compressed data to be decompressed.

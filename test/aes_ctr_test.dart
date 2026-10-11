@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:archive/archive.dart';
+import 'package:archive/src/util/aes.dart';
 import 'package:test/test.dart';
 
 Uint8List _bytes(String hex) => Uint8List.fromList([
@@ -36,6 +37,18 @@ const _nist = {
 };
 
 void main() {
+  test('Aes.processData authenticates the range it was given', () {
+    final key = Uint8List.fromList(List.generate(32, (i) => i));
+    final macKey = Uint8List.fromList(List.generate(32, (i) => 100 + i));
+    final data = Uint8List.fromList(List.generate(300, (i) => i * 7 & 0xff));
+    final whole = Uint8List.fromList(data.sublist(5, 205));
+    final alone = Aes(key, macKey, 32)..processData(whole, 0, whole.length);
+    final inPlace = Uint8List.fromList(data);
+    final offset = Aes(key, macKey, 32)..processData(inPlace, 5, 200);
+    expect(offset.mac, alone.mac);
+    expect(inPlace.sublist(5, 205), whole);
+  });
+
   test('output matches NIST SP 800-38A vectors', () {
     for (final entry in _nist.entries) {
       final data = _bytes(_plain);

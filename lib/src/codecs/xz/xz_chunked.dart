@@ -137,13 +137,22 @@ class XzChunkedDecoder extends ChunkedSink {
   bool get waitingForIdle => _waitingForIdle;
   var _waitingForIdle = false;
 
-  XzChunkedDecoder(super.output, {this.verify = true, this.dispatch}) {
+  /// {@macro archive.xz.max_dictionary_size}
+  final int maxDictionarySize;
+
+  XzChunkedDecoder(super.output,
+      {this.verify = true,
+      this.dispatch,
+      this.maxDictionarySize = xzDefaultMaxDictionarySize}) {
     _sink = SinkOutputStream(output);
   }
 
   // The LZMA decoder, the block header parse and the LZMA2 chunk rules are the
   // whole buffer decoder's, so the two cannot drift apart
-  late final _xz = XZStreamDecoder(verify: verify, maxPreallocateSize: 0);
+  late final _xz = XZStreamDecoder(
+      verify: verify,
+      maxPreallocateSize: 0,
+      maxDictionarySize: maxDictionarySize);
 
   LzmaDecoder get _decoder => _xz.decoder;
   late final SinkOutputStream _sink;
@@ -269,6 +278,9 @@ class XzChunkedDecoder extends ChunkedSink {
             return;
           }
           _readChunkBody();
+          if (unitAtATime) {
+            return;
+          }
         case _Stage.blockPadding:
           final pad = (4 - (_streamPosition & 3)) & 3;
           if (available < pad) {

@@ -47,7 +47,7 @@ int _pow2(int exponent) {
 
 /// Reads the header at [start], the byte after the magic number
 ZstdFrameHeader readFrameHeader(
-    Uint8List src, int start, int end, int windowSizeLimit) {
+    Uint8List src, int start, int end, int maxWindowSize) {
   if (start >= end) {
     throw ZstdFrameException('Frame header is missing');
   }
@@ -109,9 +109,9 @@ ZstdFrameHeader readFrameHeader(
   // The declared window sets how much a decoder holds for the frame, so we
   // check it alone against the limit. A frame can declare any content size,
   // and using it here would let a false size allocate past the limit
-  if (windowSize > windowSizeLimit) {
+  if (windowSize > maxWindowSize) {
     throw ZstdFrameException(
-        'Window of $windowSize bytes is above the $windowSizeLimit limit');
+        'Window of $windowSize bytes is above the $maxWindowSize limit');
   }
 
   return ZstdFrameHeader(
@@ -172,6 +172,7 @@ class ZstdFrameDecoder {
       if (checked) {
         _hash.update(window.buffer, from, window.position - from);
       }
+      _checkNotAbove(window.length - before, header);
       if (_blocks.isLast) {
         break;
       }
@@ -195,6 +196,13 @@ class ZstdFrameDecoder {
     if (expected != null && produced != expected) {
       throw ZstdFrameException(
           'Frame produced $produced bytes against the $expected it declared');
+    }
+  }
+
+  static void _checkNotAbove(int produced, ZstdFrameHeader header) {
+    final expected = header.contentSize;
+    if (expected != null && produced > expected) {
+      _checkProduced(produced, header);
     }
   }
 
@@ -243,6 +251,7 @@ class ZstdFrameDecoder {
       if (checked) {
         _hash.update(window.buffer, from, window.position - from);
       }
+      _checkNotAbove(window.length - before, header);
       if (_blocks.isLast) {
         break;
       }

@@ -4,6 +4,7 @@ import 'dart:typed_data';
 
 import '../../util/input_stream.dart';
 import '../../util/output_stream.dart';
+import '_output_stream_sink.dart';
 import '_zlib_encoder_base.dart';
 
 const platformZLibEncoder = _ZLibEncoder();
@@ -22,7 +23,7 @@ class _ZLibEncoder extends ZLibEncoderBase {
         startEncode(output, level: level, windowBits: windowBits, raw: raw);
 
     while (!input.isEOS) {
-      final chunkSize = min(1024, input.length);
+      final chunkSize = min(zlibChunkSize, input.length);
       final chunk = input.readBytes(chunkSize).toUint8List();
       inSink.add(chunk);
     }

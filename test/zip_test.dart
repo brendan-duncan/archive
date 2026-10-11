@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 import 'dart:typed_data';
 import 'package:archive/archive_io.dart';
 import 'package:path/path.dart' as p;
@@ -1679,8 +1680,7 @@ void main() async {
       }
     });
 
-    test('password entry has UT field only in central directory', testOn: 'vm',
-        () {
+    test('UT field is only in central directory', testOn: 'vm', () {
       List<int> extraIds(Uint8List bytes, int at, int nameAt, int header) {
         final data = ByteData.sublistView(bytes);
         final nameLength = data.getUint16(at + nameAt, Endian.little);
@@ -1700,7 +1700,7 @@ void main() async {
           ..add(ArchiveFile.string('a.txt', 'hello')..lastModTime = 157766400));
         final central = latin1.decode(bytes).indexOf('PK\x01\x02');
         expect(
-            extraIds(bytes, 0, 26, 30), password == null ? [0x5455] : [0x9901],
+            extraIds(bytes, 0, 26, 30), password == null ? <int>[] : [0x9901],
             reason: 'local, password $password');
         expect(extraIds(bytes, central, 28, 46),
             password == null ? [0x5455] : [0x9901, 0x5455],
@@ -2650,8 +2650,7 @@ void main() async {
           expect(
               (zipFile.lastModFileDate, zipFile.lastModFileTime), (date, time),
               reason: '$how case $i');
-          expect(ut(zipFile.extraField), seconds % 0x100000000,
-              reason: '$how case $i local');
+          expect(ut(zipFile.extraField), isNull, reason: '$how case $i local');
           expect(ut(zipFile.header!.extraField), seconds % 0x100000000,
               reason: '$how case $i central');
         }
@@ -3048,6 +3047,437 @@ void main() async {
     }
   });
 
+  group('encrypted entries decrypted as they are read', () {
+    // writeContent decrypts as the data is read, readBytes does it whole, and
+    // an entry read twice has to give the same bytes both times
+    void sameEveryRead(Uint8List zip, String password) {
+      final archive =
+          ZipDecoder().decodeBytes(zip, password: password, verify: true);
+      expect(archive, isNotEmpty);
+      for (final file in archive.files.where((f) => f.isFile)) {
+        final first = OutputMemoryStream();
+        file.writeContent(first);
+        final second = OutputMemoryStream();
+        file.writeContent(second);
+        expect(first.getBytes(), equals(file.readBytes()), reason: file.name);
+        expect(second.getBytes(), equals(first.getBytes()), reason: file.name);
+      }
+    }
+
+    // zipcrypto_100k.zip is `head -c 100000 /dev/urandom > data.bin` through
+    // `zip -0 -P 12345`, larger than one 16 KB piece of decryption
+    test('ZipCrypto', testOn: 'vm', () {
+      for (final name in ['zipCrypto.zip', 'zipcrypto_100k.zip']) {
+        sameEveryRead(File('test/_data/zip/$name').readAsBytesSync(), '12345');
+      }
+    });
+
+    test('AES', testOn: '!node', () {
+      final data = Uint8List.fromList(
+          List.generate(300000, (i) => (i * 2654435761) >> 13 & 0xff));
+      final zip = ZipEncoder(password: '12345')
+          .encodeBytes(Archive()..add(ArchiveFile.bytes('data.bin', data)));
+      sameEveryRead(zip, '12345');
+      final archive = ZipDecoder().decodeBytes(zip, password: '12345');
+      final output = OutputMemoryStream();
+      archive.first.writeContent(output);
+      expect(output.getBytes(), equals(data));
+    });
+
+    test('AES with a damaged MAC', testOn: '!node', () {
+      final data = Uint8List.fromList(List.generate(300000, (i) => i & 0xff));
+      final zip = ZipEncoder(password: '12345').encodeBytes(Archive()
+        ..add(ArchiveFile.bytes('data.bin', data)
+          ..compression = CompressionType.none));
+      // The MAC is the last 10 bytes of the entry data, just before the
+      // central directory
+      final central = latin1.decode(zip).indexOf('PK\x01\x02');
+      zip[central - 1] ^= 0xff;
+      final lenient = ZipDecoder().decodeBytes(zip, password: '12345');
+      expect(() => lenient.first.writeContent(OutputMemoryStream()),
+          returnsNormally);
+      final checked =
+          ZipDecoder().decodeBytes(zip, password: '12345', verify: true);
+      expect(() => checked.first.writeContent(OutputMemoryStream()),
+          throwsA(isA<ArchiveException>()));
+    });
+  });
+
+  group('zstd', testOn: 'vm', () {
+    // Entries using method 93, zstd, and one deflated, made by
+    // test/_data/zstd/gen_fixtures.js from files in test/_data/zip.
+    late final expected = {
+      for (final name in ['hello.txt', 'gophercolor16x16.png', 'readme.notzip'])
+        name: File('test/_data/zip/$name').readAsBytesSync(),
+    };
+
+    void checkContents(Archive archive) {
+      expect(archive.length, equals(3));
+      for (final f in archive) {
+        compareBytes(f.readBytes()!, expected[f.name]!);
+      }
+    }
+
+    test('decode', () {
+      final bytes = File('test/_data/zstd/zstd.zip').readAsBytesSync();
+      final archive = ZipDecoder().decodeBytes(bytes, verify: true);
+      checkContents(archive);
+      expect(archive.findFile('hello.txt')!.compression, CompressionType.zstd);
+      expect(archive.findFile('readme.notzip')!.compression,
+          CompressionType.deflate);
+    });
+
+    test('reencoding keeps the zstd data and its method', () {
+      final bytes = File('test/_data/zstd/zstd.zip').readAsBytesSync();
+      final zipped = ZipEncoder()
+          .encodeBytes(ZipDecoder().decodeBytes(bytes, verify: true));
+      final archive = ZipDecoder().decodeBytes(zipped, verify: true);
+      checkContents(archive);
+      expect(archive.findFile('gophercolor16x16.png')!.compression,
+          CompressionType.zstd);
+    });
+
+    test('encode', () {
+      final archive = Archive();
+      for (final e in expected.entries) {
+        archive.add(ArchiveFile.bytes(e.key, e.value)
+          ..compression = CompressionType.zstd);
+      }
+      final zipped = ZipEncoder().encodeBytes(archive);
+      final decoded = ZipDecoder().decodeBytes(zipped, verify: true);
+      checkContents(decoded);
+      for (final f in decoded) {
+        expect(f.compression, CompressionType.zstd);
+      }
+    });
+  });
+
+  group('malformed headers throw ArchiveException', () {
+    // One stored entry 'a' holding 'x', with [extra] in its local header,
+    // [flags] in both headers and [beforeEocd] just before the end record.
+    Uint8List craft(
+        {List<int> extra = const [],
+        int flags = 0,
+        List<int> beforeEocd = const []}) {
+      final local = OutputMemoryStream()
+        ..writeUint32(0x04034b50)
+        ..writeUint16(20)
+        ..writeUint16(flags)
+        ..writeUint16(0)
+        ..writeUint32(0)
+        ..writeUint32(0)
+        ..writeUint32(1)
+        ..writeUint32(1)
+        ..writeUint16(1)
+        ..writeUint16(extra.length)
+        ..writeBytes(ascii.encode('a'))
+        ..writeBytes(extra)
+        ..writeBytes(ascii.encode('x'));
+      final localBytes = local.getBytes();
+      final cd = OutputMemoryStream()
+        ..writeUint32(0x02014b50)
+        ..writeUint16(20)
+        ..writeUint16(20)
+        ..writeUint16(flags)
+        ..writeUint16(0)
+        ..writeUint32(0)
+        ..writeUint32(0)
+        ..writeUint32(1)
+        ..writeUint32(1)
+        ..writeUint16(1)
+        ..writeUint16(0)
+        ..writeUint16(0)
+        ..writeUint16(0)
+        ..writeUint16(0)
+        ..writeUint32(0)
+        ..writeUint32(0)
+        ..writeBytes(ascii.encode('a'));
+      final cdBytes = cd.getBytes();
+      final eocd = OutputMemoryStream()
+        ..writeUint32(0x06054b50)
+        ..writeUint16(0)
+        ..writeUint16(0)
+        ..writeUint16(1)
+        ..writeUint16(1)
+        ..writeUint32(cdBytes.length)
+        ..writeUint32(localBytes.length)
+        ..writeUint16(0);
+      return Uint8List.fromList(
+          [...localBytes, ...cdBytes, ...beforeEocd, ...eocd.getBytes()]);
+    }
+
+    test('an encrypted entry with an odd length extra field', () {
+      // The search for an AES record read two bytes past the field.
+      for (final length in [1, 3, 5, 7, 11]) {
+        final bytes = craft(extra: List.filled(length, 0x11), flags: 0x1);
+        expect(ZipDecoder().decodeBytes(bytes, password: 'x'), hasLength(1),
+            reason: '$length');
+      }
+    });
+
+    // Python's zipfile also falls back to the end record when the zip64
+    // record is not where the locator points, and the archive is whole
+    test('a zip64 locator pointing past the file', testOn: 'vm', () {
+      final locator = OutputMemoryStream()
+        ..writeUint32(0x07064b50)
+        ..writeUint32(0)
+        ..writeUint64(0x7fffffffffff)
+        ..writeUint32(1);
+      final bytes = craft(beforeEocd: locator.getBytes());
+      expect(ZipDecoder().decodeBytes(bytes, throwOnError: true), hasLength(1));
+    });
+  });
+
+  group('streamed entries', testOn: 'vm', () {
+    // An entry that is not compressed yet is compressed straight into the
+    // output, so its header goes out before the CRC and sizes are known
+    // and they follow the data in a data descriptor.
+    late Uint8List content;
+    late String path;
+
+    setUp(() {
+      final r = Random(7);
+      // Compressible, but not trivially so, and longer than the chunks
+      // the encoders work in. Not a multiple of the AES block size.
+      content = Uint8List.fromList(List.generate(
+          200 * 1024 + 7, (i) => i % 251 == 0 ? r.nextInt(256) : (i >> 3)));
+      path = p.join(testOutputPath, 'streamed.bin');
+      File(path)
+        ..createSync(recursive: true)
+        ..writeAsBytesSync(content);
+    });
+
+    void checkStreamed(Uint8List zipped, CompressionType compression,
+        {String? password}) {
+      // A stored entry's CRC and sizes are worked out first instead, since
+      // some readers can't do without them in the header of a stored entry.
+      final streamed = compression != CompressionType.none || password != null;
+      final header = InputMemoryStream(zipped);
+      header.setPosition(6);
+      expect(header.readUint16() & ZipEncoder.dataDescriptorBit,
+          streamed ? ZipEncoder.dataDescriptorBit : 0);
+      // The CRC was not known when the header was written.
+      header.setPosition(14);
+      expect(header.readUint32(), streamed ? 0 : getCrc32(content));
+
+      final file = File(p.join(testOutputPath, 'streamed.zip'))
+        ..writeAsBytesSync(zipped);
+      final fileInput = InputFileStream(file.path);
+      for (final archive in [
+        ZipDecoder().decodeBytes(zipped, password: password),
+        ZipDecoder().decodeStream(fileInput, password: password),
+      ]) {
+        expect(archive.length, 1);
+        final entry = archive.first;
+        expect(entry.name, 'streamed.bin');
+        expect(entry.size, content.length);
+        expect(entry.compression, compression);
+        expect(entry.crc32, getCrc32(content));
+        expect((entry.rawContent as ZipFile).verifyCrc32(), isTrue);
+        compareBytes(entry.readBytes()!, content);
+      }
+      fileInput.closeSync();
+    }
+
+    for (final compression in CompressionType.values) {
+      test('$compression', () {
+        final stream = InputFileStream(path);
+        final archive = Archive()
+          ..add(ArchiveFile.stream('streamed.bin', stream)
+            ..compression = compression);
+        final zipped = ZipEncoder().encodeBytes(archive);
+        stream.closeSync();
+        // The package has no LZMA encoder, so an lzma entry is deflated
+        checkStreamed(
+            zipped,
+            compression == CompressionType.lzma
+                ? CompressionType.deflate
+                : compression);
+      });
+    }
+
+    test('encrypted', () {
+      final stream = InputFileStream(path);
+      final archive = Archive()
+        ..add(ArchiveFile.stream('streamed.bin', stream));
+      final zipped = ZipEncoder(password: 'secret').encodeBytes(archive);
+      stream.closeSync();
+      checkStreamed(zipped, CompressionType.deflate, password: 'secret');
+      expect(
+          () => ZipDecoder()
+              .decodeBytes(zipped, password: 'wrong')
+              .first
+              .readBytes(),
+          throwsA(isA<ArchiveException>()));
+      expect(() => ZipDecoder().decodeBytes(zipped).first.readBytes(),
+          throwsA(isA<ArchiveException>()));
+
+      // Decrypted as it is read, and readable more than once.
+      final entry = ZipDecoder().decodeBytes(zipped, password: 'secret').first;
+      final zf = entry.rawContent as ZipFile;
+      expect(zf.verifyCrc32(), isTrue);
+      final out = OutputMemoryStream();
+      zf.decompress(out);
+      compareBytes(out.getBytes(), content);
+      compareBytes(zf.getStream().toUint8List(), content);
+      compareBytes(entry.readBytes()!, content);
+      // The stored form is the compressed data, which still decodes.
+      compareBytes(
+          ZLibDecoder().decodeBytes(
+              zf.getStream(decompress: false).toUint8List(),
+              raw: true),
+          content);
+    });
+
+    test('zipCrypto entries are decrypted as they are read', () {
+      final bytes = File('test/_data/zip/zipCrypto.zip').readAsBytesSync();
+      final archive = ZipDecoder().decodeBytes(bytes, password: '12345');
+      for (final entry in archive) {
+        final zf = entry.rawContent as ZipFile;
+        expect(zf.verifyCrc32(), isTrue, reason: entry.name);
+        final expected = File('test/_data/zip/${entry.name}').readAsBytesSync();
+        compareBytes(entry.readBytes()!, expected);
+        // Again: the archive bytes were not decrypted in place.
+        compareBytes(entry.readBytes()!, expected);
+      }
+      expect(
+          () => ZipDecoder()
+              .decodeBytes(bytes, password: 'wrong')
+              .first
+              .readBytes(),
+          throwsA(anything));
+    });
+
+    test('zip64 data descriptor', () {
+      // An entry that says it is larger than 4 GB gets a zip64 extra field
+      // in its local header, which makes the sizes in the data descriptor
+      // 8 bytes wide. The content is small, so the test is only that both
+      // sides agree on the layout.
+      final stream = InputFileStream(path);
+      final archive = Archive()
+        ..add(ArchiveFile.file(
+            'streamed.bin', 5 * 1024 * 1024 * 1024, FileContentStream(stream)));
+      final zipped = ZipEncoder().encodeBytes(archive);
+      stream.closeSync();
+
+      final header = InputMemoryStream(zipped);
+      header.setPosition(18);
+      expect(header.readUint32(), 0xFFFFFFFF); // compressed size
+      expect(header.readUint32(), 0xFFFFFFFF); // uncompressed size
+      header.setPosition(28);
+      final extraLength = header.readUint16();
+      expect(extraLength, 20);
+      header.setPosition(30 + 'streamed.bin'.length);
+      expect(header.readUint16(), 1); // zip64 extra field id
+
+      checkStreamed(zipped, CompressionType.deflate);
+    });
+  });
+
+  group('zstd entry levels', () {
+    final data = Uint8List.fromList(
+        List.generate(3000000, (i) => (i * 2654435761) >> 11 & 0x3f));
+
+    bool holds(Uint8List zip, Uint8List frame) {
+      for (var i = 0; i + frame.length <= zip.length; i++) {
+        var j = 0;
+        while (j < frame.length && zip[i + j] == frame[j]) {
+          j++;
+        }
+        if (j == frame.length) {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    for (final streamed in [false, true]) {
+      test('a negative level is zstd --fast, streamed $streamed', () {
+        for (final (level, expected) in [(-5, -5), (-1, -1), (0, 3)]) {
+          final zip = ZipEncoder(streamed: streamed).encodeBytes(Archive()
+            ..add(ArchiveFile.bytes('a.bin', data)
+              ..compression = CompressionType.zstd
+              ..compressionLevel = level));
+          final frame = ZstdEncoder().encodeBytes(data, level: expected);
+          expect(holds(zip, frame), isTrue, reason: 'level $level');
+          expect(ZipDecoder().decodeBytes(zip).first.readBytes(), data);
+        }
+      });
+    }
+  });
+
+  group('sizes in the local header', () {
+    // (flags, method, compressed size, extra length) of each local header.
+    List<(int, int, int, int)> localHeaders(Uint8List zip) {
+      final view = ByteData.sublistView(zip);
+      return [
+        for (var i = 0; i + 4 <= zip.length; i++)
+          if (view.getUint32(i, Endian.little) == 0x04034b50)
+            (
+              view.getUint16(i + 6, Endian.little),
+              view.getUint16(i + 8, Endian.little),
+              view.getUint32(i + 18, Endian.little),
+              view.getUint16(i + 28, Endian.little),
+            )
+      ];
+    }
+
+    test('for content in memory, with no data descriptor', () {
+      // An OpenDocument file starts with a stored mimetype entry, which
+      // must have its sizes in the local header and no data descriptor.
+      final archive = Archive()
+        ..add(ArchiveFile.string('mimetype', 'application/x')
+          ..compression = CompressionType.none)
+        ..add(ArchiveFile.string('content.xml', '<x>${'y' * 2000}</x>'));
+      final zip = ZipEncoder().encodeBytes(archive);
+      final headers = localHeaders(zip);
+      expect(headers[0], (0x800, 0, 13, 0));
+      expect(headers[1].$1 & 8, 0);
+      expect(headers[1].$3, greaterThan(0));
+      final decoded = ZipDecoder().decodeBytes(zip);
+      expect(utf8.decode(decoded[1].readBytes()!), '<x>${'y' * 2000}</x>');
+    });
+
+    test('for stored content from a file', testOn: 'vm', () {
+      final dir = Directory.systemTemp.createTempSync('zip_sizes');
+      try {
+        final path = p.join(dir.path, 'data.bin');
+        File(path).writeAsBytesSync(List.generate(5000, (i) => i & 0xff));
+        final input = InputFileStream(path);
+        final archive = Archive()
+          ..add(ArchiveFile.stream('data.bin', input)
+            ..compression = CompressionType.none);
+        final zip = ZipEncoder().encodeBytes(archive);
+        input.closeSync();
+        expect(localHeaders(zip).single, (0x800, 0, 5000, 0));
+        expect(ZipDecoder().decodeBytes(zip)[0].readBytes(),
+            List.generate(5000, (i) => i & 0xff));
+      } finally {
+        dir.deleteSync(recursive: true);
+      }
+    });
+
+    test('but not for compressed content streamed from a file', testOn: 'vm',
+        () {
+      // That is compressed straight into the output, so its sizes follow
+      // it in a data descriptor, flagged in both headers.
+      final dir = Directory.systemTemp.createTempSync('zip_sizes');
+      try {
+        final path = p.join(dir.path, 'data.txt');
+        File(path).writeAsStringSync('z' * 5000);
+        final input = InputFileStream(path);
+        final zip = ZipEncoder()
+            .encodeBytes(Archive()..add(ArchiveFile.stream('data.txt', input)));
+        input.closeSync();
+        expect(localHeaders(zip).single.$1 & 8, 8);
+        expect(utf8.decode(ZipDecoder().decodeBytes(zip)[0].readBytes()!),
+            'z' * 5000);
+      } finally {
+        dir.deleteSync(recursive: true);
+      }
+    });
+  });
+
   group('zip encoder headers', () {
     test('entry without content keeps local headers in sequence',
         testOn: '!node', () {
@@ -3237,6 +3667,56 @@ void main() async {
       const mac = 10;
       expect(!encrypted || compressed >= salt + passwordVerifier + mac, isTrue,
           reason: 'encrypted=$encrypted with $compressed bytes of data');
+    });
+
+    group('local and central headers agree', () {
+      // 7-Zip reports a header error when an entry's flags differ between its
+      // local and central headers, which every streamed entry's did: only the
+      // local one had the data descriptor flag.
+      Archive sample() => Archive()
+        ..add(ArchiveFile.string('a.txt', 'hello hello hello'))
+        ..add(ArchiveFile.directory('dir/'))
+        ..add(ArchiveFile.bytes('empty.txt', []));
+
+      for (final (name, encoder) in [
+        ('plain', ZipEncoder()),
+        ('password', ZipEncoder(password: 'pw')),
+        ('latin1', ZipEncoder(filenameEncoding: latin1)),
+      ]) {
+        test(name, testOn: name == 'password' ? '!node' : null, () {
+          final zip = encoder.encodeBytes(sample());
+          final view = ByteData.sublistView(zip);
+          final local = <int, (int, int)>{};
+          final central = <(int, int, int)>[];
+          for (var i = 0; i + 4 <= zip.length; i++) {
+            final signature = view.getUint32(i, Endian.little);
+            if (signature == 0x04034b50) {
+              local[i] = (
+                view.getUint16(i + 6, Endian.little),
+                view.getUint16(i + 8, Endian.little)
+              );
+            } else if (signature == 0x02014b50) {
+              central.add((
+                view.getUint32(i + 42, Endian.little),
+                view.getUint16(i + 8, Endian.little),
+                view.getUint16(i + 10, Endian.little),
+              ));
+            }
+          }
+          expect(central, hasLength(3));
+          for (final (offset, flags, method) in central) {
+            expect(local[offset], equals((flags, method)));
+          }
+          // The UTF-8 flag only when the names are UTF-8.
+          expect(central.every((c) => c.$2 & 0x800 != 0), name != 'latin1');
+          // The directory is stored, not an empty deflate stream, and not
+          // encrypted.
+          final dir = ZipDecoder().decodeBytes(zip, password: 'pw');
+          expect(dir.findFile('dir/')!.isDirectory, isTrue);
+          expect(central[1].$3, ZipFile.zipCompressionStore);
+          expect(central[1].$2 & 1, 0);
+        });
+      }
     });
   });
 }

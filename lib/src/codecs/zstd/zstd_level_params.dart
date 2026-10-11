@@ -189,14 +189,15 @@ const _tables = <List<int>>[_large, _upTo256k, _upTo128k, _upTo16k];
 const zstdDefaultLevel = 3;
 const zstdMaxLevel = 22;
 
+/// `ZSTD_minCLevel()`, the fastest `--fast` level
+const zstdMinLevel = -131072;
+
 /// `ZSTD_c_compressionLevel`: zero is the reference's own default and a level
-/// above the table is clamped. Below zero selects the `--fast` parse, a match
-/// finder this port does not have, so it is refused rather than read as
-/// level one
+/// above the table is clamped. Below zero selects the `--fast` parse, clamped
+/// at [zstdMinLevel]
 int zstdEffectiveLevel(int level) {
-  if (level < 0) {
-    throw ArgumentError.value(level, 'level',
-        'Negative levels select the fast parse, which is not supported');
+  if (level < zstdMinLevel) {
+    return zstdMinLevel;
   }
   if (level == 0) {
     return zstdDefaultLevel;
@@ -230,7 +231,7 @@ ZstdLevelParams zstdParamsForLevel(int level, int size) {
   final table = _tables[(size <= 262144 ? 1 : 0) +
       (size <= 131072 ? 1 : 0) +
       (size <= 16384 ? 1 : 0)];
-  final at = pick * _columns;
+  final at = (pick < 0 ? 0 : pick) * _columns;
   final kind = table[at + 6];
   var windowLog = table[at];
   var chainLog = table[at + 1];
@@ -252,6 +253,14 @@ ZstdLevelParams zstdParamsForLevel(int level, int size) {
   if (windowLog < 10) {
     windowLog = 10;
   }
-  return ZstdLevelParams(_strategyOf[kind], windowLog, hashLog, chainLog,
-      table[at + 3], table[at + 5], _depthOf[kind], table[at + 4], kind + 1);
+  return ZstdLevelParams(
+      _strategyOf[kind],
+      windowLog,
+      hashLog,
+      chainLog,
+      table[at + 3],
+      pick < 0 ? -pick : table[at + 5],
+      _depthOf[kind],
+      table[at + 4],
+      kind + 1);
 }

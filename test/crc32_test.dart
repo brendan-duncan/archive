@@ -6,6 +6,21 @@ import 'package:test/test.dart';
 
 void main() {
   group('crc32', () {
+    test('typed data takes the word at a time path', () {
+      // Reference values from zlib.crc32.
+      final d =
+          Uint8List.fromList(List.generate(100003, (i) => (i * 31) & 0xff));
+      expect(getCrc32(d), 0xac545a15);
+      expect(getCrc32(List<int>.of(d)), 0xac545a15);
+      // Unaligned starts, and short tails.
+      expect(getCrc32(Uint8List.sublistView(d, 1)), 0x329780e3);
+      expect(getCrc32(Uint8List.sublistView(d, 3, 50000)), 0x8c33daf0);
+      expect(getCrc32(Uint8List.sublistView(d, 5, 37)), 0x874a17de);
+      // Continued from a previous value.
+      expect(getCrc32(d.sublist(50000), getCrc32(d.sublist(0, 50000))),
+          0xac545a15);
+    });
+
     test('empty', () {
       final crcVal = getCrc32([]);
       expect(crcVal, 0);

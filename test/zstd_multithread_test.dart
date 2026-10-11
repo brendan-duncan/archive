@@ -14,10 +14,6 @@ import 'package:archive/src/codecs/zstd/_zstd_mt_parallel_io.dart'
 import 'package:archive/src/codecs/zstd/zstd_mt_frame_encoder.dart';
 import 'package:test/test.dart';
 
-void _ignoreBytes(Uint8List result) {}
-
-void _ignoreDone(bool written) {}
-
 /// Blocks that repeat from far back, the matches a long distance matcher
 /// finds. A pool of 64 blocks over 2 MiB puts around 60 in every job, past the
 /// 31 that a sequence pool sized by 1000 bytes holds
@@ -37,7 +33,8 @@ Uint8List _repeatedBlocks(int size) {
 Future<Uint8List> _encode(Uint8List src,
     {int level = 6, int workers = 4, int jobSize = 0, int overlapLog = 0}) {
   final done = Completer<Uint8List>();
-  final returned = ZstdEncoder(checksum: false, level: level).encodeBytes(src,
+  final returned = ZstdEncoder(level: level).encodeBytes(src,
+      checksum: false,
       multithread: ZstdMultithreadOptions(
         onDone: done.complete,
         onError: done.completeError,
@@ -132,7 +129,7 @@ void main() {
   test('input below job minimum gives single-thread frame', () async {
     final small = Uint8List.sublistView(input, 0, 300000);
     expect(await _encode(small),
-        ZstdEncoder(checksum: false, level: 6).encodeBytes(small));
+        ZstdEncoder(level: 6).encodeBytes(small, checksum: false));
   });
 
   test('encodeStream moves input position to end', () async {
@@ -313,28 +310,18 @@ void main() {
     expect(await jobs(1000), await jobs(zstdMtJobSizeMin));
   }, testOn: 'vm');
 
-  test('invalid level throws for any input size', () {
-    // Under the job size minimum the frame is the single threaded one, and the
-    // level was read before the call returned. Over that size the work ran
-    // later, so the ArgumentError went to onDone as an empty result
+  test('negative level works for any input size', () async {
     for (final size in [zstdMtJobSizeMin, zstdMtJobSizeMin + 1]) {
-      expect(
-          () => const ZstdEncoder().encodeBytes(Uint8List(size),
-              level: -1,
-              multithread: ZstdMultithreadOptions<Uint8List>(
-                  onDone: _ignoreBytes, workers: 2)),
-          throwsArgumentError,
-          reason: '$size bytes through encodeBytes');
-      expect(
-          () => const ZstdEncoder().encodeStream(
-              InputMemoryStream(Uint8List(size)), OutputMemoryStream(),
-              level: -1,
-              multithread: ZstdMultithreadOptions<bool>(
-                  onDone: _ignoreDone, workers: 2)),
-          throwsArgumentError,
-          reason: '$size bytes through encodeStream');
+      final source = Uint8List.sublistView(input, 0, size);
+      final frame = await _encode(source, level: -1, workers: 2);
+      expect(ZstdDecoder().decodeBytes(frame, throwOnError: true), source,
+          reason: '$size bytes');
     }
-  });
+    // Under the job size minimum the frame is the single threaded one
+    final small = Uint8List.sublistView(input, 0, zstdMtJobSizeMin);
+    expect(await _encode(small, level: -1, workers: 2),
+        ZstdEncoder(level: -1).encodeBytes(small, checksum: false));
+  }, testOn: 'vm');
 
   // The last job of a stream is whatever arrived after the one before it, and a
   // source that fails part way through a job has to end the frame, not hang it
@@ -830,8 +817,8 @@ void main() {
       () async {
     final dictionary = ZstdDictionary(Uint8List.sublistView(input, 0, 4096));
     final done = Completer<Uint8List>();
-    ZstdEncoder(checksum: false, level: 6, dictionary: dictionary).encodeBytes(
-        input,
+    ZstdEncoder(level: 6, dictionary: dictionary).encodeBytes(input,
+        checksum: false,
         multithread: ZstdMultithreadOptions(
             onDone: done.complete,
             onError: done.completeError,

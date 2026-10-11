@@ -4,6 +4,7 @@ import '../archive/archive.dart';
 import '../archive/archive_file.dart';
 import '../util/archive_exception.dart';
 import '../util/decode_guard.dart';
+import '../util/input_decode_stream.dart';
 import '../util/input_memory_stream.dart';
 import '../util/input_stream.dart';
 import 'tar/tar_file.dart';
@@ -28,16 +29,20 @@ class TarDecoder {
   /// {@macro archive.decoder_callback}
   ///
   /// {@macro archive.verify_throw_on_error}
+  ///
+  /// [keepEntries] is as for [decodeStream].
   Archive decodeBytes(List<int> data,
       {bool verify = false,
       bool throwOnError = false,
       bool storeData = true,
-      ArchiveCallback? callback}) {
+      ArchiveCallback? callback,
+      bool keepEntries = true}) {
     return decodeStream(InputMemoryStream(data),
         verify: verify,
         throwOnError: throwOnError,
         storeData: storeData,
-        callback: callback);
+        callback: callback,
+        keepEntries: keepEntries);
   }
 
   /// Decode [input] as a tar archive. With [verify], every entry's header
@@ -49,24 +54,31 @@ class TarDecoder {
   /// {@macro archive.decoder_callback}
   ///
   /// {@macro archive.verify_throw_on_error}
+  ///
+  /// With [keepEntries] false, [callback] is the only place the entries go:
+  /// the archive returned is empty and [files] is left empty, so that memory
+  /// does not grow with the number of entries, which costs a few hundred bytes
+  /// each.
   Archive decodeStream(InputStream input,
       {bool verify = false,
       bool throwOnError = false,
       bool storeData = true,
-      ArchiveCallback? callback}) {
+      ArchiveCallback? callback,
+      bool keepEntries = true}) {
     final archive = Archive();
     files.clear();
     guardDecode('tar', verify, throwOnError, () {
-      _decode(input, archive, verify || throwOnError, storeData, callback);
+      _decode(input, archive, verify || throwOnError, storeData, callback,
+          keepEntries);
       return true;
     });
     return archive;
   }
 
   void _decode(InputStream input, Archive archive, bool verify, bool storeData,
-      ArchiveCallback? callback) {
+      ArchiveCallback? callback, bool keepEntries) {
     final metadata = TarMetadata();
-    void add(TarFile tf) => _add(archive, tf, storeData, callback);
+    void add(TarFile tf) => _add(archive, tf, storeData, callback, keepEntries);
 
     if (verify && input.isEOS) {
       throw ArchiveException('Unexpected end of tar data');
@@ -87,7 +99,7 @@ class TarDecoder {
       // Fewer bytes than a header block can't be an entry. Without verify
       // that is the end of the archive rather than an entry read from junk;
       // with it, the header check below reports it
-      if (!verify && input.length < 512) {
+      if (!verify && input.peekBytes(512).length < 512) {
         break;
       }
 
@@ -103,7 +115,9 @@ class TarDecoder {
         }
       }
 
-      final available = input.length;
+      // The length of an InputDecodeStream decodes all of the rest into its
+      // window, so a lazily decoded tar is checked as each entry is written
+      final available = input is InputDecodeStream ? null : input.length;
       final start = input.position;
       final tf = TarFile.read(input,
           storeData: storeData,
@@ -113,7 +127,9 @@ class TarDecoder {
           pax: metadata.pax);
       metadata.sawHeader(tf);
       final blocks = 1 + (tf.sparse?.extensionBlocks ?? 0);
-      if (verify && available < 512 * blocks + tf.fileSize + tf.padding) {
+      if (verify &&
+          available != null &&
+          available < 512 * blocks + tf.fileSize + tf.padding) {
         throw ArchiveException('Unexpected end of tar data');
       }
       // A header that carries the next entry's name or its PAX records is not
@@ -144,9 +160,11 @@ class TarDecoder {
     }
   }
 
-  void _add(
-      Archive archive, TarFile tf, bool storeData, ArchiveCallback? callback) {
-    files.add(tf);
+  void _add(Archive archive, TarFile tf, bool storeData,
+      ArchiveCallback? callback, bool keepEntries) {
+    if (keepEntries) {
+      files.add(tf);
+    }
 
     final filename = tf.filename;
 
@@ -185,7 +203,9 @@ class TarDecoder {
         file.isHardLink = tf.typeFlag == TarFile.hardLink;
       }
 
-      archive.add(file);
+      if (keepEntries) {
+        archive.add(file);
+      }
 
       if (callback != null) {
         try {
@@ -205,7 +225,9 @@ class TarDecoder {
         file.symbolicLink = tf.nameOfLinkedFile!;
       }
 
-      archive.add(file);
+      if (keepEntries) {
+        archive.add(file);
+      }
 
       if (callback != null) {
         try {

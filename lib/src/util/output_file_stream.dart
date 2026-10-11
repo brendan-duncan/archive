@@ -4,6 +4,7 @@ import 'abstract_file_handle.dart';
 import 'byte_order.dart';
 import 'file_access.dart';
 import 'file_handle.dart';
+import 'input_decode_stream.dart';
 import 'input_memory_stream.dart';
 import 'input_stream.dart';
 import 'output_stream.dart';
@@ -185,6 +186,19 @@ class OutputFileStream extends OutputStream {
   }
 
   void _writeStream(InputStream stream) {
+    // InputDecodeStream.length decodes everything that is left into memory
+    // before the first byte is written, so a lazy stream is read to its end
+    if (stream is InputDecodeStream) {
+      final chunk = Uint8List(16 * 1024);
+      while (!stream.isEOS) {
+        final got = stream.readInto(chunk, 0, chunk.length);
+        if (got <= 0) {
+          return;
+        }
+        writeBytes(chunk, length: got);
+      }
+      return;
+    }
     var size = stream.length;
     const chunkSize = 1024 * 1024;
     // Fresh 1 MB array per chunk costs page faults on first write: reading

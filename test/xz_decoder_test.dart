@@ -48,6 +48,31 @@ Uint8List x86Sample() {
 }
 
 void main() {
+  test('stops on a file cut off at any point', testOn: 'vm', () {
+    final compressed =
+        XZEncoder().encodeBytes(List<int>.generate(1000, (i) => i * 7 & 0xff));
+    final dir = Directory.systemTemp.createTempSync('xz_truncated');
+    try {
+      final path = p.join(dir.path, 'truncated.xz');
+      for (var n = 1; n < compressed.length; n++) {
+        // Truncated inside a header or before the padding after a block,
+        // reading padding up to a four byte boundary never ended.
+        File(path).writeAsBytesSync(compressed.sublist(0, n));
+        final input = InputFileStream(path);
+        try {
+          expect(XZDecoder().decodeStream(input, OutputMemoryStream()), isFalse,
+              reason: 'cut at $n');
+        } catch (e) {
+          expect(e, isA<ArchiveException>(), reason: 'cut at $n');
+        } finally {
+          input.closeSync();
+        }
+      }
+    } finally {
+      dir.deleteSync(recursive: true);
+    }
+  });
+
   group('xz block headers', () {
     // Builds a stream whose single block header carries [filters] and, when
     // given, a declared uncompressed length. There is no compressed data

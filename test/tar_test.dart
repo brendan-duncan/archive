@@ -210,6 +210,71 @@ var tarTests = [
 
 void main() {
   group('tar', () {
+    test('keepEntries false passes entries only to the callback', () {
+      final bytes = Uint8List.fromList([
+        for (var i = 0; i < 3; i++) ...[
+          ..._tarHeader('f$i', TarFile.normalFile, 1),
+          ..._tarBlocks([0x30 + i]),
+        ],
+        ...Uint8List(1024),
+      ]);
+      final seen = <String>[];
+      final decoder = TarDecoder();
+      final archive = decoder.decodeBytes(bytes,
+          keepEntries: false,
+          callback: (f) => seen.add('${f.name}=${f.readBytes()![0]}'));
+      expect(seen, equals(['f0=48', 'f1=49', 'f2=50']));
+      expect(archive, isEmpty);
+      expect(decoder.files, isEmpty);
+    });
+
+    test('long name entry without a terminating null', () {
+      final name = 'n' * 300;
+      final bytes = Uint8List.fromList([
+        ..._tarHeader('././@LongLink', TarFile.longName, name.length,
+            magic: 'ustar\u000000'),
+        ..._tarBlocks(ascii.encode(name)),
+        ..._tarHeader('short', TarFile.normalFile, 0, magic: 'ustar\u000000'),
+        ...Uint8List(1024),
+      ]);
+      final archive = TarDecoder().decodeBytes(bytes);
+      expect(archive.length, equals(1));
+      expect(archive[0].name, equals(name));
+    });
+
+    test('refuses metadata entries larger than maxMetadataSize', () {
+      // Their content is read whole, so a few KB of .tar.gz declaring a long
+      // name of hundreds of MB used to take gigabytes to decode.
+      for (final type in [
+        TarFile.longName,
+        TarFile.longLinkName,
+        TarFile.exHeader,
+        TarFile.gExHeader,
+      ]) {
+        final bytes = Uint8List.fromList([
+          ..._tarHeader('././@LongLink', type, TarFile.maxMetadataSize + 1,
+              magic: 'ustar\u000000'),
+          ...Uint8List(TarFile.maxMetadataSize + 512),
+          ...Uint8List(1024),
+        ]);
+        expect(() => TarDecoder().decodeBytes(bytes, throwOnError: true),
+            throwsA(isA<ArchiveException>()),
+            reason: type);
+        expect(TarDecoder().decodeBytes(bytes), isEmpty, reason: type);
+      }
+      // Up to the limit is still read.
+      final name = 'n' * TarFile.maxMetadataSize;
+      final bytes = Uint8List.fromList([
+        ..._tarHeader('././@LongLink', TarFile.longName, name.length,
+            magic: 'ustar\u000000'),
+        ..._tarBlocks(ascii.encode(name)),
+        ..._tarHeader('short', TarFile.normalFile, 0, magic: 'ustar\u000000'),
+        ...Uint8List(1024),
+      ]);
+      expect(TarDecoder().decodeBytes(bytes)[0].name.length,
+          equals(TarFile.maxMetadataSize));
+    });
+
     // bsdtar makes a real hard link, Python tarfile and 7-Zip 26 write a copy
     test('hard link target is relative to archive root', () {
       final out = OutputMemoryStream();

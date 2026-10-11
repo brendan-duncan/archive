@@ -2,8 +2,16 @@
 library;
 
 import 'dart:io';
+import 'dart:math';
 import 'dart:typed_data';
 
+import 'package:archive/archive.dart'
+    show
+        InputFileStream,
+        OutputFileStream,
+        zstdDefaultLevel,
+        zstdMaxLevel,
+        zstdMinLevel;
 import 'package:archive/src/codecs/zstd/zstd_chunked.dart';
 import 'package:archive/src/codecs/zstd/zstd_dictionary.dart';
 import 'package:archive/src/codecs/zstd/zstd_frame_decoder.dart';
@@ -16,6 +24,9 @@ import 'package:archive/src/util/input_memory_stream.dart';
 import 'package:archive/src/util/output_memory_stream.dart';
 import 'package:archive/src/util/xxh64.dart';
 import 'package:test/test.dart';
+
+import '_test_util.dart';
+import '_zstd_util.dart';
 
 // Vectors written by zstd 1.5.7. Only the compressed side is stored: each row
 // carries the length and CRC-32 of what it must decode to, which is enough to
@@ -161,7 +172,7 @@ void main() {
       final bytes =
           File('${directory.path}/mix-200k-l19.zst').readAsBytesSync();
       expect(
-          () => ZstdDecoder(windowSizeLimit: 1024)
+          () => ZstdDecoder(maxWindowSize: 1024)
               .decodeBytes(bytes, throwOnError: true),
           throwsA(isA<ArchiveException>()));
     });
@@ -460,7 +471,358 @@ void main() {
       expect(getCrc32(out.getBytes()), getCrc32(source));
     });
   });
+
+  group('zstd', () {
+    final synth300k = synth(300000, 1);
+
+    for (final level in ['l1', 'l3', 'l19', 'lm5']) {
+      test('synth.$level.zst', () {
+        compareBytes(_decode('synth.$level.zst'), synth300k);
+      });
+    }
+
+    test('a small window, no content size, and the window sliding', () {
+      compareBytes(_decode('synth.w10.zst'), synth300k);
+    });
+
+    test('raw and RLE blocks', () {
+      compareBytes(
+          _decode('blocks.zst'),
+          concat([
+            randomBytes(5000, 8),
+            List.filled(5000, 0x41),
+            synth(5000, 9),
+          ]));
+    });
+
+    test('RLE literals', () {
+      compareBytes(_decode('rle.zst'), rleLiterals(300000, 2));
+    });
+
+    test('Huffman weights stored directly', () {
+      compareBytes(_decode('nibbles.zst'), nibbles(20000, 3));
+    });
+
+    test('several frames and a skippable frame', () {
+      final a = synth(1000, 4);
+      compareBytes(_decode('multi.zst'), concat([a, synth(20000, 5), a]));
+    });
+
+    test('raw content dictionary', () {
+      final dictionary = synth(30000, 6);
+      final expected =
+          concat([dictionary.sublist(5000, 25000), synth(10000, 7)]);
+      compareBytes(_decode('rawdict.zst', dictionary: dictionary), expected);
+    });
+
+    test('trained dictionary', () {
+      final dictionary = _fixture('fmtdict.dict');
+      final expected = _fixture('fmtdict.txt');
+      compareBytes(_decode('fmtdict.zst', dictionary: dictionary), expected);
+      compareBytes(
+          _decode('fmtdict.l19.zst', dictionary: dictionary), expected);
+    });
+
+    test('a frame that needs a dictionary is refused without it', () {
+      final data = _fixture('fmtdict.zst');
+      expect(
+          ZstdDecoder()
+              .decodeStream(InputMemoryStream(data), OutputMemoryStream()),
+          isFalse);
+      expect(() => ZstdDecoder().decodeBytes(data, throwOnError: true),
+          throwsA(isA<ArchiveException>()));
+      // Nor does a different dictionary stand in for it
+      expect(
+          () => ZstdDecoder(dictionary: ZstdDictionary(synth(1000, 1)))
+              .decodeBytes(data, throwOnError: true),
+          throwsA(isA<ArchiveException>()));
+    });
+
+    // Dictionary bytes come from a file and can be damaged like any archive,
+    // so malformed dictionary throws ArchiveException, not ArgumentError
+    test('a malformed dictionary is an ArchiveException', () {
+      final dictionary = _fixture('fmtdict.dict');
+      expect(
+          () => ZstdDecoder(
+              dictionary: ZstdDictionary(dictionary.sublist(0, 20))),
+          throwsA(isA<ArchiveException>()));
+    });
+
+    test('decodeStream between files', () {
+      final input = InputFileStream('test/_data/zstd/synth.w10.zst');
+      final path = '$testOutputPath/synth.w10';
+      final output = OutputFileStream(path);
+      expect(ZstdDecoder().decodeStream(input, output, verify: true), isTrue);
+      output.closeSync();
+      input.closeSync();
+      compareBytes(File(path).readAsBytesSync(), synth300k);
+    });
+
+    test('verify catches a damaged checksum', () {
+      final data = _fixture('synth.l3.zst');
+      final damaged = Uint8List.fromList(data);
+      damaged[damaged.length - 1] ^= 0xff;
+      // The checksum is only read when asked for
+      expect(ZstdDecoder().decodeBytes(damaged).length, synth300k.length);
+      expect(
+          () => ZstdDecoder().decodeStream(
+              InputMemoryStream(damaged), OutputMemoryStream(),
+              verify: true),
+          throwsA(isA<ArchiveChecksumException>()));
+    });
+
+    test('maxWindowSize bounds what a frame may ask for', () {
+      // The frames in synth.w10.zst have a 1 KB window
+      final data = _fixture('synth.w10.zst');
+      expect(
+          ZstdDecoder(maxWindowSize: 1024)
+              .decodeStream(InputMemoryStream(data), OutputMemoryStream()),
+          isTrue);
+      expect(() => ZstdDecoder(maxWindowSize: 1023), throwsArgumentError);
+      expect(() => ZstdDecoder(maxWindowSize: -1), throwsArgumentError);
+    });
+
+    test('bad input is refused, not thrown', () {
+      for (final data in [
+        <int>[],
+        [1, 2, 3],
+        [0x28, 0xb5, 0x2f, 0xfd],
+        List.filled(100, 0x28),
+      ]) {
+        expect(
+            ZstdDecoder()
+                .decodeStream(InputMemoryStream(data), OutputMemoryStream()),
+            isFalse);
+        expect(() => ZstdDecoder().decodeBytes(data, throwOnError: true),
+            throwsA(isA<ArchiveException>()));
+      }
+    });
+
+    test('every truncation is refused', () {
+      // Single frames: cut at the end of a frame, a stream of several is a
+      // shorter stream but a valid one.
+      final dictionary = ZstdDictionary(_fixture('fmtdict.dict'));
+      for (final name in ['fmtdict.zst', 'nibbles.zst']) {
+        final data = _fixture(name);
+        for (var n = 0; n < data.length; n++) {
+          expect(
+              () => ZstdDecoder(dictionary: dictionary).decodeStream(
+                  InputMemoryStream(Uint8List.sublistView(data, 0, n)),
+                  OutputMemoryStream(),
+                  verify: true),
+              throwsA(isA<ArchiveException>()),
+              reason: '$name truncated to $n bytes');
+        }
+      }
+    });
+
+    test('damaged data is refused or decoded, never thrown', () {
+      // Decoding damaged data may well succeed, with wrong output, when there
+      // is no checksum to notice. What matters is that it does not throw or
+      // hang.
+      final rnd = Random(1);
+      for (final name in ['synth.l3.zst', 'synth.l19.zst', 'blocks.zst']) {
+        final data = _fixture(name);
+        for (var i = 0; i < 300; i++) {
+          final damaged = Uint8List.fromList(data);
+          for (var j = 0, n = 1 + rnd.nextInt(4); j < n; j++) {
+            damaged[rnd.nextInt(min(damaged.length, 2000))] ^=
+                1 << rnd.nextInt(8);
+          }
+          final verify = rnd.nextBool();
+          try {
+            ZstdDecoder().decodeStream(
+                InputMemoryStream(damaged), OutputMemoryStream(),
+                verify: verify);
+          } on ArchiveException {
+            expect(verify, isTrue);
+          }
+        }
+      }
+    });
+
+    test('refuses a content size that overflows', () {
+      // Eight byte content size with the top bit set.
+      final frame = [
+        0x28,
+        0xb5,
+        0x2f,
+        0xfd,
+        0xc0,
+        0x00,
+        ...List.filled(8, 0xff)
+      ];
+      expect(
+          ZstdDecoder()
+              .decodeStream(InputMemoryStream(frame), OutputMemoryStream()),
+          isFalse);
+    });
+
+    test('stops at the content size, not after the frame', () async {
+      const magic = [0x28, 0xb5, 0x2f, 0xfd];
+      // A 64 KB window, kept for the frame that follows.
+      final first = [...magic, 0x00, 0x30, 0x03, 0x00, 0x08, 0x61];
+      // A 1 KB window and a content size of 256, then a hundred 1 KB RLE
+      // blocks.
+      final second = [
+        ...magic,
+        0x40,
+        0x00,
+        0x00,
+        0x00,
+        for (var i = 0; i < 99; i++) ...[0x02, 0x20, 0x00, 0x62],
+        0x03,
+        0x20,
+        0x00,
+        0x62,
+      ];
+      final output = OutputMemoryStream();
+      expect(
+          ZstdDecoder()
+              .decodeStream(InputMemoryStream([...first, ...second]), output),
+          isFalse);
+      expect(output.length, lessThanOrEqualTo(65536 + 1024));
+
+      var converted = 0;
+      await expectLater(
+          Stream.value([...first, ...second])
+              .transform(zstdCodec.decoder)
+              .forEach((piece) => converted += piece.length),
+          throwsA(isA<ArchiveException>()));
+      expect(converted, lessThanOrEqualTo(65536 + 1024));
+    });
+
+    test('a header with no blocks after it is refused', () {
+      // A 128 MB window and a content size of 192 MB, with no blocks.
+      final frame = [
+        0x28,
+        0xb5,
+        0x2f,
+        0xfd,
+        0x80,
+        0x88,
+        0xff,
+        0xff,
+        0xff,
+        0x0b
+      ];
+      final output = OutputMemoryStream();
+      expect(ZstdDecoder().decodeStream(InputMemoryStream(frame), output),
+          isFalse);
+      expect(ZstdDecoder().decodeBytes(frame), isEmpty);
+    });
+  });
+
+  group('zstd encoder', () {
+    Uint8List roundTrip(List<int> data,
+        {int level = 3, bool checksum = false}) {
+      final z =
+          ZstdEncoder().encodeBytes(data, level: level, checksum: checksum);
+      return ZstdDecoder().decodeBytes(z, verify: true, throwOnError: true);
+    }
+
+    final sample = synth(300000, 21);
+
+    test('every level', () {
+      for (var level = -7; level <= zstdMaxLevel; level++) {
+        compareBytes(roundTrip(sample, level: level), sample);
+      }
+    });
+
+    test('higher levels compress better', () {
+      // This library's own source, as real text that is always at hand
+      final files = Directory('lib')
+          .listSync(recursive: true)
+          .whereType<File>()
+          .where((f) => f.path.endsWith('.dart'))
+          .toList()
+        ..sort((a, b) => a.path.compareTo(b.path));
+      final text = concat([for (final f in files) f.readAsBytesSync()]);
+      var previous = text.length;
+      for (final level in [-5, 1, 3, 5, 9, 19]) {
+        final z = ZstdEncoder().encodeBytes(text, level: level);
+        expect(z.length, lessThan(previous), reason: 'level $level');
+        compareBytes(ZstdDecoder().decodeBytes(z), text);
+        previous = z.length;
+      }
+    });
+
+    test('all sorts of input', () {
+      for (final data in <List<int>>[
+        [],
+        [7],
+        [1, 2],
+        List.filled(100000, 42),
+        randomBytes(50000, 3),
+        rleLiterals(200000, 4),
+        nibbles(30000, 5),
+        concat(
+            [randomBytes(200000, 6), synth(200000, 7), List.filled(300000, 0)]),
+      ]) {
+        for (final level in [-3, 1, 3, 7, 16]) {
+          compareBytes(roundTrip(data, level: level, checksum: true), data);
+        }
+      }
+    });
+
+    test('checksum', () {
+      final plain = ZstdEncoder().encodeBytes(sample, checksum: false);
+      final checked = ZstdEncoder().encodeBytes(sample);
+      expect(checked.length, plain.length + 4);
+      final damaged = Uint8List.fromList(checked);
+      damaged[damaged.length - 1] ^= 1;
+      expect(
+          () => ZstdDecoder().decodeStream(
+              InputMemoryStream(damaged), OutputMemoryStream(),
+              verify: true),
+          throwsA(isA<ArchiveChecksumException>()));
+    });
+
+    test('encodeStream between files matches encodeBytes', () {
+      // Larger than the window and its buffer, so the file is read in pieces
+      // and the match finders' tables slide along with it.
+      final data = synth(3000000, 8);
+      final inPath = '$testOutputPath/zstd_encode_in.bin';
+      File(inPath).writeAsBytesSync(data);
+      for (final level in [1, 3, 5]) {
+        final outPath = '$testOutputPath/zstd_encode_out.$level.zst';
+        final input = InputFileStream(inPath);
+        final output = OutputFileStream(outPath);
+        ZstdEncoder().encodeStream(input, output, level: level, checksum: true);
+        output.closeSync();
+        input.closeSync();
+        final fromFile = File(outPath).readAsBytesSync();
+        compareBytes(fromFile,
+            ZstdEncoder().encodeBytes(data, level: level, checksum: true));
+        compareBytes(ZstdDecoder().decodeBytes(fromFile, verify: true), data);
+      }
+    });
+
+    test('levels out of range are refused', () {
+      expect(ZstdEncoder().encodeBytes(sample, level: zstdMaxLevel + 1),
+          ZstdEncoder().encodeBytes(sample, level: zstdMaxLevel));
+      expect(ZstdEncoder().encodeBytes(sample, level: zstdMinLevel - 1),
+          ZstdEncoder().encodeBytes(sample, level: zstdMinLevel));
+      // Zero is the default level
+      expect(ZstdEncoder().encodeBytes(sample, level: 0),
+          ZstdEncoder().encodeBytes(sample, level: zstdDefaultLevel));
+    });
+  });
+
+  group('zstd internals', () {
+    test('XXH64', () {
+      // The low 32 bits of XXH64 of nothing, with a seed of zero
+      expect(Xxh64(0).digestLow, 0x51D8E999);
+    });
+  });
 }
+
+Uint8List _fixture(String name) =>
+    File('test/_data/zstd/$name').readAsBytesSync();
+
+Uint8List _decode(String name, {List<int>? dictionary}) => ZstdDecoder(
+        dictionary: dictionary == null ? null : ZstdDictionary(dictionary))
+    .decodeBytes(_fixture(name), verify: true, throwOnError: true);
 
 Uint8List _rawWindowFrame(Uint8List source) {
   final bytes = BytesBuilder()..add([0x28, 0xb5, 0x2f, 0xfd, 4, 0]);

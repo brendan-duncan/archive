@@ -1,7 +1,6 @@
 import 'dart:typed_data';
 
 import 'package:archive/src/codecs/zstd/zstd_dictionary.dart';
-import 'package:archive/src/codecs/zstd/zstd_level_params.dart';
 import 'package:archive/src/codecs/zstd_decoder.dart';
 import 'package:archive/src/codecs/zstd_encoder.dart';
 import 'package:archive/src/util/byte_order.dart';
@@ -10,6 +9,8 @@ import 'package:archive/src/util/input_memory_stream.dart';
 import 'package:archive/src/util/input_stream.dart';
 import 'package:archive/src/util/output_memory_stream.dart';
 import 'package:test/test.dart';
+
+import '_zstd_util.dart';
 
 Uint8List _pattern(int length, int Function(int) byte) =>
     Uint8List.fromList(List.generate(length, byte));
@@ -137,6 +138,63 @@ void main() {
     'words drawn at random': _words(300000),
   };
 
+  group('negative levels', () {
+    // Source, level, then the length and CRC-32 of the frame ZSTD_compress2
+    // of zstd 1.5.7 wrote for it, with no checksum
+    const vectors = <List<Object>>[
+      ['synth', -1, 88877, 0x0ca6cd6a],
+      ['synth', -2, 90323, 0x0047b7b5],
+      ['synth', -3, 94483, 0x18e27dea],
+      ['synth', -5, 102669, 0x81795836],
+      ['synth', -7, 108047, 0x936cafa1],
+      ['synth', -50, 164443, 0xcf8d94ec],
+      ['synth', -1000, 282727, 0x73ff1c1c],
+      ['synth', -131072, 300018, 0x6c5e795e],
+      ['random', -1, 50010, 0x1203b2d7],
+      ['random', -131072, 50010, 0x1203b2d7],
+      ['rle', -1, 8687, 0x4f0228be],
+      ['rle', -2, 8744, 0x22c22872],
+      ['rle', -3, 9020, 0x9b71a295],
+      ['rle', -5, 9611, 0x0839c126],
+      ['rle', -7, 10307, 0x6999974b],
+      ['rle', -50, 39336, 0xa8ec4b6a],
+      ['rle', -1000, 190688, 0x3ba34025],
+      ['rle', -131072, 200015, 0x60cdf0a1],
+      ['nibbles', -1, 24474, 0xfca3b2bc],
+      ['nibbles', -2, 25581, 0x8b46f498],
+      ['nibbles', -3, 26404, 0xe553fcb1],
+      ['nibbles', -5, 27446, 0xd593b1e6],
+      ['nibbles', -7, 28275, 0x4e977cd1],
+      ['nibbles', -50, 30010, 0x79ec22ca],
+      ['small', -1, 1268, 0x638bf30f],
+      ['small', -2, 1273, 0xce97ba13],
+      ['small', -3, 1327, 0x9428fcdb],
+      ['small', -5, 1388, 0x67945bce],
+      ['small', -7, 1603, 0xf0e7e826],
+      ['small', -50, 2179, 0x7f643649],
+      ['small', -1000, 2950, 0x4fbba14d],
+      ['small', -131072, 3010, 0x66fa54af],
+    ];
+    final sources = {
+      'synth': synth(300000, 1),
+      'random': randomBytes(50000, 3),
+      'rle': rleLiterals(200000, 4),
+      'nibbles': nibbles(30000, 5),
+      'small': synth(3000, 6),
+    };
+    for (final v in vectors) {
+      final name = v[0] as String;
+      final level = v[1] as int;
+      test('$name at level $level is the frame zstd writes', () {
+        final source = sources[name]!;
+        final frame =
+            ZstdEncoder(level: level).encodeBytes(source, checksum: false);
+        expect([frame.length, getCrc32(frame)], [v[2], v[3]]);
+        expect(ZstdDecoder().decodeBytes(frame, throwOnError: true), source);
+      });
+    }
+  });
+
   group('zstd encoder', () {
     for (final entry in cases.entries) {
       final source = entry.value;
@@ -166,7 +224,7 @@ void main() {
 
     test('frame without checksum decodes back', () {
       final source = cases['several blocks']!;
-      final encoded = const ZstdEncoder(checksum: false).encodeBytes(source);
+      final encoded = const ZstdEncoder().encodeBytes(source, checksum: false);
       final decoded =
           ZstdDecoder().decodeBytes(encoded, verify: true, throwOnError: true);
       expect(getCrc32(decoded), getCrc32(source));
@@ -176,13 +234,13 @@ void main() {
     // read as the frame ending early, so the first one is coded instead
     test('repeated byte compresses to few bytes per block', () {
       final encoded =
-          const ZstdEncoder(checksum: false).encodeBytes(Uint8List(70000));
+          const ZstdEncoder().encodeBytes(Uint8List(70000), checksum: false);
       expect(encoded.length, lessThan(24));
     });
 
     test('repeating phrase compresses strongly', () {
       final source = cases['a short phrase over and over']!;
-      final encoded = const ZstdEncoder(checksum: false).encodeBytes(source);
+      final encoded = const ZstdEncoder().encodeBytes(source, checksum: false);
       expect(encoded.length * 20, lessThan(source.length));
     });
 
@@ -206,7 +264,7 @@ void main() {
       var last = 0;
       for (var level = 1; level <= zstdMaxLevel; level++) {
         final encoded =
-            ZstdEncoder(checksum: false, level: level).encodeBytes(source);
+            ZstdEncoder(level: level).encodeBytes(source, checksum: false);
         final decoded = ZstdDecoder().decodeBytes(encoded, throwOnError: true);
         expect(getCrc32(decoded), crc, reason: 'level $level');
         expect(encoded.length, lessThan(source.length >> 2),
@@ -222,19 +280,18 @@ void main() {
       expect(last, lessThan(first * 3 ~/ 5));
     });
 
-    test('level above 22 is clamped, negative level throws', () {
+    test('level is clamped to zstdMinLevel and zstdMaxLevel', () {
       final source = cases['text with long repeats']!;
       expect(ZstdEncoder(level: 99).encodeBytes(source).length,
           ZstdEncoder(level: zstdMaxLevel).encodeBytes(source).length);
-      // A negative level is the reference's fast parse, not level one
-      expect(() => ZstdEncoder(level: -5).encodeBytes(source),
-          throwsA(isA<ArgumentError>()));
+      expect(ZstdEncoder(level: zstdMinLevel - 1000).encodeBytes(source),
+          ZstdEncoder(level: zstdMinLevel).encodeBytes(source));
     });
 
     test('higher level output is not larger on real text', () {
       final source = cases['words drawn at random']!;
-      final low = ZstdEncoder(checksum: false, level: 1).encodeBytes(source);
-      final high = ZstdEncoder(checksum: false, level: 9).encodeBytes(source);
+      final low = ZstdEncoder(level: 1).encodeBytes(source, checksum: false);
+      final high = ZstdEncoder(level: 9).encodeBytes(source, checksum: false);
       expect(high.length * 3, lessThan(low.length * 2));
     });
 
@@ -295,10 +352,10 @@ void main() {
 
     test('stream without checksum equals encodeBytes output', () {
       final source = _words(13 << 20);
-      const coder = ZstdEncoder(checksum: false);
+      const coder = ZstdEncoder();
       final out = OutputMemoryStream();
-      coder.encodeStream(_Piped(source), out);
-      expect(out.getBytes(), coder.encodeBytes(source));
+      coder.encodeStream(_Piped(source), out, checksum: false);
+      expect(out.getBytes(), coder.encodeBytes(source, checksum: false));
     });
 
     test('slid frame decodes back', () {

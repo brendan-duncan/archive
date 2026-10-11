@@ -5,10 +5,12 @@ import '../../util/byte_order.dart';
 import '../../util/chunked_sink.dart';
 import '../../util/crc32.dart';
 import '../../util/decode_guard.dart';
+import '../../util/input_decode_stream.dart';
 import '../../util/input_memory_stream.dart';
 import '../../util/input_stream.dart';
 import '../../util/output_memory_stream.dart';
 import '../../util/output_stream.dart';
+import '_inflate_chunk_decoder.dart';
 import '_zlib_decoder_base.dart';
 import '_zlib_decoder_web.dart';
 import '_zlib_encoder_base.dart';
@@ -49,6 +51,12 @@ class _GZipDecoder extends ZLibDecoderBase {
       input.byteOrder = held;
     }
   }
+
+  @override
+  InputStream decodeLazy(InputStream input,
+          {bool verify = false, bool raw = false}) =>
+      InputDecodeStream(InflateChunkDecoder(
+          input, raw ? InflateFormat.raw : InflateFormat.gzip));
 
   bool _decode(InputStream input, OutputStream output, bool verify, bool raw,
       bool strict) {

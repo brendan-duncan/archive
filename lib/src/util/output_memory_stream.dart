@@ -79,7 +79,9 @@ class OutputMemoryStream extends OutputStream {
       }
     } else {
       final bytes = stream.toUint8List();
-      _buffer.setRange(length, length + stream.length, bytes, 0);
+      _buffer.setRange(length, length + bytes.length, bytes, 0);
+      length += bytes.length;
+      return;
     }
     length += stream.length;
   }

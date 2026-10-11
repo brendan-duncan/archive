@@ -2,6 +2,7 @@
 library;
 
 import 'dart:io';
+import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:archive/archive_io.dart';
@@ -269,12 +270,133 @@ void main() {
       }
     });
   });
+
+  test('reads after a seek and across the buffer', () {
+    // Larger than the read buffer, so that sequential reads cross it and
+    // a seek lands outside it.
+    final big = Uint8List.fromList(
+        List.generate(300 * 1024 + 7, (i) => (i * 13 + (i >> 8)) & 0xff));
+    final path = '$testOutputPath/test_big.bin';
+    File(path).writeAsBytesSync(big);
+    final fs = InputFileStream(path);
+    compareBytes(fs.readBytes(100).toUint8List(), big.sublist(0, 100));
+    // A seek, then a read longer than the short read after a seek.
+    fs.setPosition(150000);
+    compareBytes(
+        fs.readBytes(60000).toUint8List(), big.sublist(150000, 210000));
+    // Back before the buffer, byte by byte and in words.
+    fs.setPosition(99);
+    expect(fs.readByte(), big[99]);
+    expect(fs.readUint32(),
+        big[100] | (big[101] << 8) | (big[102] << 16) | (big[103] << 24));
+    // Sequentially through the rest, in reads of every size.
+    fs.setPosition(0);
+    var pos = 0;
+    var n = 1;
+    while (!fs.isEOS) {
+      final bytes = fs.readBytes(n).toUint8List();
+      compareBytes(bytes, big.sublist(pos, pos + bytes.length));
+      pos += bytes.length;
+      n = n * 3 + 1;
+      if (n > 100000) {
+        n = 1;
+      }
+    }
+    expect(pos, big.length);
+    fs.closeSync();
+  });
+
+  test('FileBuffer.readBytes past the end of the file reads nothing', () {
+    final path = '$testOutputPath/past_end.bin';
+    File(path).writeAsBytesSync(List.generate(100, (i) => i));
+    final buffer = FileBuffer(FileHandle(path), bufferSize: 16);
+    expect(buffer.readBytes(110, 1000), isEmpty);
+    expect(buffer.readBytes(90, 1000), List.generate(10, (i) => 90 + i));
+    buffer.closeSync();
+  });
+
+  group('a zip entry read from a file', () {
+    late String path;
+    final random = Random(1);
+    final data =
+        Uint8List.fromList(List.generate(2 << 20, (_) => random.nextInt(256)));
+
+    setUpAll(() {
+      path = '$testOutputPath/zip_entry_reads.zip';
+      File(path).writeAsBytesSync(ZipEncoder()
+          .encodeBytes(Archive()..add(ArchiveFile.bytes('a.bin', data))));
+    });
+
+    test('verifyCrc32 decodes in pieces, not whole', () {
+      final handle = _CountingHandle(path);
+      final input = InputFileStream.withFileHandle(handle);
+      final entry =
+          ZipDecoder().decodeStream(input).first.rawContent as ZipFile;
+      handle.largest = 0;
+      expect(entry.verifyCrc32(), isTrue);
+      expect(handle.largest, lessThan(256 * 1024));
+      input.closeSync();
+    });
+
+    test('length reads nothing', () {
+      final handle = _CountingHandle(path);
+      final input = InputFileStream.withFileHandle(handle);
+      final entry =
+          ZipDecoder().decodeStream(input).first.rawContent as ZipFile;
+      final before = handle.bytes;
+      expect(entry.length, entry.compressedSize);
+      expect(handle.bytes, before);
+      input.closeSync();
+    });
+  });
+
+  test('a zip entry compressed from a file reads the file once', () {
+    final data = Uint8List.fromList(
+        List.generate(2 << 20, (i) => (i * 2654435761) >> 13 & 0xff));
+    final path = '$testOutputPath/read_once.bin';
+    File(path).writeAsBytesSync(data);
+    for (final type in [
+      CompressionType.deflate,
+      CompressionType.zstd,
+      CompressionType.xz,
+      CompressionType.bzip2,
+    ]) {
+      final handle = _CountingHandle(path);
+      final input = InputFileStream.withFileHandle(handle);
+      final zip = ZipEncoder().encodeBytes(
+          Archive()..add(ArchiveFile.stream('a', input)..compression = type));
+      input.closeSync();
+      expect(handle.bytes, lessThan(data.length * 3 ~/ 2), reason: '$type');
+      expect(
+          ZipDecoder().decodeBytes(zip, verify: true).first.readBytes(), data,
+          reason: '$type');
+    }
+  });
+
+  test('a tar of small entries is read in 16 KB pieces by default', () {
+    final archive = Archive();
+    for (var i = 0; i < 300; i++) {
+      archive.add(ArchiveFile.bytes(
+          'f$i.bin', List.generate(2000, (j) => (i * 31 + j * 7) & 0xff)));
+    }
+    final tarPath = '$testOutputPath/read_buffer.tar';
+    File(tarPath).writeAsBytesSync(TarEncoder().encodeBytes(archive));
+    final handle = _CountingHandle(tarPath);
+    final input = InputFileStream.withFileHandle(handle);
+    TarDecoder().decodeStream(input, keepEntries: false, callback: (file) {
+      expect(file.readBytes()!.length, 2000);
+    });
+    input.closeSync();
+    expect(handle.reads, lessThan(handle.length ~/ (8 * 1024)));
+  });
 }
 
 // Counts the reads that reach the file
 class _CountingHandle extends AbstractFileHandle {
   final FileHandle _inner;
   int reads = 0;
+  int bytes = 0;
+  int largest = 0;
 
   _CountingHandle(String path) : _inner = FileHandle(path);
 
@@ -302,7 +424,12 @@ class _CountingHandle extends AbstractFileHandle {
   @override
   int readInto(Uint8List buffer, [int? length]) {
     reads++;
-    return _inner.readInto(buffer, length);
+    final got = _inner.readInto(buffer, length);
+    bytes += got;
+    if (got > largest) {
+      largest = got;
+    }
+    return got;
   }
 
   @override

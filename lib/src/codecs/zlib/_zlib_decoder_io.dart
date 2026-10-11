@@ -5,9 +5,12 @@ import 'dart:typed_data';
 import '../../util/adler32.dart';
 import '../../util/archive_exception.dart';
 import '../../util/decode_guard.dart';
+import '../../util/input_decode_stream.dart';
 import '../../util/input_stream.dart';
 import '../../util/output_memory_stream.dart';
 import '../../util/output_stream.dart';
+import '_native_chunk_decoder_io.dart';
+import '_output_stream_sink.dart';
 import '_zlib_decoder_base.dart';
 import '_zlib_encoder_base.dart';
 
@@ -84,6 +87,11 @@ class _ZLibDecoder extends ZLibDecoderBase {
         () => _decodeStream(input, output, verify, raw, throwOnError));
   }
 
+  @override
+  InputStream decodeLazy(InputStream input,
+          {bool verify = false, bool raw = false}) =>
+      InputDecodeStream(NativeChunkDecoder(input, gzip: false, raw: raw));
+
   bool _decodeStream(InputStream input, OutputStream output, bool verify,
       bool raw, bool throwOnError) {
     // dart:io reports a wrong checksum and damaged data with one message, so
@@ -104,7 +112,7 @@ class _ZLibDecoder extends ZLibDecoderBase {
     final inSink = ZLibCodec(raw: raw).decoder.startChunkedConversion(outSink);
     var left = seen - trailerLength;
     while (left > 0) {
-      final chunk = input.readBytes(min(8 * 1024, left)).toUint8List();
+      final chunk = input.readBytes(min(zlibChunkSize, left)).toUint8List();
       if (chunk.isEmpty) {
         break;
       }

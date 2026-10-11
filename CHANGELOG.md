@@ -1,4 +1,4 @@
-# 5.0.0
+# 4.6.0
 
 * *BREAKING CHANGE*: All decoders (`XZDecoder`, `TarDecoder`, `ZipDecoder`, `GZipDecoder`, `ZLibDecoder`,
   `BZip2Decoder` and `ZstdDecoder`) and their wrappers like `extractFileToDisk`, `extractArchiveToDisk`,
@@ -8,7 +8,7 @@
   comparison) to `decodeBytes` or `decodeStream`. All `throwOnError` are reported as `ArchiveException` and `verify`
   checksum exceptions with `ArchiveChecksumException` that extends `ArchiveException`. Read README for migration tips
   and exceptions that are still reported with original type (everything unrelated to damaged data and package code).
-* *BREAKING CHANGE*: Unlike decoders mentioned above, all new converters APIs mentioned beneath use both `verify` and
+* *Unlike decoders mentioned above*, all new converters APIs mentioned beneath use both `verify` and
   `throwOnError` by default due to the specification of their format so that they completely coincide with dart 
   `zlib` and `gzip` transformers.
 * *BREAKING CHANGE*: All decoders now properly handle `verify: true` param and do not ignore it anymore. `GZipDecoder`
@@ -51,8 +51,6 @@
   `StreamTransformer`s: `TarDecoderTransformer`, `TarEncoderTransformer` and `ZipEncoderTransformer`.
 * Added zstd (Zstandard) support, both decode and encode (lvl 1-22, with custom dictionaries).
 * Added `CodecsRecognizer` with `ArchiveFormat` to recognize compressed file types with their header bytes.
-* Added .tar.zst and .tzst to `extractFileToDisk`. Also, `extractFileToDisk` now checks for errors during
-  unpack/decompress and does not leak temporary TAR files on fail.
 * Made CRC32, SHA-256, CRC64 and Adler32 significantly faster and less RAM-consumable on all
   platforms (for `verify: true`), and SHA-1 with its HMAC and PBKDF2 and AES for AES zip.
 * ZipCrypto decryption is 6.6-8.6x faster now: its keys are ints that stay exact on web instead of BigInt.
@@ -67,8 +65,6 @@
 * Slightly reduced amount of used RAM by `ZLibDecoder`.
 * Added `blockSize100k` to `BZip2Encoder.encodeBytes` and `encodeStream`
 * Added `ArchiveFile.isHardLink`, set by `TarDecoder` for tar hard links. `symbolicLink` is unchanged.
-* Fixed tar hard links extracted as broken symlinks by `extractFileToDisk`, `extractArchiveToDisk` and
-  `extractArchiveToDiskSync`. They now point to the right file.
 * Fixed symlinks scopes for `extractFileToDisk` that could overwrite existing file on disk outside of output dir
 * Fixed Unix mode reading for `ZipDecoder` for archives created on Windows.
 * Fixed CRC64 `XZEncoder` files created on dart-js failed to decode on native platforms.
@@ -79,8 +75,6 @@
 * Zip passwords are now encoded as UTF-8 to properly handle non-ASCII passwords. `ZipDecoder` tries UTF-8 first 
   and then bytes that older versions of the package wrote.
 * Fixed `ZipDecoder` decrypting AES and ZipCrypto entries inside the buffer, what corrupted it.
-* Fixed `ZipDecoder` throwing `RangeError` on AES zips whose AES extra field is not the first one.
-* Fixed `XZEncoder` (without compression) writing broken archives for inputs over 104 bytes.
 * Fixed(added) LZMA decoding for `ZipDecoder` and encoding for `ZipEncoder` with `CompressionType.lzma`. Encoder
   still falls back to DEFLATE, but decoder properly reads lzma data.
 * `ZipDecoder` now reads zstd (method 93) and xz (method 95) zip entries as `CompressionType.zstd` and
@@ -110,8 +104,6 @@
 * Fixed `ZipEncoder` with a password writing a stale MAC into entries that have no content, such as
   every directory. The local header declared 12 bytes it never wrote, which left every local header
   after it off by 2 and unreachable to a forward-only reader.
-* Fixed `ZipEncoder` central directory always claiming UTF-8 file names. It now carries the same
-  general purpose flag as the local header, so a non-UTF-8 filenameEncoding is no longer misreported.
 * Added `ZipEncoder(streamed: true)` that writes entries as they are read, with low RAM usage on big files
   (4GB+, uses zip64 format from zip APPNOTE).
 * Fixed decoding zip64 with `ZipDecoder`.
@@ -127,7 +119,6 @@
 * `GZipDecoderWeb` and `ZLibDecoderWeb` are ~60x faster when writing to a file now.
 * Fixed `ZipEncoder` emptying `ArchiveFile.stream` entries, so they could not be read after encoding.
 * Fixed `ZipEncoder` with a password changing the original data of entries in memory.
-* Fixed high RAM usage for zips with AES encryption.
 * Fixed `extractFileToDisk` never returning when the output drive does not exist.
 * Fixed multithreaded `XZDecoder` hanging on a truncated file and accepting some damaged archives that single
   threaded decoding refused.
@@ -166,8 +157,111 @@
 * Fixed `OutputFileStream.writeStream` moving the read position of its source to the end, unlike the other
   `OutputStream` types. The source position is now left unchanged.
 
+# 4.5.1
+
+* Fixed zips written on the web, which decoded to nothing: the zlib encoder
+  left the zip encoder's output big-endian, so every header after the first
+  entry's data was written in the wrong byte order (#419).
+* `ZipEncoder` can be used under dart2js on Node, where creating its secure
+  random source threw; it is now only created for a password.
+* Fixed zips written by `ZipEncoder` since 4.4.0, which 7-Zip reported
+  as having header errors: the data descriptor flag was set in each
+  entry's local header but not its central directory header. The UTF-8
+  flag also went into the central directory even for names that were not
+  UTF-8.
+* Directory entries are stored rather than written as an empty deflate
+  stream, which `unzip` rejected, and carry the MS-DOS directory
+  attribute. In a zip with a password they are no longer marked
+  encrypted.
+* Entries whose content is in memory, and stored entries that can be read
+  twice, have their CRC and sizes in the local header again rather than in
+  a data descriptor after the data. Java's `ZipInputStream` refuses a
+  stored entry with a descriptor, and OpenDocument and EPUB files need
+  their stored `mimetype` entry without one (#421).
+
+# 4.5.0
+
+* Security: `XZDecoder` hung forever on a truncated `.xz` read from a
+  file or a decode stream, including `.tar.xz` in `extractFileToDisk`.
+* Security: tar long name and pax header entries are limited to
+  `TarFile.maxMetadataSize` (1 MB). A small `.tar.gz` could declare one
+  large enough to take gigabytes of memory to read.
+* Security: decoding had no output limit, so a small archive could expand
+  to fill memory or disk. Added `maxOutputSize` to `decodeBytes` and
+  `decodeStream` on `GZipDecoder`, `ZLibDecoder`, `BZip2Decoder` and
+  `ZstdDecoder`, and `maxSize` to `extractFileToDisk`,
+  `extractArchiveToDisk` and `extractArchiveToDiskSync`.
+* A zip entry is no longer decoded past the uncompressed size the archive
+  gives for it, so `ArchiveFile.size` can be checked before reading.
+* Security: `ZstdDecoder` sized its window and output from the frame header,
+  so a 10 byte input committed hundreds of MB, even past `maxWindowSize`.
+  The content size is now checked as each block decodes, and one that
+  overflows is refused.
+* Security: `XZDecoder` limits the LZMA2 dictionary an archive may declare
+  to `maxDictionarySize` (256 MB by default), which bounds the memory a
+  streaming decode takes. It also takes `maxOutputSize`, and no longer
+  preallocates gigabytes because a tiny archive's index claims them.
+* Multithreaded xz decoding checks each block against the size the index
+  gives it. An index that misstated one used to make the ordered output
+  hold everything after it in memory and report success with the output
+  cut short. Blocks are no longer let run far ahead of the output.
+* Security: extraction creates symbolic links after every other entry and
+  refuses one whose path runs through another link. A chain of links that
+  each looked safe on its own could place a file outside the output
+  directory.
+* Security: `extractTarFiles` did not keep entries inside the output
+  directory. It now extracts as `extractFileToDisk` does, decoding as it
+  reads rather than through a temp file it left behind.
+* Extraction reports an entry that fails to decode instead of leaving a
+  partial file without a word, and an empty file no longer takes a 1 MB
+  write buffer.
+* A tar hard link, which is extracted as a symbolic link, now points at its
+  target from the link's own directory.
+* `TarDecoder.decodeStream` and `decodeBytes` take `keepEntries`. False
+  passes entries only to the callback, so memory no longer grows with the
+  entry count; `extractFileToDisk` uses it. A `.tar.gz` of a million empty
+  entries now decodes in 39 MB rather than 326 MB.
+* Malformed zip headers, such as an odd length extra field on an encrypted
+  entry or a zip64 locator pointing past the file, threw `RangeError`
+  instead of `ArchiveException`. The AES extra field is also found when
+  other extra fields come before it.
+* `BZip2Decoder` accepts a block declaring more than 18002 selectors and
+  ignores the extra ones, as libbzip2 does, instead of reporting a
+  truncated stream.
+* Reading a zip entry no longer preallocates its declared size when the
+  compressed data could not expand that far.
+
+# 4.4.0
+
+* Security: a crafted zip64 compressed size overflowed the stream bounds
+  checks and could crash the decoder while reading an untrusted archive.
+  Sizes are now clamped to the bytes actually present.
+* Added `InputDecodeStream` and `decodeLazy` on `GZipDecoder`, `ZLibDecoder`,
+  `BZip2Decoder`, `ZstdDecoder` and `XZDecoder`, which decode a stream as it
+  is read so a large archive can be piped into another decoder without a temp
+  file.
+* `extractFileToDisk` extracts `.tar.gz`, `.tar.bz2`, `.tar.xz` and
+  `.tar.zst` in a single pass, writing each entry as it is reached, with no
+  temp file.
+* Decoding and encoding no longer buffer the whole file: gzip and zlib
+  streaming, `ZipEncoder`, and encrypted zip entries (ZipCrypto and AES) now
+  work in a bounded amount of memory whatever the file size.
+* Encrypted zip entries are decrypted as they are read; a wrong password now
+  surfaces when the content is read.
+* Faster decoding: `getCrc32` is about three times quicker on typed data, and
+  `InputFileStream` reads in larger blocks.
+* Fixed `XZEncoder`, which produced archives other tools rejected for inputs
+  of 128 bytes or more.
+
 # 4.3.0
 
+* Added `ZstdDecoder`, a pure Dart decoder for the zstd (Zstandard) format. 
+* Added `ZstdEncoder`, a pure Dart zstd encoder for the VM, JavaScript and
+  wasm, at levels -7 to 22.
+* Zip entries compressed with zstd.
+* `extractFileToDisk` and the tar command accept `.tar.zst` and `.tzst`, and
+  `TarFileEncoder.tarDirectory` can write `.tar.zst` with
+  `compression: TarFileEncoder.zstd`.
 * Added multithreaded decoding to XZDecoder. Passing an `XZMultithreadOptions`
   to `decodeBytes` or `decodeStream` spreads the work over isolates, one xz
   block per job, and reports the result through its `onDone` callback. Both
@@ -273,6 +367,7 @@
   source, so peeking past the end returned stale bytes.
 * Deprecated the `fileSize` parameter of the `FileBuffer` read methods, which
   is ignored.
+
 
 # 4.2.0
 

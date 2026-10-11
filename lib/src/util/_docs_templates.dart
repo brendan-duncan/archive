@@ -298,20 +298,91 @@
 /// ------------------------------------------------------------------------
 /// ------------------------------------------------------------------------
 
+/// {@template archive.xz.max_dictionary_size}
+/// The largest LZMA2 dictionary an archive may declare. A block declaring
+/// more is refused.
+///
+/// The dictionary is held in memory as the data decodes, even when
+/// streaming, so this bounds the memory a decode takes. The default,
+/// `xzDefaultMaxDictionarySize`, is four times the largest dictionary any
+/// of xz's presets uses.
+/// {@endtemplate}
+
+/// ------------------------------------------------------------------------
+/// ------------------------------------------------------------------------
+/// ------------------------------------------------------------------------
+
+/// {@template archive.decode_lazy}
+/// Returns an [InputStream] that decompresses [input] as it is read.
+///
+/// Nothing is decoded until the returned stream is read, and only a window
+/// of the decoded data is held in memory, so a multi-gigabyte archive can
+/// be fed to another decoder, such as a tar decoder, without a temp file.
+/// The stream is read forwards: see [InputDecodeStream] for what that
+/// means. A malformed or truncated input throws an [ArchiveException] from
+/// the read that runs into it.
+/// {@endtemplate}
+
+/// ------------------------------------------------------------------------
+/// ------------------------------------------------------------------------
+/// ------------------------------------------------------------------------
+
+/// {@template archive.max_output_size.bytes}
+/// With [maxOutputSize], an [ArchiveException] is thrown as soon as the
+/// decoded data would pass that many bytes, rather than decoding a small
+/// input that expands without limit.
+/// {@endtemplate}
+
+/// ------------------------------------------------------------------------
+/// ------------------------------------------------------------------------
+/// ------------------------------------------------------------------------
+
+/// {@template archive.max_output_size.stream}
+/// With [maxOutputSize], an [ArchiveException] is thrown as soon as more
+/// than that many bytes would be written to [output], whatever
+/// [throwOnError] is.
+/// {@endtemplate}
+
+/// ------------------------------------------------------------------------
+/// ------------------------------------------------------------------------
+/// ------------------------------------------------------------------------
+
 /// {@template archive.xz.verify_default}
 /// Unlike default decodeStream/decodeBytes, verify is on by default to match
 /// gzip and zlib behaviour. Checks CRC or SHA-256 of every block.
 /// {@endtemplate}
+
+/// ------------------------------------------------------------------------
+/// ------------------------------------------------------------------------
+/// ------------------------------------------------------------------------
 
 /// {@template archive.zstd.content_size}
 /// Streamed frame has no Frame_Content_Size, so reader has to decode whole
 /// frame to learn its size. Pass input length here to write that size
 /// {@endtemplate}
 
+/// ------------------------------------------------------------------------
+/// ------------------------------------------------------------------------
+/// ------------------------------------------------------------------------
+
 /// {@template archive.extract.allow_absolute_symlinks}
 /// A symlink to an absolute path points outside [outputPath], so it is
 /// skipped unless [allowAbsoluteSymlinks] is set
 /// {@endtemplate}
+
+/// ------------------------------------------------------------------------
+/// ------------------------------------------------------------------------
+/// ------------------------------------------------------------------------
+
+/// {@template archive.extract.max_size}
+/// [maxSize] limits the total size of the files written. An entry that would
+/// take it past that throws an [ArchiveException] before it is written. A zip
+/// entry is never decoded past the size the archive gives for it.
+/// {@endtemplate}
+
+/// ------------------------------------------------------------------------
+/// ------------------------------------------------------------------------
+/// ------------------------------------------------------------------------
 
 /// {@template archive.extract.cut_tar}
 /// A truncated tar entry is detected only if [archive] was decoded with

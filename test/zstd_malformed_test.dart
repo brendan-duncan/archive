@@ -92,7 +92,7 @@ final _source = Uint8List.fromList(List.generate(80000, (i) {
   return i % 97 == 0 ? (i * 31) & 0xff : word[i % word.length];
 }));
 final _frame = ZstdEncoder(level: 9).encodeBytes(_source);
-final _plain = ZstdEncoder(level: 1, checksum: false).encodeBytes(_source);
+final _plain = ZstdEncoder(level: 1).encodeBytes(_source, checksum: false);
 
 /// Where the first block header starts, which is past the frame header
 int _firstBlock(Uint8List frame) {

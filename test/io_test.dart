@@ -156,6 +156,9 @@ void main() {
     expect(getInputExtension('test.TAR.xz') == '.tar.xz', isTrue);
     expect(getInputExtension('test.txz') == '.txz', isTrue);
     expect(getInputExtension('TEST.TXZ') == '.txz', isTrue);
+    expect(getInputExtension('test.tar.zst') == '.tar.zst', isTrue);
+    expect(getInputExtension('test.TAR.ZST') == '.tar.zst', isTrue);
+    expect(getInputExtension('test.tzst') == '.tzst', isTrue);
   });
 
   test('extractFileToDisk zip bzip2', () async {
@@ -218,6 +221,19 @@ void main() {
 
     final u64 = fb.readUint64(0, fb.length);
     expect(u64, equals(0x0706050403020100));
+  });
+
+  test('extractFileToDisk tar.zst', () async {
+    final inPath = 'test/_data/zstd/test2.tar.zst';
+    final outPath = '$testOutputPath/extractFileToDisk_tzst';
+    final dir = Directory(outPath);
+    if (dir.existsSync()) {
+      dir.deleteSync(recursive: true);
+    }
+    await extractFileToDisk(inPath, outPath);
+
+    final files = dir.listSync(recursive: true);
+    expect(files.length, 4);
   });
 
   group('InputFileStream', () {
@@ -536,6 +552,20 @@ void main() {
     await encoder.tarDirectory(Directory('test/_data/test2'),
         filename: '$testOutputPath/example2.tgz', compression: 1);
     await encoder.close();
+  });
+
+  test('TarFileEncoder zstd', () async {
+    final tarPath = '$testOutputPath/example3.tar';
+    final zstPath = '$testOutputPath/example3.tar.zst';
+    await TarFileEncoder().tarDirectory(Directory('test/_data/test2'),
+        filename: tarPath, compression: TarFileEncoder.store);
+    await TarFileEncoder().tarDirectory(Directory('test/_data/test2'),
+        filename: zstPath, compression: TarFileEncoder.zstd);
+
+    final tar = File(tarPath).readAsBytesSync();
+    final decoded = ZstdDecoder().decodeBytes(File(zstPath).readAsBytesSync(),
+        verify: true, throwOnError: true);
+    compareBytes(decoded, tar);
   });
 
   test('TarFileEncoder tgz leaves no files in system temp folder', () async {
@@ -1495,9 +1525,8 @@ void main() {
         ..add(ArchiveFile.bytes('b.bin', content())
           ..compression = CompressionType.bzip2));
       const localHeader = 30;
-      const utField = 9;
       const bzipSignature = 4;
-      zip[localHeader + 'b.bin'.length + utField + bzipSignature] ^= 0x55;
+      zip[localHeader + 'b.bin'.length + bzipSignature] ^= 0x55;
       expect(ZipDecoder().decodeBytes(zip).first.content, isEmpty);
       expect(
           () => ZipDecoder().decodeBytes(zip, throwOnError: true).first.content,
@@ -1547,9 +1576,8 @@ void main() {
         ..add(ArchiveFile.bytes('b.bin', content())
           ..compression = CompressionType.bzip2));
       const localHeader = 30;
-      const utField = 9;
       const bzipSignature = 4;
-      zip[localHeader + 'b.bin'.length + utField + bzipSignature] ^= 0x55;
+      zip[localHeader + 'b.bin'.length + bzipSignature] ^= 0x55;
       for (final sync in [false, true]) {
         final lenient = p.join(directory.path, 'lenient_$sync');
         final thrown = p.join(directory.path, 'thrown_$sync');

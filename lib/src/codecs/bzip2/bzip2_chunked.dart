@@ -207,6 +207,9 @@ class BZip2ChunkedDecoder extends ChunkedSink {
           if (!_readBlockBody()) {
             return;
           }
+          if (unitAtATime) {
+            return;
+          }
         case _Stage.streamCrc:
           if (!_has(32)) {
             return;

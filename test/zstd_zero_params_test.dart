@@ -44,18 +44,21 @@ void main() {
       expect(ZstdEncoder(level: 1000).encodeBytes(source), top);
     });
 
-    test('negative level throws instead of becoming level 1', () {
-      expect(() => ZstdEncoder(level: -1).encodeBytes(source),
-          throwsA(isA<ArgumentError>()));
-      expect(() => ZstdEncoder().encodeBytes(source, level: -3),
-          throwsA(isA<ArgumentError>()));
-      expect(
-          () => ZstdEncoder().encodeStream(
-              InputMemoryStream(source), OutputMemoryStream(),
-              level: -1),
-          throwsA(isA<ArgumentError>()));
-      expect(() => _chunked(source, const ZstdCodec(level: -1)),
-          throwsA(isA<ArgumentError>()));
+    test('negative level is the fast parse on every path, not level 1', () {
+      final fast = ZstdEncoder(level: -1).encodeBytes(source);
+      expect(ZstdEncoder(level: -5).encodeBytes(source),
+          isNot(ZstdEncoder(level: 1).encodeBytes(source)));
+      expect(ZstdEncoder().encodeBytes(source, level: -1), fast);
+      final streamed = OutputMemoryStream();
+      ZstdEncoder()
+          .encodeStream(InputMemoryStream(source), streamed, level: -1);
+      expect(streamed.getBytes(), fast);
+      for (final frame in [
+        ZstdEncoder().encodeBytes(source, level: -3),
+        _chunked(source, const ZstdCodec(level: -1)),
+      ]) {
+        expect(ZstdDecoder().decodeBytes(frame, throwOnError: true), source);
+      }
     });
 
     test('output of every level decodes back', () {
@@ -140,18 +143,18 @@ void main() {
   group('zstd invalid settings', () {
     test('window limit below smallest window throws', () {
       for (final limit in [0, 1, 1023]) {
-        expect(() => ZstdDecoder(windowSizeLimit: limit),
+        expect(() => ZstdDecoder(maxWindowSize: limit),
             throwsA(isA<ArgumentError>()),
             reason: 'limit $limit');
       }
-      expect(ZstdDecoder(windowSizeLimit: 1024), isA<ZstdDecoder>());
+      expect(ZstdDecoder(maxWindowSize: 1024), isA<ZstdDecoder>());
     });
 
     // The converter is const and cannot check the limit. The sink checks it
     // when the conversion starts
     test('window limit below smallest window throws on converter', () {
       ByteConversionSink start(int limit) =>
-          ZstdDecoderConverter(windowSizeLimit: limit)
+          ZstdDecoderConverter(maxWindowSize: limit)
               .startChunkedConversion(ByteConversionSink.withCallback((_) {}));
       for (final limit in [0, 1, 1023]) {
         expect(() => start(limit), throwsA(isA<ArgumentError>()),

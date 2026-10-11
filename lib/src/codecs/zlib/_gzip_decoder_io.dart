@@ -6,11 +6,13 @@ import '../../util/adler32.dart';
 import '../../util/archive_exception.dart';
 import '../../util/crc32.dart';
 import '../../util/decode_guard.dart';
+import '../../util/input_decode_stream.dart';
 import '../../util/input_memory_stream.dart';
 import '../../util/input_stream.dart';
 import '../../util/output_memory_stream.dart';
 import '../../util/output_stream.dart';
 import '_gzip_decoder_web.dart' as web;
+import '_output_stream_sink.dart';
 import '_zlib_decoder_base.dart';
 import '_zlib_decoder_io.dart';
 import '_zlib_encoder_base.dart';
@@ -78,8 +80,13 @@ class _GZipDecoder extends ZLibDecoderBase {
       final start = isGZip
           ? max(0, seen - trailerLength - _junkWindow)
           : max(0, seen - trailerLength - zlibAdlerWindow);
-      final valid = _checkTrailer(Uint8List.sublistView(bytes, start), seen,
-          out.length, sum, isGZip, verify);
+      final valid = _GZipChunkDecoder._checkTrailer(
+          Uint8List.sublistView(bytes, start),
+          seen,
+          out.length,
+          sum,
+          isGZip,
+          verify);
       if (trailerError != null) {
         throw trailerError;
       }
@@ -117,152 +124,254 @@ class _GZipDecoder extends ZLibDecoderBase {
     });
   }
 
+  @override
+  InputStream decodeLazy(InputStream input,
+          {bool verify = false, bool raw = false}) =>
+      _nativeConcatenated
+          ? InputDecodeStream(_GZipLazyDecoder(input, verify))
+          : web.nativeGZipDecoder.decodeLazy(input, verify: verify, raw: raw);
+
   bool _decodeStream(
       InputStream input, OutputStream output, bool verify, bool throwOnError) {
+    final decoder = _GZipChunkDecoder(input, verify, throwOnError);
+    while (decoder.decodeChunk(output)) {}
+    return decoder.valid;
+  }
+}
+
+// decodeStream returns false for an input it rejects, while a lazy stream can
+// only throw from the read that runs into it
+class _GZipLazyDecoder implements ChunkDecoder {
+  final _GZipChunkDecoder _decoder;
+
+  _GZipLazyDecoder(InputStream input, bool verify)
+      : _decoder = _GZipChunkDecoder(input, verify, true);
+
+  @override
+  int get history => 0;
+
+  @override
+  bool decodeChunk(OutputStream output) {
+    try {
+      if (_decoder.decodeChunk(output)) {
+        return true;
+      }
+    } on ArchiveException {
+      rethrow;
+    } on FormatException catch (error) {
+      throw ArchiveException('Invalid gzip data: ${error.message}');
+    }
+    if (!_decoder.valid) {
+      throw ArchiveException('Invalid gzip data');
+    }
+    return false;
+  }
+}
+
+/// [_GZipDecoder.decodeStream] a chunk of input at a time, so that
+/// [_GZipDecoder.decodeLazy] decodes the same way
+class _GZipChunkDecoder implements ChunkDecoder {
+  final InputStream input;
+  final bool verify;
+  final bool throwOnError;
+
+  _GZipChunkDecoder(this.input, this.verify, this.throwOnError);
+
+  /// What [_GZipDecoder.decodeStream] returns, set once [decodeChunk] has
+  /// returned false
+  var valid = false;
+
+  var _started = false;
+  var _done = false;
+  var _inner = true;
+
+  late int seen;
+  late bool isGZip;
+  late int trailerLength;
+  _ProbeSink? probe;
+  late ZLibOutputSink outSink;
+  late Sink<List<int>> inSink;
+  late int left;
+  late int bodyStart;
+  late int bodyEnd;
+  var split = false;
+  var fed = _none;
+  var fedAt = 0;
+  var fedBefore = _none;
+  var last8 = _none;
+
+  @override
+  int get history => 0;
+
+  @override
+  bool decodeChunk(OutputStream output) {
+    if (_done) {
+      return false;
+    }
+    if (!_started) {
+      _started = true;
+      if (!_start(output)) {
+        _done = true;
+        return false;
+      }
+    }
+    if (_inner) {
+      _step();
+      return true;
+    }
+    if (!(split || !isGZip)) {
+      final empty = emptyMemberIn(_none);
+      if (empty >= 0) {
+        restart(fedAt + empty);
+        _inner = true;
+        return true;
+      }
+    }
+    _done = true;
+    _finish();
+    return false;
+  }
+
+  bool _start(OutputStream output) {
     // final startPos = input.position;
-    final seen = input.length;
+    seen = input.length;
     // Whether the input opened with the gzip signature, which decides whether
     // the trailer check below applies at all.
     final head = seen >= 2 ? input.peekBytes(2).toUint8List() : null;
-    final isGZip = head != null && head[0] == 0x1f && head[1] == 0x8b;
+    isGZip = head != null && head[0] == 0x1f && head[1] == 0x8b;
     // dart:io reports a wrong checksum and damaged data with one message, so
     // we check the trailer ourselves before reporting its error
-    final trailerLength = isGZip ? 8 : 4;
+    trailerLength = isGZip ? 8 : 4;
     // Nothing at all is not a gzip stream, and not a zlib one either: the
     // shortest of those is two bytes.
     if (seen < trailerLength + 2) {
       return false;
     }
 
-    final probe =
-        (verify || throwOnError) && isGZip ? _ProbeSink(output) : null;
-    final outSink = probe ?? ZLibOutputSink(output);
+    probe = (verify || throwOnError) && isGZip ? _ProbeSink(output) : null;
+    outSink = probe ?? ZLibOutputSink(output);
     if (verify) {
       outSink
         ..value = isGZip ? 0 : 1
         ..update = isGZip ? getCrc32 : getAdler32;
     }
-    var inSink = GZipCodec().decoder.startChunkedConversion(outSink);
-    var left = seen - trailerLength;
-    final bodyStart = input.position;
-    final bodyEnd = input.position + left;
-    var split = false;
-    var fed = _none;
-    var fedAt = 0;
-    var fedBefore = _none;
-    var last8 = _none;
-    void restart(int position) {
-      inSink = GZipCodec().decoder.startChunkedConversion(outSink);
+    inSink = GZipCodec().decoder.startChunkedConversion(outSink);
+    left = seen - trailerLength;
+    bodyStart = input.position;
+    bodyEnd = input.position + left;
+    return true;
+  }
+
+  void restart(int position) {
+    inSink = GZipCodec().decoder.startChunkedConversion(outSink);
+    input.setPosition(position);
+    left = bodyEnd - position;
+    last8 = Uint8List(8);
+    split = true;
+  }
+
+  Uint8List windowBefore(int end, int window) {
+    final position = input.position;
+    try {
+      final from = max(bodyStart, end - window);
+      input.setPosition(from);
+      return input.readBytes(end - from).toUint8List();
+    } finally {
       input.setPosition(position);
-      left = bodyEnd - position;
-      last8 = Uint8List(8);
-      split = true;
     }
+  }
 
-    Uint8List windowBefore(int end, int window) {
-      final position = input.position;
-      try {
-        final from = max(bodyStart, end - window);
-        input.setPosition(from);
-        return input.readBytes(end - from).toUint8List();
-      } finally {
-        input.setPosition(position);
-      }
-    }
+  bool endsEmptyMemberAt(int end) {
+    final bytes = windowBefore(end, _longHeaderWindow);
+    return _endsEmptyMember(bytes, bytes.length);
+  }
 
-    bool endsEmptyMemberAt(int end) {
-      final bytes = windowBefore(end, _longHeaderWindow);
-      return _endsEmptyMember(bytes, bytes.length);
-    }
-
-    int junkBefore(int end) {
-      final bytes = windowBefore(end, _emptyMemberWindow);
-      if (_endsEmptyMember(bytes, bytes.length)) {
-        return -1;
-      }
-      final junk = _emptyMemberEndBefore(bytes, bytes.length);
-      return junk < 0 ? -1 : end - bytes.length + junk;
-    }
-
-    void addPieces(Uint8List chunk, int at) {
-      final after =
-          left > 0 ? input.peekBytes(min(2, left)).toUint8List() : _none;
-      var from = 0;
-      for (var i = _afterEmptyMember(last8, chunk, after, 1);
-          i >= 0;
-          i = _afterEmptyMember(last8, chunk, after, i + 1)) {
-        final junk = junkBefore(at + i) - at;
-        if (junk > from) {
-          inSink.add(Uint8List.sublistView(chunk, from, junk));
-          from = junk;
-        }
-        inSink.add(Uint8List.sublistView(chunk, from, i));
-        from = i;
-      }
-      inSink.add(Uint8List.sublistView(chunk, from));
-    }
-
-    int emptyMemberIn(Uint8List after) {
-      for (var i = _afterEmptyMember(fedBefore, fed, after, 1);
-          i >= 0;
-          i = _afterEmptyMember(fedBefore, fed, after, i + 1)) {
-        if (endsEmptyMemberAt(fedAt + i)) {
-          return i;
-        }
-      }
+  int junkBefore(int end) {
+    final bytes = windowBefore(end, _emptyMemberWindow);
+    if (_endsEmptyMember(bytes, bytes.length)) {
       return -1;
     }
+    final junk = _emptyMemberEndBefore(bytes, bytes.length);
+    return junk < 0 ? -1 : end - bytes.length + junk;
+  }
 
-    while (true) {
-      while (left > 0) {
-        final at = input.position;
-        var chunk = input.readBytes(min(8 * 1024, left)).toUint8List();
-        if (chunk.isEmpty) {
-          break;
-        }
-        left -= chunk.length;
-        final next = left > 0 ? _toNextMember(input, left) : -1;
-        if (next > 0) {
-          chunk = Uint8List(chunk.length + next)
-            ..setRange(0, chunk.length, chunk)
-            ..setRange(chunk.length, chunk.length + next,
-                input.readBytes(next).toUint8List());
-          left -= next;
-        }
-        if (split) {
-          addPieces(chunk, at);
-          last8 = _lastBytes(last8, chunk);
-          continue;
-        }
-        final pieces = isGZip && (next >= 0 || left == 0);
-        try {
-          if (pieces) {
-            addPieces(chunk, at);
-          } else {
-            inSink.add(chunk);
-          }
-        } on FormatException {
-          final empty = isGZip ? emptyMemberIn(chunk) : -1;
-          if (empty < 0) {
-            rethrow;
-          }
-          restart(fedAt + empty);
-          continue;
-        }
-        fedBefore = last8;
-        fed = pieces ? _none : chunk;
-        fedAt = at;
-        last8 = _lastBytes(last8, chunk);
+  void addPieces(Uint8List chunk, int at) {
+    final after =
+        left > 0 ? input.peekBytes(min(2, left)).toUint8List() : _none;
+    var from = 0;
+    for (var i = _afterEmptyMember(last8, chunk, after, 1);
+        i >= 0;
+        i = _afterEmptyMember(last8, chunk, after, i + 1)) {
+      final junk = junkBefore(at + i) - at;
+      if (junk > from) {
+        inSink.add(Uint8List.sublistView(chunk, from, junk));
+        from = junk;
       }
-      if (split || !isGZip) {
-        break;
+      inSink.add(Uint8List.sublistView(chunk, from, i));
+      from = i;
+    }
+    inSink.add(Uint8List.sublistView(chunk, from));
+  }
+
+  int emptyMemberIn(Uint8List after) {
+    for (var i = _afterEmptyMember(fedBefore, fed, after, 1);
+        i >= 0;
+        i = _afterEmptyMember(fedBefore, fed, after, i + 1)) {
+      if (endsEmptyMemberAt(fedAt + i)) {
+        return i;
       }
-      final empty = emptyMemberIn(_none);
+    }
+    return -1;
+  }
+
+  // One pass of the loop that feeds the body to the codec
+  void _step() {
+    if (left <= 0) {
+      _inner = false;
+      return;
+    }
+    final at = input.position;
+    var chunk = input.readBytes(min(zlibChunkSize, left)).toUint8List();
+    if (chunk.isEmpty) {
+      _inner = false;
+      return;
+    }
+    left -= chunk.length;
+    final next = left > 0 ? _toNextMember(input, left) : -1;
+    if (next > 0) {
+      chunk = Uint8List(chunk.length + next)
+        ..setRange(0, chunk.length, chunk)
+        ..setRange(chunk.length, chunk.length + next,
+            input.readBytes(next).toUint8List());
+      left -= next;
+    }
+    if (split) {
+      addPieces(chunk, at);
+      last8 = _lastBytes(last8, chunk);
+      return;
+    }
+    final pieces = isGZip && (next >= 0 || left == 0);
+    try {
+      if (pieces) {
+        addPieces(chunk, at);
+      } else {
+        inSink.add(chunk);
+      }
+    } on FormatException {
+      final empty = isGZip ? emptyMemberIn(chunk) : -1;
       if (empty < 0) {
-        break;
+        rethrow;
       }
       restart(fedAt + empty);
+      return;
     }
+    fedBefore = last8;
+    fed = pieces ? _none : chunk;
+    fedAt = at;
+    last8 = _lastBytes(last8, chunk);
+  }
+
+  void _finish() {
     final tail = input.readBytes(trailerLength).toUint8List();
     var trailer = tail;
     if (!isGZip && verify) {
@@ -301,7 +410,7 @@ class _GZipDecoder extends ZLibDecoderBase {
     } on FormatException catch (error) {
       trailerError = error;
     }
-    final valid = _checkTrailer(
+    valid = _checkTrailer(
         checked, seen, outSink.written, outSink.value, isGZip, verify);
     if (trailerError != null) {
       throw trailerError;
@@ -320,7 +429,6 @@ class _GZipDecoder extends ZLibDecoderBase {
     //     input.setPosition(endPos);
     //   }
     // }
-    return valid;
   }
 
   static bool _checkTrailer(Uint8List trailer, int seen, int written, int sum,

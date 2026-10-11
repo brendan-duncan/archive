@@ -36,19 +36,19 @@ class ZstdCodec extends Codec<List<int>, List<int>> {
 
   /// Refuses a frame whose window is wider than this. It stops an archive from
   /// requesting an arbitrary allocation
-  final int windowSizeLimit;
+  final int maxWindowSize;
 
   const ZstdCodec(
       {this.verify = true,
       this.dictionary,
-      this.windowSizeLimit = zstdDefaultWindowSizeLimit,
+      this.maxWindowSize = zstdDefaultMaxWindowSize,
       this.level = zstdDefaultLevel,
       this.frameChecksum = true,
       this.multithread});
 
   @override
   ZstdDecoderConverter get decoder => ZstdDecoderConverter(
-      verify: verify, dictionary: dictionary, windowSizeLimit: windowSizeLimit);
+      verify: verify, dictionary: dictionary, maxWindowSize: maxWindowSize);
 
   /// What [ZstdEncoderConverter.level] uses
   final int level;
@@ -85,12 +85,12 @@ class ZstdDecoderConverter extends ChunkedConverter {
   final bool verify;
 
   final ZstdDictionary? dictionary;
-  final int windowSizeLimit;
+  final int maxWindowSize;
 
   const ZstdDecoderConverter(
       {this.verify = true,
       this.dictionary,
-      this.windowSizeLimit = zstdDefaultWindowSizeLimit});
+      this.maxWindowSize = zstdDefaultMaxWindowSize});
 
   @override
   ByteConversionSink startChunkedConversion(Sink<List<int>> sink) =>
@@ -98,7 +98,7 @@ class ZstdDecoderConverter extends ChunkedConverter {
           sink is ByteConversionSink ? sink : ByteConversionSink.from(sink),
           verify: verify,
           dictionary: dictionary,
-          windowSizeLimit: windowSizeLimit));
+          maxWindowSize: maxWindowSize));
 }
 
 /// {@macro archive.codecs.general}
@@ -503,16 +503,16 @@ class ZstdChunkedEncoder extends ChunkedSink {
 class ZstdChunkedDecoder extends ChunkedSink {
   final bool verify;
   final ZstdDictionary? dictionary;
-  final int windowSizeLimit;
+  final int maxWindowSize;
 
   ZstdChunkedDecoder(super.output,
       {this.verify = true,
       this.dictionary,
-      this.windowSizeLimit = zstdDefaultWindowSizeLimit}) {
+      this.maxWindowSize = zstdDefaultMaxWindowSize}) {
     // ZstdDecoderConverter is const and cannot check the limit. The check
     // happens here. The message matches ZstdDecoder
-    if (windowSizeLimit < 1024) {
-      throw ArgumentError.value(windowSizeLimit, 'windowSizeLimit',
+    if (maxWindowSize < 1024) {
+      throw ArgumentError.value(maxWindowSize, 'maxWindowSize',
           'Must be at least the 1 KB minimum window');
     }
   }
@@ -601,6 +601,9 @@ class ZstdChunkedDecoder extends ChunkedSink {
             return;
           }
           _readBlockBody();
+          if (unitAtATime) {
+            return;
+          }
         case _Stage.checksum:
           if (available < 4) {
             return;
@@ -652,7 +655,7 @@ class ZstdChunkedDecoder extends ChunkedSink {
   }
 
   void _readFrameHeader(int size) {
-    final header = readFrameHeader(view(size), 0, size, windowSizeLimit);
+    final header = readFrameHeader(view(size), 0, size, maxWindowSize);
     final dictionary = this.dictionary;
     if (header.dictionaryId != 0 &&
         (dictionary == null || dictionary.id != header.dictionaryId)) {
@@ -711,9 +714,18 @@ class ZstdChunkedDecoder extends ChunkedSink {
       _hash.update(window.buffer, from, window.position - from);
     }
     _produced += window.position - from;
+    final declared = _header!.contentSize;
+    if (declared != null && _produced > declared) {
+      throw ArchiveException('zstd: frame produced $_produced bytes against '
+          'the $declared it declared');
+    }
     // Out at the end of every block, as ZSTD_decompressStream does. The input
     // may pause without closing
-    window.emit();
+    // A lazy read keeps a frame's last window until the frame ends, as
+    // decodeStream does, so a frame cut short leaves no partial entry
+    if (!unitAtATime) {
+      window.emit();
+    }
     _sink.flush();
     skip(_bodyLength);
     if (!_blocks.isLast) {

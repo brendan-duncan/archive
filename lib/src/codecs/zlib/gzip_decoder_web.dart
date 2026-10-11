@@ -19,4 +19,9 @@ class GZipDecoderWeb extends ZLibDecoderBase {
           {bool verify = false, bool raw = false, bool throwOnError = false}) =>
       platformGZipDecoder.decodeStream(input, output,
           verify: verify, raw: raw, throwOnError: throwOnError);
+
+  @override
+  InputStream decodeLazy(InputStream input,
+          {bool verify = false, bool raw = false}) =>
+      platformGZipDecoder.decodeLazy(input, verify: verify, raw: raw);
 }

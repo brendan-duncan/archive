@@ -22,6 +22,16 @@ import '../util/output_file_stream.dart';
 import '../util/output_stream.dart';
 import 'posix.dart' as posix;
 
+// Adds [size] to what has been written so far, refusing to go past [maxSize].
+int _addToTotal(int total, int size, int? maxSize) {
+  total += size;
+  if (maxSize != null && total > maxSize) {
+    throw ArchiveException(
+        'Extracting the archive would write more than $maxSize bytes');
+  }
+  return total;
+}
+
 // Ensure filePath is contained in the outputDir folder, to make sure archives
 // aren't trying to write to some system path.
 bool _isWithinOutputPath(String? realOut, String filePath) {
@@ -392,17 +402,21 @@ void _extractArchiveEntryToDiskSync(
 /// {@macro archive.extract.cut_tar}
 ///
 /// {@macro archive.extract.allow_absolute_symlinks}
+///
+/// {@macro archive.extract.max_size}
 void extractArchiveToDiskSync(
   Archive archive,
   String outputPath, {
   int? bufferSize,
   bool throwOnError = false,
   bool allowAbsoluteSymlinks = false,
+  int? maxSize,
 }) {
   _prepareOutDir(outputPath);
   final realOut = _realPath(outputPath);
   final paths = _OutputPaths(realOut);
   final delayed = <String, ArchiveFile>{};
+  var total = 0;
   for (final entry in archive) {
     final filePath = _prepareArchiveFilePath(
         entry, outputPath, realOut, allowAbsoluteSymlinks, paths);
@@ -411,6 +425,9 @@ void extractArchiveToDiskSync(
         _delayLink(delayed, filePath, entry);
         paths.cleared(true);
         continue;
+      }
+      if (entry.isFile && !entry.isSymbolicLink) {
+        total = _addToTotal(total, entry.size, maxSize);
       }
       _extractArchiveEntryToDiskSync(entry, filePath, paths,
           bufferSize: bufferSize, throwOnError: throwOnError);
@@ -427,10 +444,13 @@ void extractArchiveToDiskSync(
 /// {@macro archive.extract.cut_tar}
 ///
 /// {@macro archive.extract.allow_absolute_symlinks}
+///
+/// {@macro archive.extract.max_size}
 Future<void> extractArchiveToDisk(Archive archive, String outputPath,
     {int? bufferSize,
     bool throwOnError = false,
-    bool allowAbsoluteSymlinks = false}) async {
+    bool allowAbsoluteSymlinks = false,
+    int? maxSize}) async {
   final outDir = Directory(outputPath);
   if (!await outDir.exists()) {
     await outDir.create(recursive: true);
@@ -438,6 +458,7 @@ Future<void> extractArchiveToDisk(Archive archive, String outputPath,
   final realOut = await _realPathAsync(outputPath);
   final paths = _OutputPaths(realOut);
   final delayed = <String, ArchiveFile>{};
+  var total = 0;
 
   for (final entry in archive) {
     final filePath = _entryPath(outputPath, entry.name);
@@ -470,6 +491,7 @@ Future<void> extractArchiveToDisk(Archive archive, String outputPath,
     }
 
     ArchiveFile file = entry;
+    total = _addToTotal(total, file.size, maxSize);
 
     bufferSize ??= OutputFileStream.kDefaultBufferSize;
     final fileSize = file.size;
@@ -536,16 +558,18 @@ String getInputExtension(String inputPath) {
 /// and only complete ones are extracted
 ///
 /// {@macro archive.extract.allow_absolute_symlinks}
+///
+/// {@macro archive.extract.max_size}
 Future<void> extractFileToDisk(String inputPath, String outputPath,
     {String? password,
     int? bufferSize,
     ArchiveCallback? callback,
     bool verify = false,
     bool throwOnError = false,
-    bool allowAbsoluteSymlinks = false}) async {
+    bool allowAbsoluteSymlinks = false,
+    int? maxSize}) async {
   final strict = verify || throwOnError;
-  Directory? tempDir;
-  var archivePath = inputPath;
+  final archivePath = inputPath;
 
   var posixSupported = posix.isPosixSupported();
 
@@ -599,85 +623,113 @@ Future<void> extractFileToDisk(String inputPath, String outputPath,
   // Each of these throws where the archive ran out part way through.
   // If neither `verify` nor `throwOnError` is set, exceptions are suppressed,
   // and only complete tar entries are extracted
-  Future<void> unwrap(
-      bool Function(InputStream input, OutputStream output) decode) async {
-    final directory = await Directory.systemTemp.createTemp('dart_archive');
-    final target = path.join(directory.path, 'temp.tar');
-    tempDir = directory;
-    archivePath = target;
-    final input = InputFileStream(inputPath);
-    final output = OutputFileStream(target, bufferSize: bufferSize);
-    try {
-      decode(input, output);
-    } catch (error) {
-      if (strict || !isDecodeDataError(error)) {
-        rethrow;
-      }
-    } finally {
-      await input.close();
-      await output.close();
-    }
-    recognized = ArchiveFormat.tar;
-  }
+  final InputStream Function(InputStream input)? lazy = switch (recognized) {
+    ArchiveFormat.gzip => (input) =>
+        GZipDecoder().decodeLazy(input, verify: verify),
+    ArchiveFormat.bzip2 => (input) =>
+        BZip2Decoder().decodeLazy(input, verify: verify),
+    ArchiveFormat.xz => (input) =>
+        XZDecoder().decodeLazy(input, verify: verify),
+    ArchiveFormat.zstd => (input) =>
+        ZstdDecoder().decodeLazy(input, verify: verify),
+    _ => null,
+  };
 
   InputStream? toClose;
   try {
-    if (recognized == ArchiveFormat.gzip) {
-      await unwrap((input, output) => GZipDecoder()
-          .decodeStream(input, output, verify: verify, throwOnError: true));
-    } else if (recognized == ArchiveFormat.bzip2) {
-      await unwrap((input, output) => BZip2Decoder()
-          .decodeStream(input, output, verify: verify, throwOnError: true));
-    } else if (recognized == ArchiveFormat.xz) {
-      await unwrap((input, output) => XZDecoder()
-          .decodeStream(input, output, verify: verify, throwOnError: true));
-    } else if (recognized == ArchiveFormat.zstd) {
-      await unwrap((input, output) => ZstdDecoder()
-          .decodeStream(input, output, verify: verify, throwOnError: true));
-    }
-
-    final whole = Archive();
-    Object? callbackError;
-    void collect(ArchiveFile file) {
-      whole.add(file);
-      if (callback != null) {
-        try {
-          callback(file);
-        } catch (error) {
-          callbackError = error;
-          rethrow;
+    if (lazy != null || recognized == ArchiveFormat.tar) {
+      final input = InputFileStream(inputPath);
+      toClose = input;
+      _prepareOutDir(outputPath);
+      final realOut = _realPath(outputPath);
+      final paths = _OutputPaths(realOut);
+      final delayed = <String, ArchiveFile>{};
+      var total = 0;
+      Object? callbackError;
+      Object? limitError;
+      void write(ArchiveFile file) {
+        if (callback != null) {
+          try {
+            callback(file);
+          } catch (error) {
+            callbackError = error;
+            rethrow;
+          }
+        }
+        final filePath = _prepareArchiveFilePath(
+            file, outputPath, realOut, allowAbsoluteSymlinks, paths);
+        if (filePath == null) {
+          return;
+        }
+        if (file.isSymbolicLink && _delaysLink(file)) {
+          _delayLink(delayed, filePath, file);
+          paths.cleared(true);
+          return;
+        }
+        final isFile = file.isFile && !file.isSymbolicLink;
+        if (isFile) {
+          try {
+            total = _addToTotal(total, file.size, maxSize);
+          } catch (error) {
+            limitError = error;
+            rethrow;
+          }
+        }
+        _extractArchiveEntryToDiskSync(file, filePath, paths,
+            bufferSize: bufferSize, throwOnError: strict);
+        final written = File(filePath);
+        if (!isFile || !written.existsSync()) {
+          return;
+        }
+        // The length of a lazily decoded tar is not known up front, so an
+        // entry cut short by the end of the data is found here
+        if (written.lengthSync() < file.size) {
+          written.deleteSync();
+          throw ArchiveException('Unexpected end of tar data in ${file.name}');
+        }
+        if (posixSupported) {
+          posix.chmod(filePath, file.unixPermissions.toRadixString(8));
         }
       }
-    }
 
-    Archive archive;
-    if (recognized == ArchiveFormat.tar) {
-      final input = InputFileStream(archivePath);
-      toClose = input;
       // tar has no magic bytes. The file under the gzip or zstd might not be a
       // tar at all. The header checksum rejects it. Without the check a
       // .sql.gz is extracted as tar entries
-      // Truncated tar entry throws before it is written. bsdtar and python
+      // Truncated tar entry is deleted once it is written. bsdtar and python
       // tarfile leave partial file on disk, but they report error too
       try {
-        archive =
-            TarDecoder().decodeStream(input, verify: true, callback: collect);
+        final tar = lazy?.call(input) ?? input;
+        TarDecoder().decodeStream(tar,
+            verify: true, keepEntries: false, callback: write);
+        // The tar ends before the compressed data does, and the decoders only
+        // find a cut or damaged end once they reach it
+        if (strict && lazy != null) {
+          while (!tar.isEOS) {
+            tar.readBytes(1 << 16).toUint8List();
+          }
+        }
       } catch (error) {
         if (strict ||
             !isDecodeDataError(error) ||
-            identical(error, callbackError)) {
+            identical(error, callbackError) ||
+            identical(error, limitError)) {
           rethrow;
         }
-        archive = whole;
       }
-    } else if (recognized == ArchiveFormat.zip) {
+      _createDelayedLinksSync(
+          delayed, outputPath, realOut, allowAbsoluteSymlinks);
+      return;
+    }
+
+    Archive archive;
+    if (recognized == ArchiveFormat.zip) {
       final input = InputFileStream(archivePath);
       toClose = input;
       archive = ZipDecoder().decodeStream(input,
           verify: verify,
           throwOnError: strict,
           password: password,
-          callback: collect);
+          callback: callback);
     } else {
       throw ArgumentError.value(
           inputPath, 'inputPath', 'Must end $extensionMsg');
@@ -686,6 +738,7 @@ Future<void> extractFileToDisk(String inputPath, String outputPath,
     final realOut = await _realPathAsync(outputPath);
     final paths = _OutputPaths(realOut);
     final delayed = <String, ArchiveFile>{};
+    var total = 0;
     for (final file in archive) {
       final filePath = _entryPath(outputPath, file.name);
       if (!await paths.isEntryWithinAsync(filePath)) {
@@ -715,6 +768,7 @@ Future<void> extractFileToDisk(String inputPath, String outputPath,
         await link.create(_linkText(file), recursive: true);
         paths.linked();
       } else if (file.isFile) {
+        total = _addToTotal(total, file.size, maxSize);
         paths.cleared(await _clearPathAsync(filePath));
         final size = bufferSize ?? OutputFileStream.kDefaultBufferSize;
         final output = OutputFileStream(filePath,
@@ -754,13 +808,8 @@ Future<void> extractFileToDisk(String inputPath, String outputPath,
 
     await archive.clear();
   } finally {
-    // The temporary tar file and its handle are scoped to this call. If an
-    // error occurs midway, they are automatically cleaned up to avoid leaving
-    // orphaned files in the system temp directory
+    // The input handle is scoped to this call. If an error occurs midway, it
+    // is closed here
     await toClose?.close();
-    final created = tempDir;
-    if (created != null) {
-      await created.delete(recursive: true);
-    }
   }
 }

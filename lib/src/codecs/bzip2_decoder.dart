@@ -1,32 +1,53 @@
 import 'dart:typed_data';
 
+import '../util/_limited_output_stream.dart';
 import '../util/archive_exception.dart';
+import '../util/chunked_sink.dart';
 import '../util/decode_guard.dart';
+import '../util/input_decode_stream.dart';
 import '../util/input_memory_stream.dart';
 import '../util/input_stream.dart';
 import '../util/output_memory_stream.dart';
 import '../util/output_stream.dart';
 import 'bzip2/bz2_bit_reader.dart';
 import 'bzip2/bzip2.dart';
+import 'bzip2/bzip2_chunked.dart';
 
 /// Decompress bzip2 compressed data.
 /// Derived from libbzip2 (http://www.bzip.org).
 class BZip2Decoder {
   /// {@macro archive.verify_throw_on_error}
+  ///
+  /// {@macro archive.max_output_size.bytes}
   Uint8List decodeBytes(List<int> data,
-      {bool verify = false, bool throwOnError = false}) {
+      {bool verify = false, bool throwOnError = false, int? maxOutputSize}) {
     final input = InputMemoryStream(data);
     final output = OutputMemoryStream();
-    decodeStream(input, output, verify: verify, throwOnError: throwOnError);
+    decodeStream(input, output,
+        verify: verify,
+        throwOnError: throwOnError,
+        maxOutputSize: maxOutputSize);
     return output.getBytes();
   }
 
   /// {@macro archive.verify_throw_on_error}
+  ///
+  /// {@macro archive.max_output_size.stream}
   bool decodeStream(InputStream input, OutputStream output,
-      {bool verify = false, bool throwOnError = false}) {
-    return guardDecode('bzip2', verify, throwOnError,
-        () => _decodeStreams(input, output, verify));
+      {bool verify = false, bool throwOnError = false, int? maxOutputSize}) {
+    return decodeLimited(
+        output,
+        maxOutputSize,
+        (output) => guardDecode('bzip2', verify, throwOnError,
+            () => _decodeStreams(input, output, verify)));
   }
+
+  /// {@macro archive.decode_lazy}
+  ///
+  /// [verify] checks the block checksums.
+  InputStream decodeLazy(InputStream input, {bool verify = false}) =>
+      InputDecodeStream(ChunkedSinkDecoder(
+          input, (output) => BZip2ChunkedDecoder(output, verify: verify)));
 
   bool _decodeStreams(InputStream input, OutputStream output, bool verify) {
     // Support concatenated streams (like pbzip2, which writes one stream per

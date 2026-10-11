@@ -29,13 +29,13 @@ class Aes {
 
   int processData(Uint8List buff, int start, int len) {
     if (!encrypt) {
-      _macGen.update(buff, 0, len);
+      _macGen.update(buff, start, len);
     }
 
     _ctr.process(buff, start, start + len);
 
     if (encrypt) {
-      _macGen.update(buff, 0, len);
+      _macGen.update(buff, start, len);
     }
 
     mac = Uint8List(HmacSha1.macSize);
@@ -43,6 +43,25 @@ class Aes {
     mac = mac.sublist(0, 10);
 
     return len;
+  }
+
+  /// Processes `buff[start, start + len)` as one piece of a longer entry,
+  /// which [processData] cannot do since it finishes [mac] on every call.
+  /// [finishMac] sets [mac] once every piece is done
+  void processPart(Uint8List buff, int start, int len) {
+    if (!encrypt) {
+      _macGen.update(buff, start, len);
+    }
+    _ctr.process(buff, start, start + len);
+    if (encrypt) {
+      _macGen.update(buff, start, len);
+    }
+  }
+
+  void finishMac() {
+    final full = Uint8List(HmacSha1.macSize);
+    _macGen.finish(full, 0);
+    mac = full.sublist(0, 10);
   }
 
   Aes(this.derivedKey, Uint8List hmacDerivedKey, this.aesKeyStrength,

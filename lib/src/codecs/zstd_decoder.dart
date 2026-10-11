@@ -1,13 +1,19 @@
 import 'dart:typed_data';
 
+import '../util/_limited_output_stream.dart';
+import '../util/chunked_sink.dart';
 import '../util/decode_guard.dart';
+import '../util/input_decode_stream.dart';
 import '../util/input_stream.dart';
 import '../util/output_memory_stream.dart';
 import '../util/output_stream.dart';
+import 'zstd/zstd_chunked.dart';
 import 'zstd/zstd_constants.dart';
 import 'zstd/zstd_dictionary.dart';
 import 'zstd/zstd_frame_decoder.dart';
 import 'zstd/zstd_window.dart';
+
+export 'zstd/zstd_constants.dart' show zstdDefaultMaxWindowSize;
 
 /// Decompress data with the zstd format decoder.
 class ZstdDecoder {
@@ -15,17 +21,17 @@ class ZstdDecoder {
   /// for, since the header is only as trustworthy as whoever wrote the file.
   /// The format permits up to 3.75 TB; the default matches the reference
   /// decoder's own ceiling
-  final int windowSizeLimit;
+  final int maxWindowSize;
 
   /// Applied to every frame, whether or not the frame has a dictionary id.
   /// A frame with a dictionary id is rejected unless this dictionary has
   /// that id
   final ZstdDictionary? dictionary;
 
-  ZstdDecoder({int? windowSizeLimit, this.dictionary})
-      : windowSizeLimit = windowSizeLimit ?? zstdDefaultWindowSizeLimit {
-    if (this.windowSizeLimit < 1024) {
-      throw ArgumentError.value(windowSizeLimit, 'windowSizeLimit',
+  ZstdDecoder({int? maxWindowSize, this.dictionary})
+      : maxWindowSize = maxWindowSize ?? zstdDefaultMaxWindowSize {
+    if (this.maxWindowSize < 1024) {
+      throw ArgumentError.value(maxWindowSize, 'maxWindowSize',
           'Must be at least the 1 KB minimum window');
     }
   }
@@ -33,22 +39,31 @@ class ZstdDecoder {
   /// Decompress the given [bytes] with the zstd format.
   ///
   /// {@macro archive.verify_throw_on_error}
+  ///
+  /// {@macro archive.max_output_size.bytes}
   Uint8List decodeBytes(List<int> data,
-      {bool verify = false, bool throwOnError = false}) {
+      {bool verify = false, bool throwOnError = false, int? maxOutputSize}) {
     final bytes = data is Uint8List ? data : Uint8List.fromList(data);
     // One frame decodes into its own buffer and is returned as a view of it.
     // Several would have to be joined afterwards, holding every frame and the
     // join at once, so they go through one sink instead
-    if (_frameCount(bytes) > 1) {
+    if (maxOutputSize != null || _frameCount(bytes) > 1) {
       final sink = OutputMemoryStream();
       final total = uncompressedSize(bytes);
       if (total != null && total > 0) {
-        sink.reserve(_affordable(total, bytes.length, zstdBlockMaximumSize));
+        var reserve = _affordable(total, bytes.length, zstdBlockMaximumSize);
+        if (maxOutputSize != null && maxOutputSize < reserve) {
+          reserve = maxOutputSize;
+        }
+        sink.reserve(reserve);
       }
-      guardDecode('zstd', verify, throwOnError, () {
-        _decode(bytes, verify, sink, null);
-        return true;
-      });
+      decodeLimited(
+          sink,
+          maxOutputSize,
+          (output) => guardDecode('zstd', verify, throwOnError, () {
+                _decode(bytes, verify, sink, null, output);
+                return true;
+              }));
       return _exact(sink.getBytes());
     }
     final parts = <Uint8List>[];
@@ -81,7 +96,7 @@ class ZstdDecoder {
           return 1;
         }
         final header =
-            readFrameHeader(bytes, at + 4, bytes.length, windowSizeLimit);
+            readFrameHeader(bytes, at + 4, bytes.length, maxWindowSize);
         at = _skipFrame(bytes, at + 4 + header.size, header);
         frames++;
         if (frames > 1) {
@@ -98,13 +113,29 @@ class ZstdDecoder {
   /// decompressed data to the [output] stream.
   ///
   /// {@macro archive.verify_throw_on_error}
+  ///
+  /// {@macro archive.max_output_size.stream}
   bool decodeStream(InputStream input, OutputStream output,
-      {bool verify = false, bool throwOnError = false}) {
-    return guardDecode('zstd', verify, throwOnError, () {
-      _stream(input, output, verify);
-      return true;
-    });
+      {bool verify = false, bool throwOnError = false, int? maxOutputSize}) {
+    return decodeLimited(
+        output,
+        maxOutputSize,
+        (output) => guardDecode('zstd', verify, throwOnError, () {
+              _stream(input, output, verify);
+              return true;
+            }));
   }
+
+  /// {@macro archive.decode_lazy}
+  ///
+  /// [verify] is as for [decodeStream].
+  InputStream decodeLazy(InputStream input, {bool verify = false}) =>
+      InputDecodeStream(ChunkedSinkDecoder(
+          input,
+          (output) => ZstdChunkedDecoder(output,
+              verify: verify,
+              dictionary: dictionary,
+              maxWindowSize: maxWindowSize)));
 
   /// Reads the frames of [input] a block at a time, so neither the compressed
   /// side nor the decoded one is ever held whole
@@ -137,7 +168,7 @@ class ZstdDecoder {
       // bytes of dictionary id and eight of content size
       final ahead = input.length < 18 ? input.length : 18;
       final front = input.peekBytes(ahead).toUint8List();
-      final header = readFrameHeader(front, 4, ahead, windowSizeLimit);
+      final header = readFrameHeader(front, 4, ahead, maxWindowSize);
       final dictionary = this.dictionary;
       if (header.dictionaryId != 0 &&
           (dictionary == null || dictionary.id != header.dictionaryId)) {
@@ -185,7 +216,7 @@ class ZstdDecoder {
           return null;
         }
         final header =
-            readFrameHeader(bytes, at + 4, bytes.length, windowSizeLimit);
+            readFrameHeader(bytes, at + 4, bytes.length, maxWindowSize);
         final size = header.contentSize;
         if (size == null) {
           return null;
@@ -202,7 +233,8 @@ class ZstdDecoder {
   }
 
   void _decode(Uint8List bytes, bool verify, OutputMemoryStream? output,
-      List<Uint8List>? parts) {
+      List<Uint8List>? parts,
+      [OutputStream? target]) {
     final end = bytes.length;
     var at = 0;
     if (end == 0) {
@@ -228,7 +260,7 @@ class ZstdDecoder {
         throw ZstdFrameException('Not a zstd frame');
       }
 
-      final header = readFrameHeader(bytes, at + 4, end, windowSizeLimit);
+      final header = readFrameHeader(bytes, at + 4, end, maxWindowSize);
       final dictionary = this.dictionary;
       if (header.dictionaryId != 0 &&
           (dictionary == null || dictionary.id != header.dictionaryId)) {
@@ -236,7 +268,7 @@ class ZstdDecoder {
             'Frame needs dictionary ${header.dictionaryId}');
       }
       final prefix = dictionary?.content.length ?? 0;
-      final window = ZstdWindow(header.windowSize, output: output);
+      final window = ZstdWindow(header.windowSize, output: target ?? output);
       final size = header.contentSize;
       if (output == null && size != null && size > 0) {
         // The scratch a block needs above its own output has to be part of the

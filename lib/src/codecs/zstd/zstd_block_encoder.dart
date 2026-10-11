@@ -70,6 +70,8 @@ class ZstdBlockEncoder {
         _gainLog = zstdGainLog(params) {
     _sequences.strategy = params.strategy;
     _literals.minSize = zstdMinLiteralsToCompress(params);
+    _literals.disabled =
+        params.strategy == zstdStrategyFast && params.targetLength > 0;
     _literals.gainLog = zstdGainLog(params);
     _literals.cheapRepeat = params.strategy < zstdStrategyLazy;
     _literals.optimalDepth =

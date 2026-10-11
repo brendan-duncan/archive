@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import '../../archive/compression_type.dart';
+import '../../util/_limited_output_stream.dart';
 import '../../util/_zip_name.dart';
 import '../../util/aes.dart';
 import '../../util/archive_exception.dart';
@@ -9,6 +10,7 @@ import '../../util/chunked_sink.dart';
 import '../../util/crc32.dart';
 import '../../util/decode_guard.dart';
 import '../../util/file_content.dart';
+import '../../util/input_decode_stream.dart';
 import '../../util/input_memory_stream.dart';
 import '../../util/input_stream.dart';
 import '../../util/output_memory_stream.dart';
@@ -44,6 +46,19 @@ const _compressionTypes = <int, CompressionType>{
   93: CompressionType.zstd,
   95: CompressionType.xz
 };
+
+/// A declared size is a claim, and a zip64 one over 2^63 reads as negative.
+/// Deflate expands a byte to at most 1032, so no more than that is allocated
+/// up front, and never more than 500 MB
+int? zipDecodeBufferSize(int uncompressedSize, int compressedSize) {
+  const maxDecodeBufferSize = 500 * 1024 * 1024;
+  final bound = compressedSize * 1032;
+  final size = uncompressedSize < bound ? uncompressedSize : bound;
+  if (size <= 0) {
+    return null;
+  }
+  return size < maxDecodeBufferSize ? size : maxDecodeBufferSize;
+}
 
 /// A file object used by [ZipDecoder].
 class ZipFile extends FileContent {
@@ -273,8 +288,16 @@ class ZipFile extends FileContent {
   /// crc32 checksum for the decompressed data and verify it with the value
   /// stored in the zip.
   bool verifyCrc32() {
-    final contentStream = _getStream();
-    _computedCrc32 ??= getCrc32(contentStream.toUint8List());
+    if (_computedCrc32 == null) {
+      final sum = _Crc32Sum();
+      final output = SinkOutputStream(sum);
+      _macFirst(() => decodeLimited(output, _outputLimit, (output) {
+            _decompress(output);
+            return true;
+          }));
+      output.flush();
+      _computedCrc32 = sum.value;
+    }
     return !hasCrc32 ||
         (_computedCrc32 == crc32 &&
             (header == null || _computedCrc32 == header!.crc32));
@@ -282,24 +305,45 @@ class ZipFile extends FileContent {
 
   @override
   void decompress(OutputStream output) {
-    guardDecode('zip', verify, throwOnError, () {
-      if (!verify) {
-        final start = output.length;
-        _decompress(output);
-        if (throwOnError) {
-          _checkSize(output.length - start);
-        }
-        return true;
-      }
-      final crc = _Crc32Tee(output);
-      final tee = SinkOutputStream(crc);
-      _decompress(tee);
-      tee.flush();
-      _checkSize(tee.length);
-      _checkCrc32(crc.value);
-      return true;
-    });
+    guardDecode(
+        'zip',
+        verify,
+        throwOnError,
+        () => _macFirst(() => decodeLimited(output, _outputLimit, (output) {
+              if (!verify) {
+                final start = output.length;
+                _decompress(output);
+                if (throwOnError) {
+                  _checkSize(output.length - start);
+                }
+                return true;
+              }
+              final crc = _Crc32Tee(output);
+              final tee = SinkOutputStream(crc);
+              _decompress(tee);
+              tee.flush();
+              _checkSize(tee.length);
+              _checkCrc32(crc.value);
+              return true;
+            })));
   }
+
+  // Tampered AES data can also decode past the entry size or fail to decode,
+  // and decodeLimited reports the size, so a known bad MAC goes first
+  bool _macFirst(bool Function() decode) {
+    try {
+      return decode();
+    } catch (_) {
+      if (_macMismatch) {
+        throw ArchiveChecksumException('macs don\'t match');
+      }
+      rethrow;
+    }
+  }
+
+  // The archive says how large the entry is, which is what a caller can
+  // check before reading it, so the data is not let decode past that.
+  int? get _outputLimit => uncompressedSize >= 0 ? uncompressedSize : null;
 
   void _decrypt() {
     if (_encryptionType != ZipEncryptionMode.none) {
@@ -323,6 +367,118 @@ class ZipFile extends FileContent {
   }
 
   void _decompress(OutputStream output) {
+    final raw = _rawContent;
+    final encryption = _encryptionType;
+    final plain = raw == null ? null : _decryptingStream();
+    if (plain != null) {
+      _rawContent = plain;
+      _encryptionType = ZipEncryptionMode.none;
+    }
+    _macMismatch = false;
+    try {
+      _decompressPlain(output);
+    } finally {
+      if (plain != null) {
+        _rawContent = raw;
+        _encryptionType = encryption;
+      }
+    }
+    // Thrown here, outside the deflate decoder, whose guard turns an
+    // ArchiveChecksumException without verify into a plain ArchiveException
+    if (_macMismatch) {
+      throw ArchiveChecksumException('macs don\'t match');
+    }
+  }
+
+  var _macMismatch = false;
+
+  // _decrypt holds the whole decrypted entry in memory, a second copy of a
+  // 300 MB entry. This decrypts as the content is read instead, or returns
+  // null when only a whole decrypt can tell which password is right
+  InputStream? _decryptingStream() {
+    final raw = _rawContent!;
+    if (_encryptionType == ZipEncryptionMode.none || raw.length <= 0) {
+      return null;
+    }
+    final start = raw.position;
+    try {
+      if (_encryptionType == ZipEncryptionMode.zipCrypto) {
+        if (raw.length < 12) {
+          return null;
+        }
+        final check =
+            flags & 0x08 != 0 ? (lastModFileTime >> 8) & 0xff : crc32 >>> 24;
+        final passing = [
+          for (final password in _passwordBytes())
+            if (password != null && _zipCryptoHeader(password, start) == check)
+              password
+        ];
+        if (passing.length != 1) {
+          return null;
+        }
+        _zipCryptoHeader(passing.first, start);
+        final length = raw.length;
+        final body = raw.subset(position: raw.position, length: length);
+        return InputDecodeStream(_DecryptChunks(body, (piece) {
+          for (var i = 0; i < piece.length; ++i) {
+            final temp = piece[i] ^ _decryptByte();
+            _updateKeys(temp);
+            piece[i] = temp;
+          }
+        }, () {}))
+            .subset(position: 0, length: length);
+      }
+      if (_encryptionType != ZipEncryptionMode.aes) {
+        return null;
+      }
+      final strength = _aesHeader!.encryptionStrength;
+      final keySize = strength == 1
+          ? 16
+          : strength == 2
+              ? 24
+              : 32;
+      final saltLength = keySize ~/ 2;
+      final length = raw.length - saltLength - 2 - 10;
+      if (length < 0) {
+        return null;
+      }
+      final salt = raw.readBytes(saltLength).toUint8List();
+      final verify = raw.readBytes(2).toUint8List();
+      final dataStart = raw.position;
+      Aes? aes;
+      var passing = 0;
+      for (final password in _passwordBytes()) {
+        if (password == null) {
+          continue;
+        }
+        final derivedKey =
+            _deriveKey(password, salt, derivedKeyLength: keySize);
+        final pwdCheck = derivedKey.sublist(keySize * 2, keySize * 2 + 2);
+        if (Uint8ListEquality.equals(pwdCheck, verify)) {
+          passing++;
+          aes = Aes(
+              Uint8List.fromList(derivedKey.sublist(0, keySize)),
+              Uint8List.fromList(derivedKey.sublist(keySize, keySize * 2)),
+              keySize);
+        }
+      }
+      if (passing != 1) {
+        return null;
+      }
+      final cipher = aes!;
+      final mac = raw.subset(position: dataStart + length, length: 10);
+      final body = raw.subset(position: dataStart, length: length);
+      return InputDecodeStream(_DecryptChunks(
+          body, (piece) => cipher.processPart(piece, 0, piece.length), () {
+        cipher.finishMac();
+        _macMismatch = !Uint8ListEquality.equals(mac.toUint8List(), cipher.mac);
+      })).subset(position: 0, length: length);
+    } finally {
+      raw.setPosition(start);
+    }
+  }
+
+  void _decompressPlain(OutputStream output) {
     if (_rawContent == null) {
       return;
     }
@@ -406,7 +562,7 @@ class ZipFile extends FileContent {
   }
 
   @override
-  int get length => getRawContent().length;
+  int get length => _rawContent?.length ?? 0;
 
   /// Get the decompressed content from the file. The file isn't decompressed
   /// until it is requested.
@@ -450,17 +606,15 @@ class ZipFile extends FileContent {
         final compressed = _rawContent!.toUint8List();
         // Raw deflate has no checksum of its own, zip checks CRC32
         // in _checkCrc32
-        content = ZLibDecoder()
-            .decodeBytes(compressed, raw: true, throwOnError: true);
+        content = ZLibDecoder().decodeBytes(compressed,
+            raw: true, throwOnError: true, maxOutputSize: _outputLimit);
       } else {
         final decompress = OutputMemoryStream(
-            size: uncompressedSize <= maxDecodeBufferSize
-                ? uncompressedSize
-                : maxDecodeBufferSize);
+            size: zipDecodeBufferSize(uncompressedSize, _rawContent!.length));
         // Raw deflate has no checksum of its own, zip checks CRC32
         // in _checkCrc32
         ZLibDecoder().decodeStream(_rawContent!, decompress,
-            raw: true, throwOnError: true);
+            raw: true, throwOnError: true, maxOutputSize: _outputLimit);
         content = decompress.getBytes();
       }
       _rawContent!.setPosition(savePos);
@@ -468,7 +622,8 @@ class ZipFile extends FileContent {
     } else if (compressionMethod == CompressionType.bzip2) {
       final output = OutputMemoryStream();
       final savePos = _rawContent!.position;
-      final ok = BZip2Decoder().decodeStream(_rawContent!, output);
+      final ok = BZip2Decoder()
+          .decodeStream(_rawContent!, output, maxOutputSize: _outputLimit);
       final content = _exact(output.getBytes());
       _rawContent!.setPosition(savePos);
       if (!ok) {
@@ -482,9 +637,17 @@ class ZipFile extends FileContent {
     } else if (compressionMethod == CompressionType.zstd ||
         compressionMethod == CompressionType.xz) {
       final output = OutputMemoryStream();
-      _decodeZstdOrXz(output);
+      decodeLimited(output, _outputLimit, (output) {
+        _decodeZstdOrXz(output);
+        return true;
+      });
       return InputMemoryStream(_exact(output.getBytes()));
     } else {
+      final limit = _outputLimit;
+      if (limit != null && _rawContent!.length > limit) {
+        throw ArchiveException(
+            'The decoded data is larger than the $limit bytes allowed');
+      }
       // Copying stored entry took 1.3 GB of RAM for 1 GB entry, so we read file
       // on demand and verify buffers at most 1 MB. InputFileStream.subset()
       // without position starts at 0, so we pass current position
@@ -753,6 +916,52 @@ class ZipFile extends FileContent {
           'zip: uncompressed size of $filename does not match');
     }
   }
+}
+
+class _DecryptChunks implements ChunkDecoder {
+  final InputStream _input;
+  final void Function(Uint8List piece) _decrypt;
+  final void Function() _atEnd;
+  final _buffer = Uint8List(16 * 1024);
+  var _done = false;
+
+  _DecryptChunks(this._input, this._decrypt, this._atEnd);
+
+  @override
+  int get history => 0;
+
+  @override
+  bool decodeChunk(OutputStream output) {
+    if (_done) {
+      return false;
+    }
+    final got = _input.readInto(_buffer, 0, _buffer.length);
+    if (got > 0) {
+      final piece = Uint8List.sublistView(_buffer, 0, got);
+      _decrypt(piece);
+      output.writeBytes(piece);
+    }
+    // A reader that takes the known length never asks past the last piece,
+    // so the end is checked with it
+    if (got <= 0 || _input.isEOS) {
+      _done = true;
+      _atEnd();
+      return false;
+    }
+    return true;
+  }
+}
+
+class _Crc32Sum implements Sink<List<int>> {
+  var value = 0;
+
+  @override
+  void add(List<int> data) {
+    value = getCrc32(data, value);
+  }
+
+  @override
+  void close() {}
 }
 
 class _Crc32Tee implements Sink<List<int>> {

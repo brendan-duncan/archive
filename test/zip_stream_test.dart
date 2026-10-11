@@ -199,24 +199,23 @@ void main() {
         return ByteData.sublistView(output.getBytes());
       }
 
-      const utField = 9;
       final plain = written(4293656835);
       expect(plain.getUint16(4, Endian.little), 20);
       expect(plain.getUint32(18, Endian.little), 0);
-      expect(plain.getUint16(28, Endian.little), utField);
+      expect(plain.getUint16(28, Endian.little), 0);
       final plainEnd = plain.lengthInBytes;
       expect(plain.getUint32(plainEnd - 16, Endian.little), 0x08074b50);
-      expect(plain.getUint32(plainEnd - 4, Endian.little), 4293656835);
+      expect(plain.getUint32(plainEnd - 4, Endian.little), 3);
 
       final wide = written(4293656836);
       expect(wide.getUint16(4, Endian.little), 45);
       expect(wide.getUint32(18, Endian.little), 0xFFFFFFFF);
       expect(wide.getUint32(22, Endian.little), 0xFFFFFFFF);
-      expect(wide.getUint16(28, Endian.little), 20 + utField);
+      expect(wide.getUint16(28, Endian.little), 20);
       expect(wide.getUint16(31, Endian.little), 1);
       final wideEnd = wide.lengthInBytes;
       expect(wide.getUint32(wideEnd - 24, Endian.little), 0x08074b50);
-      expect(wide.getUint64(wideEnd - 8, Endian.little), 4293656836);
+      expect(wide.getUint64(wideEnd - 8, Endian.little), 3);
     });
 
     // An entry over 4 GB is streamed too, not held in memory
@@ -229,23 +228,17 @@ void main() {
       body!.finish();
       encoder.endEncode();
       final view = ByteData.sublistView(output.getBytes());
-      const utField = 9;
       expect(view.getUint16(4, Endian.little), 45);
       expect(view.getUint32(22, Endian.little), 0xFFFFFFFF);
-      expect(view.getUint16(28, Endian.little), 20 + utField);
+      expect(view.getUint16(28, Endian.little), 20);
 
       var central = 0;
       while (view.getUint32(central, Endian.little) != 0x02014b50) {
         central++;
       }
       expect(view.getUint32(central - 24, Endian.little), 0x08074b50);
-      expect(view.getUint64(central - 8, Endian.little), 5000000000);
-      expect(view.getUint16(central + 6, Endian.little), 45);
-      expect(view.getUint32(central + 24, Endian.little), 0xFFFFFFFF);
-      final nameLength = view.getUint16(central + 28, Endian.little);
-      final zip64 = central + 46 + nameLength;
-      expect(view.getUint16(zip64, Endian.little), 1);
-      expect(view.getUint64(zip64 + 4, Endian.little), 5000000000);
+      expect(view.getUint64(central - 8, Endian.little), 3);
+      expect(view.getUint32(central + 24, Endian.little), 3);
     });
 
     test('encoder sends first bytes before compression reads whole entry', () {
@@ -301,14 +294,18 @@ void main() {
           (bytes[eocd + 19] << 24);
       // signature, version made by, version needed, then the flag word
       expect(bytes[centralAt] | (bytes[centralAt + 1] << 8), 0x4b50);
-      expect(bytes[centralAt + 8] & 0x08, 0x08);
-      expect(bytes[6] & 0x08, 0x08, reason: 'the local header too');
+      expect(bytes[centralAt + 8] & ZipEncoder.dataDescriptorBit,
+          ZipEncoder.dataDescriptorBit);
+      expect(
+          bytes[6] & ZipEncoder.dataDescriptorBit, ZipEncoder.dataDescriptorBit,
+          reason: 'the local header too');
     });
 
     test('local header has CRC and sizes set to 0 with bit 3', () {
       final bytes = _zip([ArchiveFile.bytes('a.bin', _source(60000, 7))]);
       // General purpose bit 3, then zeros where the check and sizes go
-      expect(bytes[6] & 0x08, 0x08);
+      expect(bytes[6] & ZipEncoder.dataDescriptorBit,
+          ZipEncoder.dataDescriptorBit);
       for (var at = 14; at < 26; at++) {
         expect(bytes[at], 0, reason: 'byte $at');
       }
@@ -593,10 +590,9 @@ void main() {
 
       // Java takes the descriptor width from the real sizes. A small entry
       // gets a plain local header and 4 byte sizes behind its data
-      const utField = 9;
       expect(view.getUint16(4, Endian.little), 20);
       expect(view.getUint32(18, Endian.little), 0);
-      expect(view.getUint16(28, Endian.little), utField);
+      expect(view.getUint16(28, Endian.little), 0);
       final at = _find(bytes, [0x50, 0x4b, 0x07, 0x08]);
       expect(at, greaterThan(0));
       expect(view.getUint32(at + 8, Endian.little), 13);

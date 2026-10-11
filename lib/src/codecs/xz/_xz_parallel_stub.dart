@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import '../../util/input_stream.dart';
 import 'xz_index.dart';
+import 'xz_stream_decoder.dart';
 
 /// Needs to be reviewed for WASM in a year or two, isolated might land there
 /// by that time #55364
@@ -37,6 +38,7 @@ Future<bool> xzDecodeMultithreaded({
   required XZLayout? layout,
   required bool verify,
   required int maxPreallocateSize,
+  int maxDictionarySize = xzDefaultMaxDictionarySize,
   int? workers,
   int? memoryBudget,
   required void Function(int outputOffset, Uint8List chunk) onChunk,

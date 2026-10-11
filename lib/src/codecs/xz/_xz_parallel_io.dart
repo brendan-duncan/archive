@@ -107,6 +107,7 @@ Future<bool> xzDecodeMultithreaded({
   required XZLayout? layout,
   required bool verify,
   required int maxPreallocateSize,
+  int maxDictionarySize = xzDefaultMaxDictionarySize,
   int? workers,
   int? memoryBudget,
   required void Function(int outputOffset, Uint8List chunk) onChunk,
@@ -144,12 +145,18 @@ Future<bool> xzDecodeMultithreaded({
             outputOffset: block.outputOffset,
             verify: verify,
             maxPreallocateSize: maxPreallocateSize,
+            maxDictionarySize: maxDictionarySize,
             fileReadBufferSize: fileReadBufferSize,
             uncompressedLength: block.uncompressedLength,
             unpaddedLength: block.unpaddedLength,
           )
-      ], count, onChunk, onBlockDone, onFailureReason,
-          memoryBudget ?? xzDefaultMemoryBudget);
+      ],
+          count,
+          onChunk,
+          onBlockDone,
+          onFailureReason,
+          memoryBudget ?? xzDefaultMemoryBudget,
+          orderedOutput ? 2 * count : null);
     }
   }
 
@@ -179,6 +186,7 @@ Future<bool> xzDecodeMultithreaded({
       outputOffset: 0,
       verify: verify,
       maxPreallocateSize: maxPreallocateSize,
+      maxDictionarySize: maxDictionarySize,
       fileReadBufferSize: fileReadBufferSize,
     )
   ], 1, inOrder, null, onFailureReason);
@@ -311,6 +319,7 @@ class _Job {
   final int outputOffset;
   final bool verify;
   final int maxPreallocateSize;
+  final int maxDictionarySize;
   final int fileReadBufferSize;
   final int? uncompressedLength;
   final int? unpaddedLength;
@@ -325,6 +334,7 @@ class _Job {
     required this.outputOffset,
     required this.verify,
     required this.maxPreallocateSize,
+    this.maxDictionarySize = xzDefaultMaxDictionarySize,
     required this.fileReadBufferSize,
     this.uncompressedLength,
     this.unpaddedLength,
@@ -356,6 +366,7 @@ class _Job {
       maxPreallocateSize,
       uncompressedLength,
       unpaddedLength,
+      maxDictionarySize,
     ];
   }
 
@@ -370,7 +381,8 @@ Future<bool> _runJobs(
     void Function(int outputOffset, Uint8List chunk) onChunk,
     void Function(int block, bool ok)? onBlockDone,
     void Function(String reason)? onFailureReason,
-    [int? memoryBudget]) async {
+    [int? memoryBudget,
+    int? maxAhead]) async {
   final receive = ReceivePort();
   final isolates = <Isolate>[];
   final completer = Completer<bool>();
@@ -380,6 +392,8 @@ Future<bool> _runJobs(
   final jobOf = <SendPort, int>{};
   final idle = <SendPort>[];
   var inFlight = 0;
+  final done = List<bool>.filled(jobs.length, false);
+  var firstUnfinished = 0;
   RandomAccessFile? headerFile;
 
   int costOfJob(int index) {
@@ -420,7 +434,9 @@ Future<bool> _runJobs(
   // memlimit_threading, each job waits until it fits, job over budget runs
   // alone
   void dispatch() {
-    while (idle.isNotEmpty && pending.isNotEmpty) {
+    while (idle.isNotEmpty &&
+        pending.isNotEmpty &&
+        (maxAhead == null || pending.first < firstUnfinished + maxAhead)) {
       final budget = memoryBudget;
       final cost = budget == null ? 0 : costOfJob(pending.first);
       if (budget != null && inFlight > 0 && inFlight + cost > budget) {
@@ -504,6 +520,10 @@ Future<bool> _runJobs(
             final job = jobOf.remove(message[1] as SendPort);
             if (job != null) {
               onBlockDone?.call(job, blockOk);
+              done[job] = true;
+              while (firstUnfinished < jobs.length && done[firstUnfinished]) {
+                firstUnfinished++;
+              }
             }
             if (blockOk && message[5] != null) {
               ok = false;
@@ -1025,6 +1045,7 @@ void _xzWorker(SendPort toMain) {
     final maxPreallocateSize = job[10] as int;
     final uncompressedLength = job[11] as int?;
     final unpaddedLength = job[12] as int?;
+    final maxDictionarySize = job[13] as int;
 
     // Failing to get hold of the compressed data is a failure of the decode
     // itself rather than a statement about the archive, so it is reported as
@@ -1074,6 +1095,7 @@ void _xzWorker(SendPort toMain) {
           streamFlags: streamFlags,
           verify: verify,
           maxPreallocateSize: maxPreallocateSize,
+          maxDictionarySize: maxDictionarySize,
           outputOffset: outputOffset,
           uncompressedLength: uncompressedLength,
           unpaddedLength: unpaddedLength,
@@ -1127,6 +1149,7 @@ void _sendThrown(
   required int streamFlags,
   required bool verify,
   required int maxPreallocateSize,
+  int maxDictionarySize = xzDefaultMaxDictionarySize,
   required int outputOffset,
   required int? uncompressedLength,
   required int? unpaddedLength,
@@ -1161,13 +1184,17 @@ void _sendThrown(
   try {
     if (kind == xzKindBlock) {
       final result = decodeXZBlock(input, streamFlags, sink,
-          maxPreallocateSize: maxPreallocateSize, verify: verify);
+          maxPreallocateSize: maxPreallocateSize,
+          verify: verify,
+          maxDictionarySize: maxDictionarySize);
       ok = result.ok;
       reason = result.reason;
       decodedUnpadded = result.unpaddedLength;
     } else {
       final decoder = XZStreamDecoder(
-          verify: verify, maxPreallocateSize: maxPreallocateSize);
+          verify: verify,
+          maxPreallocateSize: maxPreallocateSize,
+          maxDictionarySize: maxDictionarySize);
       ok = decoder.decode(input, sink);
       reason = decoder.failureReason;
     }

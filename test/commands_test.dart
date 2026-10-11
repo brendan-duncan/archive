@@ -29,6 +29,51 @@ void main() {
         printed(() => listTarFiles('test/_data/test2.tar.gz')));
   });
 
+  test('list and extract read compressed tars without a temporary file',
+      testOn: 'vm', () {
+    final out = Directory.systemTemp.createTempSync('commands_out');
+    addTearDown(() => out.deleteSync(recursive: true));
+    final expected = printed(() => listTarFiles('test/_data/test2.tar'));
+    IOOverrides.runZoned(() {
+      for (final name in ['test2.tar.gz', 'test2.tar.bz2', 'test2.tar.zst']) {
+        expect(printed(() => listTarFiles('test/_data/$name')), expected,
+            reason: name);
+        printed(
+            () => extractTarFiles('test/_data/$name', p.join(out.path, name)));
+      }
+    }, getSystemTempDirectory: () => Directory(p.join(out.path, 'missing')));
+    for (final name in ['test2.tar.gz', 'test2.tar.bz2', 'test2.tar.zst']) {
+      expect(
+          File(p.join(out.path, name, 'test2', 'test.txt')).readAsBytesSync(),
+          File('test/_data/test2/test.txt').readAsBytesSync(),
+          reason: name);
+    }
+  });
+
+  test('list reads tar.zst and tzst', testOn: 'vm', () {
+    final expected = printed(() => listTarFiles('test/_data/test2.tar'));
+    expect(printed(() => listTarFiles('test/_data/test2.tar.zst')), expected);
+    expect(printed(() => listTarFiles('test/_data/test2.tzst')), expected);
+  });
+
+  test('extract reads tar.zst', testOn: 'vm', () {
+    final fromTar = Directory.systemTemp.createTempSync('commands_tar');
+    final fromZst = Directory.systemTemp.createTempSync('commands_zst');
+    addTearDown(() {
+      fromTar.deleteSync(recursive: true);
+      fromZst.deleteSync(recursive: true);
+    });
+    printed(() {
+      extractTarFiles('test/_data/test2.tar', fromTar.path);
+      extractTarFiles('test/_data/test2.tar.zst', fromZst.path);
+    });
+    List<String> names(Directory d) => [
+          for (final e in d.listSync(recursive: true))
+            p.relative(e.path, from: d.path)
+        ]..sort();
+    expect(names(fromZst), names(fromTar));
+  });
+
   test('list and extract leave no temporary folder', testOn: 'vm', () {
     final temp = Directory.systemTemp.createTempSync('commands_temp');
     final out = Directory.systemTemp.createTempSync('commands_out');

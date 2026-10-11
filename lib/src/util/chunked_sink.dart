@@ -4,6 +4,7 @@ import 'dart:typed_data';
 
 import 'byte_order.dart';
 import 'decode_guard.dart';
+import 'input_decode_stream.dart';
 import 'input_stream.dart';
 import 'output_memory_stream.dart';
 import 'output_stream.dart';
@@ -41,6 +42,11 @@ abstract class ChunkedSink extends ByteConversionSink {
   /// Bytes read so far. A format measures its padding and its own lengths
   /// against this
   var consumed = 0;
+
+  /// When set, [step] returns after one unit of the format, a block or a
+  /// chunk. [ChunkedSinkDecoder] sets it, since an input of a few bytes can
+  /// decode to gigabytes in one call otherwise
+  var unitAtATime = false;
 
   /// Reads what has arrived and returns at the first field that is not all
   /// here yet. Called again with more bytes behind it
@@ -263,6 +269,58 @@ class _FailOnce implements EventSink<List<int>> {
       rethrow;
     }
   }
+}
+
+/// Lets [InputDecodeStream] pull from a [ChunkedSink], which is pushed to
+class ChunkedSinkDecoder implements ChunkDecoder {
+  final InputStream _input;
+  final _sink = _OutputStreamSink();
+  late final ChunkedSink _decoder;
+  final _buffer = Uint8List(1 << 16);
+  var _done = false;
+
+  ChunkedSinkDecoder(
+      this._input, ChunkedSink Function(Sink<List<int>> output) create) {
+    _decoder = create(_sink)..unitAtATime = true;
+  }
+
+  @override
+  int get history => 0;
+
+  @override
+  bool decodeChunk(OutputStream output) {
+    if (_done) {
+      return false;
+    }
+    _sink.target = output;
+    if (_decoder.available > 0) {
+      final consumed = _decoder.consumed;
+      _decoder.resume();
+      if (_decoder.consumed != consumed) {
+        return true;
+      }
+    }
+    if (_input.isEOS) {
+      _done = true;
+      _decoder.close();
+      return false;
+    }
+    final want =
+        _input.length < _buffer.length ? _input.length : _buffer.length;
+    final got = _input.readInto(_buffer, 0, want);
+    _decoder.addSlice(_buffer, 0, got, false);
+    return true;
+  }
+}
+
+class _OutputStreamSink implements Sink<List<int>> {
+  late OutputStream target;
+
+  @override
+  void add(List<int> data) => target.writeBytes(data);
+
+  @override
+  void close() {}
 }
 
 class FailOnceSink extends ByteConversionSink {

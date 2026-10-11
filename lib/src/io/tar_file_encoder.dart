@@ -5,6 +5,7 @@ import 'package:path/path.dart' as path;
 import '../archive/archive_file.dart';
 import '../codecs/gzip_encoder.dart';
 import '../codecs/tar_encoder.dart';
+import '../codecs/zstd_encoder.dart';
 import '../util/input_file_stream.dart';
 import '../util/output_file_stream.dart';
 import 'zip_file_progress.dart';
@@ -16,6 +17,7 @@ class TarFileEncoder {
 
   static const store = 0;
   static const gzip = 1;
+  static const zstd = 2;
 
   Future<void> tarDirectory(Directory dir,
       {int compression = store,
@@ -26,9 +28,10 @@ class TarFileEncoder {
     final dirPath = dir.path;
     var tarPath = filename ?? '$dirPath.tar';
     final tgzPath = filename ?? '$dirPath.tar.gz';
+    final tzstPath = filename ?? '$dirPath.tar.zst';
 
     Directory? tempDir;
-    if (compression == gzip) {
+    if (compression == gzip || compression == zstd) {
       tempDir = await Directory.systemTemp.createTemp('dart_archive');
       tarPath = '${tempDir.path}/temp.tar';
     }
@@ -50,6 +53,17 @@ class TarFileEncoder {
           input = InputFileStream(tarPath);
           output = OutputFileStream(tgzPath);
           GZipEncoder().encodeStream(input, output, level: level ?? 6);
+        } finally {
+          await input?.close();
+          await output?.close();
+        }
+      } else if (compression == zstd) {
+        InputFileStream? input;
+        OutputFileStream? output;
+        try {
+          input = InputFileStream(tarPath);
+          output = OutputFileStream(tzstPath);
+          ZstdEncoder().encodeStream(input, output, level: level);
         } finally {
           await input?.close();
           await output?.close();

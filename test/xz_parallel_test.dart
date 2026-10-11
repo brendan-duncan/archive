@@ -90,6 +90,58 @@ Uint8List sampleData(int length) {
 List<int> _uint32(int value) =>
     [value & 0xff, (value >> 8) & 0xff, (value >> 16) & 0xff, value >>> 24];
 
+List<int> _varint(int value) {
+  final out = <int>[];
+  while (value >= 0x80) {
+    out.add((value & 0x7f) | 0x80);
+    value >>= 7;
+  }
+  return out..add(value);
+}
+
+/// Returns [xz] with every index record set to [claim] uncompressed bytes and
+/// the index CRC and footer recomputed
+Uint8List withIndexClaim(Uint8List xz, int claim) {
+  final backward =
+      ByteData.sublistView(xz).getUint32(xz.length - 8, Endian.little);
+  final indexAt = xz.length - 12 - (backward + 1) * 4;
+  var at = indexAt + 1;
+  int read() {
+    var value = 0;
+    for (var shift = 0;; shift += 7) {
+      final byte = xz[at++];
+      value |= (byte & 0x7f) << shift;
+      if (byte < 0x80) {
+        return value;
+      }
+    }
+  }
+
+  final count = read();
+  final records = [0x00, ..._varint(count)];
+  for (var i = 0; i < count; i++) {
+    final unpadded = read();
+    read();
+    records
+      ..addAll(_varint(unpadded))
+      ..addAll(_varint(claim));
+  }
+  while (records.length % 4 != 0) {
+    records.add(0);
+  }
+  final index = [...records, ..._uint32(getCrc32(records))];
+  final flags = xz.sublist(xz.length - 4, xz.length - 2);
+  final footer = [..._uint32(index.length ~/ 4 - 1), ...flags];
+  return Uint8List.fromList([
+    ...xz.sublist(0, indexAt),
+    ...index,
+    ..._uint32(getCrc32(footer)),
+    ...footer,
+    0x59,
+    0x5a,
+  ]);
+}
+
 Uint8List emptyBlockStream() {
   const flags = [0x00, 0x01];
   final blockHeader = [0x02, 0xc0, 0x01, 0x00, 0x21, 0x01, 0x00, 0x00];
@@ -168,6 +220,171 @@ void main() {
 
       expect(sequential, equals(expected));
       expect(parallel, equals(expected));
+    });
+
+    test('index claim does not size the result buffer', () async {
+      final data = Uint8List(1000);
+      final forged = withIndexClaim(XZEncoder().encodeBytes(data), 1500 << 20);
+      expect(XZDecoder().uncompressedSize(forged), 1500 << 20);
+      final ceiling = forged.length * 8192;
+
+      final single = XZDecoder().decodeBytes(forged);
+      expect(single, equals(data));
+      expect(single.buffer.lengthInBytes, lessThanOrEqualTo(ceiling));
+
+      final parallel = await decodeBytesOnIsolates(forged, workers: 2);
+      expect(parallel, equals(data));
+      expect(parallel.buffer.lengthInBytes, lessThanOrEqualTo(ceiling));
+    });
+
+    test('maxOutputSize bounds a decode on workers', () async {
+      final compressed = fixture('blocks');
+      for (final workers in [1, 4]) {
+        for (final max in [expected.length, expected.length - 1]) {
+          final over = max < expected.length;
+          final bytes = Completer<Uint8List>();
+          XZDecoder().decodeBytes(compressed,
+              maxOutputSize: max,
+              multithread: XZMultithreadOptions(
+                  onDone: bytes.complete,
+                  onError: bytes.completeError,
+                  workers: workers));
+          if (over) {
+            await expectLater(bytes.future, throwsA(isA<ArchiveException>()),
+                reason: 'decodeBytes, $workers workers');
+          } else {
+            expect(await bytes.future, equals(expected));
+          }
+
+          final output = OutputMemoryStream();
+          final stream = Completer<bool>();
+          XZDecoder().decodeStream(InputMemoryStream(compressed), output,
+              maxOutputSize: max,
+              multithread: XZMultithreadOptions(
+                  onDone: stream.complete,
+                  onError: stream.completeError,
+                  workers: workers));
+          if (over) {
+            await expectLater(stream.future, throwsA(isA<ArchiveException>()),
+                reason: 'decodeStream, $workers workers');
+            expect(output.length, lessThanOrEqualTo(max));
+          } else {
+            expect(await stream.future, isTrue);
+            expect(output.getBytes(), equals(expected));
+          }
+        }
+      }
+    });
+
+    test('blocks run at most two per worker ahead of a slow first block',
+        () async {
+      final random = Random(1);
+      final parts = <int>[
+        ...XZEncoder().encodeBytes(Uint8List.fromList(
+            List.generate(8 << 20, (_) => random.nextInt(16)))),
+      ];
+      for (var i = 0; i < 40; i++) {
+        parts.addAll(XZEncoder().encodeBytes(Uint8List(65536)));
+      }
+      final bytes = Uint8List.fromList(parts);
+      final layout = parseXZLayout(XZMemorySource(bytes))!;
+      var firstDone = false;
+      final ahead = <int>{};
+      final ok = await xzDecodeMultithreaded(
+        bytes: bytes,
+        layout: layout,
+        verify: false,
+        maxPreallocateSize: 1 << 30,
+        workers: 4,
+        orderedOutput: true,
+        fileReadBufferSize: 1 << 20,
+        onChunk: (offset, chunk) {},
+        onBlockDone: (block, ok) {
+          if (block == 0) {
+            firstDone = true;
+          } else if (!firstDone) {
+            ahead.add(block);
+          }
+        },
+      );
+      expect(ok, isTrue);
+      expect(ahead.length, lessThanOrEqualTo(2 * 4));
+    });
+
+    group('an index that misstates a block', () {
+      // Rewrites the size the index gives the first 64 KB block, keeping the
+      // index CRC valid. Each block is placed by the index, so the decoded
+      // blocks no longer meet: before blocks were checked against it, the
+      // ordered writer held everything after the first block in memory and
+      // the decode reported success with the output cut short.
+      Uint8List misstate(Uint8List compressed, List<int> size) {
+        final bytes = Uint8List.fromList(compressed);
+        final footer = bytes.length - 12;
+        final backwardSize = ByteData.sublistView(bytes, footer + 4, footer + 8)
+            .getUint32(0, Endian.little);
+        final indexStart = footer - (backwardSize + 1) * 4;
+        // Indicator and a one byte record count, then the first record's
+        // unpadded size, which is under 16 KB here so two bytes.
+        final at = indexStart + 2 + 2;
+        expect(bytes.sublist(at, at + 3), equals([0x80, 0x80, 0x04]));
+        bytes.setRange(at, at + 3, size);
+        final crcAt = footer - 4;
+        ByteData.sublistView(bytes, crcAt, crcAt + 4).setUint32(
+            0, getCrc32(bytes.sublist(indexStart, crcAt)), Endian.little);
+        return bytes;
+      }
+
+      for (final (name, size) in [
+        ('too small', [0xff, 0xff, 0x03]),
+        ('too large', [0x81, 0x80, 0x04]),
+      ]) {
+        test('$name is refused by decodeStream', () async {
+          final compressed = misstate(fixture('blocks'), size);
+          final output = OutputMemoryStream();
+          final ok = await decodeStreamOnIsolates(
+              InputMemoryStream(compressed), output,
+              workers: 4);
+          expect(ok, isFalse);
+          expect(output.length, lessThanOrEqualTo(65536));
+        });
+
+        test('$name is refused by decodeBytes', () async {
+          final compressed = misstate(fixture('blocks'), size);
+          final completer = Completer<Uint8List>();
+          XZDecoder().decodeBytes(compressed,
+              throwOnError: true,
+              multithread: XZMultithreadOptions(
+                  workers: 4,
+                  onDone: completer.complete,
+                  onError: completer.completeError));
+          await expectLater(completer.future, throwsA(isA<ArchiveException>()));
+        });
+      }
+    });
+
+    test('maxDictionarySize refuses blocks on workers', () async {
+      final compressed = fixture('blocks');
+      for (final workers in [1, 4]) {
+        final bytes = Completer<Uint8List>();
+        XZDecoder(maxDictionarySize: 0).decodeBytes(compressed,
+            throwOnError: true,
+            multithread: XZMultithreadOptions(
+                onDone: bytes.complete,
+                onError: bytes.completeError,
+                workers: workers));
+        await expectLater(bytes.future, throwsA(isA<ArchiveException>()),
+            reason: 'decodeBytes, $workers workers');
+
+        final stream = Completer<bool>();
+        XZDecoder(maxDictionarySize: 0).decodeStream(
+            InputMemoryStream(compressed), OutputMemoryStream(),
+            multithread: XZMultithreadOptions(
+                onDone: stream.complete,
+                onError: stream.completeError,
+                workers: workers));
+        expect(await stream.future, isFalse,
+            reason: 'decodeStream, $workers workers');
+      }
     });
 
     test('applies the BCJ x86 filter across blocks', () async {

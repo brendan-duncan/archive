@@ -4,10 +4,12 @@ import '../../util/adler32.dart';
 import '../../util/archive_exception.dart';
 import '../../util/byte_order.dart';
 import '../../util/decode_guard.dart';
+import '../../util/input_decode_stream.dart';
 import '../../util/input_memory_stream.dart';
 import '../../util/input_stream.dart';
 import '../../util/output_memory_stream.dart';
 import '../../util/output_stream.dart';
+import '_inflate_chunk_decoder.dart';
 import '_zlib_decoder_base.dart';
 import 'inflate.dart';
 
@@ -41,6 +43,12 @@ class _ZLibDecoder extends ZLibDecoderBase {
       input.byteOrder = held;
     }
   }
+
+  @override
+  InputStream decodeLazy(InputStream input,
+          {bool verify = false, bool raw = false}) =>
+      InputDecodeStream(InflateChunkDecoder(
+          input, raw ? InflateFormat.raw : InflateFormat.zlib));
 
   bool _decode(InputStream input, OutputStream output, bool verify, bool raw) {
     Uint8List? buffer;
