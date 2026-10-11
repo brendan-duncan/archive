@@ -44,6 +44,9 @@
   entry or a zip64 locator pointing past the file, threw `RangeError`
   instead of `ArchiveException`. The AES extra field is also found when
   other extra fields come before it.
+* `BZip2Decoder` accepts a block declaring more than 18002 selectors and
+  ignores the extra ones, as libbzip2 does, instead of reporting a
+  truncated stream.
 
 # 4.4.0
 

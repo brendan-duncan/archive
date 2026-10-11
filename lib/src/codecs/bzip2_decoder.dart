@@ -143,6 +143,8 @@ class BZip2Decoder {
     _selectorMtf = Uint8List(bzMaxSelectors);
     _selector = Uint8List(bzMaxSelectors);
 
+    // A block can use no more than bzMaxSelectors, but some encoders write
+    // more. As libbzip2 does, the rest are read and ignored.
     for (var i = 0; i < _numSelectors; ++i) {
       var j = 0;
       while (true) {
@@ -157,7 +159,12 @@ class BZip2Decoder {
         }
       }
 
-      _selectorMtf[i] = j;
+      if (i < bzMaxSelectors) {
+        _selectorMtf[i] = j;
+      }
+    }
+    if (_numSelectors > bzMaxSelectors) {
+      _numSelectors = bzMaxSelectors;
     }
 
     // Undo the MTF values for the selectors.
