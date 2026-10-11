@@ -257,6 +257,9 @@ class ZipFile extends FileContent {
   @override
   int get length => _rawContent?.length ?? 0;
 
+  // About the most deflate expands a byte of input to.
+  static const int _maxRatio = 1032;
+
   /// Get the decompressed content from the file. The file isn't decompressed
   /// until it is requested.
   @override
@@ -277,12 +280,12 @@ class ZipFile extends FileContent {
       bytes = content.toUint8List();
     } else {
       // [uncompressedSize] comes from the archive, so a crafted value is not
-      // trusted to size an allocation: the stream grows into what the data
+      // trusted to size an allocation beyond what the compressed data could
+      // plausibly decode to: past that the stream grows into what the data
       // needs. It does bound that growth, as in [decompress].
+      final size = min(uncompressedSize, _rawContent!.length * _maxRatio);
       final output = OutputMemoryStream(
-          size: uncompressedSize > 0 && uncompressedSize <= maxDecodeBufferSize
-              ? uncompressedSize
-              : null);
+          size: size > 0 && size <= maxDecodeBufferSize ? size : null);
       this.decompress(output);
       bytes = output.getBytes();
     }

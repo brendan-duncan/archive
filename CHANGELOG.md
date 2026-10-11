@@ -47,6 +47,8 @@
 * `BZip2Decoder` accepts a block declaring more than 18002 selectors and
   ignores the extra ones, as libbzip2 does, instead of reporting a
   truncated stream.
+* Reading a zip entry no longer preallocates its declared size when the
+  compressed data could not expand that far.
 
 # 4.4.0
 
