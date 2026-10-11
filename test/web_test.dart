@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:archive/archive.dart';
@@ -6,6 +7,29 @@ import 'package:test/test.dart';
 import '_test_util.dart';
 
 void main() {
+  group('zip', () {
+    test('round trips', () {
+      // The web zlib encoder left the zip encoder's output big-endian, so
+      // every header after the first entry's data was written backwards and
+      // the zip decoded to nothing.
+      final archive = Archive()
+        ..add(ArchiveFile.string('a.txt', 'hello hello hello'))
+        ..add(ArchiveFile.string('b.txt', 'world'));
+      final decoded =
+          ZipDecoder().decodeBytes(ZipEncoder().encodeBytes(archive));
+      expect(decoded.map((f) => f.name), ['a.txt', 'b.txt']);
+      expect(utf8.decode(decoded[0].readBytes()!), 'hello hello hello');
+      expect(utf8.decode(decoded[1].readBytes()!), 'world');
+    });
+
+    test('zlib encoding leaves the output byte order alone', () {
+      final output = OutputMemoryStream();
+      ZLibEncoder()
+          .encodeStream(InputMemoryStream(utf8.encode('hello')), output);
+      expect(output.byteOrder, ByteOrder.littleEndian);
+    });
+  });
+
   group('zlib web', () {
     test('encode/decode', () {
       final origData = [1, 2, 3, 4, 5, 6];

@@ -80,7 +80,8 @@ class ZipEncoder {
   late _ZipEncoderData _data;
   OutputStream? _output;
   final Encoding filenameEncoding;
-  final Random _random = Random.secure();
+  // Only a password needs it, and under dart2js on Node creating it throws.
+  late final Random _random = Random.secure();
   final String? password;
 
   ZipEncoder({this.filenameEncoding = const Utf8Codec(), this.password});

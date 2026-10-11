@@ -1,5 +1,10 @@
 # 4.5.1
 
+* Fixed zips written on the web, which decoded to nothing: the zlib encoder
+  left the zip encoder's output big-endian, so every header after the first
+  entry's data was written in the wrong byte order (#419).
+* `ZipEncoder` can be used under dart2js on Node, where creating its secure
+  random source threw; it is now only created for a password.
 * Fixed zips written by `ZipEncoder` since 4.4.0, which 7-Zip reported
   as having header errors: the data descriptor flag was set in each
   entry's local header but not its central directory header. The UTF-8
