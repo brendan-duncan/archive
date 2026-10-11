@@ -2,6 +2,7 @@
 import 'dart:io';
 
 import '../../archive_io.dart';
+import '_entry_writer.dart';
 
 /// Print the entries in the given tar file.
 void listTarFiles(String path) {
@@ -11,84 +12,47 @@ void listTarFiles(String path) {
   }
 
   final input = InputFileStream(path);
-  final dir = Directory.systemTemp.createTempSync('foo');
-  final tempTarPath = '${dir.path}${Platform.pathSeparator}temp.tar';
-  final output = OutputFileStream(tempTarPath);
+  try {
+    final tar = _tarStream(path, input);
+    final tarArchive = TarDecoder();
+    // Tell the decoder not to store the actual file data since we don't need
+    // it.
+    tarArchive.decodeStream(tar, storeData: false);
 
-  //List<int> data = file.readAsBytesSync();
-  if (path.endsWith('tar.gz') || path.endsWith('tgz')) {
-    GZipDecoder().decodeStream(input, output);
-  } else if (path.endsWith('tar.bz2') || path.endsWith('tbz')) {
-    BZip2Decoder().decodeStream(input, output);
-  } else if (path.endsWith('tar.zst') || path.endsWith('tzst')) {
-    ZstdDecoder().decodeStream(input, output);
-  }
-
-  final tarInput = InputFileStream(tempTarPath);
-
-  final tarArchive = TarDecoder();
-  // Tell the decoder not to store the actual file data since we don't need
-  // it.
-  tarArchive.decodeStream(tarInput, storeData: false);
-
-  print('${tarArchive.files.length} file(s)');
-  for (final f in tarArchive.files) {
-    print('  $f');
+    print('${tarArchive.files.length} file(s)');
+    for (final f in tarArchive.files) {
+      print('  $f');
+    }
+  } finally {
+    input.closeSync();
   }
 }
 
 /// Extract the entries in the given tar file to a directory.
+///
+/// Entries are kept inside [outputPath] as [extractArchiveToDiskSync]
+/// describes.
 Directory extractTarFiles(String inputPath, String outputPath) {
-  Directory? tempDir;
-  var tarPath = inputPath;
-
-  if (inputPath.endsWith('tar.gz') || inputPath.endsWith('tgz')) {
-    tempDir = Directory.systemTemp.createTempSync('dart_archive');
-    tarPath = '${tempDir.path}${Platform.pathSeparator}temp.tar';
-    final input = InputFileStream(inputPath);
-    final tarOutput = OutputFileStream(tarPath);
-    GZipDecoder().decodeStream(input, tarOutput);
+  final input = InputFileStream(inputPath);
+  try {
+    final writer = EntryWriter(outputPath);
+    TarDecoder().decodeStream(_tarStream(inputPath, input), callback: (entry) {
+      final path = writer.write(entry);
+      if (path != null && entry.isFile && !entry.isSymbolicLink) {
+        print('  extracted $path');
+      }
+    });
+    writer.finish();
+  } finally {
     input.closeSync();
-    tarOutput.closeSync();
-  } else if (inputPath.endsWith('tar.zst') || inputPath.endsWith('tzst')) {
-    tempDir = Directory.systemTemp.createTempSync('dart_archive');
-    tarPath = '${tempDir.path}${Platform.pathSeparator}temp.tar';
-    final input = InputFileStream(inputPath);
-    final tarOutput = OutputFileStream(tarPath);
-    ZstdDecoder().decodeStream(input, tarOutput);
-    input.closeSync();
-    tarOutput.closeSync();
   }
-
-  final outDir = Directory(outputPath);
-  if (!outDir.existsSync()) {
-    outDir.createSync(recursive: true);
-  }
-
-  final input = InputFileStream(tarPath);
-  final tarArchive = TarDecoder().decodeStream(input);
-
-  for (final entry in tarArchive) {
-    final path = '$outputPath${Platform.pathSeparator}${entry.name}';
-    if (entry.isDirectory) {
-      Directory(path).createSync(recursive: true);
-    } else {
-      final output = OutputFileStream(path);
-      entry.writeContent(output);
-      print('  extracted ${path}');
-      output.closeSync();
-    }
-  }
-
-  input.closeSync();
-  tarArchive.clearSync();
-
-  /*if (tempDir != null) {
-    tempDir.delete(recursive: true);
-  }*/
-
-  return outDir;
+  return Directory(outputPath);
 }
+
+// The tar in [input], decompressed as it is read if [path] says it is
+// compressed.
+InputStream _tarStream(String path, InputStream input) =>
+    tarStreamFor(getInputExtension(path), input) ?? input;
 
 Future<void> createTarFile(String dirPath) async {
   final dir = Directory(dirPath);

@@ -1,174 +1,45 @@
-import 'dart:io';
-
 import 'package:path/path.dart' as path;
 
 import '../archive/archive.dart';
 import '../archive/archive_file.dart';
-import '../codecs/bzip2_decoder.dart';
-import '../codecs/gzip_decoder.dart';
 import '../codecs/tar_decoder.dart';
-import '../codecs/xz_decoder.dart';
 import '../codecs/zip_decoder.dart';
-import '../codecs/zstd_decoder.dart';
-import '../util/archive_exception.dart';
 import '../util/input_file_stream.dart';
-import '../util/input_stream.dart';
-import '../util/output_file_stream.dart';
-import 'posix.dart' as posix;
-
-// Ensure filePath is contained in the outputDir folder, to make sure archives
-// aren't trying to write to some system path.
-bool _isWithinOutputPath(String outputDir, String filePath) {
-  return path.isWithin(
-      path.canonicalize(outputDir), path.canonicalize(filePath));
-}
-
-bool _isValidSymLink(String outputPath, ArchiveFile file) {
-  final filePath =
-      path.dirname(path.join(outputPath, path.normalize(file.name)));
-  final linkPath = path.normalize(file.symbolicLink ?? "");
-  if (path.isAbsolute(linkPath)) {
-    // Don't allow decoding of files outside of the output path.
-    return false;
-  }
-  final absLinkPath = path.normalize(path.join(filePath, linkPath));
-  if (!_isWithinOutputPath(outputPath, absLinkPath)) {
-    // Don't allow decoding of files outside of the output path.
-    return false;
-  }
-  return true;
-}
-
-// Adds [size] to what has been written so far, refusing to go past [maxSize].
-int _addToTotal(int total, int size, int? maxSize) {
-  total += size;
-  if (maxSize != null && total > maxSize) {
-    throw ArchiveException(
-        'Extracting the archive would write more than $maxSize bytes');
-  }
-  return total;
-}
-
-void _prepareOutDir(String outDirPath) {
-  final outDir = Directory(outDirPath);
-  if (!outDir.existsSync()) {
-    outDir.createSync(recursive: true);
-  }
-}
-
-String? _prepareArchiveFilePath(ArchiveFile archiveFile, String outputPath) {
-  final filePath = path.join(outputPath, path.normalize(archiveFile.name));
-
-  if ((archiveFile.isDirectory && !archiveFile.isSymbolicLink) ||
-      !_isWithinOutputPath(outputPath, filePath)) {
-    return null;
-  }
-
-  if (archiveFile.isSymbolicLink) {
-    if (!_isValidSymLink(outputPath, archiveFile)) {
-      return null;
-    }
-  }
-
-  return filePath;
-}
-
-void _extractArchiveEntryToDiskSync(
-  ArchiveFile entry,
-  String filePath, {
-  int? bufferSize,
-}) {
-  if (entry.isSymbolicLink) {
-    final link = Link(filePath);
-    link.createSync(path.normalize(entry.symbolicLink ?? ""), recursive: true);
-  } else {
-    if (entry.isFile) {
-      final output = OutputFileStream(filePath, bufferSize: bufferSize);
-      try {
-        entry.writeContent(output);
-      } catch (err) {
-        //
-      }
-      output.closeSync();
-    } else {
-      Directory(filePath).createSync(recursive: true);
-    }
-  }
-}
+import '_entry_writer.dart';
 
 /// Writes the entries of [archive] into the directory [outputPath].
+///
+/// An entry whose path or link target would land outside [outputPath] is
+/// skipped. Symbolic links are created after every other entry, and one that
+/// would lead through another link is skipped too.
 ///
 /// [maxSize] limits the total size of the files written. An entry that would
 /// take it past that throws an [ArchiveException] before it is written. A zip
 /// entry is never decoded past the size the archive gives for it.
+///
+/// An entry whose content fails to decode throws, and its partial file is
+/// removed.
 void extractArchiveToDiskSync(
   Archive archive,
   String outputPath, {
   int? bufferSize,
   int? maxSize,
 }) {
-  _prepareOutDir(outputPath);
-  var total = 0;
+  final writer =
+      EntryWriter(outputPath, bufferSize: bufferSize, maxSize: maxSize);
   for (final entry in archive) {
-    final filePath = _prepareArchiveFilePath(entry, outputPath);
-    if (filePath != null) {
-      if (entry.isFile && !entry.isSymbolicLink) {
-        total = _addToTotal(total, entry.size, maxSize);
-      }
-      _extractArchiveEntryToDiskSync(entry, filePath, bufferSize: bufferSize);
-    }
+    writer.write(entry);
   }
+  writer.finish();
 }
 
 /// Writes the entries of [archive] into the directory [outputPath].
 ///
-/// [maxSize] is as for [extractArchiveToDiskSync].
+/// This is [extractArchiveToDiskSync], with the same arguments.
 Future<void> extractArchiveToDisk(Archive archive, String outputPath,
     {int? bufferSize, int? maxSize}) async {
-  var total = 0;
-  final outDir = Directory(outputPath);
-  if (!outDir.existsSync()) {
-    outDir.createSync(recursive: true);
-  }
-
-  for (final entry in archive) {
-    final filePath = path.normalize(path.join(outputPath, entry.name));
-
-    if ((entry.isDirectory && !entry.isSymbolicLink) ||
-        !_isWithinOutputPath(outputPath, filePath)) {
-      continue;
-    }
-
-    if (entry.isSymbolicLink) {
-      if (!_isValidSymLink(outputPath, entry)) {
-        continue;
-      }
-
-      final link = Link(filePath);
-      await link.create(path.normalize(entry.symbolicLink ?? ""),
-          recursive: true);
-      continue;
-    }
-
-    if (entry.isDirectory) {
-      await Directory(filePath).create(recursive: true);
-      continue;
-    }
-
-    ArchiveFile file = entry;
-    total = _addToTotal(total, file.size, maxSize);
-
-    bufferSize ??= OutputFileStream.kDefaultBufferSize;
-    final fileSize = file.size;
-    final fileBufferSize = fileSize < bufferSize ? fileSize : bufferSize;
-    final output = OutputFileStream(filePath, bufferSize: fileBufferSize);
-    try {
-      file.writeContent(output);
-    } catch (err) {
-      //
-    }
-    await output.close();
-  }
+  extractArchiveToDiskSync(archive, outputPath,
+      bufferSize: bufferSize, maxSize: maxSize);
 }
 
 // a utility function to get the extension of the input file.
@@ -185,6 +56,18 @@ String getInputExtension(String inputPath) {
   }
   return path.extension(lowerPath);
 }
+
+const _tarExtensions = {
+  '.tar.gz',
+  '.tgz',
+  '.tar.bz2',
+  '.tbz',
+  '.tar.zst',
+  '.tzst',
+  '.tar.xz',
+  '.txz',
+  '.tar',
+};
 
 /// Extracts the archive at [inputPath] into the directory [outputPath].
 ///
@@ -207,22 +90,21 @@ String getInputExtension(String inputPath) {
 /// would take it past that throws an [ArchiveException] before it is
 /// written. A zip entry is never decoded past the size the archive gives for
 /// it.
+///
+/// Entries are kept inside [outputPath] as [extractArchiveToDiskSync]
+/// describes, and an entry whose content fails to decode throws.
 Future<void> extractFileToDisk(String inputPath, String outputPath,
     {String? password,
     int? bufferSize,
     ArchiveCallback? callback,
     int? maxSize}) async {
-  final archivePath = inputPath;
-
-  final posixSupported = posix.isPosixSupported();
-
   const String extensionMsg =
       '.tar.gz, .tgz, .tar.bz2, .tbz, .tar.xz, .txz, .tar.zst, .tzst, .tar '
       'or .zip';
 
   // get the extension of the input file with up to 2 components
   // e.g. for file.tar.gz, it will return '.tar.gz'
-  final archiveExt = getInputExtension(archivePath);
+  final archiveExt = getInputExtension(inputPath);
   if (archiveExt.isEmpty) {
     throw ArgumentError.value(
       inputPath,
@@ -230,98 +112,37 @@ Future<void> extractFileToDisk(String inputPath, String outputPath,
       'No file extension detected, must end with $extensionMsg',
     );
   }
-
-  var total = 0;
-
-  void extractEntry(ArchiveFile file) {
-    final filePath = path.join(outputPath, path.normalize(file.name));
-    if (!_isWithinOutputPath(outputPath, filePath)) {
-      return;
-    }
-
-    if (file.isSymbolicLink) {
-      if (!_isValidSymLink(outputPath, file)) {
-        return;
-      }
-    }
-
-    if (file.isDirectory && !file.isSymbolicLink) {
-      Directory(filePath).createSync(recursive: true);
-      return;
-    }
-
-    if (file.isSymbolicLink) {
-      final link = Link(filePath);
-      final p = path.normalize(file.symbolicLink ?? "");
-      link.createSync(p, recursive: true);
-    } else if (file.isFile) {
-      total = _addToTotal(total, file.size, maxSize);
-      // The buffer is allocated per file, so for a small file it is cut down
-      // to the file's size rather than the full default. With 20,000 files of
-      // 2 KB that is a quarter of the extraction time.
-      final size = file.size;
-      final outputBufferSize =
-          bufferSize ?? OutputFileStream.kDefaultBufferSize;
-      final output = OutputFileStream(filePath,
-          bufferSize:
-              size > 0 && size < outputBufferSize ? size : outputBufferSize);
-      try {
-        file.writeContent(output);
-      } catch (_) {}
-      if (posixSupported) {
-        posix.chmod(filePath, file.unixPermissions.toRadixString(8));
-      }
-      output.closeSync();
-    }
+  if (archiveExt != '.zip' && !_tarExtensions.contains(archiveExt)) {
+    throw ArgumentError.value(inputPath, 'inputPath', 'Must end $extensionMsg');
   }
 
-  if (archiveExt == '.zip') {
-    final input = InputFileStream(archivePath);
-    try {
+  final writer = EntryWriter(outputPath,
+      bufferSize: bufferSize, maxSize: maxSize, setPermissions: true);
+  final file = InputFileStream(inputPath);
+  try {
+    if (archiveExt == '.zip') {
       final archive = ZipDecoder()
-          .decodeStream(input, password: password, callback: callback);
-      for (final file in archive) {
-        extractEntry(file);
+          .decodeStream(file, password: password, callback: callback);
+      for (final entry in archive) {
+        writer.write(entry);
       }
       await archive.clear();
-    } finally {
-      await input.close();
+    } else {
+      final input = tarStreamFor(archiveExt, file)!;
+      // Each entry is written as the decoder reaches it, which is the only
+      // time its content is at hand when the tar is being decompressed on the
+      // way in.
+      try {
+        TarDecoder().decodeStream(input, callback: (entry) {
+          writer.write(entry);
+          callback?.call(entry);
+        });
+      } finally {
+        await input.close();
+      }
     }
-  } else {
-    final file = InputFileStream(archivePath);
-    final InputStream input;
-    switch (archiveExt) {
-      case '.tar.gz':
-      case '.tgz':
-        input = GZipDecoder().decodeLazy(file);
-      case '.tar.bz2':
-      case '.tbz':
-        input = BZip2Decoder().decodeLazy(file);
-      case '.tar.zst':
-      case '.tzst':
-        input = ZstdDecoder().decodeLazy(file);
-      case '.tar.xz':
-      case '.txz':
-        input = XZDecoder().decodeLazy(file);
-      case '.tar':
-        input = file;
-      default:
-        await file.close();
-        throw ArgumentError.value(
-            inputPath, 'inputPath', 'Must end $extensionMsg');
-    }
-    // Each entry is written as the decoder reaches it, which is the only
-    // time its content is at hand when the tar is being decompressed on the
-    // way in.
-    try {
-      final archive = TarDecoder().decodeStream(input, callback: (entry) {
-        extractEntry(entry);
-        callback?.call(entry);
-      });
-      await archive.clear();
-    } finally {
-      await input.close();
-      await file.close();
-    }
+    writer.finish();
+  } finally {
+    await file.close();
   }
 }

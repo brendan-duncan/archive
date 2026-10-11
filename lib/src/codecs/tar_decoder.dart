@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:path/path.dart' as path;
+
 import '../archive/archive.dart';
 import '../archive/archive_file.dart';
 import '../util/archive_exception.dart';
@@ -232,6 +234,14 @@ class TarDecoder {
       if (nextGroupId != null) {
         tf.groupId = nextGroupId;
         nextGroupId = null;
+      }
+      // A hard link names its target from the root of the archive, but it
+      // is handed on as a symbolic link, whose target is taken from the
+      // link's own directory.
+      if (tf.typeFlag == TarFile.hardLink &&
+          (tf.nameOfLinkedFile?.isNotEmpty ?? false)) {
+        tf.nameOfLinkedFile = path.posix.relative(tf.nameOfLinkedFile!,
+            from: path.posix.dirname(tf.filename));
       }
       files.add(tf);
 

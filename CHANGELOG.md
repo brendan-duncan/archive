@@ -24,6 +24,18 @@
   gives it. An index that misstated one used to make the ordered output
   hold everything after it in memory and report success with the output
   cut short. Blocks are no longer let run far ahead of the output.
+* Security: extraction creates symbolic links after every other entry and
+  refuses one whose path runs through another link. A chain of links that
+  each looked safe on its own could place a file outside the output
+  directory.
+* Security: `extractTarFiles` did not keep entries inside the output
+  directory. It now extracts as `extractFileToDisk` does, decoding as it
+  reads rather than through a temp file it left behind.
+* Extraction reports an entry that fails to decode instead of leaving a
+  partial file without a word, and an empty file no longer takes a 1 MB
+  write buffer.
+* A tar hard link, which is extracted as a symbolic link, now points at its
+  target from the link's own directory.
 
 # 4.4.0
 
