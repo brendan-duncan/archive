@@ -405,7 +405,7 @@ void main() {
     test('$name decodes', () {
       final decoder = which < 0
           ? ZstdDecoder()
-          : ZstdDecoder(dictionary: dictionaries[which]);
+          : ZstdDecoder.withDictionary(dictionaries[which]);
       final decoded =
           decoder.decodeBytes(bytes, verify: true, throwOnError: true);
       expect(decoded.length, length);
@@ -432,7 +432,7 @@ void main() {
         ZstdDecoder()
             .decodeStream(InputMemoryStream(bytes), OutputMemoryStream()),
         isFalse);
-    for (final (verify, throwOnError) in [(true, false), (false, true)]) {
+    for (final (verify, throwOnError) in [(true, true), (false, true)]) {
       expect(
           () => ZstdDecoder()
               .decodeBytes(bytes, verify: verify, throwOnError: throwOnError),
@@ -486,7 +486,7 @@ void main() {
       expect(
           () => ZstdDecoder().decodeStream(
               InputMemoryStream(data), OutputMemoryStream(),
-              verify: true),
+              verify: true, throwOnError: true),
           throwsA(isA<ArchiveChecksumException>()));
     });
 

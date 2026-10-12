@@ -64,6 +64,15 @@ void main() {
       expect(FileSystemEntity.isLinkSync(p.join(out, 'a', 'e')), isFalse);
     });
 
+    test('stay links when later entry runs through them', () {
+      final archive = Archive()
+        ..add(ArchiveFile.directory('a/b'))
+        ..add(ArchiveFile.symlink('a/b/d', '..'))
+        ..add(ArchiveFile.symlink('a/b/d/e', '../..'));
+      extractArchiveToDiskSync(archive, out);
+      expect(FileSystemEntity.isLinkSync(p.join(out, 'a', 'b', 'd')), isTrue);
+    });
+
     test('that resolve outside the output on disk are not made', () {
       // a/b/d/../.. is a on paths alone, and out/.. on disk if the target
       // were made as it is written.
@@ -75,6 +84,105 @@ void main() {
       expect(FileSystemEntity.isLinkSync(p.join(out, 'a', 'b', 'd')), isTrue);
       expect(FileSystemEntity.typeSync(p.join(out, 'f'), followLinks: false),
           FileSystemEntityType.notFound);
+    });
+
+    test('over directory on disk do not stop extraction', () async {
+      final archive = Archive()
+        ..add(text('lib64/a.txt', 'a'))
+        ..add(ArchiveFile.symlink('lib', 'lib64'))
+        ..add(text('z.txt', 'z'));
+      final zip = p.join(dir.path, 'in.zip');
+      File(zip).writeAsBytesSync(ZipEncoder().encodeBytes(archive));
+      final tar = p.join(dir.path, 'in.tar');
+      File(tar).writeAsBytesSync(TarEncoder().encodeBytes(archive));
+      for (final extract in <Future<void> Function()>[
+        () async => extractArchiveToDiskSync(archive, out),
+        () => extractArchiveToDisk(archive, out),
+        () => extractFileToDisk(zip, out),
+        () => extractFileToDisk(tar, out),
+      ]) {
+        if (Directory(out).existsSync()) {
+          Directory(out).deleteSync(recursive: true);
+        }
+        File(p.join(out, 'lib', 'old.txt'))
+          ..createSync(recursive: true)
+          ..writeAsStringSync('old');
+        await extract();
+        expect(File(p.join(out, 'z.txt')).readAsStringSync(), 'z');
+        expect(File(p.join(out, 'lib', 'old.txt')).readAsStringSync(), 'old');
+      }
+    });
+
+    test('are kept when later file runs through them', () async {
+      final archive = Archive()
+        ..add(ArchiveFile.directory('a/b'))
+        ..add(ArchiveFile.symlink('a/b/d', '..'))
+        ..add(text('a/b/d/x.txt', 'x'));
+      final zip = p.join(dir.path, 'in.zip');
+      File(zip).writeAsBytesSync(ZipEncoder().encodeBytes(archive));
+      final tar = p.join(dir.path, 'in.tar');
+      File(tar).writeAsBytesSync(TarEncoder().encodeBytes(archive));
+      for (final extract in <Future<void> Function()>[
+        () async => extractArchiveToDiskSync(archive, out),
+        () => extractArchiveToDisk(archive, out),
+        () => extractFileToDisk(zip, out),
+        () => extractFileToDisk(tar, out),
+      ]) {
+        if (Directory(out).existsSync()) {
+          Directory(out).deleteSync(recursive: true);
+        }
+        await extract();
+        expect(FileSystemEntity.isLinkSync(p.join(out, 'a', 'b', 'd')), isTrue);
+        expect(File(p.join(out, 'a', 'x.txt')).existsSync(), isFalse);
+      }
+    });
+
+    test('are not written through by later entries', () async {
+      final archive = Archive()
+        ..add(ArchiveFile.directory('d'))
+        ..add(ArchiveFile.symlink('l', 'd'))
+        ..add(text('l/x.txt', 'x'));
+      final zip = p.join(dir.path, 'in.zip');
+      File(zip).writeAsBytesSync(ZipEncoder().encodeBytes(archive));
+      final tar = p.join(dir.path, 'in.tar');
+      File(tar).writeAsBytesSync(TarEncoder().encodeBytes(archive));
+      for (final extract in <Future<void> Function()>[
+        () async => extractArchiveToDiskSync(archive, out),
+        () => extractArchiveToDisk(archive, out),
+        () => extractFileToDisk(zip, out),
+        () => extractFileToDisk(tar, out),
+      ]) {
+        if (Directory(out).existsSync()) {
+          Directory(out).deleteSync(recursive: true);
+        }
+        await extract();
+        expect(FileSystemEntity.isLinkSync(p.join(out, 'l')), isTrue);
+        expect(File(p.join(out, 'd', 'x.txt')).existsSync(), isFalse);
+      }
+    });
+
+    test('replace empty directory on disk', () async {
+      final archive = Archive()
+        ..add(text('lib64/a.txt', 'a'))
+        ..add(ArchiveFile.symlink('lib', 'lib64'));
+      final zip = p.join(dir.path, 'in.zip');
+      File(zip).writeAsBytesSync(ZipEncoder().encodeBytes(archive));
+      final tar = p.join(dir.path, 'in.tar');
+      File(tar).writeAsBytesSync(TarEncoder().encodeBytes(archive));
+      for (final extract in <Future<void> Function()>[
+        () async => extractArchiveToDiskSync(archive, out),
+        () => extractArchiveToDisk(archive, out),
+        () => extractFileToDisk(zip, out),
+        () => extractFileToDisk(tar, out),
+      ]) {
+        if (Directory(out).existsSync()) {
+          Directory(out).deleteSync(recursive: true);
+        }
+        Directory(p.join(out, 'lib')).createSync(recursive: true);
+        await extract();
+        expect(FileSystemEntity.isLinkSync(p.join(out, 'lib')), isTrue);
+        expect(File(p.join(out, 'lib', 'a.txt')).readAsStringSync(), 'a');
+      }
     });
 
     test('to other links are still made', () {
@@ -96,7 +204,7 @@ void main() {
       ]);
       // The header checksum is not checked without verify.
       final archive = TarDecoder().decodeBytes(tar);
-      expect(archive.findFile('dir/b')!.symbolicLink, 'dir/a');
+      expect(archive.findFile('dir/b')!.symbolicLink, 'a');
       extractArchiveToDiskSync(archive, out);
       expect(File(p.join(out, 'dir', 'b')).readAsStringSync(), 'a');
     });
@@ -135,6 +243,31 @@ void main() {
     expect(File(p.join(dir.path, 'command', 'a.bin')).existsSync(), isFalse);
   });
 
+  test('a tar header with a size that is not a number leaves no file',
+      () async {
+    final header = tarHeader('bad', 3, TarFile.normalFile)
+      ..setRange(124, 136, ascii.encode('zzzzzzzzzzz\x00'))
+      ..setRange(148, 156, ascii.encode('        '));
+    final sum = header.fold<int>(0, (a, b) => a + b);
+    header.setRange(
+        148, 156, ascii.encode('${sum.toRadixString(8).padLeft(6, '0')}\x00 '));
+    final path = p.join(dir.path, 'bad.tar');
+    File(path).writeAsBytesSync([
+      ...header,
+      ...tarBlock(ascii.encode('abc')),
+      ...tarHeader('ok.txt', 2, TarFile.normalFile),
+      ...tarBlock(ascii.encode('ok')),
+      ...Uint8List(1024),
+    ]);
+
+    for (final strict in [false, true]) {
+      final output = p.join(dir.path, 'out-$strict');
+      await expectLater(extractFileToDisk(path, output, throwOnError: strict),
+          throwsA(isA<ArgumentError>()));
+      expect(Directory(output).listSync(), isEmpty);
+    }
+  });
+
   test('an entry that fails to decode leaves no file', () async {
     final archive = Archive()..add(text('a.txt', 'a' * 10000));
     final zip = ZipEncoder().encodeBytes(archive);
@@ -151,12 +284,33 @@ void main() {
     final path = p.join(dir.path, 'in.zip');
     File(path).writeAsBytesSync(zip);
 
-    await extractFileToDisk(path, out);
+    await expectLater(
+        extractFileToDisk(path, out), throwsA(isA<ArchiveLimitException>()));
     expect(File(p.join(out, 'a.txt')).existsSync(), isFalse);
 
     final strict = p.join(dir.path, 'strict');
     await expectLater(extractFileToDisk(path, strict, throwOnError: true),
         throwsA(isA<ArchiveException>()));
     expect(File(p.join(strict, 'a.txt')).existsSync(), isFalse);
+  });
+
+  test('tampered AES entry stops extraction and leaves no file', () async {
+    final zip = ZipEncoder(password: 'pw').encodeBytes(Archive()
+      ..add(text('a.txt', 'a' * 50000)..compression = CompressionType.none));
+    zip[100] ^= 1;
+    final path = p.join(dir.path, 'in.zip');
+    File(path).writeAsBytesSync(zip);
+
+    await expectLater(extractFileToDisk(path, out, password: 'pw'),
+        throwsA(isA<ArchiveMacException>()));
+    expect(File(p.join(out, 'a.txt')).existsSync(), isFalse);
+
+    final archive = ZipDecoder().decodeBytes(zip, password: 'pw');
+    await expectLater(extractArchiveToDisk(archive, p.join(dir.path, 'async')),
+        throwsA(isA<ArchiveMacException>()));
+    expect(File(p.join(dir.path, 'async', 'a.txt')).existsSync(), isFalse);
+    expect(() => extractArchiveToDiskSync(archive, p.join(dir.path, 'sync')),
+        throwsA(isA<ArchiveMacException>()));
+    expect(File(p.join(dir.path, 'sync', 'a.txt')).existsSync(), isFalse);
   });
 }

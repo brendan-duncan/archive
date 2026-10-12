@@ -31,7 +31,7 @@ void main() {
 
         await expectLater(
             extractFileToDisk(path, p.join(dir.path, 'over'), maxSize: 1999),
-            throwsA(isA<ArchiveException>()));
+            throwsA(isA<ArchiveLimitException>()));
         expect(File(p.join(dir.path, 'over', 'b')).existsSync(), isFalse);
       });
     }
@@ -42,11 +42,11 @@ void main() {
       await expectLater(
           extractArchiveToDisk(archive, p.join(dir.path, 'over'),
               maxSize: 1999),
-          throwsA(isA<ArchiveException>()));
+          throwsA(isA<ArchiveLimitException>()));
       expect(
           () => extractArchiveToDiskSync(archive, p.join(dir.path, 'sync'),
               maxSize: 1999),
-          throwsA(isA<ArchiveException>()));
+          throwsA(isA<ArchiveLimitException>()));
     });
   });
 }

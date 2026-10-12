@@ -234,10 +234,10 @@ void main() {
       ('no frame checksum', 3, false, null),
       ('dictionary', 3, true, dictionary),
     ]) {
-      final encoder = ZstdEncoder(level: level, dictionary: dict);
+      final encoder = ZstdEncoder.withDictionary(dict, level: level);
       final codec =
           ZstdCodec(level: level, frameChecksum: checksum, dictionary: dict);
-      final decoder = ZstdDecoder(dictionary: dict);
+      final decoder = ZstdDecoder.withDictionary(dict);
       _matrix(
           'zstd $label',
           {
@@ -283,7 +283,7 @@ void main() {
         {
           'encodeBytes on workers': (s) {
             final done = Completer<Uint8List>();
-            const ZstdEncoder().encodeBytes(s,
+            ZstdEncoder().encodeBytes(s,
                 multithread: ZstdMultithreadOptions<Uint8List>(
                     onDone: done.complete,
                     onError: done.completeError,
@@ -305,7 +305,7 @@ void main() {
         },
         sizes: _large, check: (archive, source) {
       if (source.length > 512 * 1024) {
-        expect(archive, isNot(const ZstdEncoder().encodeBytes(source)),
+        expect(archive, isNot(ZstdEncoder().encodeBytes(source)),
             reason: 'the input is split into jobs');
       }
     });

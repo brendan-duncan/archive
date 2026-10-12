@@ -120,10 +120,10 @@ void main() {
       final source = _payload(4000);
       final empty = ZstdDictionary(Uint8List(0));
       expect(empty.id, 0);
-      final frame = ZstdEncoder(dictionary: empty).encodeBytes(source);
+      final frame = ZstdEncoder.withDictionary(empty).encodeBytes(source);
       expect(frame, ZstdEncoder().encodeBytes(source));
       expect(
-          ZstdDecoder(dictionary: empty)
+          ZstdDecoder.withDictionary(empty)
               .decodeBytes(frame, verify: true, throwOnError: true),
           source);
     });

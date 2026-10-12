@@ -328,6 +328,68 @@ void main() {
     });
   });
 
+  test('ChunkedSink keeps held bytes in place while input fits after them', () {
+    final sink = _HeaderThenBody(_Held());
+    for (final size in [4, 20, 20, 20]) {
+      sink.add(Uint8List(size));
+    }
+    expect(sink.offsets, [8, 8, 8]);
+  });
+
+  test('ChunkedSink moves held bytes to front once more was read than is held',
+      () {
+    final sink = _HeaderThenBody(_Held());
+    for (final size in [4, 6, 4]) {
+      sink.add(Uint8List(size));
+    }
+    expect(sink.offsets, [8, 0]);
+  });
+
+  test('bound converter decodes no more units while listener is paused',
+      () async {
+    final converter = _UnitsConverter();
+    final source = StreamController<List<int>>();
+    final done = Completer<void>();
+    var received = 0;
+    late StreamSubscription<List<int>> subscription;
+    subscription = source.stream.transform(converter).listen((_) {
+      if (++received == 1) {
+        subscription.pause();
+      }
+    }, onDone: done.complete);
+    source.add(Uint8List(100));
+    await Future<void>.delayed(Duration.zero);
+    expect(converter.units, 1);
+    subscription.resume();
+    await source.close();
+    await done.future;
+    expect(received, 100);
+  });
+
+  test('zstd stream paused on every piece gives whole output', () async {
+    final data = Uint8List(1 << 20);
+    final done = Completer<void>();
+    var received = 0;
+    late StreamSubscription<List<int>> subscription;
+    subscription = Stream.value(zstdCodec.encode(data))
+        .transform(zstdCodec.decoder)
+        .listen((piece) {
+      subscription.pause();
+      Timer(Duration.zero, subscription.resume);
+      received += piece.length;
+    }, onError: done.completeError, onDone: done.complete);
+    await done.future;
+    expect(received, data.length);
+  });
+
+  test('ChunkedSink moves fewer held bytes than it receives', () {
+    final sink = _KeepsTail(_Held(), 40000);
+    for (var i = 0; i < 100; i++) {
+      sink.add(Uint8List(4096));
+    }
+    expect(sink.moves * 40000, lessThanOrEqualTo(100 * 4096));
+  });
+
   group('SinkOutputStream', () {
     test('writeStream restores input position when read fails', () {
       final failure = StateError('input failed');
@@ -502,6 +564,84 @@ class _Watched implements Sink<List<int>> {
 
   @override
   void close() => closed = true;
+}
+
+class _HeaderThenBody extends ChunkedSink {
+  final offsets = <int>[];
+  var _header = false;
+
+  _HeaderThenBody(super.output);
+
+  @override
+  void step() {
+    if (!_header) {
+      if (available < 8) {
+        return;
+      }
+      skip(8);
+      _header = true;
+    }
+    if (available > 0) {
+      offsets.add(view(available).offsetInBytes);
+    }
+  }
+
+  @override
+  void finish() {}
+}
+
+class _UnitsConverter extends ChunkedConverter {
+  var units = 0;
+
+  @override
+  ByteConversionSink startChunkedConversion(Sink<List<int>> sink) =>
+      _ByteUnits(sink, this);
+}
+
+class _ByteUnits extends ChunkedSink {
+  final _UnitsConverter _converter;
+
+  _ByteUnits(super.output, this._converter);
+
+  @override
+  void step() {
+    while (available > 0) {
+      skip(1);
+      _converter.units++;
+      output.add([0]);
+      if (unitAtATime) {
+        return;
+      }
+    }
+  }
+
+  @override
+  void finish() {}
+}
+
+class _KeepsTail extends ChunkedSink {
+  final int tail;
+  var moves = 0;
+  var _offset = 0;
+
+  _KeepsTail(super.output, this.tail);
+
+  @override
+  void step() {
+    if (available <= tail) {
+      return;
+    }
+    final offset = view(available).offsetInBytes;
+    if (offset < _offset) {
+      moves++;
+    }
+    final read = available - tail;
+    skip(read);
+    _offset = offset + read;
+  }
+
+  @override
+  void finish() {}
 }
 
 class _Held implements Sink<List<int>> {

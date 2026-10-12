@@ -31,6 +31,10 @@ class ZstdWindow {
   /// Where [emit] wrote up to. The bytes before it are out already
   int emitted = 0;
 
+  /// Whether frame decoder calls [emit] after every block. Without it, frame of
+  /// RLE blocks filled 128 MB window before `maxOutputSize` was checked
+  bool emitEachBlock = false;
+
   ZstdWindow(this.windowSize, {this.output});
 
   int get length => flushed + position - origin;

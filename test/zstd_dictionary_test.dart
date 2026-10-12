@@ -68,7 +68,7 @@ void main() {
       final bytes = File('${directory.path}/$name').readAsBytesSync();
 
       test('$name decodes in one piece', () {
-        final decoded = ZstdDecoder(dictionary: dictionary)
+        final decoded = ZstdDecoder.withDictionary(dictionary)
             .decodeBytes(bytes, verify: true, throwOnError: true);
         expect(decoded.length, length);
         expect(getCrc32(decoded), crc);
@@ -76,7 +76,7 @@ void main() {
 
       test('$name decodes through stream', () {
         final output = OutputMemoryStream();
-        final ok = ZstdDecoder(dictionary: dictionary).decodeStream(
+        final ok = ZstdDecoder.withDictionary(dictionary).decodeStream(
             InputMemoryStream(bytes), output,
             verify: true, throwOnError: true);
         expect(ok, isTrue);
@@ -97,7 +97,7 @@ void main() {
       final bytes =
           File('${directory.path}/dv-small-trained-l19.zst').readAsBytesSync();
       expect(
-          () => ZstdDecoder(dictionary: dictionaries['raw'])
+          () => ZstdDecoder.withDictionary(dictionaries['raw'])
               .decodeBytes(bytes, throwOnError: true),
           throwsA(isA<ArchiveException>()));
     });
@@ -106,7 +106,7 @@ void main() {
       final bytes =
           File('${directory.path}/dv-small-raw-l19.zst').readAsBytesSync();
       expect(ZstdDecoder().decodeBytes(bytes), isNot(hasLength(718)));
-      final decoded = ZstdDecoder(dictionary: dictionaries['raw'])
+      final decoded = ZstdDecoder.withDictionary(dictionaries['raw'])
           .decodeBytes(bytes, verify: true, throwOnError: true);
       expect(getCrc32(decoded), 943341646);
     });

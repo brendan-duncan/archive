@@ -215,6 +215,22 @@ void main() {
       }
     });
 
+    test('web gzip and zlib check the trailer checksum with verify', () {
+      final gz = GZipEncoder().encodeBytes(data);
+      final z = ZLibEncoder().encodeBytes(data);
+      final badGz = Uint8List.fromList(gz)..[gz.length - 8] ^= 0xff;
+      final badZ = Uint8List.fromList(z)..[z.length - 1] ^= 0xff;
+      InputStream gzip(bool verify) => const GZipDecoderWeb()
+          .decodeLazy(InputMemoryStream(badGz), verify: verify);
+      InputStream zlib(bool verify) => const ZLibDecoderWeb()
+          .decodeLazy(InputMemoryStream(badZ), verify: verify);
+      for (final decode in [gzip, zlib]) {
+        compareBytes(readAll(decode(false), 4096), data);
+        expect(() => readAll(decode(true), 4096),
+            throwsA(isA<ArchiveChecksumException>()));
+      }
+    });
+
     test('zlib', () {
       for (final raw in [false, true]) {
         final z =
@@ -224,6 +240,35 @@ void main() {
           const ZLibDecoderWeb().decodeLazy(InputMemoryStream(z), raw: raw),
         ]) {
           compareBytes(readAll(decoder, 4096), data);
+        }
+      }
+    });
+
+    test('zlib, damaged data throws ArchiveException without verify', () {
+      final z = ZLibEncoder().encodeBytes(data);
+      // Block type 3 is reserved, so deflate data is invalid
+      final wrongData = Uint8List.fromList(z)..[2] = 0x07;
+      for (final decoder in [
+        ZLibDecoder().decodeLazy(InputMemoryStream(wrongData)),
+        const ZLibDecoderWeb().decodeLazy(InputMemoryStream(wrongData)),
+      ]) {
+        expect(() => readAll(decoder, 4096), throwsA(isA<ArchiveException>()));
+      }
+    });
+
+    test('zlib, wrong checksum with verify', () {
+      final z = ZLibEncoder().encodeBytes(data);
+      final wrongSum = Uint8List.fromList(z)..[z.length - 1] ^= 0xff;
+      final wrongData = Uint8List.fromList(z)..[z.length ~/ 2] ^= 0x55;
+      final cut = z.sublist(0, z.length - 3);
+      for (final input in [wrongSum, wrongData, cut]) {
+        for (final decoder in [
+          ZLibDecoder().decodeLazy(InputMemoryStream(input), verify: true),
+          const ZLibDecoderWeb()
+              .decodeLazy(InputMemoryStream(input), verify: true),
+        ]) {
+          expect(
+              () => readAll(decoder, 4096), throwsA(isA<ArchiveException>()));
         }
       }
     });
@@ -268,7 +313,7 @@ void main() {
       expect(
           () => readAll(
               XZDecoder(maxDictionarySize: 0).decodeLazy(InputMemoryStream(x))),
-          throwsA(isA<ArchiveException>()));
+          throwsA(isA<ArchiveLimitException>()));
     });
   });
 
@@ -311,5 +356,13 @@ void main() {
     });
     expect(decodedAtFirst, hasLength(2));
     expect(decodedAtFirst.first, lessThan(4 << 20));
+  });
+
+  test('decodeLazy over a lazy input reads it a piece at a time', () {
+    final xz = XZEncoder().encodeBytes(sample(1 << 20));
+    final inner = _ListDecoder(xz);
+    final lazy = XZDecoder().decodeLazy(InputDecodeStream(inner));
+    expect(lazy.readByte(), sample(1)[0]);
+    expect(inner._pos, lessThan(xz.length ~/ 2));
   });
 }

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math';
 import 'dart:typed_data';
 
 import '../../util/archive_exception.dart';
@@ -160,6 +161,8 @@ class BZip2ChunkedDecoder extends ChunkedSink {
 
   var _retryAt = 0;
 
+  var _maxBlockBytes = 0;
+
   var _combinedCrc = 0;
   var _storedBlockCrc = 0;
   var _streams = 0;
@@ -275,6 +278,7 @@ class BZip2ChunkedDecoder extends ChunkedSink {
           'bzip2: the signature does not have a valid block size');
     }
     skip(4);
+    _maxBlockBytes = blockSize100k * 250000 + 65536;
     _decoder.beginStream(blockSize100k);
     _combinedCrc = 0;
     _bitAt = 0;
@@ -300,7 +304,11 @@ class BZip2ChunkedDecoder extends ChunkedSink {
   /// Returns false if we're still waiting for more data.
   bool _readBlockBody() {
     while (true) {
-      if (!_scan.locate(view(available), available)) {
+      final limit = (_bitAt >> 3) + _maxBlockBytes + 7;
+      if (!_scan.locate(view(available), min(available, limit))) {
+        if (available - (_bitAt >> 3) > _maxBlockBytes) {
+          throw ArchiveException('bzip2: a block is malformed');
+        }
         return false;
       }
       if (available < _retryAt) {

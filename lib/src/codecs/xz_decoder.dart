@@ -73,7 +73,7 @@ class XZDecoder {
     if (multithread == null) {
       return _decodeBytes(bytes, verify, throwOnError, maxOutputSize);
     }
-    _checkOptions(multithread, verify || throwOnError);
+    _checkOptions(multithread, throwOnError);
 
     if (!xzIsolatesSupported) {
       // No isolates here, so this blocks the caller, but the result is still
@@ -118,7 +118,7 @@ class XZDecoder {
     if (multithread == null) {
       return _decodeStream(input, output, verify, throwOnError, maxOutputSize);
     }
-    _checkOptions(multithread, verify || throwOnError);
+    _checkOptions(multithread, throwOnError);
 
     if (!xzIsolatesSupported) {
       _report(
@@ -190,7 +190,7 @@ class XZDecoder {
     if (maxOutputSize != null &&
         layout != null &&
         layout.uncompressedSize > maxOutputSize) {
-      throw _LimitExceeded(ArchiveException(
+      throw _LimitExceeded(ArchiveLimitException(
           'The decoded data is larger than the $maxOutputSize bytes allowed'));
     }
   }
@@ -213,8 +213,9 @@ class XZDecoder {
 
   static void _throwIfExceeded(LimitedOutputStream? limited) {
     if (limited != null && limited.exceeded) {
-      throw _LimitExceeded(ArchiveException('The decoded data is larger than '
-          'the ${limited.maxLength} bytes allowed'));
+      throw _LimitExceeded(
+          ArchiveLimitException('The decoded data is larger than '
+              'the ${limited.maxLength} bytes allowed'));
     }
   }
 
@@ -266,6 +267,9 @@ class XZDecoder {
   static ArchiveException _invalid(String? reason) {
     final message =
         reason == null ? 'Invalid XZ archive' : 'Invalid XZ archive: $reason';
+    if (xzIsLimitFailure(reason)) {
+      return ArchiveLimitException(message);
+    }
     return xzCheckFailures.contains(reason)
         ? ArchiveChecksumException(message)
         : ArchiveException(message);
@@ -548,7 +552,7 @@ class XZDecoder {
       throw ArgumentError.value(
           null,
           'onError',
-          'Must be given when throwOnError or verify is set, since that is '
+          'Must be given when throwOnError is set, since that is '
               'where the exception is delivered');
     }
     final workers = options.workers;

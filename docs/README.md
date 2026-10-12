@@ -113,14 +113,19 @@ Problems with the data are reported as `ArchiveException`, which extends
 
 Decoders, and their wrappers like `extractFileToDisk`, `extractArchiveToDisk`, `extractArchiveToDiskSync` now share one
 contract for errors. Without flags they never throw on *damaged* data and return what decoded before the damage. 
-`throwOnError: true` throws `ArchiveException` on damaged or cut data, and `verify: true` does the same and also checks
-checksums on top of that, throwing `ArchiveChecksumException` on a mismatch.
+`throwOnError: true` throws `ArchiveException` on damaged or cut data. `verify: true` also checks checksums: alone it
+reports a mismatch or damage like no flags do, `decodeStream` returns `false` and `decodeBytes` returns what decoded, and
+with `throwOnError: true` as well a mismatch throws `ArchiveChecksumException`.
 
-UNCHANGED: `ArchiveCallback` for TAR and ZIP, `ArchivePasswordException` for zip passwords, `ArgumentError` for 
-unrealistic params, `onProgress` for `ProgressOutputStream`, `OutOfMemoryError`, `FileSystemException`, `maxOutputSize`,
-param related, any device-specific exceptions and other similar places remain untouched, they overrule new `throwOnError` 
-and `verify` params and throw regardless of these values because those are not damaged data or package-code
-related exceptions.
+UNCHANGED: errors that are not damaged data keep their type and are thrown regardless of `verify` and `throwOnError`:
+
+| Category | Thrown as | Example |
+|---|---|---|
+| Invalid parameters | `ArgumentError` | `ZstdDecoder(maxWindowSize: 100)`, below the 1024 byte minimum |
+| Size limits: `maxOutputSize`, `maxSize`, `maxWindowSize`, `maxDictionarySize`, `TarFile.maxMetadataSize`, the declared size of a compressed zip entry | `ArchiveLimitException`, a subclass of `ArchiveException` | `GZipDecoder().decodeBytes(bomb, maxOutputSize: 1 << 20)` |
+| Passwords and AES MAC | `ArchivePasswordException`, `ArchiveMacException` | `ZipDecoder().decodeBytes(zip, password: 'wrong')` |
+| Your callbacks | the exception the callback throws | an exception in `ArchiveCallback` stops extraction, one in `onProgress` goes to the current zone and work continues |
+| System | `FileSystemException`, `OutOfMemoryError` and other platform errors | the disk fills up while `extractFileToDisk` writes |
 
 Converters (`xzCodec`, `zstdCodec`, `bzip2Codec` and `tarCodec`) work like `gzip` and `zlib` from 
 `dart:io`, as the format specifications expect: they verify checksums by default and report every error to the stream.
@@ -128,11 +133,11 @@ Converters (`xzCodec`, `zstdCodec`, `bzip2Codec` and `tarCodec`) work like `gzip
 
 ```dart
 try {
-  // When `verify: true` is specified, `throwOnError` becomes redundant since verify
-  // does the same job + checksum comparison. `throwOnError` may be used when you don't want to pay for an extra
+  // `verify: true` alone reports a mismatch through the return value only, so pass `throwOnError: true` with it to
+  // get `ArchiveChecksumException`. `throwOnError` alone may be used when you don't want to pay for an extra
   // ~5-10% speed decrease, yet still wish to get the basic validation errors, or work with archives that remain
   // valid regardless of their incorrect checksum
-  final data = XZDecoder().decodeBytes(bytes, verify: true);
+  final data = XZDecoder().decodeBytes(bytes, verify: true, throwOnError: true);
   print('${data.length} bytes');
 } on ArchiveChecksumException {
   print('the data decoded but does not match its checksum');
@@ -143,7 +148,9 @@ try {
   // related and keep their type and are still reported as before
   print('could not write the output: $error');
 } // `ZipDecoder` may also throw `ArchivePasswordException` (regardless of `throwOnError`), a subclass of
-  // `ArchiveException`: catch it above `ArchiveException` to tell them apart.
+  // `ArchiveException`: catch it above `ArchiveException` to tell them apart. An AES entry that does not match its
+  // MAC throws `ArchiveMacException`, a subclass of `ArchiveChecksumException`, regardless of flags as well.
+  // A size limit throws `ArchiveLimitException`, a subclass of `ArchiveException`, regardless of flags too.
   //
   // Same example can be used for `decodeStream` and wrappers like `extractFileToDisk`
 ```

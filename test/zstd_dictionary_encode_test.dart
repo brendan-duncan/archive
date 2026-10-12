@@ -85,7 +85,7 @@ void main() {
       ];
       final content = Uint8List(16)..fillRange(0, 16, 97);
       final dictionary = ZstdDictionary([97]);
-      final encoded = ZstdEncoder(level: 1, dictionary: dictionary)
+      final encoded = ZstdEncoder.withDictionary(dictionary, level: 1)
           .encodeBytes(content, checksum: false);
       expect(encoded, reference);
     });
@@ -94,8 +94,7 @@ void main() {
         () {
       final content = Uint8List.fromList(
           List<int>.generate(16383, (i) => (i * 7 + i ~/ 23) % 11));
-      final encoder =
-          ZstdEncoder(level: 6, dictionary: ZstdDictionary(Uint8List(7)));
+      final encoder = ZstdEncoder(level: 6, dictionary: Uint8List(7));
       final streamed = OutputMemoryStream();
       encoder.encodeStream(InputMemoryStream(content), streamed,
           checksum: false);
@@ -117,7 +116,7 @@ void main() {
           ZstdDictionary(Uint8List(header.length + 131072)..setAll(0, header));
       final content = _literalBlock();
       for (var level = 16; level <= 22; level++) {
-        final encoder = ZstdEncoder(level: level, dictionary: dictionary);
+        final encoder = ZstdEncoder.withDictionary(dictionary, level: level);
         final streamed = OutputMemoryStream();
         encoder.encodeStream(InputMemoryStream(content), streamed,
             checksum: false);
@@ -174,7 +173,7 @@ void main() {
         8: [65750, 4184126394],
       };
       for (final entry in expected.entries) {
-        final encoded = ZstdEncoder(level: entry.key, dictionary: dictionary)
+        final encoded = ZstdEncoder.withDictionary(dictionary, level: entry.key)
             .encodeBytes(content, checksum: false);
         expect(encoded.length, entry.value[0], reason: 'level ${entry.key}');
         expect(getCrc32(encoded), entry.value[1], reason: 'level ${entry.key}');
@@ -221,7 +220,7 @@ void main() {
       ByteData.sublistView(dictionaryBytes)
           .setUint32(headerSize - 12, distance, Endian.little);
       final dictionary = ZstdDictionary(dictionaryBytes);
-      final encoded = ZstdEncoder(level: 16, dictionary: dictionary)
+      final encoded = ZstdEncoder.withDictionary(dictionary, level: 16)
           .encodeBytes(content, checksum: false);
       // ZSTD_compress_usingDict leaves the final out-of-window repeat as literals
       expect(encoded.length, 2465968);
@@ -233,9 +232,9 @@ void main() {
       for (final sample in samples.entries) {
         for (final level in const [1, 3, 5, 9, 12, 15, 19, 22]) {
           test('${entry.key} ${sample.key} at level $level decodes back', () {
-            final frame = ZstdEncoder(level: level, dictionary: dictionary)
+            final frame = ZstdEncoder.withDictionary(dictionary, level: level)
                 .encodeBytes(sample.value);
-            final back = ZstdDecoder(dictionary: dictionary)
+            final back = ZstdDecoder.withDictionary(dictionary)
                 .decodeBytes(frame, verify: true, throwOnError: true);
             expect(back.length, sample.value.length);
             expect(getCrc32(back), getCrc32(sample.value));
@@ -246,21 +245,21 @@ void main() {
 
     test('frame stores dictionary id and decodes only with that dictionary',
         () {
-      final frame =
-          ZstdEncoder(level: 3, dictionary: trained).encodeBytes(raw.content);
+      final frame = ZstdEncoder.withDictionary(trained, level: 3)
+          .encodeBytes(raw.content);
       expect(trained.id, isNot(0));
       expect(() => ZstdDecoder().decodeBytes(frame, throwOnError: true),
           throwsA(isA<ArchiveException>()));
       expect(
-          () => ZstdDecoder(dictionary: raw)
+          () => ZstdDecoder.withDictionary(raw)
               .decodeBytes(frame, throwOnError: true),
           throwsA(isA<ArchiveException>()));
     });
 
     test('raw dictionary writes no id, so any decoder with it reads frame', () {
-      final frame = ZstdEncoder(level: 3, dictionary: raw)
+      final frame = ZstdEncoder.withDictionary(raw, level: 3)
           .encodeBytes(Uint8List.fromList(raw.content.sublist(0, 500)));
-      final back = ZstdDecoder(dictionary: raw)
+      final back = ZstdDecoder.withDictionary(raw)
           .decodeBytes(frame, verify: true, throwOnError: true);
       expect(back.length, 500);
     });
@@ -268,7 +267,7 @@ void main() {
     test('frame with dictionary is smaller than without it', () {
       final content = Uint8List.sublistView(raw.content);
       final withDictionary =
-          ZstdEncoder(level: 9, dictionary: raw).encodeBytes(content);
+          ZstdEncoder.withDictionary(raw, level: 9).encodeBytes(content);
       final without = ZstdEncoder(level: 9).encodeBytes(content);
       expect(withDictionary.length, lessThan(without.length ~/ 4));
     });

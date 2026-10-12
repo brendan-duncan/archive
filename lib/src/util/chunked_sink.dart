@@ -158,15 +158,29 @@ abstract class ChunkedSink extends ByteConversionSink {
       body();
     } catch (error) {
       _failure ??= archiveError(error);
+      _owned = Uint8List(0);
+      _carry = _owned;
+      _at = 0;
+      _end = 0;
       throw _failure!;
     }
   }
 
   void _append(Uint8List chunk) {
     final held = _end - _at;
+    if (_at < held &&
+        identical(_carry, _owned) &&
+        _end + chunk.length <= _owned.length) {
+      _owned.setRange(_end, _end + chunk.length, chunk);
+      _end += chunk.length;
+      return;
+    }
     final need = held + chunk.length;
-    if (need > _owned.length) {
+    if (need > _owned.length || held > _owned.length >> 1) {
       var size = _owned.isEmpty ? 1 << 16 : _owned.length;
+      if (held > size >> 1) {
+        size <<= 1;
+      }
       while (size < need) {
         size <<= 1;
       }
@@ -225,9 +239,106 @@ abstract class ChunkedConverter extends Converter<List<int>, List<int>> {
   /// call, so the input after it is dropped here, as gzip and zlib in dart:io
   /// drop it
   @override
-  Stream<List<int>> bind(Stream<List<int>> stream) =>
-      Stream<List<int>>.eventTransformed(
-          stream, (sink) => _FailOnce(startChunkedConversion(sink), sink));
+  Stream<List<int>> bind(Stream<List<int>> stream) {
+    final output = StreamController<List<int>>(sync: true);
+    final paced = _Paced(stream, output, startChunkedConversion);
+    output
+      ..onListen = paced.listen
+      ..onPause = paced.pause
+      ..onResume = paced.resume
+      ..onCancel = paced.cancel;
+    return output.stream;
+  }
+}
+
+class _Paced {
+  final Stream<List<int>> _source;
+  final StreamController<List<int>> _output;
+  final ByteConversionSink Function(Sink<List<int>> sink) _start;
+  late final _FailOnce _input;
+  ChunkedSink? _units;
+  StreamSubscription<List<int>>? _subscription;
+  var _ended = false;
+  var _closed = false;
+  var _scheduled = false;
+
+  _Paced(this._source, this._output, this._start);
+
+  void listen() {
+    final ByteConversionSink sink;
+    try {
+      sink = _start(_output.sink);
+    } catch (error, stackTrace) {
+      _output.addError(error, stackTrace);
+      unawaited(_output.close());
+      return;
+    }
+    _input = _FailOnce(sink, _output.sink);
+    final units = sink is FailOnceSink ? sink._input : sink;
+    if (units is ChunkedSink) {
+      _units = units..unitAtATime = true;
+    }
+    _subscription =
+        _source.listen(_add, onError: _input.addError, onDone: _end);
+  }
+
+  void _add(List<int> data) {
+    try {
+      _input.add(data);
+    } catch (error, stackTrace) {
+      _output.addError(error, stackTrace);
+      return;
+    }
+    _drain();
+  }
+
+  void _end() {
+    _ended = true;
+    _drain();
+  }
+
+  void _drain() {
+    final units = _units;
+    while (units != null &&
+        !_input._failed &&
+        units.available > 0 &&
+        !_output.isPaused) {
+      final consumed = units.consumed;
+      try {
+        units.resume();
+      } catch (error, stackTrace) {
+        _input._failed = true;
+        _output.addError(error, stackTrace);
+        return;
+      }
+      if (units.consumed == consumed) {
+        break;
+      }
+    }
+    if (_ended && !_closed && !_output.isPaused) {
+      _closed = true;
+      try {
+        _input.close();
+      } catch (error, stackTrace) {
+        _output.addError(error, stackTrace);
+      }
+    }
+  }
+
+  void pause() => _subscription?.pause();
+
+  void resume() {
+    _subscription?.resume();
+    if (!_scheduled) {
+      _scheduled = true;
+      scheduleMicrotask(() {
+        _scheduled = false;
+        _drain();
+      });
+    }
+  }
+
+  Future<void>? cancel() => _subscription?.cancel();
 }
 
 /// [FailOnceSink] cannot replace this class. Its `add` calls addSlice, and
@@ -305,8 +416,9 @@ class ChunkedSinkDecoder implements ChunkDecoder {
       _decoder.close();
       return false;
     }
-    final want =
-        _input.length < _buffer.length ? _input.length : _buffer.length;
+    final want = _input is InputDecodeStream || _input.length > _buffer.length
+        ? _buffer.length
+        : _input.length;
     final got = _input.readInto(_buffer, 0, want);
     _decoder.addSlice(_buffer, 0, got, false);
     return true;

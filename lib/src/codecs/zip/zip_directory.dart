@@ -172,8 +172,10 @@ class ZipDirectory {
         _signatureAt(input, before, zip64EocdSignature)) {
       zip64DirOffset = before;
     }
-    if (!_signatureAt(input, zip64DirOffset, zip64EocdSignature) ||
-        input.length < zip64EocdSize - 4) {
+    if (!_signatureAt(input, zip64DirOffset, zip64EocdSignature)) {
+      throw ArchiveException('Invalid zip64 end of central directory offset');
+    }
+    if (input.length < zip64EocdSize - 4) {
       input.setPosition(ip);
       return;
     }

@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import '../../util/archive_exception.dart';
 import '../../util/byte_order.dart';
 import '../../util/file_content.dart';
 import '../../util/input_stream.dart';
@@ -49,6 +50,10 @@ class TarSparse {
       } else if (c == 0x23 && _line == 1) {
         _comment = true;
       } else if (c == 0x0a) {
+        if (_scanned + i >= TarFile.maxMetadataSize) {
+          throw ArchiveLimitException('Tar sparse map is larger than the '
+              '${TarFile.maxMetadataSize} bytes allowed');
+        }
         _line = 0;
         final value = _value;
         _value = 0;

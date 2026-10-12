@@ -172,9 +172,8 @@ void main() {
       final bytes =
           File('${directory.path}/mix-200k-l19.zst').readAsBytesSync();
       expect(
-          () => ZstdDecoder(maxWindowSize: 1024)
-              .decodeBytes(bytes, throwOnError: true),
-          throwsA(isA<ArchiveException>()));
+          () => ZstdDecoder(maxWindowSize: 1024).decodeBytes(bytes),
+          throwsA(isA<ArchiveLimitException>()));
     });
 
     test('small decodeBytes result is not view of larger output buffer', () {
@@ -351,18 +350,19 @@ void main() {
   group('zstd verify and throwOnError', () {
     final data = Uint8List.fromList(
         List.generate(300000, (i) => (i * 7 + (i >> 9)) % 251));
-    final whole = const ZstdEncoder().encodeBytes(data);
+    final whole = ZstdEncoder().encodeBytes(data, checksum: true);
     bool decode(Uint8List bytes, bool verify, bool throwOnError) =>
         ZstdDecoder().decodeStream(
             InputMemoryStream(bytes), OutputMemoryStream(),
             verify: verify, throwOnError: throwOnError);
 
-    test('wrong checksum throws only with verify', () async {
+    test('wrong checksum throws only with verify and throwOnError', () async {
       final bad = Uint8List.fromList(whole);
       bad[bad.length - 1] ^= 1;
       expect(decode(bad, false, false), isTrue);
       expect(decode(bad, false, true), isTrue);
-      expect(() => decode(bad, true, false),
+      expect(decode(bad, true, false), isFalse);
+      expect(() => decode(bad, true, true),
           throwsA(isA<ArchiveChecksumException>()));
       await expectLater(
           Stream<List<int>>.value(bad).transform(const ZstdCodec().decoder),
@@ -375,7 +375,7 @@ void main() {
         Uint8List.fromList(List.filled(40, 7)),
       ]) {
         expect(decode(bad, false, false), isFalse);
-        for (final (verify, throwOnError) in [(true, false), (false, true)]) {
+        for (final (verify, throwOnError) in [(true, true), (false, true)]) {
           expect(
               () => decode(bad, verify, throwOnError),
               throwsA(allOf(isA<ArchiveException>(),
@@ -391,7 +391,7 @@ void main() {
         List.generate(32 << 10, (i) => (i * 7 + (i >> 9)) & 255));
     final frame = _rawWindowFrame(source);
     final prefix = Uint8List.fromList([1, 2, 3]);
-    final first = const ZstdEncoder().encodeBytes(prefix);
+    final first = ZstdEncoder().encodeBytes(prefix);
 
     test('decoding window stays within window size while writing blocks', () {
       final header = readFrameHeader(frame, 4, frame.length, 1024);
@@ -405,6 +405,32 @@ void main() {
       expect(sink.getBytes(), source);
     });
 
+    test('sequences past the block are rejected before they are copied', () {
+      const count = 40;
+      const body = 6 + count * 20 ~/ 8 + 1;
+      const head = body << 3 | 5;
+      final bad = Uint8List.fromList([
+        ...[0x28, 0xb5, 0x2f, 0xfd, 0x00, 0x00],
+        ...[0x00, 0x20, 0x00],
+        ...List.filled(1024, 0x61),
+        ...[head & 255, head >> 8, 0],
+        ...[0x00, count, 0x54, 0, 4, 52],
+        ...Uint8List(count * 20 ~/ 8),
+        1,
+      ]);
+      final header = readFrameHeader(bad, 4, bad.length, 1024);
+      final window = ZstdWindow(header.windowSize)..reserve(4 << 20);
+      window.buffer.fillRange(0, window.buffer.length, 0xee);
+      expect(
+          () => ZstdFrameDecoder().decodeBlocks(
+              bad, 4 + header.size, bad.length, window, header, true, null),
+          throwsA(isA<ArchiveException>()));
+      expect(
+          window.buffer
+              .indexWhere((b) => b != 0xee, 1024 + header.blockReserve),
+          -1);
+    });
+
     test('concatenated frames keep output correct across window wraps', () {
       final joined = Uint8List.fromList([...first, ...frame, ...first]);
       expect(
@@ -413,7 +439,7 @@ void main() {
     });
 
     for (final failure in ['checksum', 'block']) {
-      test('late $failure failure returns only completed frames', () {
+      test('late $failure failure returns every decoded block', () {
         final broken = Uint8List.fromList(frame);
         if (failure == 'checksum') {
           broken[broken.length - 1] ^= 1;
@@ -421,14 +447,46 @@ void main() {
           broken[6 + 31 * 1027] |= 6;
         }
         final joined = Uint8List.fromList([...first, ...broken]);
-        if (failure == 'checksum') {
-          expect(ZstdDecoder().decodeBytes(joined), [...prefix, ...source]);
-          expect(() => ZstdDecoder().decodeBytes(joined, verify: true),
-              throwsA(isA<ArchiveChecksumException>()));
-        } else {
-          expect(ZstdDecoder().decodeBytes(joined), prefix);
-          expect(() => ZstdDecoder().decodeBytes(joined, verify: true),
-              throwsA(isA<ArchiveException>()));
+        final decoded = failure == 'checksum'
+            ? source
+            : Uint8List.sublistView(source, 0, 31 * 1024);
+        expect(ZstdDecoder().decodeBytes(joined), [...prefix, ...decoded]);
+        expect(ZstdDecoder().decodeBytes(broken), decoded);
+        for (final input in [joined, broken]) {
+          final out = OutputMemoryStream();
+          expect(
+              ZstdDecoder()
+                  .decodeStream(InputMemoryStream(input), out, verify: true),
+              isFalse);
+          expect(out.getBytes(), [if (input == joined) ...prefix, ...decoded]);
+        }
+        final lazy =
+            ZstdDecoder().decodeLazy(InputMemoryStream(broken), verify: true);
+        expect(lazy.readBytes(decoded.length).toUint8List(), decoded);
+        expect(() => lazy.readByte(), throwsA(isA<ArchiveException>()));
+        if (failure == 'block') {
+          final over = Uint8List.fromList([
+            0x28,
+            0xb5,
+            0x2f,
+            0xfd,
+            0x60,
+            0xdc,
+            0x04,
+            0x00,
+            0x20,
+            0x00,
+            ...source.sublist(0, 1024),
+            0x01,
+            0x20,
+            0x00,
+            ...source.sublist(1024, 2048),
+          ]);
+          final out = OutputMemoryStream();
+          expect(ZstdDecoder().decodeStream(InputMemoryStream(over), out),
+              isFalse);
+          expect(out.getBytes(), source.sublist(0, 1024));
+          expect(ZstdDecoder().decodeBytes(over), source.sublist(0, 1024));
         }
         expect(
             () => ZstdDecoder()
@@ -463,9 +521,9 @@ void main() {
       final dictionary = ZstdDictionary(Uint8List.fromList(
           List.generate(1 << 16, (i) => 0x20 + (i * 11 % 90))));
       final encoded =
-          ZstdEncoder(level: 3, dictionary: dictionary).encodeBytes(source);
+          ZstdEncoder.withDictionary(dictionary, level: 3).encodeBytes(source);
       final out = OutputMemoryStream();
-      ZstdDecoder(dictionary: dictionary).decodeStream(
+      ZstdDecoder.withDictionary(dictionary).decodeStream(
           InputMemoryStream(encoded), out,
           verify: true, throwOnError: true);
       expect(getCrc32(out.getBytes()), getCrc32(source));
@@ -474,6 +532,41 @@ void main() {
 
   group('zstd', () {
     final synth300k = synth(300000, 1);
+
+    test('maxOutputSize stops at the first block over the limit', () {
+      final header = (131072 << 3) | 2;
+      final frame = Uint8List.fromList([
+        0x28, 0xb5, 0x2f, 0xfd, 0x00, 0x88, //
+        header & 0xff, header >> 8 & 0xff, header >> 16, 0x61,
+        0x07, 0x00, 0x00,
+      ]);
+      final limit = throwsA(isA<ArchiveException>().having(
+          (e) => e.message, 'message', contains('larger than the 1024')));
+      expect(
+          () => ZstdDecoder().decodeBytes(frame, maxOutputSize: 1024), limit);
+      expect(
+          () => ZstdDecoder().decodeStream(
+              InputMemoryStream(frame), OutputMemoryStream(),
+              maxOutputSize: 1024),
+          limit);
+    });
+
+    test('a declared content size allocates at most the preallocation cap', () {
+      // 2^44 bytes declared, a 128 KB window, then 1 MB of one byte RLE
+      // blocks, which could decode to 43 GB if every block were full
+      final frame = BytesBuilder()
+        ..add([0x28, 0xb5, 0x2f, 0xfd, 0xc0, 0x38])
+        ..add(Uint8List(8)
+          ..buffer.asByteData().setUint64(0, 1 << 44, Endian.little));
+      for (var i = 0; i < 262143; i++) {
+        frame.add(const [0x0a, 0x00, 0x00, 0x61]);
+      }
+      frame.add(const [0x0b, 0x00, 0x00, 0x61]);
+      final bytes = frame.takeBytes();
+      expect(ZstdDecoder().decodeBytes(bytes), List.filled(262144, 0x61));
+      expect(() => ZstdDecoder().decodeBytes(bytes, throwOnError: true),
+          throwsA(isA<ArchiveException>()));
+    });
 
     for (final level in ['l1', 'l3', 'l19', 'lm5']) {
       test('synth.$level.zst', () {
@@ -533,7 +626,7 @@ void main() {
           throwsA(isA<ArchiveException>()));
       // Nor does a different dictionary stand in for it
       expect(
-          () => ZstdDecoder(dictionary: ZstdDictionary(synth(1000, 1)))
+          () => ZstdDecoder(dictionary: synth(1000, 1))
               .decodeBytes(data, throwOnError: true),
           throwsA(isA<ArchiveException>()));
     });
@@ -542,9 +635,7 @@ void main() {
     // so malformed dictionary throws ArchiveException, not ArgumentError
     test('a malformed dictionary is an ArchiveException', () {
       final dictionary = _fixture('fmtdict.dict');
-      expect(
-          () => ZstdDecoder(
-              dictionary: ZstdDictionary(dictionary.sublist(0, 20))),
+      expect(() => ZstdDecoder(dictionary: dictionary.sublist(0, 20)),
           throwsA(isA<ArchiveException>()));
     });
 
@@ -567,7 +658,7 @@ void main() {
       expect(
           () => ZstdDecoder().decodeStream(
               InputMemoryStream(damaged), OutputMemoryStream(),
-              verify: true),
+              verify: true, throwOnError: true),
           throwsA(isA<ArchiveChecksumException>()));
     });
 
@@ -606,10 +697,11 @@ void main() {
         final data = _fixture(name);
         for (var n = 0; n < data.length; n++) {
           expect(
-              () => ZstdDecoder(dictionary: dictionary).decodeStream(
+              () => ZstdDecoder.withDictionary(dictionary).decodeStream(
                   InputMemoryStream(Uint8List.sublistView(data, 0, n)),
                   OutputMemoryStream(),
-                  verify: true),
+                  verify: true,
+                  throwOnError: true),
               throwsA(isA<ArchiveException>()),
               reason: '$name truncated to $n bytes');
         }
@@ -767,14 +859,15 @@ void main() {
 
     test('checksum', () {
       final plain = ZstdEncoder().encodeBytes(sample, checksum: false);
-      final checked = ZstdEncoder().encodeBytes(sample);
+      expect(ZstdEncoder().encodeBytes(sample), plain);
+      final checked = ZstdEncoder().encodeBytes(sample, checksum: true);
       expect(checked.length, plain.length + 4);
       final damaged = Uint8List.fromList(checked);
       damaged[damaged.length - 1] ^= 1;
       expect(
           () => ZstdDecoder().decodeStream(
               InputMemoryStream(damaged), OutputMemoryStream(),
-              verify: true),
+              verify: true, throwOnError: true),
           throwsA(isA<ArchiveChecksumException>()));
     });
 
@@ -820,9 +913,9 @@ void main() {
 Uint8List _fixture(String name) =>
     File('test/_data/zstd/$name').readAsBytesSync();
 
-Uint8List _decode(String name, {List<int>? dictionary}) => ZstdDecoder(
-        dictionary: dictionary == null ? null : ZstdDictionary(dictionary))
-    .decodeBytes(_fixture(name), verify: true, throwOnError: true);
+Uint8List _decode(String name, {List<int>? dictionary}) =>
+    ZstdDecoder(dictionary: dictionary)
+        .decodeBytes(_fixture(name), verify: true, throwOnError: true);
 
 Uint8List _rawWindowFrame(Uint8List source) {
   final bytes = BytesBuilder()..add([0x28, 0xb5, 0x2f, 0xfd, 4, 0]);

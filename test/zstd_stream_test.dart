@@ -2,6 +2,7 @@
 library;
 
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -62,7 +63,7 @@ void main() {
         final dictionary = dictionaryFor(name);
         Uint8List? want;
         try {
-          want = ZstdDecoder(dictionary: dictionary)
+          want = ZstdDecoder.withDictionary(dictionary)
               .decodeBytes(src, verify: true, throwOnError: true);
         } catch (_) {
           want = null;
@@ -269,6 +270,38 @@ void main() {
   });
 
   group('zstd stream converter', () {
+    test('levels above 19 of unknown size need ultra, as zstd --ultra does',
+        testOn: 'vm', () async {
+      final source = Uint8List.fromList(
+          List.generate(20000, (i) => (i * 7 + (i >> 9)) % 251));
+      Future<List<int>> encode(Converter<List<int>, List<int>> encoder) =>
+          Stream<List<int>>.value(source)
+              .transform(encoder)
+              .fold<List<int>>([], (bytes, chunk) => bytes..addAll(chunk));
+      final plain = await encode(const ZstdEncoderConverter(level: 19));
+      for (final level in [20, 22, 30]) {
+        expect(await encode(ZstdEncoderConverter(level: level)), plain,
+            reason: 'level $level');
+      }
+      expect(await encode(const ZstdCodec(level: 20).encoder), plain);
+      final ultra =
+          await encode(const ZstdEncoderConverter(level: 20, ultra: true));
+      expect(ultra, isNot(plain));
+      expect(
+          await encode(const ZstdCodec(level: 20, ultra: true).encoder), ultra);
+      expect(
+          await encode(
+              ZstdEncoderConverter(level: 20, contentSize: source.length)),
+          await encode(ZstdEncoderConverter(
+              level: 20, contentSize: source.length, ultra: true)));
+      const workers = ZstdMultithreadOptions<Object?>.converter(workers: 2);
+      expect(
+          await encode(
+              const ZstdEncoderConverter(level: 20, multithread: workers)),
+          await encode(
+              const ZstdEncoderConverter(level: 19, multithread: workers)));
+    });
+
     test('empty stream gives reference frame', () async {
       final frame = await const Stream<List<int>>.empty()
           .transform(const ZstdCodec(level: 1, frameChecksum: false).encoder)

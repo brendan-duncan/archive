@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import '../../archive/archive_file.dart';
+import '../../util/_link_target.dart';
 import '../../util/_pieces.dart';
 import '../../util/archive_exception.dart';
 import '../../util/cancellable_stream.dart';
@@ -246,9 +247,11 @@ class TarEntry {
         groupId = file.groupId,
         lastModTime = file.lastModTime,
         typeFlag = file.typeFlag,
-        symbolicLink = (file.nameOfLinkedFile?.isNotEmpty ?? false)
-            ? file.nameOfLinkedFile
-            : null,
+        symbolicLink = !(file.nameOfLinkedFile?.isNotEmpty ?? false)
+            ? null
+            : file.typeFlag == TarFile.hardLink
+                ? hardLinkFromFolder(file.filename, file.nameOfLinkedFile!)
+                : file.nameOfLinkedFile,
         _sparse = file.sparse,
         _stored = file.fileSize,
         _head = head,
@@ -447,6 +450,9 @@ Stream<TarEntry> _read(
         // do not remove or even slightly corrupted tar will report dozens of
         // thousands of invalid files and folders
         throw ArchiveException('tar: invalid header checksum');
+      }
+      if (!tarHeaderSizeIsNumber(header)) {
+        throw ArchiveException('tar: invalid header size');
       }
       // The header is read again, followed immediately by its content,
       // exactly where `TarMetadata` expects to find it

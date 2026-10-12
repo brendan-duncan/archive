@@ -18,11 +18,10 @@ dependencies:
   posix: ^6.0.2
 
 dev_dependencies:
-  # build_web_compilers requires archive <5.0.0, so pub get fails. Build demo
-  # with `dart compile js web/test_zip.dart -o web/test_zip.dart.js`, then run
-  # `python3 -m http.server -d web` and open localhost:8000/test_zip.html
-  # build_runner: ^2.4.14
-  # build_web_compilers: ^4.1.0
+  # Demo can also be built with  `dart compile js web/test_zip.dart -o web/test_zip.dart.js`,
+  # then run `python3 -m http.server -d web` and open localhost:8000/test_zip.html
+  build_runner: ^2.4.14
+  build_web_compilers: ^4.1.0
   http: ^1.1.0
   lints: ^4.0.0
   test: ^1.24.6

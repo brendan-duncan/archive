@@ -63,7 +63,8 @@ class TarFileEncoder {
         try {
           input = InputFileStream(tarPath);
           output = OutputFileStream(tzstPath);
-          ZstdEncoder().encodeStream(input, output, level: level);
+          ZstdEncoder()
+              .encodeStream(input, output, level: level, checksum: true);
         } finally {
           await input?.close();
           await output?.close();

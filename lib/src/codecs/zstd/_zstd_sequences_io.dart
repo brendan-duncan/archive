@@ -219,6 +219,10 @@ class ZstdSequences extends ZstdSequencesBase {
         }
       }
 
+      if (out + literalsLength + matchLength > dstEnd) {
+        _ranPastBlock();
+      }
+
       // Most literal runs are under eight bytes and nearly all under sixteen,
       // so the common lengths cost stores and no loop at all
       dstView.setUint64(

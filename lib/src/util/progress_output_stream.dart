@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'byte_order.dart';
+import 'input_decode_stream.dart';
 import 'input_memory_stream.dart';
 import 'input_stream.dart';
 import 'output_stream.dart';
@@ -100,6 +101,23 @@ class ProgressOutputStream implements OutputStream {
 
   @override
   void writeStream(InputStream stream) {
+    if (stream is InputDecodeStream) {
+      final held = stream.position;
+      final chunk = Uint8List(16 * 1024);
+      try {
+        while (!stream.isEOS) {
+          final got = stream.readInto(chunk, 0, chunk.length);
+          if (got <= 0) {
+            return;
+          }
+          output.writeBytes(chunk, length: got);
+          _add(got);
+        }
+      } finally {
+        stream.setPosition(held);
+      }
+      return;
+    }
     var left = stream.length;
     if (left <= _streamPieceSize) {
       output.writeStream(stream);

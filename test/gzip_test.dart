@@ -295,7 +295,7 @@ void main() {
           for (final byte in [3, 10, 11]) {
             final bad = Uint8List.fromList(member);
             bad[byte] ^= byte == 3 ? 0x80 : 1;
-            expect(() => decode(bad, verify: true),
+            expect(() => decode(bad, verify: true, throwOnError: true),
                 throwsA(isA<ArchiveException>()));
             expect(() => decode(bad, throwOnError: true),
                 throwsA(isA<ArchiveException>()));
@@ -324,7 +324,7 @@ void main() {
           for (final byte in [3, 10, 11]) {
             final bad = Uint8List.fromList(member);
             bad[byte] ^= byte == 3 ? 0x80 : 1;
-            expect(() => decode(bad, verify: true),
+            expect(() => decode(bad, verify: true, throwOnError: true),
                 throwsA(isA<ArchiveException>()),
                 reason: 'header byte $byte');
             expect(() => decode(bad, throwOnError: true),
@@ -340,7 +340,7 @@ void main() {
             final bad = Uint8List.fromList([...gzip, ...gzip]);
             bad[gzip.length + byte] ^= 1;
             for (final (verify, throwOnError) in [
-              (true, false),
+              (true, true),
               (false, true)
             ]) {
               expect(
@@ -378,7 +378,7 @@ void main() {
             for (var byte = 0; byte < 8; byte++) {
               final bad = Uint8List.fromList(joined);
               bad[(member + 1) * gzip.length - 8 + byte] ^= 1;
-              expect(() => decode(bad, verify: true),
+              expect(() => decode(bad, verify: true, throwOnError: true),
                   throwsA(isA<ArchiveException>()),
                   reason: 'member $member, trailer byte $byte');
               if (byte < 4 && member == 2) {
@@ -394,32 +394,35 @@ void main() {
           expect(decode(of(name), true, false), isTrue);
         });
 
-        test('$name: empty input throws with verify or throwOnError', () {
+        test('$name: empty input throws with throwOnError', () {
           expect(decode(Uint8List(0), false, false), isFalse);
-          for (final (v, t) in [(true, false), (false, true)]) {
+          expect(decode(Uint8List(0), true, false), isFalse);
+          for (final (v, t) in [(true, true), (false, true)]) {
             expect(() => decode(Uint8List(0), v, t),
                 throwsA(isA<ArchiveException>()),
                 reason: 'verify $v, throwOnError $t');
           }
         });
 
-        test('$name: wrong checksum throws only with verify', () {
+        test('$name: wrong checksum throws only with verify and throwOnError',
+            () {
           final bad = Uint8List.fromList(of(name));
           bad[bad.length - (name.startsWith('gzip') ? 8 : 1)] ^= 1;
           expect(decode(bad, false, false), isTrue);
           expect(decode(bad, false, true), isTrue);
-          expect(() => decode(bad, true, false),
+          expect(decode(bad, true, false), isFalse);
+          expect(() => decode(bad, true, true),
               throwsA(isA<ArchiveChecksumException>()));
         });
 
-        test(
-            '$name: truncated or foreign data throws with verify or throwOnError',
+        test('$name: truncated or foreign data throws with throwOnError',
             testOn: 'vm', () {
           final whole = of(name);
           final cut = Uint8List.sublistView(whole, 0, whole.length ~/ 2);
           if (name == 'zlib') {
             expect(decode(cut, false, true), isTrue);
-            expect(() => decode(cut, true, false),
+            expect(decode(cut, true, false), isFalse);
+            expect(() => decode(cut, true, true),
                 throwsA(isA<ArchiveChecksumException>()));
           }
           for (final bad in [
@@ -427,7 +430,8 @@ void main() {
             Uint8List.fromList(List.filled(40, 7)),
           ]) {
             expect(decode(bad, false, false), isFalse);
-            for (final (v, t) in [(true, false), (false, true)]) {
+            expect(decode(bad, true, false), isFalse);
+            for (final (v, t) in [(true, true), (false, true)]) {
               expect(
                   () => decode(bad, v, t),
                   throwsA(allOf(isA<ArchiveException>(),
@@ -482,7 +486,7 @@ void main() {
           bad[0] = cmf;
           bad[1] = (31 - ((cmf << 8) % 31)) % 31;
           expect(CodecsRecognizer.isZLib(bad), isFalse, reason: field);
-          for (final (verify, throwOnError) in [(true, false), (false, true)]) {
+          for (final (verify, throwOnError) in [(true, true), (false, true)]) {
             expect(
                 () => const ZLibDecoderWeb().decodeBytes(bad,
                     verify: verify, throwOnError: throwOnError),
@@ -532,7 +536,7 @@ void main() {
             ])
           ),
         ]) {
-          for (final (verify, throwOnError) in [(true, false), (false, true)]) {
+          for (final (verify, throwOnError) in [(true, true), (false, true)]) {
             expect(
                 () => decoder.decodeBytes(bad,
                     verify: verify, throwOnError: throwOnError),
@@ -633,7 +637,7 @@ void main() {
         final bad = Uint8List.fromList(packed)..[8] ^= 0xff;
         expect(
             const ZLibDecoderWeb().decodeBytes(packed, verify: true), source);
-        for (final (verify, throwOnError) in [(true, false), (false, true)]) {
+        for (final (verify, throwOnError) in [(true, true), (false, true)]) {
           expect(
               () => const ZLibDecoderWeb()
                   .decodeBytes(bad, verify: verify, throwOnError: throwOnError),
@@ -699,12 +703,15 @@ void main() {
       // });
 
       test(
-          'dart:io zlib verify throws on more than 4 KB after stream, web accepts',
+          'dart:io zlib verify with throwOnError throws on more than 4 KB '
+          'after stream, web accepts',
           testOn: 'vm', () {
         final padded = Uint8List.fromList([...zlib, ...Uint8List(4097)]);
         expect(
             const ZLibDecoder().decodeBytes(padded, throwOnError: true), data);
-        expect(() => const ZLibDecoder().decodeBytes(padded, verify: true),
+        expect(
+            () => const ZLibDecoder()
+                .decodeBytes(padded, verify: true, throwOnError: true),
             throwsA(isA<ArchiveChecksumException>()));
         expect(const ZLibDecoderWeb().decodeBytes(padded, verify: true), data);
       });
@@ -896,14 +903,13 @@ void main() {
         }
       });
 
-      test('web zlib rejects truncated raw stream with verify or throwOnError',
-          () {
+      test('web zlib rejects truncated raw stream with throwOnError', () {
         final raw = Deflate(data).getBytes();
         expect(const ZLibDecoderWeb().decodeBytes(raw, raw: true, verify: true),
             data);
         for (final cut in [0, raw.length ~/ 2]) {
           final bad = Uint8List.sublistView(raw, 0, cut);
-          for (final (v, t) in [(true, false), (false, true)]) {
+          for (final (v, t) in [(true, true), (false, true)]) {
             expect(
                 () => const ZLibDecoderWeb()
                     .decodeBytes(bad, raw: true, verify: v, throwOnError: t),
@@ -943,7 +949,7 @@ void main() {
             ...raw,
             ...List<int>.filled(8, 0)
           ];
-          for (final (verify, throwOnError) in [(true, false), (false, true)]) {
+          for (final (verify, throwOnError) in [(true, true), (false, true)]) {
             final decodes = [
               () => const ZLibDecoderWeb().decodeBytes(raw,
                   raw: true, verify: verify, throwOnError: throwOnError),
@@ -971,7 +977,7 @@ void main() {
           'eJz9wAUEAAAAACAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgAAAAAABAAAAAQ=='
         ]) {
           final packed = base64Decode(encoded);
-          for (final (verify, throwOnError) in [(true, false), (false, true)]) {
+          for (final (verify, throwOnError) in [(true, true), (false, true)]) {
             expect(
                 () => const ZLibDecoderWeb().decodeBytes(packed,
                     verify: verify, throwOnError: throwOnError),
@@ -989,7 +995,7 @@ void main() {
           () {
         final packed = base64Decode(
             'eJwFwAUEAAAAAKABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAUAAAAB');
-        for (final (verify, throwOnError) in [(true, false), (false, true)]) {
+        for (final (verify, throwOnError) in [(true, true), (false, true)]) {
           expect(
               () => const ZLibDecoderWeb().decodeBytes(packed,
                   verify: verify, throwOnError: throwOnError),
@@ -1014,7 +1020,7 @@ void main() {
             expect(output.getBytes(), data, reason: 'cut $cut');
             expect(decoder.decodeBytes(damaged), data, reason: 'cut $cut');
             for (final (verify, throwOnError) in [
-              (true, false),
+              (true, true),
               (false, true)
             ]) {
               expect(
@@ -1069,9 +1075,12 @@ void main() {
         }
       });
 
-      test('decodeBytes with verify throws on wrong gzip CRC', () {
+      test('decodeBytes with verify and throwOnError throws on wrong gzip CRC',
+          () {
         final damaged = Uint8List.fromList(gzip)..[gzip.length - 8] ^= 0xff;
-        expect(() => const GZipDecoder().decodeBytes(damaged, verify: true),
+        expect(
+            () => const GZipDecoder()
+                .decodeBytes(damaged, verify: true, throwOnError: true),
             throwsA(isA<ArchiveChecksumException>()));
       });
 
@@ -1101,18 +1110,20 @@ void main() {
         fail('no damage made the stream fail after some output');
       });
 
-      test('gzip verify throws on 1 zero byte after last member', () {
+      test(
+          'gzip verify with throwOnError throws on 1 zero byte after last member',
+          () {
         final padded = Uint8List.fromList([...gzip, 0]);
         for (final (name, decode) in [
           (
             'gzip',
-            (Uint8List bytes) =>
-                const GZipDecoder().decodeBytes(bytes, verify: true)
+            (Uint8List bytes) => const GZipDecoder()
+                .decodeBytes(bytes, verify: true, throwOnError: true)
           ),
           (
             'gzip web',
-            (Uint8List bytes) =>
-                const GZipDecoderWeb().decodeBytes(bytes, verify: true)
+            (Uint8List bytes) => const GZipDecoderWeb()
+                .decodeBytes(bytes, verify: true, throwOnError: true)
           ),
         ]) {
           expect(() => decode(padded), throwsA(isA<ArchiveException>()),
@@ -1120,8 +1131,9 @@ void main() {
         }
       });
 
-      test('gzip verify throws on truncated header after empty last member',
-          () {
+      test(
+          'gzip verify with throwOnError throws on truncated header after '
+          'empty last member', () {
         final whole = Uint8List.fromList(
             [...gzip, ...GZipEncoder().encodeBytes(Uint8List(0))]);
         expect(const GZipDecoder().decodeBytes(whole, verify: true), data);
@@ -1129,13 +1141,15 @@ void main() {
         for (var cut = 3; cut <= 9; cut++) {
           final padded =
               Uint8List.fromList([...whole, ...header.sublist(0, cut)]);
-          expect(() => const GZipDecoder().decodeBytes(padded, verify: true),
+          expect(
+              () => const GZipDecoder()
+                  .decodeBytes(padded, verify: true, throwOnError: true),
               throwsA(isA<ArchiveException>()),
               reason: 'bytes, cut $cut');
           expect(
               () => const GZipDecoder().decodeStream(
                   InputMemoryStream(padded), OutputMemoryStream(),
-                  verify: true),
+                  verify: true, throwOnError: true),
               throwsA(isA<ArchiveException>()),
               reason: 'stream, cut $cut');
         }
@@ -1184,7 +1198,7 @@ void main() {
             }
             final part = Uint8List.sublistView(whole, 0, cut);
             for (final (v, t) in [
-              (true, false),
+              (true, true),
               if (members.first.isNotEmpty) (false, true)
             ]) {
               final reason = 'members $sizes, cut $cut, verify $v';
@@ -1209,7 +1223,7 @@ void main() {
         const header = [0x1f, 0x8b, 8, 4, 0, 0, 0, 0, 0, 3, 0, 1, 0, 0, 0, 0];
         final cut = Uint8List.fromList(
             [...GZipEncoder().encodeBytes(Uint8List(300000)), ...header]);
-        for (final (v, t) in [(true, false), (false, true)]) {
+        for (final (v, t) in [(true, true), (false, true)]) {
           expect(
               () => const GZipDecoder()
                   .decodeBytes(cut, verify: v, throwOnError: t),
@@ -1234,7 +1248,7 @@ void main() {
         ]) {
           final bytes =
               Uint8List.fromList([...first, ...empty, ...junk, ...last]);
-          for (final (v, t) in [(true, false), (false, true)]) {
+          for (final (v, t) in [(true, true), (false, true)]) {
             final reason = 'junk ${junk.length} bytes, verify $v';
             expect(
                 () => const GZipDecoder()
@@ -1258,7 +1272,7 @@ void main() {
         final last = GZipEncoder().encodeBytes(List.filled(500, 66));
         final bytes = Uint8List.fromList(
             [...first, ...empty, ...middle, ...empty, 0, ...last]);
-        for (final (v, t) in [(true, false), (false, true)]) {
+        for (final (v, t) in [(true, true), (false, true)]) {
           expect(
               () => const GZipDecoder()
                   .decodeBytes(bytes, verify: v, throwOnError: t),

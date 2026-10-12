@@ -130,9 +130,9 @@ class XzChunkedDecoder extends ChunkedSink {
 
   /// Takes the blocks that can be decoded elsewhere. The threaded stream
   /// decoder shares this through it rather than repeating it
-  final XzBlockDispatch? dispatch;
+  final XzBlockDispatch? _dispatch;
 
-  /// Set while the parse waits for [dispatch] to go idle
+  /// Set while the parse waits for [_dispatch] to go idle
   /// before decoding a block
   bool get waitingForIdle => _waitingForIdle;
   var _waitingForIdle = false;
@@ -140,10 +140,12 @@ class XzChunkedDecoder extends ChunkedSink {
   /// {@macro archive.xz.max_dictionary_size}
   final int maxDictionarySize;
 
-  XzChunkedDecoder(super.output,
-      {this.verify = true,
-      this.dispatch,
-      this.maxDictionarySize = xzDefaultMaxDictionarySize}) {
+  XzChunkedDecoder(Sink<List<int>> output,
+      {bool verify = true, int maxDictionarySize = xzDefaultMaxDictionarySize})
+      : this._(output, verify, null, maxDictionarySize);
+
+  XzChunkedDecoder._(
+      super.output, this.verify, this._dispatch, this.maxDictionarySize) {
     _sink = SinkOutputStream(output);
   }
 
@@ -408,7 +410,10 @@ class XzChunkedDecoder extends ChunkedSink {
     _blockStart = _streamPosition;
     _xz.failureReason = null;
     if (!_xz.readBlockHeader(InputMemoryStream(view(size)), size)) {
-      throw ArchiveException('xz: ${_xz.failureReason}');
+      final message = 'xz: ${_xz.failureReason}';
+      throw xzIsLimitFailure(_xz.failureReason)
+          ? ArchiveLimitException(message)
+          : ArchiveException(message);
     }
     _declaredCompressedLength = _xz.blockCompressedLength;
     _declaredUncompressedLength = _xz.blockUncompressedLength;
@@ -416,7 +421,7 @@ class XzChunkedDecoder extends ChunkedSink {
     _x86Filter = _xz.blockHasX86;
     _x86StartOffset = _xz.blockX86StartOffset;
 
-    final dispatch = this.dispatch;
+    final dispatch = _dispatch;
     if (dispatch != null) {
       _waitingForIdle = false;
       final compressed = _declaredCompressedLength;
@@ -922,3 +927,9 @@ class _Record {
 
   const _Record(this.unpadded, this.uncompressed);
 }
+
+/// Returns [XzChunkedDecoder] that sends every block it can to [dispatch]
+XzChunkedDecoder xzChunkedDecoderWithDispatch(
+        Sink<List<int>> output, XzBlockDispatch dispatch,
+        {required bool verify}) =>
+    XzChunkedDecoder._(output, verify, dispatch, xzDefaultMaxDictionarySize);

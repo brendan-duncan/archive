@@ -121,8 +121,10 @@ class _ZipEncoderData {
   List<_ZipFileData> files = [];
 
   _ZipEncoderData(this.level, [DateTime? dateTime]) {
-    time = _getTime(dateTime);
-    date = _getDate(dateTime);
+    // DOS fields hold local time. Hours of UTC DateTime written as they are
+    // read back shifted by the reader's time zone offset
+    time = _getTime(dateTime?.toLocal());
+    date = _getDate(dateTime?.toLocal());
     seconds = dateTime == null ? null : dateTime.millisecondsSinceEpoch ~/ 1000;
   }
 }
@@ -242,8 +244,9 @@ class ZipEncoder {
     }
     return compression == CompressionType.none &&
         password == null &&
-        content is FileContentStream &&
-        content.stream is! InputDecodeStream;
+        (content is ZipFile ||
+            (content is FileContentStream &&
+                content.stream is! InputDecodeStream));
   }
 
   int getFileCrc32(ArchiveFile file) {

@@ -613,7 +613,8 @@ Stream<Uint8List> _xzDecodeStream(
   final ready = _Ready();
   final dispatch = _StreamDispatch(budget);
   final parser =
-      XzChunkedDecoder(_QueueSink(ready), verify: verify, dispatch: dispatch);
+      xzChunkedDecoderWithDispatch(_QueueSink(ready), dispatch, verify: verify)
+        ..unitAtATime = true;
   final receive = ReceivePort();
   final isolates = <Isolate>[];
   final idleWorkers = <SendPort>[];
@@ -648,9 +649,11 @@ Stream<Uint8List> _xzDecodeStream(
       }
       if (!head.ok) {
         final message = 'xz: ${head.reason ?? 'a block failed'}';
-        failure ??= xzCheckFailures.contains(head.reason)
-            ? ArchiveChecksumException(message)
-            : ArchiveException(message);
+        failure ??= xzIsLimitFailure(head.reason)
+            ? ArchiveLimitException(message)
+            : xzCheckFailures.contains(head.reason)
+                ? ArchiveChecksumException(message)
+                : ArchiveException(message);
         return;
       }
       for (final piece in head.pieces) {
@@ -866,6 +869,20 @@ Stream<Uint8List> _xzDecodeStream(
           break;
         }
         yield* settle();
+        while (failure == null &&
+            parseFailure == null &&
+            !signal.cancelled &&
+            parser.available > 0 &&
+            !parser.waitingForIdle) {
+          final consumed = parser.consumed;
+          if (!parse(parser.resume)) {
+            break;
+          }
+          yield* settle();
+          if (parser.consumed == consumed) {
+            break;
+          }
+        }
         if (failure != null || parseFailure != null || signal.cancelled) {
           break;
         }

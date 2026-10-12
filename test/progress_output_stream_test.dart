@@ -40,7 +40,7 @@ void main() {
       (i, o) => const ZLibDecoder().decodeStream(i, o)
     ),
     'zstd': (
-      const ZstdEncoder().encodeBytes(data),
+      ZstdEncoder().encodeBytes(data),
       (i, o) => ZstdDecoder().decodeStream(i, o)
     ),
     'bzip2': (
@@ -78,7 +78,7 @@ void main() {
       ),
       'xz': (XZEncoder().encodeBytes(callbackData), XZDecoder().decodeStream),
       'zstd': (
-        const ZstdEncoder().encodeBytes(callbackData),
+        ZstdEncoder().encodeBytes(callbackData),
         ZstdDecoder().decodeStream
       ),
     };

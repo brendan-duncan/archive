@@ -47,9 +47,10 @@ archives (over 4 GB, or over 65,535 entries) are read automatically.
 
 ### Checking integrity
 
-`ZipDecoder().decodeStream(input, verify: true)` checks the CRC-32 of each
-entry when its content is read and throws `ArchiveChecksumException` on a
-mismatch. To check an entry without keeping the data, use the `ZipFile`
+`ZipDecoder().decodeStream(input, verify: true, throwOnError: true)` checks
+the CRC-32 of each entry when its content is read and throws
+`ArchiveChecksumException` on a mismatch. With `verify: true` alone a
+mismatched entry gives no error. To check an entry without keeping the data, use the `ZipFile`
 behind it:
 
 ```dart
@@ -83,6 +84,8 @@ await input.close();
 A wrong or missing password throws `ArchivePasswordException` from
 `decodeStream` and `decodeBytes`, whatever the flags. Content is decrypted as
 it is read, so `writeContent` does not hold a second copy of a large entry.
+An AES entry that does not match its MAC throws `ArchiveMacException` at the
+end of the read, whatever the flags.
 The check bytes in the header can pass a wrong password, see
 [security](security.md#encryption).
 
@@ -105,9 +108,10 @@ ignored. GNU and pax sparse files are expanded.
 
 Options:
 
-- `verify: true` checks each header's checksum and throws `ArchiveException`
-  on a mismatch. Without it, a file that is not a tar can decode as garbage
-  entries; use it when you are not sure the input is a tar.
+- `verify: true` checks each header's checksum and stops at a mismatch, with
+  `throwOnError: true` as well it throws `ArchiveException`. Without it, a
+  file that is not a tar can decode as garbage entries; use it when you are
+  not sure the input is a tar.
 - `storeData: false` skips file contents, for listing. The headers, with
   sizes, are in `decoder.files` afterwards.
 - `callback` is called with each entry as it is read. With a

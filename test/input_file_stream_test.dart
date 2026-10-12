@@ -39,6 +39,17 @@ void main() {
       expect(buffer.readBytes(1, 0x7fffffffffffffff), testData.sublist(1));
     }, testOn: 'vm');
 
+    test('negative count reads same bytes from file and memory', () {
+      final file = InputFileStream(testPath)..readBytes(10);
+      addTearDown(file.closeSync);
+      final memory = InputMemoryStream(testData)..readBytes(10);
+      expect(file.subset(position: 10, length: -5).toUint8List(),
+          memory.subset(position: 10, length: -5).toUint8List());
+      expect(file.readBytes(-5).toUint8List(), testData.sublist(10));
+      expect(memory.readBytes(-5).toUint8List(), testData.sublist(10));
+      expect(file.position, memory.position);
+    });
+
     for (final count in [8, 16, 127]) {
       test('readInto retries short file reads until $count bytes arrive', () {
         final input = InputFileStream.withFileBuffer(
@@ -373,7 +384,20 @@ void main() {
     }
   });
 
-  test('a tar of small entries is read in 16 KB pieces by default', () {
+  test('FileBuffer reads 4 KB after a seek and fills buffer when sequential',
+      () {
+    final path = '$testOutputPath/seek_read.bin';
+    File(path).writeAsBytesSync(Uint8List(1 << 20));
+    final handle = _CountingHandle(path);
+    final buffer = FileBuffer(handle, bufferSize: 64 * 1024);
+    addTearDown(buffer.closeSync);
+    buffer.readBytes(500000, 16);
+    expect(handle.largest, 4096);
+    buffer.readBytes(500000 + 4096 + 100, 16);
+    expect(handle.largest, 64 * 1024);
+  });
+
+  test('a tar of small entries is read in whole buffers by default', () {
     final archive = Archive();
     for (var i = 0; i < 300; i++) {
       archive.add(ArchiveFile.bytes(

@@ -28,7 +28,16 @@ class ZstdDecoder {
   /// that id
   final ZstdDictionary? dictionary;
 
-  ZstdDecoder({int? maxWindowSize, this.dictionary})
+  /// Pass [dictionary] to decode frames compressed with one. It may be a
+  /// dictionary in the zstd format, as `zstd --train` writes, or any other
+  /// bytes, which are then used as raw content
+  ZstdDecoder({int? maxWindowSize, List<int>? dictionary})
+      : this.withDictionary(
+            dictionary == null ? null : ZstdDictionary(dictionary),
+            maxWindowSize: maxWindowSize);
+
+  /// Takes a [ZstdDictionary] parsed once, so decoders can share it
+  ZstdDecoder.withDictionary(this.dictionary, {int? maxWindowSize})
       : maxWindowSize = maxWindowSize ?? zstdDefaultMaxWindowSize {
     if (this.maxWindowSize < 1024) {
       throw ArgumentError.value(maxWindowSize, 'maxWindowSize',
@@ -128,7 +137,8 @@ class ZstdDecoder {
 
   /// {@macro archive.decode_lazy}
   ///
-  /// [verify] is as for [decodeStream].
+  /// [verify] checks frame checksums, and a mismatch throws from the read that
+  /// reaches the end of that frame.
   InputStream decodeLazy(InputStream input, {bool verify = false}) =>
       InputDecodeStream(ChunkedSinkDecoder(
           input,
@@ -177,7 +187,8 @@ class ZstdDecoder {
       }
       input.skip(4 + header.size);
 
-      final window = ZstdWindow(header.windowSize, output: output);
+      final window = ZstdWindow(header.windowSize, output: output)
+        ..emitEachBlock = output is LimitedOutputStream;
       if (dictionary != null && dictionary.content.isNotEmpty) {
         window.prime(dictionary.content);
       }
@@ -187,9 +198,12 @@ class ZstdDecoder {
       if (scratch.length < header.blockSizeMax + 3) {
         scratch = Uint8List(header.blockSizeMax + 3);
       }
-      ZstdFrameDecoder()
-          .decodeBlocksFrom(input, window, header, verify, dictionary, scratch);
-      window.finish();
+      try {
+        ZstdFrameDecoder().decodeBlocksFrom(
+            input, window, header, verify, dictionary, scratch);
+      } finally {
+        window.finish();
+      }
       frames++;
     }
     // An archive of nothing but skippable frames decodes to nothing, the way
@@ -268,7 +282,8 @@ class ZstdDecoder {
             'Frame needs dictionary ${header.dictionaryId}');
       }
       final prefix = dictionary?.content.length ?? 0;
-      final window = ZstdWindow(header.windowSize, output: target ?? output);
+      final window = ZstdWindow(header.windowSize, output: target ?? output)
+        ..emitEachBlock = target is LimitedOutputStream;
       final size = header.contentSize;
       if (output == null && size != null && size > 0) {
         // The scratch a block needs above its own output has to be part of the
@@ -282,21 +297,16 @@ class ZstdDecoder {
       }
       final frame = ZstdFrameDecoder();
       at += 4 + header.size;
-      final completed = output?.length ?? 0;
       try {
         at += frame.decodeBlocks(
             bytes, at, end, window, header, verify, dictionary);
+      } finally {
         if (output != null) {
           window.finish();
         } else {
           parts!.add(Uint8List.sublistView(
               window.buffer, window.origin, window.position));
         }
-      } catch (_) {
-        if (output != null) {
-          output.length = completed;
-        }
-        rethrow;
       }
     }
   }
@@ -325,9 +335,17 @@ class ZstdDecoder {
   /// [blockSizeMax], so [remaining] bytes of input cannot produce more than
   /// this whatever the header declares. Above that the buffer grows as needed
   static int _affordable(int declared, int remaining, int blockSizeMax) {
-    final ceiling = ((remaining + 2) ~/ 3) * blockSizeMax;
+    var ceiling = ((remaining + 2) ~/ 3) * blockSizeMax;
+    // 1 MB of RLE blocks can claim 43 GB, and allocating it threw
+    // OutOfMemoryError that throwOnError: false does not catch, so
+    // reservation stops at 256 MB as in ZstdDecoder of 4.5.1
+    if (ceiling > _maxPreallocate) {
+      ceiling = _maxPreallocate;
+    }
     return declared < ceiling ? declared : ceiling;
   }
+
+  static const _maxPreallocate = 256 * 1024 * 1024;
 
   static int _uint32At(Uint8List bytes, int at) =>
       bytes[at] |

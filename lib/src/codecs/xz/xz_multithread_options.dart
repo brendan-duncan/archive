@@ -28,8 +28,8 @@ class XZMultithreadOptions<T> {
 
   /// {@macro archive.multithreaded_memory_on_error}
   ///
-  /// A corrupted or truncated archive reaches this with `throwOnError` or
-  /// `verify`, and failed block check only with `verify`
+  /// A corrupted or truncated archive reaches this with `throwOnError`, and
+  /// failed block check only with `throwOnError` and `verify`
   final void Function(Object error, StackTrace stackTrace)? onError;
 
   /// {@macro archive.multithreaded_workers}

@@ -44,7 +44,8 @@ class ZstdCodec extends Codec<List<int>, List<int>> {
       this.maxWindowSize = zstdDefaultMaxWindowSize,
       this.level = zstdDefaultLevel,
       this.frameChecksum = true,
-      this.multithread});
+      this.multithread,
+      this.ultra = false});
 
   @override
   ZstdDecoderConverter get decoder => ZstdDecoderConverter(
@@ -59,12 +60,16 @@ class ZstdCodec extends Codec<List<int>, List<int>> {
   /// {@macro archive.yield_codecs_multithreaded_example}
   final ZstdMultithreadOptions<Object?>? multithread;
 
+  /// {@macro archive.zstd.ultra}
+  final bool ultra;
+
   @override
   ZstdEncoderConverter get encoder => ZstdEncoderConverter(
       level: level,
       checksum: frameChecksum,
       multithread: multithread,
-      dictionary: dictionary);
+      dictionary: dictionary,
+      ultra: ultra);
 }
 
 /// {@macro archive.codecs.general}
@@ -121,12 +126,24 @@ class ZstdEncoderConverter extends ChunkedConverter {
   /// {@macro archive.zstd.content_size}
   final int? contentSize;
 
+  /// {@macro archive.zstd.ultra}
+  final bool ultra;
+
   const ZstdEncoderConverter(
       {this.level = zstdDefaultLevel,
       this.checksum = true,
       this.multithread,
       this.dictionary,
-      this.contentSize});
+      this.contentSize,
+      this.ultra = false});
+
+  int get _level => contentSize == null &&
+          !ultra &&
+          zstdEffectiveLevel(level) > _levelWithoutUltra
+      ? _levelWithoutUltra
+      : level;
+
+  static const _levelWithoutUltra = 19;
 
   @override
   ByteConversionSink startChunkedConversion(Sink<List<int>> sink) {
@@ -140,7 +157,7 @@ class ZstdEncoderConverter extends ChunkedConverter {
     }
     return FailOnceSink(ZstdChunkedEncoder(
         sink is ByteConversionSink ? sink : ByteConversionSink.from(sink),
-        level: level,
+        level: _level,
         checksum: checksum,
         dictionary: dictionary,
         contentSize: contentSize));
@@ -209,15 +226,15 @@ class ZstdEncoderConverter extends ChunkedConverter {
     // The header is written with the first chunk, not up front: only then do
     // we know whether any input came, and an empty frame records its content
     // size instead of a window size.
-    yield* zstdMtCompressStream(counted, level,
+    yield* zstdMtCompressStream(counted, _level,
         jobSize: options.jobSize,
         overlapLog: options.overlapLog,
         workers: options.workers ?? 0,
         cap: zstdMtWorkerCap(
             options.memoryBudget ?? zstdDefaultMemoryBudget,
-            level,
+            _level,
             sized,
-            ZstdMtFrameEncoder.geometry(level, sized,
+            ZstdMtFrameEncoder.geometry(_level, sized,
                 jobSize: options.jobSize, overlapLog: options.overlapLog)),
         dictionary: _encodeDictionary,
         size: sized,
@@ -228,12 +245,12 @@ class ZstdEncoderConverter extends ChunkedConverter {
             header,
             size,
             checksum,
-            zstdParamsForLevel(level, sized).windowLog,
+            zstdParamsForLevel(_level, sized).windowLog,
             _encodeDictionary?.id ?? 0);
         return header.getBytes();
       }
       writeZstdMtStreamHeader(
-          header, checksum, level, _encodeDictionary?.id ?? 0, empty);
+          header, checksum, _level, _encodeDictionary?.id ?? 0, empty);
       return header.getBytes();
     }).transform(
         StreamTransformer.fromHandlers(handleError: (error, trace, sink) {
@@ -721,11 +738,7 @@ class ZstdChunkedDecoder extends ChunkedSink {
     }
     // Out at the end of every block, as ZSTD_decompressStream does. The input
     // may pause without closing
-    // A lazy read keeps a frame's last window until the frame ends, as
-    // decodeStream does, so a frame cut short leaves no partial entry
-    if (!unitAtATime) {
-      window.emit();
-    }
+    window.emit();
     _sink.flush();
     skip(_bodyLength);
     if (!_blocks.isLast) {

@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import '../archive/archive.dart';
 import '../archive/archive_file.dart';
 import '../util/_cast.dart';
+import '../util/_link_target.dart';
 import '../util/file_content.dart';
 import '../util/output_memory_stream.dart';
 import '../util/output_stream.dart';
@@ -65,15 +66,18 @@ class TarEncoder {
     // of the separate file
     final paxName = entry.name.codeUnits.any((c) => c > 0x7f);
     final name = paxName ? Uint8List(0) : filenameEncoding.encode(entry.name);
-    final paxLink = entry.isSymbolicLink &&
-        entry.symbolicLink!.codeUnits.any((c) => c > 0x7f);
+    final linkName = entry.isHardLink
+        ? hardLinkFromRoot(entry.name, entry.symbolicLink ?? '')
+        : entry.symbolicLink;
+    final paxLink =
+        entry.isSymbolicLink && linkName!.codeUnits.any((c) => c > 0x7f);
     if (paxName || paxLink) {
       final records = BytesBuilder(copy: false);
       if (paxName) {
         records.add(_paxRecord('path', entry.name));
       }
       if (paxLink) {
-        records.add(_paxRecord('linkpath', entry.symbolicLink!));
+        records.add(_paxRecord('linkpath', linkName));
       }
       final ts = TarFile();
       ts.filename = 'PaxHeader';
@@ -103,7 +107,7 @@ class TarEncoder {
 
     // After the name, which is the order GNU writes the two in
     if (entry.isSymbolicLink && !paxLink) {
-      final link = filenameEncoding.encode(entry.symbolicLink!);
+      final link = filenameEncoding.encode(linkName!);
       if (link.length > 100) {
         final ts = TarFile();
         ts.filename = '././@LongLink';
@@ -130,7 +134,7 @@ class TarEncoder {
       final file = entry;
       if (file.isSymbolicLink) {
         ts.typeFlag = file.isHardLink ? TarFile.hardLink : TarFile.symbolicLink;
-        ts.nameOfLinkedFile = file.symbolicLink;
+        ts.nameOfLinkedFile = linkName;
       } else {
         ts.fileSize = file.size;
         // As stored: write copies a stream in chunks, where getContent would
@@ -147,8 +151,8 @@ class TarEncoder {
         }
       }
     }
-    final encodable = _encodes(entry.name) &&
-        (!entry.isSymbolicLink || _encodes(entry.symbolicLink!));
+    final encodable =
+        _encodes(entry.name) && (!entry.isSymbolicLink || _encodes(linkName!));
     ts.write(_outputStream!,
         filenameEncoder: encodable ? filenameEncoding : utf8, headerOnly: true);
     return ts;

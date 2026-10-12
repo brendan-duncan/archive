@@ -335,7 +335,7 @@ class ZipFile extends FileContent {
       return decode();
     } catch (_) {
       if (_macMismatch) {
-        throw ArchiveChecksumException('macs don\'t match');
+        throw ArchiveMacException('macs don\'t match');
       }
       rethrow;
     }
@@ -386,7 +386,7 @@ class ZipFile extends FileContent {
     // Thrown here, outside the deflate decoder, whose guard turns an
     // ArchiveChecksumException without verify into a plain ArchiveException
     if (_macMismatch) {
-      throw ArchiveChecksumException('macs don\'t match');
+      throw ArchiveMacException('macs don\'t match');
     }
   }
 
@@ -606,8 +606,8 @@ class ZipFile extends FileContent {
         final compressed = _rawContent!.toUint8List();
         // Raw deflate has no checksum of its own, zip checks CRC32
         // in _checkCrc32
-        content = ZLibDecoder().decodeBytes(compressed,
-            raw: true, throwOnError: true, maxOutputSize: _outputLimit);
+        content = _exact(ZLibDecoder().decodeBytes(compressed,
+            raw: true, throwOnError: true, maxOutputSize: _outputLimit));
       } else {
         final decompress = OutputMemoryStream(
             size: zipDecodeBufferSize(uncompressedSize, _rawContent!.length));
@@ -644,7 +644,7 @@ class ZipFile extends FileContent {
       return InputMemoryStream(_exact(output.getBytes()));
     } else {
       final limit = _outputLimit;
-      if (limit != null && _rawContent!.length > limit) {
+      if (throwOnError && limit != null && _rawContent!.length > limit) {
         throw ArchiveException(
             'The decoded data is larger than the $limit bytes allowed');
       }
@@ -862,7 +862,7 @@ class ZipFile extends FileContent {
       // and only MAC picks between UTF-8 and code unit passwords. Without
       // this check on every read, such password returns garbage as content
       if (!Uint8ListEquality.equals(dataMac.toUint8List(), aes.mac)) {
-        failure = ArchiveChecksumException('macs don\'t match');
+        failure = ArchiveMacException('macs don\'t match');
         continue;
       }
       return InputMemoryStream(bytes);

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import '../archive/archive.dart';
 import '../archive/archive_file.dart';
@@ -15,6 +16,27 @@ int _dosSeconds(int date, int time) =>
         .millisecondsSinceEpoch ~/
     1000;
 
+// DOS date and time are writer's local time, so Info-ZIP unzip and 7-Zip take
+// modification time from UT field (0x5455) when entry has one
+int? _utSeconds(Uint8List? extra) {
+  if (extra == null) {
+    return null;
+  }
+  final data = ByteData.sublistView(extra);
+  var at = 0;
+  while (at + 4 <= extra.length) {
+    final id = data.getUint16(at, Endian.little);
+    final size = data.getUint16(at + 2, Endian.little);
+    if (id == 0x5455 && size >= 5 && at + 9 <= extra.length) {
+      return extra[at + 4] & 1 != 0
+          ? data.getUint32(at + 5, Endian.little)
+          : null;
+    }
+    at += 4 + size;
+  }
+  return null;
+}
+
 /// Decode a zip formatted buffer into an [Archive] object.
 class ZipDecoder {
   late ZipDirectory directory;
@@ -28,7 +50,8 @@ class ZipDecoder {
   ///
   /// {@macro archive.verify_throw_on_error}
   ///
-  /// A wrong or missing password throws `ArchivePasswordException` always
+  /// Wrong or missing password always throws `ArchivePasswordException`, and
+  /// AES data that does not match its MAC always throws `ArchiveMacException`
   Archive decodeBytes(List<int> bytes,
           {bool verify = false,
           bool throwOnError = false,
@@ -46,7 +69,8 @@ class ZipDecoder {
   ///
   /// {@macro archive.verify_throw_on_error}
   ///
-  /// A wrong or missing password throws `ArchivePasswordException` always
+  /// Wrong or missing password always throws `ArchivePasswordException`, and
+  /// AES data that does not match its MAC always throws `ArchiveMacException`
   Archive decodeStream(InputStream input,
       {bool verify = false,
       bool throwOnError = false,
@@ -127,7 +151,9 @@ class ZipDecoder {
 
       entry
         ..crc32 = zf.hasCrc32 ? zf.crc32 : null
-        ..lastModTime = _dosSeconds(zf.lastModFileDate, zf.lastModFileTime);
+        ..lastModTime = _utSeconds(zf.header?.extraField) ??
+            _utSeconds(zf.extraField) ??
+            _dosSeconds(zf.lastModFileDate, zf.lastModFileTime);
 
       if (callback != null) {
         try {

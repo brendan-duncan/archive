@@ -3,13 +3,14 @@ import 'archive_exception.dart';
 _DecodeContext? _activeDecodeContext;
 
 /// Runs [decode] under the `verify` and `throwOnError` rules shared by every
-/// decoder: without `verify` a checksum failure is never thrown as
-/// [ArchiveChecksumException], and without either flag decoding errors are
-/// suppressed except [ArchivePasswordException], while callback errors
-/// propagate
+/// decoder: without `throwOnError` decoding errors are suppressed except
+/// [ArchivePasswordException], [ArchiveMacException] and
+/// [ArchiveLimitException], a checksum failure
+/// is thrown as [ArchiveChecksumException] only with `verify` as well, and
+/// callback errors propagate
 bool guardDecode(
     String format, bool verify, bool throwOnError, bool Function() decode) {
-  final strict = verify || throwOnError;
+  final strict = throwOnError;
   final context = _DecodeContext(_activeDecodeContext);
   _activeDecodeContext = context;
   try {
@@ -30,11 +31,13 @@ bool guardDecode(
     if (!isDecodeDataError(error)) {
       rethrow;
     }
-    if (error is ArchivePasswordException) {
+    if (error is ArchivePasswordException ||
+        error is ArchiveMacException ||
+        error is ArchiveLimitException) {
       rethrow;
     }
     if (error is ArchiveChecksumException) {
-      if (verify) {
+      if (verify && throwOnError) {
         rethrow;
       }
       if (throwOnError) {
@@ -119,7 +122,7 @@ class _DecodeContext {
 }
 
 void throwIfStrict(ArchiveException error, bool verify, bool throwOnError) {
-  if (error is ArchivePasswordException) {
+  if (error is ArchivePasswordException || error is ArchiveLimitException) {
     throw error;
   }
   if (error is ArchiveChecksumException && !verify) {
@@ -128,7 +131,7 @@ void throwIfStrict(ArchiveException error, bool verify, bool throwOnError) {
     }
     return;
   }
-  if (verify || throwOnError) {
+  if (throwOnError) {
     throw error;
   }
 }

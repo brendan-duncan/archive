@@ -110,7 +110,7 @@ ZstdFrameHeader readFrameHeader(
   // check it alone against the limit. A frame can declare any content size,
   // and using it here would let a false size allocate past the limit
   if (windowSize > maxWindowSize) {
-    throw ZstdFrameException(
+    throw ArchiveLimitException(
         'Window of $windowSize bytes is above the $maxWindowSize limit');
   }
 
@@ -172,7 +172,10 @@ class ZstdFrameDecoder {
       if (checked) {
         _hash.update(window.buffer, from, window.position - from);
       }
-      _checkNotAbove(window.length - before, header);
+      _checkNotAbove(window, from, before, header);
+      if (window.emitEachBlock) {
+        window.emit();
+      }
       if (_blocks.isLast) {
         break;
       }
@@ -199,9 +202,12 @@ class ZstdFrameDecoder {
     }
   }
 
-  static void _checkNotAbove(int produced, ZstdFrameHeader header) {
+  static void _checkNotAbove(
+      ZstdWindow window, int from, int before, ZstdFrameHeader header) {
     final expected = header.contentSize;
+    final produced = window.length - before;
     if (expected != null && produced > expected) {
+      window.position = from;
       _checkProduced(produced, header);
     }
   }
@@ -251,7 +257,10 @@ class ZstdFrameDecoder {
       if (checked) {
         _hash.update(window.buffer, from, window.position - from);
       }
-      _checkNotAbove(window.length - before, header);
+      _checkNotAbove(window, from, before, header);
+      if (window.emitEachBlock) {
+        window.emit();
+      }
       if (_blocks.isLast) {
         break;
       }

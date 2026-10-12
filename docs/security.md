@@ -18,8 +18,9 @@ most are off unless you set them.
 4. **Keep the default memory caps** (`ZstdDecoder.maxWindowSize`,
    `XZDecoder.maxDictionarySize`) unless you trust the source, and lower
    them on memory-constrained devices.
-5. **Catch errors.** Pass `throwOnError: true` or `verify: true`, so
-   malformed data is reported as `ArchiveException` (a `FormatException`)
+5. **Catch errors.** Pass `throwOnError: true`, and `verify: true` to check
+   checksums too, so malformed data is reported as `ArchiveException` (a
+   `FormatException`)
    instead of partial output, and discard the output on a failure (see
    [errors](README.md#errors)).
 6. **Limit the entry count** if that matters to you: nothing in the package
@@ -32,8 +33,11 @@ most are off unless you set them.
 
 `decodeBytes` and `decodeStream` on `GZipDecoder`, `ZLibDecoder`,
 `BZip2Decoder`, `ZstdDecoder` and `XZDecoder` take `maxOutputSize`. The
-decode throws `ArchiveException` as soon as the output would pass it, before
-the excess is written.
+decode throws `ArchiveLimitException`, a subclass of `ArchiveException`, as
+soon as the output would pass it, before the excess is written.
+`maxOutputSize`, `maxSize`, `maxWindowSize`, `maxDictionarySize` and
+`TarFile.maxMetadataSize` throw it regardless of `verify` and
+`throwOnError`.
 
 ```dart
 try {
@@ -55,7 +59,7 @@ size in the callback, or use `extractFileToDisk` with `maxSize`.
 | `XZDecoder(maxDictionarySize:)` | 256 MB | The LZMA2 dictionary a block may declare. |
 | `XZDecoder(maxPreallocateSize:)` | 2 GB native, 256 MB web | What is allocated up front because the file claims it. Larger outputs still decode. |
 | `XZMultithreadOptions(memoryBudget:)` | 1 GB | Memory held by xz worker isolates. |
-| `TarFile.maxMetadataSize` | 1 MB (constant) | GNU long name and pax header entries. Larger ones throw. |
+| `TarFile.maxMetadataSize` | 1 MB (constant) | GNU long name and pax header entries, and sparse maps. Larger ones throw. |
 
 ```dart
 final xz = XZDecoder(maxDictionarySize: 64 * 1024 * 1024);
@@ -73,8 +77,8 @@ only as far as its compressed data could expand to, and up to 500 MB.
 `ArchiveFile.size` is the uncompressed size the archive declares. You can
 rely on it as an upper bound before reading:
 
-- A zip entry is never decoded past its declared size. If the compressed
-  data expands further, reading throws `ArchiveException`.
+- A compressed zip entry is never decoded to more than its declared size. If
+  the compressed data expands further, reading throws `ArchiveLimitException`.
 - A tar entry's content is exactly the number of bytes its header gives.
 
 ```dart
@@ -103,7 +107,8 @@ directory or a long list of tar headers is read in full by `decodeBytes` and
   path or target runs through another link, so an entry cannot be written
   through a link the archive made;
 - take `maxSize`, the total bytes the extracted files may come to. An
-  entry that would pass it throws `ArchiveException` before it is written.
+  entry that would pass it throws `ArchiveLimitException` before it is
+  written.
 
 ```dart
 await extractFileToDisk('upload.tar.gz', 'out', maxSize: 500 * 1024 * 1024);
@@ -149,4 +154,7 @@ The package checks a zip password with the check bytes in the entry header:
 1 time in 256 or 1 time in 65536, and only the CRC-32 or the AES MAC at the
 end of the entry tells it apart. An entry is decrypted as it is read, so a
 reader that consumes the content sees that result only at the end: pass
-`verify: true` to get `ArchiveChecksumException` there.
+`verify: true` and `throwOnError: true` to get `ArchiveChecksumException`
+there for ZipCrypto. A
+mismatched AES MAC throws `ArchiveMacException` there whatever the flags, and
+the content written before it is garbage or tampered data.

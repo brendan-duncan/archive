@@ -15,9 +15,10 @@ InputStream decodeLazy(InputStream input, {...});
 Without flags, `decodeBytes` returns what decoded before the damage and
 `decodeStream` returns `false` when the input is malformed or truncated;
 whatever was decoded before the failure is already in `output` and should be
-discarded. `throwOnError: true` throws `ArchiveException` instead, and
-`verify: true` also checks the checksums and throws
-`ArchiveChecksumException` on a mismatch (see [errors](README.md#errors)).
+discarded. `throwOnError: true` throws `ArchiveException` instead.
+`verify: true` also checks the checksums: alone it reports a mismatch the same
+way as damage, and with `throwOnError: true` a mismatch throws
+`ArchiveChecksumException` (see [errors](README.md#errors)).
 `decodeLazy` returns a stream that decodes as it is read and
 throws `ArchiveException` when it reaches bad data (see
 [streaming](streaming.md#decoding-as-you-read-decodelazy)).
@@ -101,8 +102,9 @@ is byte identical with the reference at every level.
   smallest). Negative levels are `zstd --fast=N`. 0 means `zstdDefaultLevel`
   (3), and a level outside the range is treated as the nearest end. Levels
   20 and up use windows of 32 MB or more, which the decoder must also hold.
-- `checksum`: append a content checksum (on by default).
-- `dictionary`: a `ZstdDictionary`, see below.
+- `checksum`: append a content checksum (off by default).
+- `dictionary`: the dictionary bytes, see below. `ZstdEncoder.withDictionary`
+  takes a `ZstdDictionary` parsed once.
 - Output is a single frame.
 - `multithread` splits the work over isolates, see
   [streams and isolates](streams-and-isolates.md#spreading-one-call-over-isolates).
@@ -111,6 +113,7 @@ is byte identical with the reference at every level.
 
 - `ZstdDecoder(dictionary: ...)` decodes frames made with a dictionary,
   either a `zstd --train` dictionary or raw content bytes.
+  `ZstdDecoder.withDictionary` takes a `ZstdDictionary` parsed once.
 - `ZstdDecoder(maxWindowSize: ...)` is the largest window a frame may ask
   for, default `zstdDefaultMaxWindowSize` (128 MB). Raise it for files
   written with `zstd --long` or `--ultra`.
@@ -130,13 +133,21 @@ The frame header stores the dictionary ID, so the frame can only be decoded with
 dictionary:
 
 ```dart
-final dictionary = ZstdDictionary(File('dict').readAsBytesSync());
+final dictionary = File('dict').readAsBytesSync();
 final compressed =
     ZstdEncoder(level: 6, dictionary: dictionary).encodeBytes(bytes);
 final data = ZstdDecoder(dictionary: dictionary).decodeBytes(compressed);
+
+// ZstdDictionary is parsed once, so encoders and decoders can share it
+final parsed = ZstdDictionary(dictionary);
+final again = ZstdDecoder.withDictionary(parsed).decodeBytes(compressed);
 ```
 
-Unlike original zstd CLI, compression levels 20-22 do not require --ultra flag to work
+Unlike original zstd CLI, compression levels 20-22 do not require --ultra flag
+to work in `ZstdEncoder`, which knows the input size. `ZstdEncoderConverter`
+and `ZstdCodec` without `contentSize` reduce them to 19 unless `ultra: true` is
+given, as `zstd` does without `--ultra`: level 22 of unknown size takes 655 MB
+even for 100 bytes of input.
 
 ## xz
 

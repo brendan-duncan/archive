@@ -91,7 +91,7 @@ final _source = Uint8List.fromList(List.generate(80000, (i) {
   final word = 'the quick brown fox jumps over the lazy dog '.codeUnits;
   return i % 97 == 0 ? (i * 31) & 0xff : word[i % word.length];
 }));
-final _frame = ZstdEncoder(level: 9).encodeBytes(_source);
+final _frame = ZstdEncoder(level: 9).encodeBytes(_source, checksum: true);
 final _plain = ZstdEncoder(level: 1).encodeBytes(_source, checksum: false);
 
 /// Where the first block header starts, which is past the frame header
@@ -205,7 +205,7 @@ void main() {
       final dictionary = ZstdDictionary(
           File('test/_data/zstd/dict-trained.dict').readAsBytesSync());
       expect(dictionary.id, isNot(0));
-      _refuse(ZstdEncoder(dictionary: dictionary).encodeBytes(_source),
+      _refuse(ZstdEncoder.withDictionary(dictionary).encodeBytes(_source),
           'a frame naming a dictionary');
     }, testOn: 'vm');
 
@@ -384,6 +384,7 @@ void main() {
       ]);
       final done = Completer<Uint8List>();
       ZstdEncoder(level: 3).encodeBytes(source,
+          checksum: true,
           multithread: ZstdMultithreadOptions<Uint8List>(
               onDone: done.complete,
               onError: (error, _) => done.completeError(error),
@@ -433,7 +434,7 @@ void main() {
         (i) =>
             'zstd literals need a varied alphabet '.codeUnitAt(i % 37) ^
             i ~/ 331));
-    final damaged = Uint8List.fromList(const ZstdEncoder().encodeBytes(source))
+    final damaged = Uint8List.fromList(ZstdEncoder().encodeBytes(source))
       ..[8] = 0;
     expect(() => ZstdDecoder().decodeBytes(damaged), returnsNormally);
     expect(

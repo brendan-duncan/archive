@@ -282,16 +282,23 @@
 /// written out before the next one is decoded
 /// {@endtemplate}
 
+/// {@template archive.on_progress_zone}
+/// An exception thrown by [onProgress] goes to the current zone, as with a
+/// `Stream` listener, and zipping continues. A `try` around the call does not
+/// catch it, `runZonedGuarded` does.
+/// {@endtemplate}
+
 /// ------------------------------------------------------------------------
 /// ------------------------------------------------------------------------
 /// ------------------------------------------------------------------------
 
 /// {@template archive.verify_throw_on_error}
 /// `throwOnError` throws `ArchiveException` on damaged or cut data.
-/// `verify` does the same, also checks checksums at a tiny cost of ~5-10% speed
-/// decrease depending on archive file and throws `ArchiveChecksumException` on
-/// mismatch.
-/// With neither, decodeBytes returns partial data, decodeStream returns false
+/// `verify` also checks checksums at a tiny cost of ~5-10% speed decrease
+/// depending on archive file. With `throwOnError` as well, a mismatch throws
+/// `ArchiveChecksumException`.
+/// Without `throwOnError`, decodeBytes returns partial data and decodeStream
+/// returns false, with or without `verify`
 /// {@endtemplate}
 
 /// ------------------------------------------------------------------------
@@ -328,7 +335,7 @@
 /// ------------------------------------------------------------------------
 
 /// {@template archive.max_output_size.bytes}
-/// With [maxOutputSize], an [ArchiveException] is thrown as soon as the
+/// With [maxOutputSize], an [ArchiveLimitException] is thrown as soon as the
 /// decoded data would pass that many bytes, rather than decoding a small
 /// input that expands without limit.
 /// {@endtemplate}
@@ -338,7 +345,7 @@
 /// ------------------------------------------------------------------------
 
 /// {@template archive.max_output_size.stream}
-/// With [maxOutputSize], an [ArchiveException] is thrown as soon as more
+/// With [maxOutputSize], an [ArchiveLimitException] is thrown as soon as more
 /// than that many bytes would be written to [output], whatever
 /// [throwOnError] is.
 /// {@endtemplate}
@@ -365,6 +372,18 @@
 /// ------------------------------------------------------------------------
 /// ------------------------------------------------------------------------
 
+/// {@template archive.zstd.ultra}
+/// Allows levels 20 to 22 when `contentSize` is not given, as `zstd --ultra`
+/// does. Without it they are reduced to 19: with unknown size level 22 sizes
+/// its tables for a 128 MB window and took 655 MB on 100 bytes of input,
+/// where `zstd -22 --ultra` took 707 MB. With `contentSize` the tables follow
+/// the input size and this has no effect.
+/// {@endtemplate}
+
+/// ------------------------------------------------------------------------
+/// ------------------------------------------------------------------------
+/// ------------------------------------------------------------------------
+
 /// {@template archive.extract.allow_absolute_symlinks}
 /// A symlink to an absolute path points outside [outputPath], so it is
 /// skipped unless [allowAbsoluteSymlinks] is set
@@ -376,8 +395,8 @@
 
 /// {@template archive.extract.max_size}
 /// [maxSize] limits the total size of the files written. An entry that would
-/// take it past that throws an [ArchiveException] before it is written. A zip
-/// entry is never decoded past the size the archive gives for it.
+/// take it past that throws an [ArchiveLimitException] before it is written.
+/// A zip entry is never decoded past the size the archive gives for it.
 /// {@endtemplate}
 
 /// ------------------------------------------------------------------------

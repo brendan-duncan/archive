@@ -32,7 +32,7 @@ void listTarFiles(String path) {
 Directory extractTarFiles(String inputPath, String outputPath) {
   final input = InputFileStream(inputPath);
   try {
-    final writer = EntryWriter(outputPath);
+    final writer = EntryWriter(outputPath, throwOnError: true);
     TarDecoder().decodeStream(_tarStream(inputPath, input),
         throwOnError: true, keepEntries: false, callback: (entry) {
       final path = writer.write(entry);

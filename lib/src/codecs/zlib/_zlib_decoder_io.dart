@@ -90,7 +90,8 @@ class _ZLibDecoder extends ZLibDecoderBase {
   @override
   InputStream decodeLazy(InputStream input,
           {bool verify = false, bool raw = false}) =>
-      InputDecodeStream(NativeChunkDecoder(input, gzip: false, raw: raw));
+      InputDecodeStream(
+          NativeChunkDecoder(input, gzip: false, raw: raw, verify: verify));
 
   bool _decodeStream(InputStream input, OutputStream output, bool verify,
       bool raw, bool throwOnError) {

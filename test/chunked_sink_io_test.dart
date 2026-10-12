@@ -299,6 +299,22 @@ void main() {
         ..close();
       expect(plain.length, 6);
     });
+
+    test('paused listener keeps 16 KB of zstd from decoding 512 MB', () async {
+      final frame = BytesBuilder()..add([0x28, 0xb5, 0x2f, 0xfd, 0x00, 0x38]);
+      for (var i = 0; i < 4096; i++) {
+        final header = (131072 << 3) | 2 | (i == 4095 ? 1 : 0);
+        frame.add([header & 0xff, header >> 8 & 0xff, header >> 16, 0x61]);
+      }
+      final before = ProcessInfo.currentRss;
+      late StreamSubscription<List<int>> subscription;
+      subscription = Stream<List<int>>.value(frame.takeBytes())
+          .transform(zstdCodec.decoder)
+          .listen((_) => subscription.pause());
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+      expect(ProcessInfo.currentRss - before, lessThan(128 << 20));
+      await subscription.cancel();
+    });
   });
 
   group('SinkOutputStream', () {

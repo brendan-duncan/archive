@@ -180,6 +180,7 @@ Future<Uint8List> decodeBytesOnIsolates(Uint8List compressed,
   final completer = Completer<Uint8List>();
   final returned = XZDecoder().decodeBytes(compressed,
       verify: verify,
+      throwOnError: verify,
       multithread: XZMultithreadOptions(
         onDone: completer.complete,
         onError: completer.completeError,
@@ -196,6 +197,7 @@ Future<bool> decodeStreamOnIsolates(InputStream input, OutputStream output,
   final completer = Completer<bool>();
   final returned = XZDecoder().decodeStream(input, output,
       verify: verify,
+      throwOnError: verify,
       multithread: XZMultithreadOptions(
         onDone: completer.complete,
         onError: completer.completeError,
@@ -372,7 +374,7 @@ void main() {
                 onDone: bytes.complete,
                 onError: bytes.completeError,
                 workers: workers));
-        await expectLater(bytes.future, throwsA(isA<ArchiveException>()),
+        await expectLater(bytes.future, throwsA(isA<ArchiveLimitException>()),
             reason: 'decodeBytes, $workers workers');
 
         final stream = Completer<bool>();
@@ -382,7 +384,7 @@ void main() {
                 onDone: stream.complete,
                 onError: stream.completeError,
                 workers: workers));
-        expect(await stream.future, isFalse,
+        await expectLater(stream.future, throwsA(isA<ArchiveLimitException>()),
             reason: 'decodeStream, $workers workers');
       }
     });
@@ -528,7 +530,8 @@ void main() {
       final truncated = allOf(
           isA<ArchiveException>(), isNot(isA<ArchiveChecksumException>()));
       expect(
-          () => XZDecoder().decodeBytes(cut, verify: true), throwsA(truncated));
+          () => XZDecoder().decodeBytes(cut, verify: true, throwOnError: true),
+          throwsA(truncated));
       await expectLater(decodeBytesOnIsolates(cut, verify: true, workers: 2),
           throwsA(truncated));
       await expectLater(
@@ -1104,7 +1107,7 @@ void main() {
         expect(
             () => XZDecoder().decodeStream(
                 InputMemoryStream(data), OutputMemoryStream(),
-                verify: true),
+                verify: true, throwOnError: true),
             throwsA(isA<ArchiveChecksumException>()));
         await expectLater(
             decodeStreamOnIsolates(
@@ -1121,7 +1124,7 @@ void main() {
         final sequential = OutputMemoryStream();
         expect(
             () => XZDecoder().decodeStream(InputMemoryStream(data), sequential,
-                verify: true),
+                verify: true, throwOnError: true),
             throwsA(isA<ArchiveChecksumException>()));
         final parallel = OutputMemoryStream();
         await expectLater(
@@ -1140,7 +1143,9 @@ void main() {
         final data = damaged(blocks[0].checkOffset(8), 8);
         data[blocks[1].dataOffset] = 0x03;
 
-        expect(() => XZDecoder().decodeBytes(data, verify: true),
+        expect(
+            () =>
+                XZDecoder().decodeBytes(data, verify: true, throwOnError: true),
             throwsA(isA<ArchiveChecksumException>()));
         for (var round = 0; round < 10; round++) {
           await expectLater(
@@ -1524,7 +1529,7 @@ void main() {
       expect(
           () => XZDecoder().decodeStream(
               InputMemoryStream(compressed), verified,
-              verify: true),
+              verify: true, throwOnError: true),
           throwsA(isA<ArchiveException>()));
       expect(verified.length, equals(partial));
       await expectLater(decodeBytesOnIsolates(compressed, verify: true),
@@ -1539,7 +1544,7 @@ void main() {
             expect(
                 () => XZDecoder().decodeStream(
                     InputMemoryStream(compressed), output,
-                    verify: verify),
+                    verify: verify, throwOnError: verify),
                 throwsA(isA<ArchiveException>()));
           } else {
             expect(
@@ -1785,7 +1790,7 @@ void main() {
       test('is refused when there is nowhere to deliver the exception', () {
         // Asking to be told and leaving no onError would put the failure back
         // where it started, so it is rejected while the caller can still hear.
-        for (final (verify, throwOnError) in [(false, true), (true, false)]) {
+        for (final (verify, throwOnError) in [(false, true), (true, true)]) {
           expect(
               () => XZDecoder().decodeBytes(broken,
                   verify: verify,
@@ -2025,6 +2030,21 @@ void main() {
         yield Uint8List.sublistView(bytes, at, end);
       }
     }
+
+    test('in-line decode of block without sizes sends output before the end',
+        () async {
+      final zeros = File('test/_data/xz/zeros-16m.xz').readAsBytesSync();
+      final input = BytesBuilder();
+      for (var i = 0; i < 64; i++) {
+        input.add(zeros);
+      }
+      final watch = Stopwatch()..start();
+      final first = await Stream<List<int>>.value(input.takeBytes())
+          .transform(XzCodec(multithread: options).decoder)
+          .first;
+      expect(first, isNotEmpty);
+      expect(watch.elapsed, lessThan(const Duration(milliseconds: 300)));
+    });
 
     Future<({Uint8List bytes, Object? error})> collect(
         Stream<List<int>> stream) async {

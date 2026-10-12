@@ -169,6 +169,61 @@ void main() {
       }
       expect(watch.elapsed, lessThan(const Duration(seconds: 2)));
     });
+
+    test('block without end marker throws once input exceeds largest block',
+        () {
+      final archive = _encode(_source(100000, 5), 100000);
+      final cut = Uint8List.sublistView(archive, 0, archive.length ~/ 2);
+      final decoder = BZip2ChunkedDecoder(_Held());
+      decoder.addSlice(cut, 0, cut.length, false);
+      final zeros = Uint8List(1 << 16);
+      var added = cut.length;
+      expect(() {
+        while (added < 16 << 20) {
+          added += zeros.length;
+          decoder.addSlice(zeros, 0, zeros.length, false);
+        }
+      }, throwsA(isA<ArchiveException>()));
+      expect(added, lessThan(3 << 20));
+
+      final input = InputMemoryStream(
+          Uint8List(cut.length + (16 << 20))..setRange(0, cut.length, cut));
+      final lazy = BZip2Decoder().decodeLazy(input);
+      expect(lazy.toUint8List, throwsA(isA<ArchiveException>()));
+      expect(input.position, lessThan(3 << 20));
+    });
+
+    // Marker search covered whole piece before block limit was checked, so
+    // 64 MB in one add took 740 ms against 25 ms in 64 KB pieces
+    test('block without end marker in one large add stops at largest block',
+        () {
+      final archive = _encode(_source(100000, 5), 100000);
+      final cut = Uint8List.sublistView(archive, 0, archive.length ~/ 2);
+      int failAfter(int zeros) {
+        final bytes = Uint8List(cut.length + zeros)..setAll(0, cut);
+        final watch = Stopwatch()..start();
+        expect(
+            () => BZip2ChunkedDecoder(_Held())
+                .addSlice(bytes, 0, bytes.length, false),
+            throwsA(isA<ArchiveException>()));
+        return watch.elapsedMilliseconds;
+      }
+
+      failAfter(4 << 20);
+      final small = failAfter(4 << 20);
+      final large = failAfter(64 << 20);
+      expect(large, lessThan(small * 4 + 150));
+    });
+
+    test('failed add keeps no copy of its piece', () {
+      final archive = _encode(_source(100000, 5), 100000);
+      final cut = Uint8List.sublistView(archive, 0, archive.length ~/ 2);
+      final bytes = Uint8List(cut.length + (8 << 20))..setAll(0, cut);
+      final decoder = BZip2ChunkedDecoder(_Held());
+      expect(() => decoder.addSlice(bytes, 0, bytes.length, false),
+          throwsA(isA<ArchiveException>()));
+      expect(decoder.available, 0);
+    });
   });
 
   group('bzip2 chunked encoder', () {

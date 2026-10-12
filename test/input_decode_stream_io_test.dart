@@ -43,6 +43,18 @@ void main() {
     expect(decoder.onDiskAtEnd, greaterThan(100 * 4096));
   });
 
+  test('ProgressOutputStream.writeStream writes a lazy stream as it decodes',
+      () {
+    final path = '$testOutputPath/lazy_progress_write.bin';
+    final decoder = _WatchedDecoder(path);
+    final output = ProgressOutputStream(
+        OutputFileStream(path, bufferSize: 64 * 1024), (_) {});
+    output.writeStream(InputDecodeStream(decoder));
+    output.closeSync();
+    expect(File(path).lengthSync(), 200 * 4096);
+    expect(decoder.onDiskAtEnd, greaterThan(100 * 4096));
+  });
+
   // XZEncoder writes uncompressed LZMA2 chunks, so the archive comes from
   // `head -c 16777216 /dev/zero | xz -0 -T1 -c`: one block, many chunks
   test('xz decodes at most one LZMA2 chunk per chunk', () {

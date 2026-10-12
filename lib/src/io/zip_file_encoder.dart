@@ -22,6 +22,8 @@ class ZipFileEncoder {
   ZipFileEncoder({this.password});
 
   /// Zips a [dir] to a Zip file asynchronously.
+  ///
+  /// {@macro archive.on_progress_zone}
   Future<void> zipDirectory(Directory dir,
       {String? filename,
       int? level,
@@ -97,6 +99,9 @@ class ZipFileEncoder {
     _encoder.startEncode(_output, level: level, modified: modified);
   }
 
+  /// Adds the files under [dir] to the zip
+  ///
+  /// {@macro archive.on_progress_zone}
   void addDirectorySync(Directory dir,
       {bool includeDirName = true,
       int? level,
@@ -142,6 +147,9 @@ class ZipFileEncoder {
     }
   }
 
+  /// Adds the files under [dir] to the zip asynchronously
+  ///
+  /// {@macro archive.on_progress_zone}
   Future<void> addDirectory(Directory dir,
       {bool includeDirName = true,
       int? level,

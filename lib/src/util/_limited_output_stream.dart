@@ -22,7 +22,7 @@ class LimitedOutputStream extends OutputStream {
     _written += count;
     if (_written > maxLength) {
       exceeded = true;
-      throw ArchiveException(
+      throw ArchiveLimitException(
           'The decoded data is larger than the $maxLength bytes allowed');
     }
   }
@@ -92,13 +92,13 @@ bool decodeLimited(OutputStream output, int? maxLength,
     result = decode(limited);
   } catch (_) {
     if (limited.exceeded) {
-      throw ArchiveException(
+      throw ArchiveLimitException(
           'The decoded data is larger than the $maxLength bytes allowed');
     }
     rethrow;
   }
   if (limited.exceeded) {
-    throw ArchiveException(
+    throw ArchiveLimitException(
         'The decoded data is larger than the $maxLength bytes allowed');
   }
   return result;

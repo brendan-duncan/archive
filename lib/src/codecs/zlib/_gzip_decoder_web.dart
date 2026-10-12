@@ -56,7 +56,8 @@ class _GZipDecoder extends ZLibDecoderBase {
   InputStream decodeLazy(InputStream input,
           {bool verify = false, bool raw = false}) =>
       InputDecodeStream(InflateChunkDecoder(
-          input, raw ? InflateFormat.raw : InflateFormat.gzip));
+          input, raw ? InflateFormat.raw : InflateFormat.gzip,
+          verify: verify));
 
   bool _decode(InputStream input, OutputStream output, bool verify, bool raw,
       bool strict) {

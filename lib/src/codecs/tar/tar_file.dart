@@ -61,9 +61,9 @@ class TarFile {
   /// can hold more, but it would not survive the trip through an int.
   static const int maxNumericField = 9007199254740991;
 
-  /// The most a long name or pax header may hold. Their content is read
-  /// whole, so without a limit a small compressed archive could declare one
-  /// large enough to exhaust memory.
+  /// The most a long name, pax header or sparse map may hold, as in Go
+  /// archive/tar. Their content is read whole, so without a limit a small
+  /// compressed archive could declare one large enough to exhaust memory.
   static const int maxMetadataSize = 1024 * 1024;
 
   // Pre-POSIX Format
@@ -162,7 +162,8 @@ class TarFile {
       throw ArchiveException('Invalid tar file size: $fileSize');
     }
     if (isMetadata && fileSize > maxMetadataSize) {
-      throw ArchiveException('Tar metadata entry of $fileSize bytes is larger '
+      throw ArchiveLimitException(
+          'Tar metadata entry of $fileSize bytes is larger '
           'than the $maxMetadataSize allowed');
     }
     if ((typeFlag == hardLink &&
@@ -273,7 +274,10 @@ class TarFile {
 
   void readSparseExtension(InputStream block) {
     final sparse = this.sparse!;
-    sparse.extensionBlocks++;
+    if (++sparse.extensionBlocks * 512 > maxMetadataSize) {
+      throw ArchiveLimitException('Tar sparse map is larger than the '
+          '$maxMetadataSize bytes allowed');
+    }
     sparse.extended = _readSparseRegions(block, 21, sparse);
   }
 
@@ -1050,6 +1054,9 @@ class TarMetadata {
     }
   }
 }
+
+bool tarHeaderSizeIsNumber(Uint8List header) =>
+    TarFile._validNumberField(header, 124, 12);
 
 /// Validates the 512-byte [header] against its own checksum
 /// (calculated with the checksum field replaced by spaces).

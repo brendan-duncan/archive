@@ -59,7 +59,7 @@ void main() {
         expect(encoded.length, entry.value[0]);
         expect(getCrc32(encoded), entry.value[1]);
         expect(
-            ZstdDecoder(dictionary: dictionary)
+            ZstdDecoder.withDictionary(dictionary)
                 .decodeBytes(encoded, throwOnError: true),
             source);
       }
@@ -127,7 +127,8 @@ void main() {
   };
   for (var level = 1; level <= 22; level++) {
     test('encoder level $level gives same matches and entropy on web', () {
-      final encoded = ZstdEncoder().encodeBytes(input, level: level);
+      final encoded =
+          ZstdEncoder().encodeBytes(input, level: level, checksum: true);
       if (golden.containsKey(level)) {
         expect([encoded.length, getCrc32(encoded)], golden[level]);
       }
@@ -145,14 +146,14 @@ void main() {
         stream.addSlice(input, at, end, false);
       }
       stream.close();
-      final decoder = ZstdDecoder(dictionary: dictionary);
+      final decoder = ZstdDecoder.withDictionary(dictionary);
       expect(
           ZstdDecoder().decodeBytes(held.bytes.takeBytes(),
               verify: true, throwOnError: true),
           input);
       expect(
           decoder.decodeBytes(
-              ZstdEncoder(level: level, dictionary: dictionary)
+              ZstdEncoder.withDictionary(dictionary, level: level)
                   .encodeBytes(input),
               verify: true,
               throwOnError: true),

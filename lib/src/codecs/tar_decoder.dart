@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import '../archive/archive.dart';
 import '../archive/archive_file.dart';
+import '../util/_link_target.dart';
 import '../util/archive_exception.dart';
 import '../util/decode_guard.dart';
 import '../util/input_decode_stream.dart';
@@ -11,9 +12,9 @@ import 'tar/tar_file.dart';
 import 'tar/tar_sparse.dart';
 
 /// Decode a tar formatted buffer into an [Archive] object.
-/// A hard link is decoded as [ArchiveFile.symbolicLink] with target relative
-/// to archive root and [ArchiveFile.isHardLink] set, so after extraction the
-/// link points to its target
+/// Hard link is decoded as [ArchiveFile.symbolicLink] with target relative to
+/// link folder and [ArchiveFile.isHardLink] set, so extracted link points to
+/// its target
 class TarDecoder {
   final Encoding filenameEncoding;
   List<TarFile> files = [];
@@ -113,6 +114,9 @@ class TarDecoder {
         if (!tarHeaderChecksumMatches(endCheck)) {
           throw ArchiveException('Invalid tar header checksum');
         }
+        if (!tarHeaderSizeIsNumber(endCheck)) {
+          throw ArchiveException('Invalid tar header size');
+        }
       }
 
       // The length of an InputDecodeStream decodes all of the rest into its
@@ -199,8 +203,10 @@ class TarDecoder {
       file.lastModTime = tf.lastModTime;
       // Every header has the field; only a link has anything in it
       if (tf.nameOfLinkedFile?.isNotEmpty ?? false) {
-        file.symbolicLink = tf.nameOfLinkedFile!;
         file.isHardLink = tf.typeFlag == TarFile.hardLink;
+        file.symbolicLink = file.isHardLink
+            ? hardLinkFromFolder(filename, tf.nameOfLinkedFile!)
+            : tf.nameOfLinkedFile!;
       }
 
       if (keepEntries) {

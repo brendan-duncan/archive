@@ -1,12 +1,16 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
 
+import '../../util/adler32.dart';
 import '../../util/archive_exception.dart';
 import '../../util/input_decode_stream.dart';
 import '../../util/input_stream.dart';
 import '../../util/output_stream.dart';
 import '_output_stream_sink.dart';
+import '_zlib_decoder_io.dart';
+import '_zlib_encoder_base.dart';
 
 /// Decodes gzip or zlib data through the native codec, a chunk of input at a
 /// time.
@@ -35,7 +39,19 @@ class NativeChunkDecoder implements ChunkDecoder {
   bool _isGZip = false;
   int _seen = 0;
 
-  NativeChunkDecoder(this.input, {required this.gzip, this.raw = false});
+  final bool verify;
+
+  // dart:io reports wrong Adler-32 and damaged data with one message, so last
+  // 4 bytes of zlib stream reach it only at end and we check Adler-32 here
+  Uint8List _held = Uint8List(0);
+  Uint8List _tail = Uint8List(0);
+
+  NativeChunkDecoder(this.input,
+      {required this.gzip, this.raw = false, this.verify = false}) {
+    _sink.adler = verify && _holdsTrailer;
+  }
+
+  bool get _holdsTrailer => !gzip && !raw;
 
   @override
   int get history => 0;
@@ -55,10 +71,22 @@ class NativeChunkDecoder implements ChunkDecoder {
 
     if (input.isEOS) {
       _closed = true;
-      codec.close();
+      try {
+        if (_holdsTrailer) {
+          addTrailerUnchecked(codec, _held);
+        }
+        codec.close();
+      } on FormatException catch (error) {
+        throw _invalid(error);
+      }
       output.flush();
       if (gzip) {
         _checkTrailer();
+      } else if (_sink.adler) {
+        if (_seen < 6) {
+          throw ArchiveException('Truncated zlib stream');
+        }
+        checkZlibAdler(_tail, _sink.sum);
       }
       return false;
     }
@@ -81,9 +109,58 @@ class NativeChunkDecoder implements ChunkDecoder {
       _trailer.setRange(8 - keep, 8, chunk, chunk.length - keep);
       _trailerLength = min(8, _trailerLength + chunk.length);
     }
-    codec.add(chunk);
+    try {
+      if (_holdsTrailer) {
+        _addHoldingTrailer(codec, chunk);
+      } else {
+        codec.add(chunk);
+      }
+    } on FormatException catch (error) {
+      throw _invalid(error);
+    }
     return true;
   }
+
+  void _addHoldingTrailer(Sink<List<int>> codec, Uint8List chunk) {
+    if (_sink.adler) {
+      _tail = _lastBytes(_tail, chunk, zlibAdlerWindow + 4);
+    }
+    if (chunk.length < 4) {
+      final joined = Uint8List.fromList([..._held, ...chunk]);
+      final send = max(0, joined.length - 4);
+      _addRange(codec, joined, send);
+      _held = Uint8List.fromList(Uint8List.sublistView(joined, send));
+      return;
+    }
+    if (_held.isNotEmpty) {
+      codec.add(_held);
+    }
+    _addRange(codec, chunk, chunk.length - 4);
+    _held = Uint8List.fromList(Uint8List.sublistView(chunk, chunk.length - 4));
+  }
+
+  static void _addRange(Sink<List<int>> codec, Uint8List bytes, int end) {
+    if (codec is ByteConversionSink) {
+      codec.addSlice(bytes, 0, end, false);
+    } else {
+      codec.add(Uint8List.sublistView(bytes, 0, end));
+    }
+  }
+
+  static Uint8List _lastBytes(Uint8List tail, Uint8List chunk, int count) {
+    if (chunk.length >= count) {
+      return Uint8List.fromList(
+          Uint8List.sublistView(chunk, chunk.length - count));
+    }
+    final keep = min(tail.length, count - chunk.length);
+    return Uint8List(keep + chunk.length)
+      ..setRange(0, keep, tail, tail.length - keep)
+      ..setRange(keep, keep + chunk.length, chunk);
+  }
+
+  ArchiveException _invalid(FormatException error) =>
+      ArchiveException('Invalid ${gzip ? 'gzip' : 'zlib'} data: '
+          '${error.message}');
 
   // A member's last four bytes are its uncompressed length modulo 2^32, so
   // for a whole stream it cannot exceed what was written: equal for the one
@@ -127,11 +204,16 @@ class NativeChunkDecoder implements ChunkDecoder {
 class _ForwardSink implements Sink<List<int>> {
   OutputStream? output;
   int written = 0;
+  bool adler = false;
+  int sum = 1;
 
   @override
   void add(List<int> data) {
     output!.writeBytes(data);
     written += data.length;
+    if (adler) {
+      sum = getAdler32(data, sum);
+    }
   }
 
   @override

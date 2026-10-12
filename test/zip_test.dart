@@ -865,6 +865,20 @@ void main() async {
       }
     });
 
+    test('small deflated entry content does not keep a larger buffer', () {
+      final zip = ZipEncoder().encodeBytes(Archive()
+        ..add(ArchiveFile.bytes(
+            'a', Uint8List.fromList(List.generate(2000, (i) => i % 7)))));
+      for (final file in [
+        ZipDecoder().decodeBytes(zip).single,
+        ZipDecoder().decodeBytes(zip, throwOnError: true).single,
+      ]) {
+        final bytes = file.readBytes()!;
+        expect(bytes.length, 2000);
+        expect(bytes.buffer.lengthInBytes, lessThanOrEqualTo(2 * 2000));
+      }
+    });
+
     test('decode', testOn: 'vm', () async {
       var file = File(p.join('test/_data/zip/android-javadoc.zip'));
       var bytes = file.readAsBytesSync();
@@ -872,17 +886,19 @@ void main() async {
       expect(archive.length, equals(102));
     });
 
-    test('verify throws on content that does not match CRC32', () {
+    test('verify with throwOnError throws on content that does not match CRC32',
+        () {
       final bytes = ZipEncoder().encodeBytes(Archive()
         ..add(ArchiveFile.noCompress('a.txt', 5, utf8.encode('hello')))
         ..add(ArchiveFile.string('b.txt', 'hello' * 100)));
       bytes[latin1.decode(bytes).indexOf('hello')] ^= 0x20;
-      final checked = ZipDecoder().decodeBytes(bytes, verify: true);
+      final checked =
+          ZipDecoder().decodeBytes(bytes, verify: true, throwOnError: true);
       expect(() => checked.findFile('a.txt')!.readBytes(),
           throwsA(isA<ArchiveException>()));
       expect(
           () => ZipDecoder()
-              .decodeBytes(bytes, verify: true)
+              .decodeBytes(bytes, verify: true, throwOnError: true)
               .findFile('a.txt')!
               .writeContent(OutputMemoryStream()),
           throwsA(isA<ArchiveException>()));
@@ -912,7 +928,9 @@ void main() async {
       }
     });
 
-    test('verify throws on damaged local header or central directory', () {
+    test(
+        'verify with throwOnError throws on damaged local header or central '
+        'directory', () {
       final bytes = ZipEncoder()
           .encodeBytes(Archive()..add(ArchiveFile.string('a.txt', 'hello')));
       final central = ByteData.sublistView(bytes)
@@ -920,9 +938,10 @@ void main() async {
       for (final at in [0, central]) {
         final damaged = Uint8List.fromList(bytes)..[at] ^= 1;
         for (final decode in [
-          (bool verify) => ZipDecoder().decodeBytes(damaged, verify: verify),
           (bool verify) => ZipDecoder()
-              .decodeStream(InputMemoryStream(damaged), verify: verify),
+              .decodeBytes(damaged, verify: verify, throwOnError: verify),
+          (bool verify) => ZipDecoder().decodeStream(InputMemoryStream(damaged),
+              verify: verify, throwOnError: verify),
         ]) {
           expect(() => decode(true), throwsA(isA<ArchiveException>()),
               reason: 'byte $at');
@@ -953,12 +972,16 @@ void main() async {
       }
     });
 
-    test('verify throws on zip without end of central directory', () {
+    test(
+        'verify with throwOnError throws on zip without end of central directory',
+        () {
       final bytes = ZipEncoder()
           .encodeBytes(Archive()..add(ArchiveFile.string('a.txt', 'hello')));
       for (final cut in [1, 5, 22]) {
         final short = Uint8List.sublistView(bytes, 0, bytes.length - cut);
-        expect(() => ZipDecoder().decodeBytes(short, verify: true),
+        expect(
+            () => ZipDecoder()
+                .decodeBytes(short, verify: true, throwOnError: true),
             throwsA(isA<ArchiveException>()),
             reason: 'cut $cut');
         expect(ZipDecoder().decodeBytes(short), isEmpty, reason: 'cut $cut');
@@ -982,23 +1005,24 @@ void main() async {
               .single
               .content;
 
-      test('wrong CRC throws only with verify', () {
+      test('wrong CRC throws only with verify and throwOnError', () {
         final bad = Uint8List.fromList(zip);
         bad[14] ^= 1;
         expect(read(bad, false, false), data);
         expect(read(bad, false, true), data);
-        expect(() => read(bad, true, false),
+        expect(read(bad, true, false), data);
+        expect(() => read(bad, true, true),
             throwsA(isA<ArchiveChecksumException>()));
       });
 
-      test('wrong central CRC throws only with verify', () {
+      test('wrong central CRC throws only with verify and throwOnError', () {
         final bad = Uint8List.fromList(zip);
         final central =
             ByteData.sublistView(bad).getUint32(bad.length - 6, Endian.little);
         bad[central + 16] ^= 1;
         expect(read(bad, false, false), data);
         expect(read(bad, false, true), data);
-        expect(() => read(bad, true, false),
+        expect(() => read(bad, true, true),
             throwsA(isA<ArchiveChecksumException>()));
         final file = ZipDecoder().decodeBytes(bad).single;
         expect((file.rawContent! as ZipFile).verifyCrc32(), isFalse);
@@ -1061,7 +1085,7 @@ void main() async {
         ByteData.sublistView(bad)
             .setUint32(central + 42, bad.length + 1000, Endian.little);
         expect(() => ZipDecoder().decodeBytes(bad), returnsNormally);
-        for (final (verify, throwOnError) in [(true, false), (false, true)]) {
+        for (final (verify, throwOnError) in [(true, true), (false, true)]) {
           expect(
               () => read(bad, verify, throwOnError),
               throwsA(allOf(isA<ArchiveException>(),
@@ -1086,9 +1110,13 @@ void main() async {
             final bad = Uint8List.fromList(encoded);
             ByteData.sublistView(bad)
                 .setUint32(central + 24, size, Endian.little);
-            expect(() => read(bad, false, false), returnsNormally);
+            expect(
+                () => read(bad, false, false),
+                size < data.length && compression != CompressionType.none
+                    ? throwsA(isA<ArchiveLimitException>())
+                    : returnsNormally);
             for (final (verify, throwOnError) in [
-              (true, false),
+              (true, true),
               (false, true)
             ]) {
               for (final write in [false, true]) {
@@ -1137,7 +1165,7 @@ void main() async {
             view.setUint32(offset, value, Endian.little);
           }
           expect(() => ZipDecoder().decodeBytes(bad), returnsNormally);
-          for (final (verify, throwOnError) in [(true, false), (false, true)]) {
+          for (final (verify, throwOnError) in [(true, true), (false, true)]) {
             expect(
                 () => ZipDecoder().decodeBytes(bad,
                     verify: verify, throwOnError: throwOnError),
@@ -1161,7 +1189,7 @@ void main() async {
           expect(ZipDecoder().decodeBytes(truncated).first.content,
               utf8.encode('some content'));
           file.writeAsBytesSync(truncated);
-          for (final (verify, throwOnError) in [(true, false), (false, true)]) {
+          for (final (verify, throwOnError) in [(true, true), (false, true)]) {
             expect(
                 () => ZipDecoder().decodeBytes(truncated,
                     verify: verify, throwOnError: throwOnError),
@@ -1210,7 +1238,7 @@ void main() async {
         final bad = Uint8List.fromList(zip);
         ByteData.sublistView(bad).setUint16(8, 42, Endian.little);
         expect(() => read(bad, false, false), returnsNormally);
-        for (final (verify, throwOnError) in [(true, false), (false, true)]) {
+        for (final (verify, throwOnError) in [(true, true), (false, true)]) {
           expect(
               () => read(bad, verify, throwOnError),
               throwsA(allOf(isA<ArchiveException>(),
@@ -1291,7 +1319,7 @@ void main() async {
               .files;
           expect(files.map((f) => f.name), ['good', 'odd']);
           expect(files.first.content, data);
-          if (verify || throwOnError) {
+          if (throwOnError) {
             expect(() => files.last.content, throwsA(isA<ArchiveException>()));
           } else {
             expect(files.last.content, isEmpty);
@@ -1415,7 +1443,7 @@ void main() async {
           } else {
             view.setUint32(field, data.length + 1, Endian.little);
           }
-          for (final (verify, throwOnError) in [(true, false), (false, true)]) {
+          for (final (verify, throwOnError) in [(true, true), (false, true)]) {
             expect(
                 () => ZipDecoder().decodeBytes(bad,
                     verify: verify, throwOnError: throwOnError),
@@ -1439,7 +1467,7 @@ void main() async {
           ]);
           ByteData.sublistView(bad)
               .setUint32(bad.length - 6, central - missing, Endian.little);
-          for (final (verify, throwOnError) in [(true, false), (false, true)]) {
+          for (final (verify, throwOnError) in [(true, true), (false, true)]) {
             expect(
                 () => ZipDecoder().decodeBytes(bad,
                     verify: verify, throwOnError: throwOnError),
@@ -1573,7 +1601,9 @@ void main() async {
       });
     });
 
-    test('verify throws on local header offset past file end', () {
+    test(
+        'verify with throwOnError throws on local header offset after file end',
+        () {
       final bytes = ZipEncoder()
           .encodeBytes(Archive()..add(ArchiveFile.string('a.txt', 'hello')));
       final central = ByteData.sublistView(bytes)
@@ -1581,7 +1611,9 @@ void main() async {
       final damaged = Uint8List.fromList(bytes);
       ByteData.sublistView(damaged)
           .setUint32(central + 42, bytes.length + 1000, Endian.little);
-      expect(() => ZipDecoder().decodeBytes(damaged, verify: true),
+      expect(
+          () => ZipDecoder()
+              .decodeBytes(damaged, verify: true, throwOnError: true),
           throwsA(isA<ArchiveException>()));
     });
 
@@ -1600,7 +1632,9 @@ void main() async {
       }
     });
 
-    test('wrong central directory offset decodes as unzip does, verify throws',
+    test(
+        'wrong central directory offset decodes as unzip does, verify with '
+        'throwOnError throws',
         testOn: 'vm', () {
       final bytes = File('test/_data/test.zip').readAsBytesSync();
       final want = ZipDecoder().decodeBytes(bytes).files;
@@ -1609,15 +1643,20 @@ void main() async {
       final archive = ZipDecoder().decodeBytes(damaged);
       expect(archive.files.map((f) => f.name), want.map((f) => f.name));
       expect(archive.files.last.content, want.last.content);
-      expect(() => ZipDecoder().decodeBytes(damaged, verify: true),
+      expect(
+          () => ZipDecoder()
+              .decodeBytes(damaged, verify: true, throwOnError: true),
           throwsA(isA<ArchiveException>()));
     });
 
-    test('verify throws on data descriptor past file end', testOn: 'vm', () {
+    test('verify with throwOnError throws on data descriptor after file end',
+        testOn: 'vm', () {
       final bytes = File('test/_data/zip/dd.zip').readAsBytesSync();
       final damaged = Uint8List.fromList(bytes);
       damaged[28] = 113;
-      expect(() => ZipDecoder().decodeBytes(damaged, verify: true),
+      expect(
+          () => ZipDecoder()
+              .decodeBytes(damaged, verify: true, throwOnError: true),
           throwsA(isA<ArchiveException>()));
     });
 
@@ -1852,7 +1891,7 @@ void main() async {
       data
         ..setUint32(18, 20, Endian.little)
         ..setUint32(central + 20, 20, Endian.little);
-      for (final (verify, throwOnError) in [(false, true), (true, false)]) {
+      for (final (verify, throwOnError) in [(false, true), (true, true)]) {
         final archive = ZipDecoder().decodeBytes(bytes,
             password: 'pw', verify: verify, throwOnError: throwOnError);
         for (var read = 0; read < 3; read++) {
@@ -1875,7 +1914,7 @@ void main() async {
           'AAEAAQBHAAAASwAAAAAA');
       expect(ZipDecoder().decodeBytes(bytes, password: 'pw').first.content,
           isEmpty);
-      for (final (verify, throwOnError) in [(true, false), (false, true)]) {
+      for (final (verify, throwOnError) in [(true, true), (false, true)]) {
         expect(
             () => ZipDecoder()
                 .decodeBytes(bytes,
@@ -2055,7 +2094,7 @@ void main() async {
       for (var i = 0; i < arcData.length; ++i) {
         expect(arcData[i], equals(bdata.codeUnits[i]));
       }
-      expect(arc[0].lastModDateTime, equals(DateTime(2010)));
+      expect(arc[0].lastModDateTime, equals(DateTime.utc(2010).toLocal()));
     });
 
     test('zipCrypto', testOn: 'vm', () {
@@ -2300,6 +2339,38 @@ void main() async {
           throwsA(isA<ArchiveChecksumException>()));
     });
 
+    test('tampered AES entry throws ArchiveMacException with any flags',
+        testOn: '!node', () {
+      final random = Random(3);
+      final data =
+          Uint8List.fromList(List.generate(50000, (_) => random.nextInt(256)));
+      for (final compression in [
+        CompressionType.none,
+        CompressionType.deflate
+      ]) {
+        final zip = ZipEncoder(password: 'pw').encodeBytes(Archive()
+          ..add(ArchiveFile.bytes('a.bin', data)..compression = compression));
+        zip[1100] ^= 1;
+        for (final (verify, throwOnError) in [
+          (false, false),
+          (false, true),
+          (true, false)
+        ]) {
+          ArchiveFile entry() => ZipDecoder().decodeBytes(zip,
+              password: 'pw', verify: verify, throwOnError: throwOnError)[0];
+          final reason = '$compression $verify $throwOnError';
+          expect(() => entry().readBytes(), throwsA(isA<ArchiveMacException>()),
+              reason: reason);
+          expect(() => entry().decompress(OutputMemoryStream()),
+              throwsA(isA<ArchiveMacException>()),
+              reason: reason);
+          expect(() => (entry().rawContent! as ZipFile).verifyCrc32(),
+              throwsA(isA<ArchiveMacException>()),
+              reason: reason);
+        }
+      }
+    });
+
     test('re-encoded AES zip has CRC of its content', testOn: 'vm', () {
       for (final (name, password) in [
         ('aes256.zip', '12345'),
@@ -2419,7 +2490,7 @@ void main() async {
             expect(() => ZipDecoder().decodeBytes(bytes).files.single.content,
                 returnsNormally);
           }
-          for (final (verify, throwOnError) in [(false, true), (true, false)]) {
+          for (final (verify, throwOnError) in [(false, true), (true, true)]) {
             for (final writeContent in [false, true]) {
               Uint8List read() {
                 final file = ZipDecoder()
@@ -2463,7 +2534,7 @@ void main() async {
           expect(() => ZipDecoder().decodeBytes(bytes).files.single.content,
               returnsNormally);
         }
-        for (final (verify, throwOnError) in [(false, true), (true, false)]) {
+        for (final (verify, throwOnError) in [(false, true), (true, true)]) {
           for (final writeContent in [false, true]) {
             Uint8List read() {
               final file = ZipDecoder()
@@ -2507,7 +2578,7 @@ void main() async {
         view.setUint16(central + 10, ZipFile.zipCompressionLzma, Endian.little);
         expect(() => ZipDecoder().decodeBytes(bytes).files.single.content,
             returnsNormally);
-        for (final (verify, throwOnError) in [(false, true), (true, false)]) {
+        for (final (verify, throwOnError) in [(false, true), (true, true)]) {
           for (final writeContent in [false, true]) {
             final file = ZipDecoder()
                 .decodeBytes(bytes, verify: verify, throwOnError: throwOnError)
@@ -3095,7 +3166,7 @@ void main() async {
       zip[central - 1] ^= 0xff;
       final lenient = ZipDecoder().decodeBytes(zip, password: '12345');
       expect(() => lenient.first.writeContent(OutputMemoryStream()),
-          returnsNormally);
+          throwsA(isA<ArchiveMacException>()));
       final checked =
           ZipDecoder().decodeBytes(zip, password: '12345', verify: true);
       expect(() => checked.first.writeContent(OutputMemoryStream()),
@@ -3215,8 +3286,8 @@ void main() async {
       }
     });
 
-    // Python's zipfile also falls back to the end record when the zip64
-    // record is not where the locator points, and the archive is whole
+    // Python zipfile and unzip also reject archive whose zip64 record is not
+    // where locator points
     test('a zip64 locator pointing past the file', testOn: 'vm', () {
       final locator = OutputMemoryStream()
         ..writeUint32(0x07064b50)
@@ -3224,7 +3295,43 @@ void main() async {
         ..writeUint64(0x7fffffffffff)
         ..writeUint32(1);
       final bytes = craft(beforeEocd: locator.getBytes());
-      expect(ZipDecoder().decodeBytes(bytes, throwOnError: true), hasLength(1));
+      expect(() => ZipDecoder().decodeBytes(bytes, throwOnError: true),
+          throwsA(isA<ArchiveException>()));
+    });
+
+    test('an entry larger than its declared size', () {
+      for (final compression in [
+        CompressionType.deflate,
+        CompressionType.bzip2,
+        CompressionType.none
+      ]) {
+        final archive = Archive()
+          ..add(ArchiveFile.bytes('a.txt', List.filled(5000, 0x61))
+            ..compression = compression);
+        final bytes = ZipEncoder().encodeBytes(archive);
+        final data = ByteData.sublistView(bytes);
+        for (var i = 0; i + 4 <= bytes.length; i++) {
+          final signature = data.getUint32(i, Endian.little);
+          if (signature == 0x04034b50) {
+            data.setUint32(i + 22, 1000, Endian.little);
+          } else if (signature == 0x02014b50) {
+            data.setUint32(i + 24, 1000, Endian.little);
+          }
+        }
+        final file = ZipDecoder().decodeBytes(bytes).first;
+        if (compression == CompressionType.none) {
+          expect(file.content, List.filled(5000, 0x61));
+          expect(
+              () => ZipDecoder()
+                  .decodeBytes(bytes, throwOnError: true)
+                  .first
+                  .content,
+              throwsA(isA<ArchiveException>()));
+        } else {
+          expect(() => file.content, throwsA(isA<ArchiveLimitException>()),
+              reason: '$compression');
+        }
+      }
     });
   });
 
@@ -3374,6 +3481,27 @@ void main() async {
     });
   });
 
+  group('zip times do not depend on the time zone', () {
+    test('modified given in UTC reads back as the same instant', () {
+      final zip = ZipEncoder().encodeBytes(
+          Archive()..add(ArchiveFile.string('a.txt', 'a')),
+          modified: DateTime.utc(2010));
+      expect(ZipDecoder().decodeBytes(zip).first.lastModTime, 1262304000);
+    });
+
+    test('the UT field is read before the DOS date and time', () {
+      final zip = ZipEncoder().encodeBytes(Archive()
+        ..add(ArchiveFile.string('a.txt', 'a')..lastModTime = 1262304000));
+      // DOS date 1999-01-01 in both headers, so only UT holds 2010
+      final view = ByteData.sublistView(zip);
+      final dos = ((1999 - 1980) << 9) | (1 << 5) | 1;
+      view.setUint16(12, dos, Endian.little);
+      final central = latin1.decode(zip).indexOf('PK\x01\x02');
+      view.setUint16(central + 14, dos, Endian.little);
+      expect(ZipDecoder().decodeBytes(zip).first.lastModTime, 1262304000);
+    });
+  });
+
   group('zstd entry levels', () {
     final data = Uint8List.fromList(
         List.generate(3000000, (i) => (i * 2654435761) >> 11 & 0x3f));
@@ -3455,6 +3583,19 @@ void main() async {
       } finally {
         dir.deleteSync(recursive: true);
       }
+    });
+
+    test('for stored content decoded from zip', () {
+      final archive = Archive()
+        ..add(ArchiveFile.string('mimetype', 'application/x')
+          ..compression = CompressionType.none)
+        ..add(ArchiveFile.string('content.xml', '<x>${'y' * 2000}</x>'));
+      final decoded =
+          ZipDecoder().decodeBytes(ZipEncoder().encodeBytes(archive));
+      final zip = ZipEncoder().encodeBytes(decoded);
+      expect(localHeaders(zip)[0], (0x800, 0, 13, 0));
+      expect(utf8.decode(ZipDecoder().decodeBytes(zip)[0].readBytes()!),
+          'application/x');
     });
 
     test('but not for compressed content streamed from a file', testOn: 'vm',

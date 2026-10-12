@@ -59,6 +59,11 @@ const xzCheckFailures = {
   xzBlockCheckFailed,
 };
 
+/// True when [reason] reports block whose dictionary exceeds
+/// `maxDictionarySize`
+bool xzIsLimitFailure(String? reason) =>
+    reason != null && reason.startsWith('LZMA dictionary size ');
+
 int xzDictionaryCap(int dictionarySize) =>
     dictionarySize + (dictionarySize >> 2) + (2 << 20) + 16;
 
@@ -206,6 +211,9 @@ class XZStreamDecoder {
 
   // Reads an XZ steam header from [input].
   bool _readStreamHeader(InputStream input, OutputStream output) {
+    if (input.length < 12) {
+      return _fail('Truncated stream header');
+    }
     final magic = input.readBytes(6).toUint8List();
     final magicIsValid = magic[0] == 253 &&
         magic[1] == 55 /* '7' */ &&
@@ -453,6 +461,9 @@ class XZStreamDecoder {
 
   // Reads a block header from [input] into the block fields
   bool readBlockHeader(InputStream input, int headerLength) {
+    if (input.length < headerLength) {
+      return _fail('Truncated block header');
+    }
     final header = input.readBytes(headerLength - 4);
 
     header.skip(1); // Skip length field
@@ -594,6 +605,9 @@ class XZStreamDecoder {
   // on a failure, and null when another chunk follows
   bool? readLZMA2Chunk(
       InputStream input, OutputStream output, int dictionarySize) {
+    if (input.isEOS) {
+      return _fail('Truncated LZMA2 chunk');
+    }
     final control = input.readByte();
     if (control != 0) {
       final resets =
@@ -611,6 +625,16 @@ class XZStreamDecoder {
     // 00000001 - reset dictionary and uncompresed data
     // 00000010 - uncompressed data
     // 1rrxxxxx - LZMA data with reset (r) and high bits of size field (x)
+    final headerLength = control >= 0xc0
+        ? 6
+        : control >= 0x80
+            ? 5
+            : control > 0
+                ? 2
+                : 0;
+    if (input.length < headerLength) {
+      return _fail('Truncated LZMA2 chunk');
+    }
     if (control & 0x80 == 0) {
       if (control == 0) {
         decoder.reset(resetDictionary: true);
@@ -717,6 +741,9 @@ class XZStreamDecoder {
     input.rewind(indexLength);
     final indexData = input.readBytes(indexLength);
 
+    if (input.length < 4) {
+      return _failLength('Truncated stream index');
+    }
     final crc = input.readUint32();
     if (getCrc32(indexData.toUint8List()) != crc) {
       return _failLength('Invalid stream index CRC checksum');
@@ -728,6 +755,9 @@ class XZStreamDecoder {
   // Reads an XZ stream footer from [input] and check the index size matches
   // [indexSize].
   bool _readStreamFooter(InputStream input, int indexSize) {
+    if (input.length < 12) {
+      return _fail('Truncated stream footer');
+    }
     final crc = input.readUint32();
     final footer = input.readBytes(6);
     final backwardSize = (footer.readUint32() + 1) * 4;

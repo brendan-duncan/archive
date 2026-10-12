@@ -86,10 +86,12 @@ void main() {
     test('refuses a block declaring a larger dictionary', () {
       expect(XZDecoder().decodeBytes(xz), equals(data));
       final strict = XZDecoder(maxDictionarySize: 0);
-      expect(strict.decodeStream(InputMemoryStream(xz), OutputMemoryStream()),
-          isFalse);
+      expect(
+          () =>
+              strict.decodeStream(InputMemoryStream(xz), OutputMemoryStream()),
+          throwsA(isA<ArchiveLimitException>()));
       expect(() => strict.decodeBytes(xz, throwOnError: true),
-          throwsA(isA<ArchiveException>()));
+          throwsA(isA<ArchiveLimitException>()));
     });
 
     test('rejects a negative limit', () {
@@ -114,10 +116,10 @@ void main() {
             throwsA(isA<ArchiveException>()));
 
         final quiet = ZipDecoder().decodeBytes(withDeclaredSize(zip, 1000));
-        expect(quiet[0].readBytes()!.length, lessThanOrEqualTo(1000));
-        final output = OutputMemoryStream();
-        quiet[0].writeContent(output);
-        expect(output.length, lessThanOrEqualTo(1000));
+        expect(
+            () => quiet[0].readBytes(), throwsA(isA<ArchiveLimitException>()));
+        expect(() => quiet[0].writeContent(OutputMemoryStream()),
+            throwsA(isA<ArchiveLimitException>()));
       });
     }
   });

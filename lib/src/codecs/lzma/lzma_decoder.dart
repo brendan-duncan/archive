@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import '../../util/archive_exception.dart';
 import '../../util/input_stream.dart';
 import '../../util/output_stream.dart';
 import 'range_decoder.dart';
@@ -255,7 +256,7 @@ class LzmaDecoder {
     final initialSize = _reserve(uncompressedLength);
     _decodePackets(initialSize + uncompressedLength);
     if (_rc.isOverrun) {
-      throw RangeError('LZMA data is truncated or corrupt');
+      throw ArchiveException('LZMA data is truncated or corrupt');
     }
 
     return _dictionary.sublist(initialSize, _writePosition);
@@ -299,13 +300,13 @@ class LzmaDecoder {
         }
       }
       if (!_rc.isOverrun && _writePosition != finalSize) {
-        throw RangeError('LZMA output exceeds the declared size');
+        throw ArchiveException('LZMA output exceeds the declared size');
       }
     }
 
     output.writeRange(_dictionary, initialSize, _writePosition);
     if (_rc.isOverrun) {
-      throw RangeError('LZMA data is truncated or corrupt');
+      throw ArchiveException('LZMA data is truncated or corrupt');
     }
   }
 
@@ -335,7 +336,7 @@ class LzmaDecoder {
       // write position back without adjusting the remembered distances.
       final matchIndex = _writePosition - _distance0 - 1;
       if (matchIndex < 0) {
-        throw RangeError('LZMA match byte refers outside the dictionary');
+        throw ArchiveException('LZMA match byte refers outside the dictionary');
       }
       value = _rc.decodeMatchedByte(probs, baseIndex, _dictionary[matchIndex]);
     }
@@ -411,7 +412,7 @@ class LzmaDecoder {
     if (src < 0 ||
         _writePosition + length > _dictionary.length ||
         (dictionaryLimit > 0 && distance >= dictionaryLimit)) {
-      throw RangeError('LZMA match refers outside the dictionary');
+      throw ArchiveException('LZMA match refers outside the dictionary');
     }
     if (distance == 0) {
       // A run of a single repeated byte, which is common in padded binaries.

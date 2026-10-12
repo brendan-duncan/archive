@@ -123,12 +123,14 @@ void main() {
         Uint8List.fromList([0x78, 0x9c, 0x03, 0xff, 0, 0, 0, 1]),
         table,
       ]) {
-        expect(() => ZLibDecoder().decodeBytes(bad, verify: true),
+        expect(
+            () => ZLibDecoder()
+                .decodeBytes(bad, verify: true, throwOnError: true),
             throwsA(isA<ArchiveException>()));
         expect(
             () => ZLibDecoder().decodeStream(
                 InputMemoryStream(bad), OutputMemoryStream(),
-                verify: true),
+                verify: true, throwOnError: true),
             throwsA(isA<ArchiveException>()));
       }
       final badGzip = Uint8List.fromList([
@@ -153,12 +155,14 @@ void main() {
         0,
         0
       ]);
-      expect(() => GZipDecoder().decodeBytes(badGzip, verify: true),
+      expect(
+          () => GZipDecoder()
+              .decodeBytes(badGzip, verify: true, throwOnError: true),
           throwsA(isA<ArchiveException>()));
       expect(
           () => GZipDecoder().decodeStream(
               InputMemoryStream(badGzip), OutputMemoryStream(),
-              verify: true),
+              verify: true, throwOnError: true),
           throwsA(isA<ArchiveException>()));
     });
 
@@ -176,11 +180,13 @@ void main() {
       expect(collected.bytes.takeBytes(), [1, 2, 3, ...data, ...data]);
     });
 
-    test('verify throws on wrong CRC of last member', () {
+    test('verify with throwOnError throws on wrong CRC of last member', () {
       final encoded = GZipEncoder().encodeBytes(data);
       final damaged = [...encoded, ...encoded];
       damaged[damaged.length - 8] ^= 1;
-      expect(() => GZipDecoder().decodeBytes(damaged, verify: true),
+      expect(
+          () => GZipDecoder()
+              .decodeBytes(damaged, verify: true, throwOnError: true),
           throwsA(isA<ArchiveException>()));
     });
   });

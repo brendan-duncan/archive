@@ -858,23 +858,21 @@ void main() {
     addTearDown(() => directory.deleteSync(recursive: true));
     final text =
         Uint8List.fromList(List<int>.generate(1 << 20, (i) => 0x41 + (i % 26)));
-    final input = File('${directory.path}/dump.sql.gz')
-      ..writeAsBytesSync(GZipEncoder().encodeBytes(text));
-    final output = '${directory.path}/out';
-    await expectLater(extractFileToDisk(input.path, output, throwOnError: true),
-        throwsA(isA<ArchiveException>()));
-    final left = Directory(output).existsSync()
-        ? Directory(output).listSync()
-        : <FileSystemEntity>[];
-    expect(left, isEmpty);
-
-    final lenient = '${directory.path}/lenient';
-    await extractFileToDisk(input.path, lenient);
-    expect(
-        Directory(lenient).existsSync()
-            ? Directory(lenient).listSync()
-            : <FileSystemEntity>[],
-        isEmpty);
+    for (final name in ['dump.sql.gz', 'dump.tar.gz']) {
+      final input = File('${directory.path}/$name')
+        ..writeAsBytesSync(GZipEncoder().encodeBytes(text));
+      for (final strict in [true, false]) {
+        final output = '${directory.path}/out-$name-$strict';
+        await expectLater(
+            extractFileToDisk(input.path, output, throwOnError: strict),
+            throwsA(isA<ArgumentError>()),
+            reason: '$name throwOnError $strict');
+        final left = Directory(output).existsSync()
+            ? Directory(output).listSync()
+            : <FileSystemEntity>[];
+        expect(left, isEmpty, reason: '$name throwOnError $strict');
+      }
+    }
   });
 
   test('extractFileToDisk throws on truncated tar.zst frame', () async {
@@ -886,7 +884,8 @@ void main() {
     final tar = TarEncoder().encodeBytes(archive);
     final first =
         ZstdEncoder().encodeBytes(Uint8List.sublistView(tar, 0, 1024));
-    final last = ZstdEncoder().encodeBytes(Uint8List.sublistView(tar, 1024));
+    final last = ZstdEncoder()
+        .encodeBytes(Uint8List.sublistView(tar, 1024), checksum: true);
     final input = File('${directory.path}/input.tar.zst')
       ..writeAsBytesSync([...first, ...last]);
     final validOutput = '${directory.path}/valid';
@@ -898,7 +897,7 @@ void main() {
     final partial = OutputMemoryStream();
     expect(ZstdDecoder().decodeStream(InputMemoryStream(truncated), partial),
         isFalse);
-    expect(TarDecoder().decodeBytes(partial.getBytes()).length, 1);
+    expect(TarDecoder().decodeBytes(partial.getBytes()).length, 2);
     input.writeAsBytesSync(truncated);
     await expectLater(
         extractFileToDisk(input.path, '${directory.path}/truncated',
@@ -908,7 +907,7 @@ void main() {
     final lenient = '${directory.path}/lenient';
     await extractFileToDisk(input.path, lenient);
     expect(File('$lenient/first.bin').readAsBytesSync(), [1, 2, 3]);
-    expect(File('$lenient/second.bin').existsSync(), isFalse);
+    expect(File('$lenient/second.bin').readAsBytesSync(), [4, 5, 6]);
   });
 
   // pbzip2 writes one bzip2 stream per block and bzip2 -d reads them all
@@ -1077,6 +1076,21 @@ void main() {
           root.path);
       expect(File(p.join(output, 'etc', 'rc.d', 'abs.txt')).readAsStringSync(),
           'abs');
+    });
+
+    test('$method strips Windows path prefix from entry names', () async {
+      final root = Directory.systemTemp.createTempSync('archive-extract-path-');
+      addTearDown(() => root.deleteSync(recursive: true));
+      final output = p.join(root.path, 'out');
+      await extract(
+          Archive()
+            ..add(ArchiveFile.string(r'\\?\C:\dir\a.txt', 'a'))
+            ..add(ArchiveFile.string('ok.txt', 'ok')),
+          output,
+          root.path);
+      final name = method == 'zip' ? p.join('dir', 'a.txt') : r'dir\a.txt';
+      expect(File(p.join(output, name)).readAsStringSync(), 'a');
+      expect(File(p.join(output, 'ok.txt')).readAsStringSync(), 'ok');
     });
 
     test('$method creates empty directory entry', () async {
@@ -1619,7 +1633,9 @@ void main() {
       expect(File(p.join(out, 's.bin')).lengthSync(), content().length);
 
       final checked = p.join(directory.path, 'checked');
-      await expectLater(extractFileToDisk(input.path, checked, verify: true),
+      await expectLater(
+          extractFileToDisk(input.path, checked,
+              verify: true, throwOnError: true),
           throwsA(isA<ArchiveChecksumException>()));
       expect(File(p.join(checked, 's.bin')).existsSync(), isFalse);
     });
@@ -1738,7 +1754,7 @@ void main() {
       await extractFileToDisk(input.path, p.join(directory.path, 'out'),
           callback: (file) => seen.add(file.name));
       expect(File(p.join(directory.path, 'out', 'c.bin')).existsSync(), isTrue);
-      expect(seen, ['a.bin', 'a.bin', 'link', 'c.bin']);
+      expect(seen, ['a.bin', 'link', 'c.bin']);
     });
 
     test('verify checks checksum of compressed tar container', () async {
@@ -1756,7 +1772,7 @@ void main() {
 
       await expectLater(
           extractFileToDisk(input.path, p.join(directory.path, 'checked'),
-              verify: true),
+              verify: true, throwOnError: true),
           throwsA(isA<ArchiveChecksumException>()));
     });
 
@@ -1805,6 +1821,33 @@ void main() {
       expect(File(p.join(out, 'one.bin')).readAsBytesSync(), content());
     });
   });
+
+  for (final format in ['tar', 'tar.gz', 'zip']) {
+    test('extractFileToDisk $format callback runs after entry is written',
+        () async {
+      final directory = Directory.systemTemp.createTempSync('archive-extract-');
+      addTearDown(() => directory.deleteSync(recursive: true));
+      final data = Uint8List.fromList(List.generate(70000, (i) => i * 7));
+      final archive = Archive()
+        ..add(ArchiveFile.bytes('a.bin', data))
+        ..add(ArchiveFile.bytes('b.bin', data));
+      final tar = TarEncoder().encodeBytes(archive);
+      final input = File(p.join(directory.path, 'in.$format'))
+        ..writeAsBytesSync(switch (format) {
+          'tar' => tar,
+          'tar.gz' => GZipEncoder().encodeBytes(tar),
+          _ => ZipEncoder().encodeBytes(archive),
+        });
+      final out = p.join(directory.path, 'out');
+      final seen = <String, List<int>?>{};
+      await extractFileToDisk(input.path, out, callback: (file) {
+        final written = File(p.join(out, file.name));
+        seen[file.name] =
+            written.existsSync() ? written.readAsBytesSync() : null;
+      });
+      expect(seen, {'a.bin': data, 'b.bin': data});
+    });
+  }
 
   group('extraction when file write fails', () {
     for (final method in ['sync', 'async']) {

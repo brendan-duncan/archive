@@ -88,6 +88,39 @@ Uint8List _paxSparse(String map, int dataLength) {
   return output.getBytes();
 }
 
+// Old GNU sparse map has no length field, so only isextended byte of each
+// extension block ends it
+Uint8List _oldGnuSparse(int blocks) {
+  void octal(Uint8List block, int at, int width, int value) => block.setRange(
+      at,
+      at + width,
+      ascii.encode('${value.toRadixString(8).padLeft(width - 1, '0')}\u0000'));
+  final header = Uint8List(512)..[0] = 0x66;
+  octal(header, 100, 8, 420);
+  octal(header, 108, 8, 0);
+  octal(header, 116, 8, 0);
+  octal(header, 124, 12, 1);
+  octal(header, 136, 12, 0);
+  header[156] = 0x53;
+  header.setRange(257, 265, ascii.encode('ustar  \u0000'));
+  octal(header, 386, 12, 0);
+  octal(header, 398, 12, 1);
+  header[482] = 1;
+  octal(header, 483, 12, 1);
+  header.fillRange(148, 156, 0x20);
+  final sum = header.fold<int>(0, (a, b) => a + b);
+  header.setRange(
+      148, 156, ascii.encode('${sum.toRadixString(8).padLeft(6, '0')}\u0000 '));
+  final output = BytesBuilder()..add(header);
+  for (var i = 0; i < blocks; i++) {
+    output.add(Uint8List(512)..[504] = i < blocks - 1 ? 1 : 0);
+  }
+  output
+    ..add(Uint8List(512)..[0] = 0x61)
+    ..add(Uint8List(1024));
+  return output.takeBytes();
+}
+
 Stream<List<int>> _pieces(Uint8List bytes, int piece) async* {
   for (var at = 0; at < bytes.length; at += piece) {
     final end = at + piece < bytes.length ? at + piece : bytes.length;
@@ -318,7 +351,31 @@ void main() {
     test('corrupted size field throws instead of losing content', () async {
       final archive = Archive()..add(ArchiveFile.string('a', 'abcdef'));
       final bytes = TarEncoder().encodeBytes(archive)..[134] = 0x31;
-      expect(() => TarDecoder().decodeBytes(bytes, verify: true),
+      expect(
+          () =>
+              TarDecoder().decodeBytes(bytes, verify: true, throwOnError: true),
+          throwsA(isA<ArchiveException>()));
+      await expectLater(_stream(bytes, 512), throwsA(isA<ArchiveException>()));
+    });
+
+    test('size field that is not a number throws with a valid checksum',
+        () async {
+      final empty = TarEncoder()
+          .encodeBytes(Archive()..add(ArchiveFile.string('a', '')))
+          .sublist(0, 512)
+        ..setRange(124, 136, ascii.encode('zzzzzzzzzzz\x00'))
+        ..setRange(148, 156, ascii.encode('        '));
+      final sum = empty.fold<int>(0, (a, b) => a + b);
+      empty.setRange(148, 156,
+          ascii.encode('${sum.toRadixString(8).padLeft(6, '0')}\x00 '));
+      final bytes = Uint8List.fromList([
+        ...empty,
+        ...TarEncoder()
+            .encodeBytes(Archive()..add(ArchiveFile.string('b', 'abcdef'))),
+      ]);
+      expect(
+          () =>
+              TarDecoder().decodeBytes(bytes, verify: true, throwOnError: true),
           throwsA(isA<ArchiveException>()));
       await expectLater(_stream(bytes, 512), throwsA(isA<ArchiveException>()));
     });
@@ -444,7 +501,7 @@ void main() {
       final whole = _paxSparse('1\n0\n512\n', 1024);
       final cut = Uint8List.sublistView(whole, 0, whole.length - 1024 + 100);
       expect(() => TarDecoder().decodeBytes(cut), returnsNormally);
-      for (final (verify, throwOnError) in [(true, false), (false, true)]) {
+      for (final (verify, throwOnError) in [(true, true), (false, true)]) {
         expect(
             () => TarDecoder()
                 .decodeBytes(cut, verify: verify, throwOnError: throwOnError),
@@ -461,7 +518,7 @@ void main() {
       final whole = _paxSparse(map.toString(), 1124);
       final cut = Uint8List.sublistView(whole, 0, whole.length - 1536 + 100);
       expect(() => TarDecoder().decodeBytes(cut), returnsNormally);
-      for (final (verify, throwOnError) in [(true, false), (false, true)]) {
+      for (final (verify, throwOnError) in [(true, true), (false, true)]) {
         expect(
             () => TarDecoder()
                 .decodeBytes(cut, verify: verify, throwOnError: throwOnError),
@@ -541,6 +598,27 @@ void main() {
         for (final file in TarDecoder().decodeBytes(bytes).files)
           file.name: file.symbolicLink,
       };
+      expect(links, whole);
+    });
+
+    test('hard link target is relative to link folder, as TarDecoder reports',
+        () async {
+      final archive = Archive()
+        ..add(ArchiveFile.directory('dir'))
+        ..add(ArchiveFile.string('dir/a.txt', 'one'))
+        ..add(ArchiveFile.symlink('dir/b.txt', 'a.txt')..isHardLink = true);
+      final bytes = TarEncoder().encodeBytes(archive);
+      final links = <String, String?>{};
+      await for (final entry
+          in _pieces(bytes, 512).transform(tarCodec.decoder)) {
+        links[entry.name] = entry.symbolicLink;
+        await entry.content.drain<void>();
+      }
+      final whole = {
+        for (final file in TarDecoder().decodeBytes(bytes).files)
+          file.name: file.symbolicLink,
+      };
+      expect(whole['dir/b.txt'], 'a.txt');
       expect(links, whole);
     });
 
@@ -755,11 +833,35 @@ void main() {
     });
   });
 
+  group('sparse map', () {
+    Future<void> refused(Uint8List bytes) async {
+      expect(() => TarDecoder().decodeBytes(bytes),
+          throwsA(isA<ArchiveLimitException>()));
+      await expectLater(
+          _pieces(bytes, 4096)
+              .transform(tarCodec.decoder)
+              .asyncMap((entry) => entry.content.drain<void>())
+              .drain<void>(),
+          throwsA(isA<ArchiveLimitException>()));
+    }
+
+    test('in old GNU extension blocks throws above maxMetadataSize', () async {
+      await refused(_oldGnuSparse(TarFile.maxMetadataSize ~/ 512 + 1));
+      expect(TarDecoder().decodeBytes(_oldGnuSparse(4)), hasLength(1));
+    });
+
+    test('in pax 1.0 entry data throws above maxMetadataSize', () async {
+      final count = TarFile.maxMetadataSize ~/ 4 + 1;
+      final map = '$count\n${'0\n1\n' * count}';
+      await refused(_paxSparse(map, (map.length + 511) & ~511));
+    });
+  });
+
   group('declared length does not allocate memory', () {
     test('long name header claiming 1 TB throws without allocating', () async {
       final header = _longLink(1099511627776);
-      expect(TarDecoder().decodeBytes(header).length, 0,
-          reason: 'the whole-archive decoder clamps the claim to its input');
+      expect(() => TarDecoder().decodeBytes(header),
+          throwsA(isA<ArchiveLimitException>()));
       Object? thrown;
       try {
         await Stream<List<int>>.value(header)

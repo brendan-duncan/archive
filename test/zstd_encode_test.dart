@@ -201,7 +201,7 @@ void main() {
       final crc = getCrc32(source);
 
       test('${entry.key} decodes back', () {
-        final encoded = const ZstdEncoder().encodeBytes(source);
+        final encoded = ZstdEncoder().encodeBytes(source);
         final decoded = ZstdDecoder()
             .decodeBytes(encoded, verify: true, throwOnError: true);
         expect(decoded.length, source.length);
@@ -210,21 +210,21 @@ void main() {
 
       test('${entry.key} decodes back through stream', () {
         final out = OutputMemoryStream();
-        const ZstdEncoder().encodeStream(InputMemoryStream(source), out);
+        ZstdEncoder().encodeStream(InputMemoryStream(source), out);
         final decoded = ZstdDecoder()
             .decodeBytes(out.getBytes(), verify: true, throwOnError: true);
         expect(getCrc32(decoded), crc);
       });
 
       test('${entry.key} frame header has correct content size', () {
-        final encoded = const ZstdEncoder().encodeBytes(source);
+        final encoded = ZstdEncoder().encodeBytes(source);
         expect(ZstdDecoder().uncompressedSize(encoded), source.length);
       });
     }
 
     test('frame without checksum decodes back', () {
       final source = cases['several blocks']!;
-      final encoded = const ZstdEncoder().encodeBytes(source, checksum: false);
+      final encoded = ZstdEncoder().encodeBytes(source, checksum: false);
       final decoded =
           ZstdDecoder().decodeBytes(encoded, verify: true, throwOnError: true);
       expect(getCrc32(decoded), getCrc32(source));
@@ -234,20 +234,20 @@ void main() {
     // read as the frame ending early, so the first one is coded instead
     test('repeated byte compresses to few bytes per block', () {
       final encoded =
-          const ZstdEncoder().encodeBytes(Uint8List(70000), checksum: false);
+          ZstdEncoder().encodeBytes(Uint8List(70000), checksum: false);
       expect(encoded.length, lessThan(24));
     });
 
     test('repeating phrase compresses strongly', () {
       final source = cases['a short phrase over and over']!;
-      final encoded = const ZstdEncoder().encodeBytes(source, checksum: false);
+      final encoded = ZstdEncoder().encodeBytes(source, checksum: false);
       expect(encoded.length * 20, lessThan(source.length));
     });
 
     test('sequences cover every input byte', () {
       for (final entry in cases.entries) {
         final source = entry.value;
-        final encoded = const ZstdEncoder().encodeBytes(source);
+        final encoded = ZstdEncoder().encodeBytes(source);
         final decoded = ZstdDecoder()
             .decodeBytes(encoded, verify: true, throwOnError: true);
         expect(decoded.length, source.length, reason: entry.key);
@@ -298,8 +298,8 @@ void main() {
     test('encodeStream over memory equals encodeBytes', () {
       final source = cases['several blocks']!;
       final out = OutputMemoryStream();
-      const ZstdEncoder().encodeStream(InputMemoryStream(source), out);
-      expect(out.getBytes(), const ZstdEncoder().encodeBytes(source));
+      ZstdEncoder().encodeStream(InputMemoryStream(source), out);
+      expect(out.getBytes(), ZstdEncoder().encodeBytes(source));
     });
 
     // A frame slides once the source passes the window plus the slack the
@@ -332,8 +332,8 @@ void main() {
     test('stream shorter than window equals encodeBytes output', () {
       for (final entry in cases.entries) {
         final out = OutputMemoryStream();
-        const ZstdEncoder().encodeStream(_Piped(entry.value), out);
-        expect(out.getBytes(), const ZstdEncoder().encodeBytes(entry.value),
+        ZstdEncoder().encodeStream(_Piped(entry.value), out);
+        expect(out.getBytes(), ZstdEncoder().encodeBytes(entry.value),
             reason: entry.key);
       }
     });
@@ -342,7 +342,7 @@ void main() {
       final source = _words(13 << 20);
       final dictionary = ZstdDictionary(_words(1 << 16));
       for (final level in [3, 6, 12]) {
-        final coder = ZstdEncoder(level: level, dictionary: dictionary);
+        final coder = ZstdEncoder.withDictionary(dictionary, level: level);
         final out = OutputMemoryStream();
         coder.encodeStream(_Piped(source), out);
         expect(out.getBytes(), coder.encodeBytes(source),
@@ -352,7 +352,7 @@ void main() {
 
     test('stream without checksum equals encodeBytes output', () {
       final source = _words(13 << 20);
-      const coder = ZstdEncoder();
+      final coder = ZstdEncoder();
       final out = OutputMemoryStream();
       coder.encodeStream(_Piped(source), out, checksum: false);
       expect(out.getBytes(), coder.encodeBytes(source, checksum: false));
@@ -361,7 +361,7 @@ void main() {
     test('slid frame decodes back', () {
       final source = _words(13 << 20);
       final out = OutputMemoryStream();
-      const ZstdEncoder().encodeStream(_Piped(source), out);
+      ZstdEncoder().encodeStream(_Piped(source), out);
       final decoded = ZstdDecoder()
           .decodeBytes(out.getBytes(), verify: true, throwOnError: true);
       expect(decoded.length, source.length);
@@ -370,25 +370,25 @@ void main() {
 
     test('empty stream writes empty frame', () {
       final out = OutputMemoryStream();
-      const ZstdEncoder().encodeStream(_Piped(Uint8List(0)), out);
-      expect(out.getBytes(), const ZstdEncoder().encodeBytes(Uint8List(0)));
+      ZstdEncoder().encodeStream(_Piped(Uint8List(0)), out);
+      expect(out.getBytes(), ZstdEncoder().encodeBytes(Uint8List(0)));
     });
 
     test('encodeStream reads only bytes from input position to end', () {
       final source = _words(3 << 20);
       final held = _Piped(source)..skip(1024);
       final out = OutputMemoryStream();
-      const ZstdEncoder().encodeStream(held, out);
+      ZstdEncoder().encodeStream(held, out);
       expect(out.getBytes(),
-          const ZstdEncoder().encodeBytes(Uint8List.sublistView(source, 1024)));
+          ZstdEncoder().encodeBytes(Uint8List.sublistView(source, 1024)));
     });
 
     test('frame appended to non-empty output reserves space once', () {
       final source = _words(3 << 20);
       final prefix = _words(4 << 20);
       final out = _Reserving()..writeBytes(prefix);
-      const ZstdEncoder().encodeStream(_Piped(source), out);
-      final frame = const ZstdEncoder().encodeBytes(source);
+      ZstdEncoder().encodeStream(_Piped(source), out);
+      final frame = ZstdEncoder().encodeBytes(source);
       expect(out.getBytes().sublist(prefix.length), frame);
       expect(out.reserved, hasLength(1));
       expect(out.reserved.single, greaterThanOrEqualTo(out.length));

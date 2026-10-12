@@ -66,7 +66,7 @@ void main() {
       expect(
           () => GZipDecoderWeb().decodeStream(
               InputMemoryStream(damaged), OutputMemoryStream(),
-              verify: true),
+              verify: true, throwOnError: true),
           throwsA(isA<ArchiveChecksumException>()));
       // A second pass over the output, so without verify it is not read
       expect(

@@ -178,10 +178,13 @@ void main() {
               .toUint8List();
         }
 
-        final expected = payload(false);
-        final actual = payload(true);
-        expect(actual.length, expected.length);
-        expect(actual, expected);
+        for (final streamed in [false, true]) {
+          final stored = payload(streamed);
+          expect(stored.length, greaterThan(128 * 1024),
+              reason: 'streamed $streamed');
+          expect(Inflate(stored).getBytes(), Uint8List(128 * 1024),
+              reason: 'streamed $streamed');
+        }
       });
     }
 

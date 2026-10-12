@@ -135,13 +135,13 @@ void main() {
   test('encodeStream moves input position to end', () async {
     final small = Uint8List.sublistView(input, 0, 1024);
     final ordinary = InputMemoryStream(small)..skip(17);
-    const ZstdEncoder(level: 1).encodeStream(ordinary, OutputMemoryStream());
+    ZstdEncoder(level: 1).encodeStream(ordinary, OutputMemoryStream());
     expect(ordinary.isEOS, isTrue);
 
     final parallel = InputMemoryStream(small)..skip(17);
     final output = OutputMemoryStream();
     final done = Completer<bool>();
-    const ZstdEncoder(level: 1).encodeStream(parallel, output,
+    ZstdEncoder(level: 1).encodeStream(parallel, output,
         multithread: ZstdMultithreadOptions(
           workers: 1,
           onDone: done.complete,
@@ -261,12 +261,26 @@ void main() {
         .transform(const ZstdCodec(
       level: 22,
       frameChecksum: false,
+      ultra: true,
       multithread: ZstdMultithreadOptions.converter(
           workers: 1, jobSize: 524288, overlapLog: 1),
     ).encoder)
         .fold<List<int>>([], (bytes, chunk) => bytes..addAll(chunk));
     // ZSTD_compressStream2 enables LDM when the content size is unknown at level 22
     expect([frame.length, getCrc32(frame)], [211267, 4043156817]);
+  });
+
+  test('level 22 streaming jobs without ultra give level 19 output', () async {
+    final source = Uint8List.sublistView(input, 0, 1048577);
+    Future<List<int>> encode(int level) => Stream<List<int>>.value(source)
+            .transform(ZstdCodec(
+          level: level,
+          frameChecksum: false,
+          multithread: const ZstdMultithreadOptions.converter(
+              workers: 2, jobSize: 524288),
+        ).encoder)
+            .fold<List<int>>([], (bytes, chunk) => bytes..addAll(chunk));
+    expect(await encode(22), await encode(19));
   });
 
   test('empty stream gives reference frame', () async {
@@ -774,7 +788,7 @@ void main() {
     final input = InputFileStream(file.path);
     final result = Completer<String>();
     runZonedGuarded(() {
-      const ZstdEncoder(level: 1).encodeStream(input, _FailingOutput(),
+      ZstdEncoder(level: 1).encodeStream(input, _FailingOutput(),
           multithread: ZstdMultithreadOptions(
             workers: 1,
             onDone: (_) => result.complete('onDone'),
@@ -817,7 +831,7 @@ void main() {
       () async {
     final dictionary = ZstdDictionary(Uint8List.sublistView(input, 0, 4096));
     final done = Completer<Uint8List>();
-    ZstdEncoder(level: 6, dictionary: dictionary).encodeBytes(input,
+    ZstdEncoder.withDictionary(dictionary, level: 6).encodeBytes(input,
         checksum: false,
         multithread: ZstdMultithreadOptions(
             onDone: done.complete,
@@ -826,7 +840,7 @@ void main() {
             workers: 4));
     final frame = await done.future;
     expect(
-        ZstdDecoder(dictionary: dictionary)
+        ZstdDecoder.withDictionary(dictionary)
             .decodeBytes(frame, verify: true, throwOnError: true),
         input);
   });
@@ -846,7 +860,7 @@ void main() {
     test('encodeBytes reports input of written jobs', () async {
       final seen = <int>[];
       final done = Completer<Uint8List>();
-      const ZstdEncoder(level: 3).encodeBytes(src,
+      ZstdEncoder(level: 3).encodeBytes(src,
           multithread: ZstdMultithreadOptions<Uint8List>(
               onDone: done.complete,
               onError: done.completeError,
@@ -878,7 +892,7 @@ void main() {
       final output = OutputMemoryStream();
       final done = Completer<bool>();
       final input = InputFileStream(path);
-      const ZstdEncoder(level: 3).encodeStream(input, output,
+      ZstdEncoder(level: 3).encodeStream(input, output,
           multithread: ZstdMultithreadOptions<bool>(
               onDone: done.complete,
               onError: done.completeError,
@@ -921,7 +935,7 @@ void main() {
                     onProgress: (_) => throw StateError('stop'))))
             .fold(BytesBuilder(copy: false), (b, piece) => b..add(piece))
             .then((b) => converted.complete(b.toBytes())));
-        const ZstdEncoder(level: 3).encodeBytes(src,
+        ZstdEncoder(level: 3).encodeBytes(src,
             multithread: ZstdMultithreadOptions<Uint8List>(
                 onDone: bytes.complete,
                 onError: bytes.completeError,

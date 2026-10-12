@@ -48,7 +48,8 @@ class _ZLibDecoder extends ZLibDecoderBase {
   InputStream decodeLazy(InputStream input,
           {bool verify = false, bool raw = false}) =>
       InputDecodeStream(InflateChunkDecoder(
-          input, raw ? InflateFormat.raw : InflateFormat.zlib));
+          input, raw ? InflateFormat.raw : InflateFormat.zlib,
+          verify: verify));
 
   bool _decode(InputStream input, OutputStream output, bool verify, bool raw) {
     Uint8List? buffer;

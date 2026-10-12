@@ -26,7 +26,16 @@ class ZstdEncoder {
   /// frame header, so only the same dictionary reads the frame back
   final ZstdDictionary? dictionary;
 
-  const ZstdEncoder({this.level = zstdDefaultLevel, this.dictionary});
+  /// [dictionary] may be a dictionary in the zstd format, as `zstd --train`
+  /// writes, or any other bytes, which are then used as raw content
+  ZstdEncoder({int level = zstdDefaultLevel, List<int>? dictionary})
+      : this.withDictionary(
+            dictionary == null ? null : ZstdDictionary(dictionary),
+            level: level);
+
+  /// Takes a [ZstdDictionary] parsed once, so encoders can share it
+  const ZstdEncoder.withDictionary(this.dictionary,
+      {this.level = zstdDefaultLevel});
 
   /// [checksum] is whether the frame has an XXH64 of its content.
   ///
@@ -39,7 +48,7 @@ class ZstdEncoder {
   /// `onError`, and without one it reaches `onDone` as empty output
   Uint8List encodeBytes(List<int> data,
       {int? level,
-      bool checksum = true,
+      bool checksum = false,
       ZstdMultithreadOptions<Uint8List>? multithread}) {
     if (multithread == null) {
       final output = OutputMemoryStream();
@@ -117,7 +126,7 @@ class ZstdEncoder {
   /// are read in first. `onDone` is called with true when the frame is written
   void encodeStream(InputStream input, OutputStream output,
       {int? level,
-      bool checksum = true,
+      bool checksum = false,
       ZstdMultithreadOptions<bool>? multithread}) {
     if (multithread != null) {
       _checkMultithread(multithread);

@@ -36,7 +36,7 @@ void main() {
           ...raw,
           ...List.filled(8, 0)
         ];
-        for (final (verify, throwOnError) in [(true, false), (false, true)]) {
+        for (final (verify, throwOnError) in [(true, true), (false, true)]) {
           final decodes = <void Function()>[
             () => ZLibDecoderWeb()
                 .decodeBytes(zlib, verify: verify, throwOnError: throwOnError),

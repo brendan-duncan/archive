@@ -31,11 +31,20 @@ void main() {
     }
   });
 
-  test('verify throws ArchiveChecksumException only for checksum errors', () {
-    expect(() => guardDecode('x', true, false, checksum),
+  test('verify without throwOnError returns false and does not throw', () {
+    for (final decode in [fails, checksum, damage, range]) {
+      expect(guardDecode('x', true, false, decode), isFalse);
+    }
+    expect(guardDecode('x', true, false, () => true), isTrue);
+  });
+
+  test(
+      'verify with throwOnError throws ArchiveChecksumException only for '
+      'checksum errors', () {
+    expect(() => guardDecode('x', true, true, checksum),
         throwsA(isA<ArchiveChecksumException>()));
     for (final decode in [fails, damage, range]) {
-      expect(() => guardDecode('x', true, false, decode), throwsA(plain));
+      expect(() => guardDecode('x', true, true, decode), throwsA(plain));
     }
   });
 
@@ -43,7 +52,7 @@ void main() {
     bool nullCheck() => throw TypeError();
     expect(guardDecode('x', false, false, nullCheck), isFalse);
     expect(() => guardDecode('x', false, true, nullCheck), throwsA(plain));
-    expect(() => guardDecode('x', true, false, nullCheck), throwsA(plain));
+    expect(guardDecode('x', true, false, nullCheck), isFalse);
   });
 
   test('throwIfStrict follows guardDecode rules', () {
@@ -97,10 +106,7 @@ void main() {
       ),
       'bzip2': (BZip2Encoder().encodeBytes(data), BZip2Decoder().decodeStream),
       'xz': (XZEncoder().encodeBytes(data), XZDecoder().decodeStream),
-      'zstd': (
-        const ZstdEncoder().encodeBytes(data),
-        ZstdDecoder().decodeStream
-      ),
+      'zstd': (ZstdEncoder().encodeBytes(data), ZstdDecoder().decodeStream),
     };
     final zip = ZipEncoder()
         .encodeBytes(Archive()..add(ArchiveFile.bytes('a.bin', data)));

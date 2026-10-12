@@ -257,10 +257,9 @@ void main() {
           ...Uint8List(TarFile.maxMetadataSize + 512),
           ...Uint8List(1024),
         ]);
-        expect(() => TarDecoder().decodeBytes(bytes, throwOnError: true),
-            throwsA(isA<ArchiveException>()),
+        expect(() => TarDecoder().decodeBytes(bytes),
+            throwsA(isA<ArchiveLimitException>()),
             reason: type);
-        expect(TarDecoder().decodeBytes(bytes), isEmpty, reason: type);
       }
       // Up to the limit is still read.
       final name = 'n' * TarFile.maxMetadataSize;
@@ -276,7 +275,7 @@ void main() {
     });
 
     // bsdtar makes a real hard link, Python tarfile and 7-Zip 26 write a copy
-    test('hard link target is relative to archive root', () {
+    test('hard link target is relative to link folder', () {
       final out = OutputMemoryStream();
       final tar = TarEncoder()..start(out);
       tar.add(ArchiveFile.string('usr/bin/gcc', 'compiler'));
@@ -291,7 +290,7 @@ void main() {
           .decodeBytes(out.getBytes())
           .files
           .singleWhere((f) => f.name == 'usr/bin/gcc-13');
-      expect(link.symbolicLink, 'usr/bin/gcc');
+      expect(link.symbolicLink, 'gcc');
       expect(link.isHardLink, isTrue);
 
       final again = TarDecoder();
@@ -815,7 +814,7 @@ void main() {
         final file = TarDecoder().decodeBytes(bytes).single;
         expect(file.name, name, reason: what);
         expect(file.content, stored, reason: what);
-        for (final (verify, throwOnError) in [(true, false), (false, true)]) {
+        for (final (verify, throwOnError) in [(true, true), (false, true)]) {
           expect(
               () => TarDecoder().decodeBytes(bytes,
                   verify: verify, throwOnError: throwOnError),
@@ -845,7 +844,9 @@ void main() {
       final file = TarDecoder().decodeBytes(bytes).single;
       expect(file.name, 'gnu.bin');
       expect(file.content, isEmpty);
-      expect(() => TarDecoder().decodeBytes(bytes, verify: true),
+      expect(
+          () =>
+              TarDecoder().decodeBytes(bytes, verify: true, throwOnError: true),
           throwsA(isA<ArchiveException>()));
     });
 
@@ -1066,7 +1067,9 @@ void main() {
         expect(file.name, 'm.bin', reason: what);
         expect(file.content, broken.sublist(broken.length - 1536),
             reason: what);
-        expect(() => TarDecoder().decodeBytes(bytes, verify: true),
+        expect(
+            () => TarDecoder()
+                .decodeBytes(bytes, verify: true, throwOnError: true),
             throwsA(isA<ArchiveException>()),
             reason: what);
       }
@@ -1183,7 +1186,9 @@ void main() {
       final truncated = File('test/_data/tar/sparse-formats.tar')
           .readAsBytesSync()
           .sublist(0, 3122);
-      expect(() => TarDecoder().decodeBytes(truncated, verify: true),
+      expect(
+          () => TarDecoder()
+              .decodeBytes(truncated, verify: true, throwOnError: true),
           throwsA(isA<ArchiveException>()));
     });
 
@@ -1334,7 +1339,7 @@ void main() {
         final file = decode(false, false).files.single;
         expect(file.name, 'b.txt');
         expect(file.content, utf8.encode('content'));
-        for (final (verify, throwOnError) in [(false, true), (true, false)]) {
+        for (final (verify, throwOnError) in [(false, true), (true, true)]) {
           expect(
               () => decode(verify, throwOnError),
               throwsA(allOf(isA<ArchiveException>(),
@@ -1343,14 +1348,14 @@ void main() {
       }
     });
 
-    test('verify rejects missing entry padding', () {
+    test('verify with throwOnError rejects missing entry padding', () {
       final bytes = TarEncoder()
           .encodeBytes(Archive()..add(ArchiveFile.string('a.txt', 'data')));
       for (final length in [516, 517, 1023, 1024]) {
         final cut = Uint8List.sublistView(bytes, 0, length);
         expect(TarDecoder().decodeBytes(cut).files.single.content,
             utf8.encode('data'));
-        for (final (verify, throwOnError) in [(true, false), (false, true)]) {
+        for (final (verify, throwOnError) in [(true, true), (false, true)]) {
           for (final storeData in [false, true]) {
             final decode = () => TarDecoder().decodeBytes(cut,
                 verify: verify,
@@ -1574,7 +1579,7 @@ void main() {
       final zip = File('test/_data/tar/folder.zip').readAsBytesSync();
       for (final bad in [cut, zip]) {
         expect(() => TarDecoder().decodeBytes(bad), returnsNormally);
-        for (final (verify, throwOnError) in [(true, false), (false, true)]) {
+        for (final (verify, throwOnError) in [(true, true), (false, true)]) {
           expect(
               () => TarDecoder()
                   .decodeBytes(bad, verify: verify, throwOnError: throwOnError),
@@ -1585,8 +1590,9 @@ void main() {
       }
     });
 
-    test('verify rejects truncated end block, as stream decoder does',
-        () async {
+    test(
+        'verify with throwOnError rejects truncated end block, as stream '
+        'decoder does', () async {
       final tar = TarEncoder().encodeBytes(
           Archive()..add(ArchiveFile.bytes('a.txt', Uint8List(100))));
       final cut = Uint8List.sublistView(tar, 0, 512 + 512 + 100);
@@ -1595,7 +1601,7 @@ void main() {
               .transform(tarCodec.decoder)
               .drain<void>(),
           throwsA(isA<ArchiveException>()));
-      for (final (verify, throwOnError) in [(true, false), (false, true)]) {
+      for (final (verify, throwOnError) in [(true, true), (false, true)]) {
         expect(
             () => TarDecoder()
                 .decodeBytes(cut, verify: verify, throwOnError: throwOnError),
@@ -1604,7 +1610,7 @@ void main() {
       }
     });
 
-    test('empty or 1-byte input throws with verify or throwOnError', () async {
+    test('empty or 1-byte input throws with throwOnError', () async {
       for (final bytes in [
         <int>[],
         <int>[0]
@@ -1616,7 +1622,7 @@ void main() {
                 .drain<void>(),
             throwsA(isA<ArchiveException>()),
             reason: '${bytes.length} bytes');
-        for (final (verify, throwOnError) in [(true, false), (false, true)]) {
+        for (final (verify, throwOnError) in [(true, true), (false, true)]) {
           expect(
               () => TarDecoder().decodeBytes(bytes,
                   verify: verify, throwOnError: throwOnError),
@@ -1646,11 +1652,13 @@ void main() {
       }
     });
 
-    test('verify rejects what is not a tar', testOn: 'vm', () {
+    test('verify with throwOnError rejects what is not a tar', testOn: 'vm',
+        () {
       // Without a checksum check nothing tells a tar apart from an unrelated
       // file: every other header field reads as something.
       final zip = File('test/_data/tar/folder.zip').readAsBytesSync();
-      expect(() => TarDecoder().decodeBytes(zip, verify: true),
+      expect(
+          () => TarDecoder().decodeBytes(zip, verify: true, throwOnError: true),
           throwsA(isA<ArchiveException>()));
 
       // Every archive the tests carry has to still pass.
@@ -1659,8 +1667,8 @@ void main() {
           .whereType<File>()
           .where((f) => f.path.endsWith('.tar'))) {
         expect(
-            () =>
-                TarDecoder().decodeBytes(path.readAsBytesSync(), verify: true),
+            () => TarDecoder().decodeBytes(path.readAsBytesSync(),
+                verify: true, throwOnError: true),
             path.path.endsWith('writer-big.tar')
                 ? throwsA(isA<ArchiveException>())
                 : returnsNormally,
@@ -1721,7 +1729,9 @@ void main() {
       ]) {
         final bytes = archive(size);
         expect(TarDecoder().decodeBytes(bytes).files, isEmpty, reason: size);
-        expect(() => TarDecoder().decodeBytes(bytes, verify: true),
+        expect(
+            () => TarDecoder()
+                .decodeBytes(bytes, verify: true, throwOnError: true),
             throwsA(isA<ArchiveException>()),
             reason: size);
         expect(() => TarDecoder().decodeBytes(bytes, throwOnError: true),
@@ -1789,7 +1799,9 @@ void main() {
       ]) {
         final bytes = archive(key, value);
         expect(TarDecoder().decodeBytes(bytes).files, isEmpty, reason: key);
-        expect(() => TarDecoder().decodeBytes(bytes, verify: true),
+        expect(
+            () => TarDecoder()
+                .decodeBytes(bytes, verify: true, throwOnError: true),
             throwsA(isA<ArchiveException>()),
             reason: key);
         expect(
@@ -2167,8 +2179,10 @@ void main() {
         final junk = Uint8List.fromList([...noEnd, ...List.filled(tail, 0x78)]);
         expect(TarDecoder().decodeBytes(junk).length, equals(2),
             reason: '$tail bytes');
-        // With verify nothing after the last entry but zeros is accepted
-        expect(() => TarDecoder().decodeBytes(junk, verify: true),
+        // With verify and throwOnError only zeros may follow last entry
+        expect(
+            () => TarDecoder()
+                .decodeBytes(junk, verify: true, throwOnError: true),
             throwsA(isA<ArchiveException>()),
             reason: '$tail bytes');
         // Past the end blocks it is not looked at
@@ -2277,7 +2291,9 @@ void main() {
           equals(TarFile.normalFile));
     });
 
-    test('verify rejects a damaged header that starts with zeros', () {
+    test(
+        'verify with throwOnError rejects a damaged header that starts with '
+        'zeros', () {
       // A header damaged into starting with zeros used to end the archive,
       // dropping every entry behind it
       final good = TarEncoder().encodeBytes(Archive()
@@ -2290,7 +2306,9 @@ void main() {
       for (final zeros in [2, 8, 100]) {
         final damaged = Uint8List.fromList(good);
         damaged.fillRange(1024, 1024 + zeros, 0);
-        expect(() => TarDecoder().decodeBytes(damaged, verify: true),
+        expect(
+            () => TarDecoder()
+                .decodeBytes(damaged, verify: true, throwOnError: true),
             throwsA(isA<ArchiveException>()),
             reason: '$zeros leading zeros');
         // Without verify nothing is checked, so the archive still ends there
