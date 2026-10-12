@@ -134,10 +134,12 @@ class _ZLibDecoder extends ZLibDecoderBase {
         if (verify) {
           final a = getAdler32(buffer);
           if (adler32 != a) {
+            output.writeBytes(buffer);
             throw ArchiveChecksumException('Invalid zlib checksum');
           }
         }
       }
+      break;
     }
 
     if (buffer != null) {

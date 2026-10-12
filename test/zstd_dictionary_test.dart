@@ -121,14 +121,18 @@ void main() {
       }
     });
 
-    test('dictionary truncated inside entropy tables throws ArchiveException',
+    test('ZstdDecoder throws ZstdDictionaryException for malformed dictionary',
         () {
       final full =
           File('${directory.path}/dict-trained.dict').readAsBytesSync();
-      for (final cut in [9, 20, 64, 100]) {
-        expect(() => ZstdDictionary(Uint8List.sublistView(full, 0, cut)),
-            throwsA(isA<ArchiveException>()),
-            reason: 'cut to $cut bytes');
+      final damaged = Uint8List.fromList(full)..[8] = 37;
+      for (final bytes in [
+        Uint8List.sublistView(full, 0, 9),
+        Uint8List.sublistView(full, 0, 100),
+        damaged,
+      ]) {
+        expect(() => ZstdDecoder(dictionary: bytes),
+            throwsA(isA<ZstdDictionaryException>()));
       }
     });
 

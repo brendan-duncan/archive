@@ -76,10 +76,18 @@ class ZstdDecoder {
       return _exact(sink.getBytes());
     }
     final parts = <Uint8List>[];
-    guardDecode('zstd', verify, throwOnError, () {
+    final ok = guardDecode('zstd', verify, throwOnError, () {
       _decode(bytes, verify, null, parts);
       return true;
     });
+    if (!ok && parts.length > 1) {
+      final joined = OutputMemoryStream(
+          size: parts.fold<int>(0, (sum, part) => sum + part.length));
+      for (final part in parts) {
+        joined.writeBytes(part);
+      }
+      return _exact(joined.getBytes());
+    }
     return parts.isEmpty ? Uint8List(0) : _exact(parts[0]);
   }
 

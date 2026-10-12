@@ -496,6 +496,19 @@ void main() {
                 : isA<ArchiveException>()));
       });
     }
+
+    test('cut second frame returns every decoded block', () {
+      final joined = Uint8List.fromList(
+          [...first, ...frame.sublist(0, 6 + 10 * 1027 + 500)]);
+      final decoded = [...prefix, ...source.sublist(0, 10 * 1024)];
+      final out = OutputMemoryStream();
+      expect(
+          ZstdDecoder().decodeStream(InputMemoryStream(joined), out), isFalse);
+      expect(out.getBytes(), decoded);
+      expect(
+          ZstdDecoder().decodeBytes(joined, maxOutputSize: 1 << 20), decoded);
+      expect(ZstdDecoder().decodeBytes(joined), decoded);
+    });
   });
 
   group('zstd window wrap', () {

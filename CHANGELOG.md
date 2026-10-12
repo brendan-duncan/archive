@@ -72,6 +72,11 @@
 * *BREAKING CHANGE*: `extractFileToDisk` throws `ArgumentError` when a gzip, bzip2, xz or zstd file does not hold a
   tar, also when its name ends with `.tar.gz` or a similar extension. It used to extract junk entries from such a
   file.
+* *BREAKING CHANGE*: `BZip2Decoder` decodes every stream of concatenated bzip2 files, as `pbzip2` writes
+  them, in sequence, as `bzip2 -d` does. It used to return only the first stream without an error.
+* *BREAKING CHANGE*: `ZLibDecoderWeb` decodes only the first of concatenated zlib streams and ignores the bytes after
+  it, as `ZLibDecoder` on dart:io does since Dart 3.5.2 ([dart-lang/sdk#56481](https://github.com/dart-lang/sdk/issues/56481)).
+  It used to append the following streams, matching dart:io of Dart 3.5.0, which was reverted as a bug.
 * `extractArchiveToDisk` writes entries synchronously, as `extractArchiveToDiskSync` does, and still returns a `Future`.
 * Added `allowAbsoluteSymlinks` to `extractFileToDisk`, `extractArchiveToDisk` and `extractArchiveToDiskSync`.
   Absolute symbolic links are still skipped by default.

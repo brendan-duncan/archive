@@ -1032,6 +1032,26 @@ void main() {
         }
       });
 
+      test('web decoders keep output on checksum mismatch with verify', () {
+        final badGzip = Uint8List.fromList(gzip)..[gzip.length - 8] ^= 1;
+        final gzipOut = OutputMemoryStream();
+        expect(
+            const GZipDecoderWeb().decodeStream(
+                InputMemoryStream(badGzip), gzipOut,
+                verify: true),
+            isFalse);
+        expect(gzipOut.getBytes(), data);
+        final badZlib = Uint8List.fromList(zlib)..[zlib.length - 1] ^= 1;
+        final zlibOut = OutputMemoryStream();
+        expect(
+            const ZLibDecoderWeb().decodeStream(
+                InputMemoryStream(badZlib), zlibOut,
+                verify: true),
+            isFalse);
+        expect(zlibOut.getBytes(), data);
+        expect(const ZLibDecoderWeb().decodeBytes(badZlib, verify: true), data);
+      });
+
       test('dart:io decoders keep output when trailer is truncated', () {
         for (final (packed, trailer, decodeBytes, decodeStream) in [
           (
@@ -1370,6 +1390,16 @@ void main() {
                 reason: 'tail $tail, verify $v, throwOnError $t');
           }
         }
+      });
+
+      test('web zlib decodes only first of concatenated streams', () {
+        final joined = Uint8List.fromList([...zlib, ...zlib]);
+        expect(const ZLibDecoderWeb().decodeBytes(joined), data);
+        final out = OutputMemoryStream();
+        expect(
+            const ZLibDecoderWeb().decodeStream(InputMemoryStream(joined), out),
+            isTrue);
+        expect(out.getBytes(), data);
       });
     });
 

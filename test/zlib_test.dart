@@ -19,7 +19,7 @@ void main() async {
       ];
       final decodedData =
           ZLibDecoderWeb().decodeBytes(compressedData, verify: true);
-      compareBytes(decodedData, [1, 2, 3, 4, 5, 6]);
+      compareBytes(decodedData, [1, 2, 3]);
     });
 
     test('encode/decode', () async {

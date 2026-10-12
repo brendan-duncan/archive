@@ -204,7 +204,8 @@ void main() {
     });
   });
 
-  test('stream decoder reports a cut archive without RangeError', () {
+  test('stream decoder reports a cut archive without RangeError', testOn: 'vm',
+      () {
     for (final name in ['hello-hello-hello.xz', 'cat.jpg.xz']) {
       final bytes = File('test/_data/xz/$name').readAsBytesSync();
       for (var n = 1; n < bytes.length; n++) {

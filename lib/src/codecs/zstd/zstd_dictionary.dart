@@ -63,6 +63,16 @@ class ZstdDictionary {
       this.logs);
 
   factory ZstdDictionary(List<int> data) {
+    try {
+      return _read(data);
+    } on ZstdDictionaryException {
+      rethrow;
+    } on ArchiveException catch (error) {
+      throw ZstdDictionaryException(error.message);
+    }
+  }
+
+  static ZstdDictionary _read(List<int> data) {
     final bytes = data is Uint8List ? data : Uint8List.fromList(data);
     if (bytes.length < 8 || _uint32At(bytes, 0) != zstdDictionaryMagic) {
       return ZstdDictionary._(
