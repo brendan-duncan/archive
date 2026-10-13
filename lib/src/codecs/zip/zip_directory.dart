@@ -156,7 +156,10 @@ class ZipDirectory {
     // An EOCD record is at least [eocdSize] bytes, so its signature can never
     // start any later than that many bytes from the end of the file. Anything
     // after that point is too short to be a record and is not a candidate.
-    final lastCandidate = input.length - eocdSize;
+    // The positions searched are from the start of the stream, but its length
+    // only counts the bytes after the read position, which the caller may
+    // have moved, so the file ends at the read position plus the length.
+    final lastCandidate = input.position + input.length - eocdSize;
     if (lastCandidate < 0) {
       return -1;
     }

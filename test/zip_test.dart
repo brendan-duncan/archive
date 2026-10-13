@@ -371,6 +371,38 @@ void main() async {
       }
     });
 
+    test('EOCD is found when the input is not at position 0', () {
+      final dir = Directory.systemTemp.createTempSync('archive-position-');
+      addTearDown(() => dir.deleteSync(recursive: true));
+      final content = 'known payload' * 400;
+      final bytes = ZipEncoder().encodeBytes(
+          Archive()..addFile(ArchiveFile.string('hello.txt', content)),
+          level: 0);
+      final path = '${dir.path}/fixture.zip';
+      File(path).writeAsBytesSync(bytes);
+      // The caller may already have read from the stream, such as a magic
+      // number to tell the format, or a previous decode. Offsets in a zip are
+      // from the start of the stream, so the search still has to cover it all.
+      for (final position in [1, 4, bytes.length ~/ 2, bytes.length]) {
+        for (final createInput in <InputStream Function()>[
+          () => InputMemoryStream(bytes),
+          () => InputFileStream(path)
+        ]) {
+          final input = createInput()..setPosition(position);
+          try {
+            final decoder = ZipDecoder();
+            final archive = decoder.decodeStream(input);
+            expect(decoder.directory.filePosition, bytes.length - 22,
+                reason: 'position=$position, ${input.runtimeType}');
+            expect(archive.length, 1);
+            expect(archive.first.content, content.codeUnits);
+          } finally {
+            input.closeSync();
+          }
+        }
+      }
+    });
+
     test('ArchiveFile compression level', () async {
       final testArchive = Archive();
       final list = Uint8List(1000);
