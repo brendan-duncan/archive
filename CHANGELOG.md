@@ -2,7 +2,10 @@
 
 * Fixed `ZipDecoder.decodeStream` returning an empty archive when the
   input was not at position 0, such as after reading a magic number or
-  decoding the same stream a second time (#405).
+  decoding the same stream a second time (#405). `decodeStream` also
+  leaves the input's read position where it was.
+* Added `InputStream.totalLength`, the size of the whole stream whatever
+  the read position, where `length` is only the bytes after it.
 
 # 4.5.1
 

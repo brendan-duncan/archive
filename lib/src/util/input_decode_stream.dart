@@ -112,6 +112,14 @@ class InputDecodeStream extends InputStream {
     return _window.remainingFrom(_absolute);
   }
 
+  /// The bytes in this stream in all.
+  ///
+  /// For the stream over all of the data, this decodes to the end to count
+  /// them, as [length] does.
+  @override
+  int get totalLength =>
+      _length ?? _position + _window.remainingFrom(_absolute);
+
   @override
   bool get isEOS {
     final length = _length;

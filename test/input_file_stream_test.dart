@@ -57,6 +57,16 @@ void main() {
       expect(fs.length, testData.length);
     });
 
+    test('totalLength', () {
+      final fs = InputFileStream(testPath);
+      fs.setPosition(50);
+      expect(fs.length, testData.length - 50);
+      expect(fs.totalLength, testData.length);
+      final sub = fs.subset(position: 10, length: 30)..skip(5);
+      expect(sub.totalLength, 30);
+      fs.closeSync();
+    });
+
     test('readBytes', () async {
       final input = InputFileStream(testPath)..open();
       expect(input.length, equals(120));

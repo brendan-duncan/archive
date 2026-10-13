@@ -394,6 +394,7 @@ void main() async {
             final archive = decoder.decodeStream(input);
             expect(decoder.directory.filePosition, bytes.length - 22,
                 reason: 'position=$position, ${input.runtimeType}');
+            expect(input.position, position);
             expect(archive.length, 1);
             expect(archive.first.content, content.codeUnits);
           } finally {
@@ -407,6 +408,7 @@ void main() async {
       final input = InputFileStream('test/_data/zip/test.zip');
       try {
         expect(ZipDecoder().decodeStream(input).length, 2);
+        expect(input.position, 0);
         expect(ZipDecoder().decodeStream(input).length, 2);
       } finally {
         input.closeSync();

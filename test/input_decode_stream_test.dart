@@ -91,6 +91,14 @@ void main() {
       expect(stream.readByte(), data[100524]);
     });
 
+    test('totalLength', () {
+      final stream = InputDecodeStream(_ListDecoder(data));
+      stream.skip(1000);
+      expect(stream.totalLength, data.length);
+      final view = stream.readBytes(2500)..skip(100);
+      expect(view.totalLength, 2500);
+    });
+
     test('a view ends where it was told to', () {
       final stream = InputDecodeStream(_ListDecoder(data));
       stream.skip(1000);
