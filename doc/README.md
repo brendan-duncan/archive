@@ -124,7 +124,7 @@ UNCHANGED: errors that are not damaged data keep their type and are thrown regar
 | Invalid parameters | `ArgumentError` | `ZstdDecoder(maxWindowSize: 100)`, below the 1024 byte minimum |
 | Size limits: `maxOutputSize`, `maxSize`, `maxWindowSize`, `maxDictionarySize`, `TarFile.maxMetadataSize`, the declared size of a compressed zip entry | `ArchiveLimitException`, a subclass of `ArchiveException` | `GZipDecoder().decodeBytes(bomb, maxOutputSize: 1 << 20)` |
 | Passwords and AES MAC | `ArchivePasswordException`, `ArchiveMacException` | `ZipDecoder().decodeBytes(zip, password: 'wrong')` |
-| Your callbacks | the exception the callback throws | an exception in `ArchiveCallback` stops extraction, one in `onProgress` goes to the current zone and work continues |
+| Your callbacks | the exception the callback throws | an exception in `ArchiveCallback` stops extraction, one in `ProgressOutputStream.onProgress` goes to the current zone and work continues |
 | System | `FileSystemException`, `OutOfMemoryError` and other platform errors | the disk fills up while `extractFileToDisk` writes |
 
 Converters (`xzCodec`, `zstdCodec`, `bzip2Codec` and `tarCodec`) work like `gzip` and `zlib` from 

@@ -6,8 +6,6 @@ const _p3Hi = 0x165667b1, _p3Lo = 0x9e3779f9;
 const _p4Hi = 0x85ebca77, _p4Lo = 0xc2b2ae63;
 const _p5Hi = 0x27d4eb2f, _p5Lo = 0x165667c5;
 
-bool isXxh64Supported_() => true;
-
 /// One 64 bit value as two unsigned 32 bit halves, mutated in place so the
 /// rounds allocate nothing
 class _U64 {

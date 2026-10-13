@@ -626,6 +626,51 @@ void main() async {
       }
     });
 
+    test('EOCD is found when the input is not at position 0', testOn: 'vm',
+        () {
+      final dir = Directory.systemTemp.createTempSync('archive-position-');
+      addTearDown(() => dir.deleteSync(recursive: true));
+      final content = 'known payload' * 400;
+      final bytes = ZipEncoder().encodeBytes(
+          Archive()..addFile(ArchiveFile.string('hello.txt', content)),
+          level: 0);
+      final path = '${dir.path}/fixture.zip';
+      File(path).writeAsBytesSync(bytes);
+      // The caller may already have read from the stream, such as a magic
+      // number to tell the format, or a previous decode. Offsets in a zip are
+      // from the start of the stream, so the search still has to cover it all.
+      for (final position in [1, 4, bytes.length ~/ 2, bytes.length]) {
+        for (final createInput in <InputStream Function()>[
+          () => InputMemoryStream(bytes),
+          () => InputFileStream(path)
+        ]) {
+          final input = createInput()..setPosition(position);
+          try {
+            final decoder = ZipDecoder();
+            final archive = decoder.decodeStream(input);
+            expect(decoder.directory.filePosition, bytes.length - 22,
+                reason: 'position=$position, ${input.runtimeType}');
+            expect(input.position, position);
+            expect(archive.length, 1);
+            expect(archive.first.content, content.codeUnits);
+          } finally {
+            input.closeSync();
+          }
+        }
+      }
+    });
+
+    test('same stream can be decoded twice', testOn: 'vm', () {
+      final input = InputFileStream('test/_data/zip/test.zip');
+      try {
+        expect(ZipDecoder().decodeStream(input).length, 2);
+        expect(input.position, 0);
+        expect(ZipDecoder().decodeStream(input).length, 2);
+      } finally {
+        input.closeSync();
+      }
+    });
+
     test('ArchiveFile compression level', () async {
       final testArchive = Archive();
       final list = Uint8List(1000);
@@ -2519,6 +2564,71 @@ void main() async {
       }
     });
 
+    // lzma_stream.zip is Python zipfile ZIP_LZMA of _lzmaStreamData(), one
+    // entry `a`, so the entry takes more than 64 KB of input
+    test('LZMA entry over 2 MiB is written in pieces', testOn: 'vm', () {
+      final file = ZipDecoder()
+          .decodeBytes(
+              File('test/_data/zip/lzma_stream.zip').readAsBytesSync())
+          .files
+          .single;
+      final output = _RecordingOutput();
+      file.writeContent(output);
+      expect(output.getBytes(), _lzmaStreamData());
+      expect(output.largestWrite, lessThanOrEqualTo(128 * 1024));
+    });
+
+    test('LZMA entry over 2 MiB with odd dictionary size decodes', testOn: 'vm',
+        () {
+      final bytes = File('test/_data/zip/lzma_stream.zip').readAsBytesSync();
+      final view = ByteData.sublistView(bytes);
+      final start = 30 +
+          view.getUint16(26, Endian.little) +
+          view.getUint16(28, Endian.little);
+      view.setUint32(start + 5, 65535, Endian.little);
+      final file = ZipDecoder()
+          .decodeBytes(bytes, verify: true, throwOnError: true)
+          .files
+          .single;
+      expect(file.readBytes(), _lzmaStreamData());
+    });
+
+    test('LZMA entry over 2 MiB larger than declared writes without throwing',
+        testOn: 'vm', () {
+      final bytes = File('test/_data/zip/lzma_2mib.zip').readAsBytesSync();
+      final view = ByteData.sublistView(bytes);
+      final central = view.getUint32(bytes.length - 6, Endian.little);
+      final size = 2 * 1024 * 1024 + 273 - 1;
+      view.setUint32(22, size, Endian.little);
+      view.setUint32(central + 24, size, Endian.little);
+      final file = ZipDecoder().decodeBytes(bytes).files.single;
+      expect(() => file.writeContent(OutputMemoryStream()), returnsNormally);
+    });
+
+    test('LzmaDecoder reads input over 2 MiB in pieces', testOn: 'vm', () {
+      final bytes = File('test/_data/zip/lzma_stream.zip').readAsBytesSync();
+      final view = ByteData.sublistView(bytes);
+      final compressed = view.getUint32(18, Endian.little);
+      final start = 30 +
+          view.getUint16(26, Endian.little) +
+          view.getUint16(28, Endian.little);
+      final bits = bytes[start + 4];
+      final input = _RecordingInput(
+          Uint8List.sublistView(bytes, start + 9, start + compressed));
+      final expected = _lzmaStreamData();
+      final decoder = LzmaDecoder()
+        ..dictionaryLimit = view.getUint32(start + 5, Endian.little)
+        ..reset(
+            literalContextBits: bits % 9,
+            literalPositionBits: bits ~/ 9 % 5,
+            positionBits: bits ~/ 45,
+            resetDictionary: true);
+      final output = OutputMemoryStream();
+      decoder.decodeToOutput(input, expected.length, output);
+      expect(output.getBytes(), expected);
+      expect(input.largestRead, lessThanOrEqualTo(64 * 1024));
+    });
+
     test('LZMA entries grow past 2 MiB without exceeding declared size',
         testOn: 'vm', () {
       final encoded = File('test/_data/zip/lzma_2mib.zip').readAsBytesSync();
@@ -3500,6 +3610,33 @@ void main() async {
       view.setUint16(central + 14, dos, Endian.little);
       expect(ZipDecoder().decodeBytes(zip).first.lastModTime, 1262304000);
     });
+
+    test('lastModDosTime is DOS date << 16 | time for files and directories',
+        () {
+      final zip = ZipEncoder().encodeBytes(Archive()
+        ..add(ArchiveFile.string('a.txt', 'a'))
+        ..add(ArchiveFile.directory('d/')));
+      final view = ByteData.sublistView(zip);
+      final date = ((1999 - 1980) << 9) | (2 << 5) | 3;
+      final time = (4 << 11) | (5 << 5) | 6;
+      final text = latin1.decode(zip);
+      for (var at = text.indexOf('PK\x03\x04');
+          at >= 0;
+          at = text.indexOf('PK\x03\x04', at + 1)) {
+        view.setUint16(at + 10, time, Endian.little);
+        view.setUint16(at + 12, date, Endian.little);
+      }
+      for (var at = text.indexOf('PK\x01\x02');
+          at >= 0;
+          at = text.indexOf('PK\x01\x02', at + 1)) {
+        view.setUint16(at + 12, time, Endian.little);
+        view.setUint16(at + 14, date, Endian.little);
+      }
+      final archive = ZipDecoder().decodeBytes(zip);
+      expect(archive.map((f) => f.lastModDosTime),
+          [date << 16 | time, date << 16 | time]);
+      expect(ArchiveFile.string('a.txt', 'a').lastModDosTime, isNull);
+    });
   });
 
   group('zstd entry levels', () {
@@ -3966,6 +4103,56 @@ int _uint32(Uint8List bytes, int at) =>
     (bytes[at + 1] << 8) |
     (bytes[at + 2] << 16) |
     (bytes[at + 3] << 24);
+
+Uint8List _lzmaStreamData() {
+  final data = Uint8List(3 * 1024 * 1024)..fillRange(0, 3 * 1024 * 1024, 97);
+  var x = 1;
+  for (var i = 0; i < data.length; i += 32) {
+    x = (x * 1103515245 + 12345) & 0x7fffffff;
+    data[i] = (x >> 16) & 0xff;
+  }
+  return data;
+}
+
+class _RecordingOutput extends OutputMemoryStream {
+  var largestWrite = 0;
+
+  @override
+  void writeBytes(List<int> bytes, {int? length}) {
+    largestWrite = max(largestWrite, length ?? bytes.length);
+    super.writeBytes(bytes, length: length);
+  }
+
+  @override
+  void writeRange(Uint8List bytes, int start, int end) {
+    largestWrite = max(largestWrite, end - start);
+    super.writeRange(bytes, start, end);
+  }
+}
+
+class _RecordingInput extends InputMemoryStream {
+  var largestRead = 0;
+
+  _RecordingInput(super.bytes);
+
+  @override
+  InputStream readBytes(int count) {
+    largestRead = max(largestRead, count);
+    return super.readBytes(count);
+  }
+
+  @override
+  int readInto(Uint8List into, int at, int count) {
+    largestRead = max(largestRead, count);
+    return super.readInto(into, at, count);
+  }
+
+  @override
+  Uint8List toUint8List() {
+    largestRead = max(largestRead, length);
+    return super.toUint8List();
+  }
+}
 
 class _FailingRead extends FileContent {
   @override

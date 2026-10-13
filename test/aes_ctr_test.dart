@@ -1,3 +1,4 @@
+// ignore_for_file: deprecated_member_use_from_same_package
 import 'dart:typed_data';
 
 import 'package:archive/archive.dart';
@@ -123,5 +124,29 @@ void main() {
   test('key or iv of wrong length throws ArgumentError', () {
     expect(() => AesCtr(Uint8List(20), Uint8List(16)), throwsArgumentError);
     expect(() => AesCtr(Uint8List(16), Uint8List(12)), throwsArgumentError);
+  });
+
+  test('deprecated AesDecrypt gives 4.5.1 output for every key size', () {
+    final key = Uint8List.fromList(List.generate(32, (i) => i * 7 + 1));
+    final expected = {
+      AesDecrypt.aes128: ('d32d0ad52d4ed58b6317deed012136d826d691f7ff4777c2'
+          '2ecdf8e2f91b91cf443ff02f99db97a3', 3369014201),
+      AesDecrypt.aes192: ('4b15aef6ff6dcbd545d8d06d006bc0ecf00395b8df3e963f'
+          '3dc9e310f1cc63f69d499fbd0b579419', 3585951987),
+      AesDecrypt.aes256: ('f427ca4a77eb2d14a5d4ab8ddb8b34c6528c221b4162af68'
+          'afafcc3c2de7d931e272c24cb20eb662', 1934873602),
+    };
+    for (final MapEntry(key: mode, value: (hex, crc)) in expected.entries) {
+      final data = Uint8List.fromList(List.generate(40, (i) => i * 3));
+      AesDecrypt(key, mode: mode).decryptCrt(data);
+      expect(_hex(data), hex, reason: 'mode $mode');
+
+      final decrypt = AesDecrypt(key, mode: mode);
+      for (var call = 0; call < 2; call++) {
+        final big = Uint8List.fromList(List.generate(1000, (i) => i & 0xff));
+        decrypt.decryptCrt(big);
+        expect(getCrc32(big), crc, reason: 'mode $mode, call $call');
+      }
+    }
   });
 }

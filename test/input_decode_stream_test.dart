@@ -89,6 +89,14 @@ void main() {
       expect(stream.readByte(), data[100524]);
     });
 
+    test('totalLength', () {
+      final stream = InputDecodeStream(_ListDecoder(data));
+      stream.skip(1000);
+      expect(stream.totalLength, data.length);
+      final view = stream.readBytes(2500)..skip(100);
+      expect(view.totalLength, 2500);
+    });
+
     test('a view ends where it was told to', () {
       final stream = InputDecodeStream(_ListDecoder(data));
       stream.skip(1000);
@@ -228,6 +236,27 @@ void main() {
         compareBytes(readAll(decode(false), 4096), data);
         expect(() => readAll(decode(true), 4096),
             throwsA(isA<ArchiveChecksumException>()));
+      }
+    });
+
+    test('web gzip and zlib with verify read on after skip', () {
+      final gz = GZipEncoder().encodeBytes(data);
+      final z = ZLibEncoder().encodeBytes(data);
+      final badGz = Uint8List.fromList(gz)..[gz.length - 8] ^= 0xff;
+      final badZ = Uint8List.fromList(z)..[z.length - 1] ^= 0xff;
+      for (final skip in [1000, 70000, 1024 * 1024]) {
+        for (final (decoder, good, bad) in [
+          (const GZipDecoderWeb().decodeLazy, gz, badGz),
+          (const ZLibDecoderWeb().decodeLazy, z, badZ),
+        ]) {
+          final stream = decoder(InputMemoryStream(good), verify: true)
+            ..skip(skip);
+          compareBytes(readAll(stream, 4096), data.sublist(skip));
+          final damaged = decoder(InputMemoryStream(bad), verify: true)
+            ..skip(skip);
+          expect(() => readAll(damaged, 4096),
+              throwsA(isA<ArchiveChecksumException>()));
+        }
       }
     });
 

@@ -23,12 +23,12 @@
 * *BREAKING CHANGE*: Added `writeRange` and `reserve` to `OutputStream`, and `readInto` and `viewBytes` to
   `InputStream`. All four have a default body, so a class that extends them needs no change. A class that implements
   them has to add these methods.
-* *BREAKING CHANGE*: `extractFileToDisk` now detects files not only by extension but also by their header bytes as all 
+* Fixed `extractFileToDisk` detecting files only by extension. It now also detects them by their header bytes as all 
   platform decoders do (like MacOS, Windows, Linux). If detection by headers fails it uses old file
   extension format instead.
-* *BREAKING CHANGE*: `ZipDecoder` and `extractFileToDisk` for Zip that specified an incorrect password error now throw 
- `ArchivePasswordException` that extends `ArchiveException` instead of `Exception` and instead of returning wrong data
-  for ZipCrypto. This exception overrules `throwOnError` and is thrown always when password does not match. AES MAC
+* Fixed `ZipDecoder` and `extractFileToDisk` throwing `Exception` for an incorrect password, or returning wrong data
+  for ZipCrypto. They now throw `ArchivePasswordException` that extends `ArchiveException`. This
+  exception overrules `throwOnError` and is thrown always when password does not match. AES MAC
   is checked now, a mismatch throws `ArchiveMacException` that extends `ArchiveChecksumException` regardless of flags.
 * `extractArchiveToDisk` and `extractArchiveToDiskSync` throw with `ArchivePasswordException` as well for 
   bad password case.
@@ -37,46 +37,42 @@
   when a zstd window is larger than `maxWindowSize`, when an xz block declares a dictionary larger than
   `maxDictionarySize`, when a tar long name, PAX header or sparse map is larger than `TarFile.maxMetadataSize`, and
   when a compressed zip entry decodes to more than its declared uncompressed size.
-* *BREAKING CHANGE*: `listTarFiles` and `extractTarFiles` now throw an error for a damaged archive instead of
-  silently using only its readable part.
+* Fixed `listTarFiles` and `extractTarFiles` silently using only the readable part of a damaged archive. They now
+  throw an error for it.
 * *BREAKING CHANGE*: `lastModTime` of zip entries is now in seconds since epoch, as in tar, instead of the DOS date 
-  and time format.
+  and time format. The DOS value it held before, `date << 16 | time`, is now in `ArchiveFile.lastModDosTime`.
 * *BREAKING CHANGE*: `extractFileToDisk` now accepts `verify` and `throwOnError`, `extractArchiveToDisk` and 
   `extractArchiveToDiskSync` accept `throwOnError`. Without them a damaged or cut archive no longer throws: Complete 
   entries are extracted, and damaged ones leave no partial files on disk. With `throwOnError` the function throws
   an exception upon encountering the first corrupted entry, and `verify` adds checksum checks to it.
-* *BREAKING CHANGE*: An exception thrown by `onProgress` of `ZipFileEncoder.zipDirectory`, `addDirectory` and
-  `addDirectorySync` no longer stops zipping and no longer reaches a `try` around the call. It goes to the current
-  zone, as with a `Stream` listener, so catch it with `runZonedGuarded` or inside `onProgress`.
 * *BREAKING CHANGE*: `CompressionType` has new values, `lzma` and `xz`, so a switch over it needs a case
   for each of them.
-* *BREAKING CHANGE*: `TarEncoder` now writes a tar hard link read by `TarDecoder` back as a hard link. It used to
-  write it as a symlink, which pointed to a missing file.
-* *BREAKING CHANGE*: Removed `AesDecrypt`, use the exported `AesCtr` instead. `Sha1`, `HmacSha1`, `pbkdf2HmacSha1`
-  and `Sha256` are exported as well.
-* *BREAKING CHANGE*: `ZstdDecoder` throws `ZstdDictionaryException`, which extends `ArchiveException`, for a malformed
-  dictionary instead of `ArgumentError`. A dictionary can be damaged data as well as a wrong argument.
-* *BREAKING CHANGE*: `ZstdEncoder` clamps a level above 22 to 22 and a level below `zstdMinLevel` to `zstdMinLevel`
-  instead of throwing `ArgumentError`, as `ZSTD_c_compressionLevel` of libzstd does. `zstdMinLevel` is -131072 instead
-  of -7, the value of `ZSTD_minCLevel()`.
-* *BREAKING CHANGE*: `ZstdDecoder` throws `ArgumentError` for a `maxWindowSize` below 1024 bytes, the smallest zstd
-  window.
+* Fixed `TarEncoder` writing a tar hard link read by `TarDecoder` as a symlink, which pointed to a missing file. It
+  now writes it back as a hard link.
+* Deprecated `AesDecrypt`, use the exported `AesCtr` instead. `AesDecrypt` is now a wrapper over `AesCtr` and gives
+  the same output as before. `Sha1`, `HmacSha1`, `pbkdf2HmacSha1` and `Sha256` are exported as well.
+* Fixed `ZstdDecoder` throwing `ArgumentError` for a malformed dictionary. It throws `ZstdDictionaryException`, which
+  extends `ArchiveException`, since a dictionary can be damaged data as well as a wrong argument.
+* Fixed `ZstdEncoder` throwing `ArgumentError` for a level above 22 or below `zstdMinLevel`. It clamps the level to
+  that range, as `ZSTD_c_compressionLevel` of libzstd does. `zstdMinLevel` is -131072 instead of -7, the value of
+  `ZSTD_minCLevel()`.
+* Fixed `ZstdDecoder` accepting a `maxWindowSize` below 1024 bytes, the smallest zstd window. It throws
+  `ArgumentError` for it.
 * *BREAKING CHANGE*: `ArchiveFile.lastModDateTime` returns a local `DateTime` built from `lastModTime` in seconds
   since epoch, instead of a UTC `DateTime` built from DOS date and time fields. `ZipDecoder` takes the time from the
   UT extra field (0x5455) when the entry has one, so a zip written by `ZipEncoder` reads back the same time in every
   time zone.
-* *BREAKING CHANGE*: When a zip holds several entries with the same name, `ZipDecoder` keeps the last one, as 3.x did.
-  4.x returned the content of the first entry with the metadata of the last one.
+* Fixed `ZipDecoder` returning the content of the first of several entries with the same name with the metadata of
+  the last one. It keeps the last one, as 3.x did.
 * *BREAKING CHANGE*: `extractFileToDisk` calls `callback` for a zip entry after the entry is written, as it does for
   tar. It used to call it for every zip entry while the central directory was read, before any file was written.
-* *BREAKING CHANGE*: `extractFileToDisk` throws `ArgumentError` when a gzip, bzip2, xz or zstd file does not hold a
-  tar, also when its name ends with `.tar.gz` or a similar extension. It used to extract junk entries from such a
-  file.
-* *BREAKING CHANGE*: `BZip2Decoder` decodes every stream of concatenated bzip2 files, as `pbzip2` writes
-  them, in sequence, as `bzip2 -d` does. It used to return only the first stream without an error.
-* *BREAKING CHANGE*: `ZLibDecoderWeb` decodes only the first of concatenated zlib streams and ignores the bytes after
-  it, as `ZLibDecoder` on dart:io does since Dart 3.5.2 ([dart-lang/sdk#56481](https://github.com/dart-lang/sdk/issues/56481)).
-  It used to append the following streams, matching dart:io of Dart 3.5.0, which was reverted as a bug.
+* Fixed `extractFileToDisk` extracting junk entries from a gzip, bzip2, xz or zstd file that does not hold a tar, also
+  when its name ends with `.tar.gz` or a similar extension. It throws `ArgumentError` for such a file.
+* Fixed `BZip2Decoder` returning only the first stream of concatenated bzip2 files, as `pbzip2` writes them, without
+  an error. It decodes every stream in sequence, as `bzip2 -d` does.
+* Fixed `ZLibDecoderWeb` appending the streams after the first of concatenated zlib streams, matching dart:io of Dart
+  3.5.0, which was reverted as a bug. It decodes only the first and ignores the bytes after it, as `ZLibDecoder` on
+  dart:io does since Dart 3.5.2 ([dart-lang/sdk#56481](https://github.com/dart-lang/sdk/issues/56481)).
 * `extractArchiveToDisk` writes entries synchronously, as `extractArchiveToDiskSync` does, and still returns a `Future`.
 * Added `allowAbsoluteSymlinks` to `extractFileToDisk`, `extractArchiveToDisk` and `extractArchiveToDiskSync`.
   Absolute symbolic links are still skipped by default.
@@ -112,6 +108,11 @@
 * Added `ArchiveFile.isHardLink`, set by `TarDecoder` for tar hard links. `symbolicLink` is unchanged.
 * Fixed symlinks scopes for `extractFileToDisk` that could overwrite existing file on disk outside of output dir
 * Fixed Unix mode reading for `ZipDecoder` for archives created on Windows.
+* Fixed `ZipDecoder` reading a zip entry name that is not valid UTF-8 as Latin-1. It reads it as CP437, the encoding
+  zip tools use when the UTF-8 flag is not set, so such names list differently than in 4.5.1. Pass
+  `ZipDecoder(filenameEncoding:)` to read them in another encoding.
+* Fixed `ZipDecoder` ignoring the Info-ZIP Unicode Path extra field (0x7075). An entry that has one lists under the
+  UTF-8 name from that field, so names differ from 4.5.1. The field is used only when its CRC matches the stored name.
 * Fixed CRC64 `XZEncoder` files created on dart-js failed to decode on native platforms.
 * Fixed `ZLibDecoder` on web.
 * `TarEncoder` now writes `"ustar\0"` magic in header for easier recognition.
@@ -155,9 +156,9 @@
 * Multithreaded `XZDecoder.decodeStream` now stops at the first broken block, like the single threaded one.
 * Fixed `ZipDecoder` returning an empty archive for a zip with extra bytes in front of it (self extracting zips).
 * Fixed `ZipDecoder` throwing `RangeError` instead of `ArchiveException` for some damaged zips.
-* *BREAKING CHANGE*: `LzmaDecoder` throws `ArchiveException` instead of `RangeError` for truncated or damaged LZMA
-  data, and `XZDecoder` reports a stream cut inside a stream header, block header, LZMA2 chunk header, index or footer
-  as a truncated stream instead of reading more bytes than the input has.
+* Fixed `LzmaDecoder` throwing `RangeError` for truncated or damaged LZMA data, and `XZDecoder` reading more bytes
+  than the input has for a stream cut inside a stream header, block header, LZMA2 chunk header, index or footer. They
+  throw `ArchiveException` and report a truncated stream.
 * Fixed `TarDecoder` adding garbage folders to names in archives made by GNU tar `--incremental`.
 * Fixed `TarDecoder` treating some folder entries (GNU and very old tar formats) as files.
 * Fixed `TarDecoder` long names in archives made by older versions of this package.
@@ -204,6 +205,15 @@
   after its data. The archives decode the same, but their bytes differ from earlier versions.
 * Fixed `OutputFileStream.writeStream` moving the read position of its source to the end, unlike the other
   `OutputStream` types. The source position is now left unchanged.
+
+# 4.5.2
+
+* Fixed `ZipDecoder.decodeStream` returning an empty archive when the
+  input was not at position 0, such as after reading a magic number or
+  decoding the same stream a second time (#405). `decodeStream` also
+  leaves the input's read position where it was.
+* Added `InputStream.totalLength`, the size of the whole stream whatever
+  the read position, where `length` is only the bytes after it.
 
 # 4.5.1
 

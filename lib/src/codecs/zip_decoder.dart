@@ -48,7 +48,7 @@ class ZipDecoder {
   ///
   /// {@macro archive.decoder_callback}
   ///
-  /// {@macro archive.verify_throw_on_error}
+  /// {@macro archive.archive_verify_throw_on_error}
   ///
   /// Wrong or missing password always throws `ArchivePasswordException`, and
   /// AES data that does not match its MAC always throws `ArchiveMacException`
@@ -67,7 +67,7 @@ class ZipDecoder {
   ///
   /// {@macro archive.decoder_callback}
   ///
-  /// {@macro archive.verify_throw_on_error}
+  /// {@macro archive.archive_verify_throw_on_error}
   ///
   /// Wrong or missing password always throws `ArchivePasswordException`, and
   /// AES data that does not match its MAC always throws `ArchiveMacException`
@@ -153,7 +153,8 @@ class ZipDecoder {
         ..crc32 = zf.hasCrc32 ? zf.crc32 : null
         ..lastModTime = _utSeconds(zf.header?.extraField) ??
             _utSeconds(zf.extraField) ??
-            _dosSeconds(zf.lastModFileDate, zf.lastModFileTime);
+            _dosSeconds(zf.lastModFileDate, zf.lastModFileTime)
+        ..lastModDosTime = zf.lastModFileDate << 16 | zf.lastModFileTime;
 
       if (callback != null) {
         try {

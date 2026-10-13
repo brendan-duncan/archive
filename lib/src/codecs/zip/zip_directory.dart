@@ -29,6 +29,18 @@ class ZipDirectory {
 
   void read(InputStream input,
       {String? password, bool verify = false, Encoding? filenameEncoding}) {
+    // The caller may read on from where the stream was, or decode it again,
+    // so leave the read position as it was found.
+    final pos = input.position;
+    try {
+      _read(input, password, verify, filenameEncoding);
+    } finally {
+      input.setPosition(pos);
+    }
+  }
+
+  void _read(InputStream input, String? password, bool verify,
+      Encoding? filenameEncoding) {
     filePosition = _findSignature(input);
     if (filePosition < 0) {
       return;
@@ -234,7 +246,10 @@ class ZipDirectory {
     // An EOCD record is at least [eocdSize] bytes, so its signature can never
     // start any later than that many bytes from the end of the file. Anything
     // after that point is too short to be a record and is not a candidate.
-    final lastCandidate = input.length - eocdSize;
+    // The positions searched are from the start of the stream, so this takes
+    // its total length rather than the bytes after the read position, which
+    // the caller may have moved.
+    final lastCandidate = input.totalLength - eocdSize;
     if (lastCandidate < 0) {
       return -1;
     }

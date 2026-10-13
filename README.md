@@ -4,14 +4,14 @@
 
 ## Documentation
 
-* [Overview](docs/README.md): archive formats vs compression codecs, and the two libraries
-* [Platforms](docs/platforms.md): native, JavaScript and WebAssembly
-* [Memory and streaming](docs/streaming.md): in-memory bytes vs file streams, and `decodeLazy`
-* [Reading archives](docs/reading-archives.md): zip, tar, encrypted zips, extracting to disk
-* [Creating archives](docs/creating-archives.md): zip and tar encoding, directories
-* [Compression codecs](docs/compression.md): gzip, zlib, bzip2, xz, zstd
-* [Streams and isolates](docs/streams-and-isolates.md): `Stream` converters, running a codec off the UI isolate, multithreaded xz and zstd
-* [Untrusted input](docs/security.md): size limits and safe extraction
+* [Overview](doc/README.md): archive formats vs compression codecs, and the two libraries
+* [Platforms](doc/platforms.md): native, JavaScript and WebAssembly
+* [Memory and streaming](doc/streaming.md): in-memory bytes vs file streams, and `decodeLazy`
+* [Reading archives](doc/reading-archives.md): zip, tar, encrypted zips, extracting to disk
+* [Creating archives](doc/creating-archives.md): zip and tar encoding, directories
+* [Compression codecs](doc/compression.md): gzip, zlib, bzip2, xz, zstd
+* [Streams and isolates](doc/streams-and-isolates.md): `Stream` converters, running a codec off the UI isolate, multithreaded xz and zstd
+* [Untrusted input](doc/security.md): size limits and safe extraction
 
 ## 4.6.0 Update
 
@@ -28,7 +28,7 @@ UNCHANGED: errors that are not damaged data keep their type and are thrown regar
 | Invalid parameters | `ArgumentError` | `ZstdDecoder(maxWindowSize: 100)`, below the 1024 byte minimum |
 | Size limits: `maxOutputSize`, `maxSize`, `maxWindowSize`, `maxDictionarySize`, `TarFile.maxMetadataSize`, the declared size of a compressed zip entry | `ArchiveLimitException`, a subclass of `ArchiveException` | `GZipDecoder().decodeBytes(bomb, maxOutputSize: 1 << 20)` |
 | Passwords and AES MAC | `ArchivePasswordException`, `ArchiveMacException` | `ZipDecoder().decodeBytes(zip, password: 'wrong')` |
-| Your callbacks | the exception the callback throws | an exception in `ArchiveCallback` stops extraction, one in `onProgress` goes to the current zone and work continues |
+| Your callbacks | the exception the callback throws | an exception in `ArchiveCallback` stops extraction, one in `ProgressOutputStream.onProgress` goes to the current zone and work continues |
 | System | `FileSystemException`, `OutOfMemoryError` and other platform errors | the disk fills up while `extractFileToDisk` writes |
 
 Converters (`xzCodec`, `zstdCodec`, `bzip2Codec` and `tarCodec`) work like `gzip` and `zlib` from 
@@ -83,7 +83,7 @@ of File IO operations were added to the library, but not in a very clean way.
 The design goal for the 4.0 revision of the library is to ensure File IO is a primary focus, while minimizing memory
 usage. Memory-only interfaces are still available for web platforms.
 
-#### [Migrating 3.x to 4.x](docs/migrating_3_to_4.md).
+#### [Migrating 3.x to 4.x](doc/migrating_3_to_4.md).
 
 ### Migration quick tips:
 * **decodeBuffer** has been renamed to **decodeStream** in the various decoder classes.

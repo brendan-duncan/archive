@@ -28,12 +28,21 @@ class InflateChunkDecoder implements ChunkDecoder {
   int _memberStart = 0;
   int _check = 0;
   _State _state = _State.header;
+  OutputStream? _blockOutput;
+  int _blockStart = 0;
 
   InflateChunkDecoder(this.input, this.format, {this.verify = false});
 
   /// A match in deflate can reach back 32 KB.
   @override
-  int get history => 32768;
+  int get history {
+    final output = _blockOutput;
+    if (output == null) {
+      return 32768;
+    }
+    final block = output.length - _blockStart;
+    return block > 32768 ? block : 32768;
+  }
 
   @override
   bool decodeChunk(OutputStream output) {
@@ -70,9 +79,14 @@ class InflateChunkDecoder implements ChunkDecoder {
 
       case _State.blocks:
         final before = output.length;
+        if (verify) {
+          _blockOutput = output;
+          _blockStart = before;
+        }
         if (!_inflate!.inflateBlock()) {
           _state = _State.trailer;
         }
+        _blockOutput = null;
         if (verify && output.length > before) {
           final block = output.subset(before);
           if (format == InflateFormat.gzip) {

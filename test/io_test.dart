@@ -25,7 +25,7 @@ void writeFile(String path, int size) {
   }
   final fp = File(path);
   fp.createSync(recursive: true);
-  fp.openSync(mode: FileMode.writeOnly);
+  fp.openSync(mode: FileMode.writeOnly).closeSync();
   while (size > fileData!.length) {
     fp.writeAsBytesSync(fileData!);
     size -= fileData!.length;
@@ -1372,26 +1372,44 @@ void main() {
     expect(fs.readByte(), equals(80));
   });
 
-  test('zipDirectory finishes when onProgress throws', () async {
+  test('zipDirectory stops and rethrows when onProgress throws', () async {
     final root = Directory.systemTemp.createTempSync('archive-zip-progress-');
     addTearDown(() => root.deleteSync(recursive: true));
     final source = p.join(root.path, 'src');
     generateDataDirectory(source, fileSize: 1024, numFiles: 5);
     final zipPath = p.join(root.path, 'out.zip');
-    final errors = <Object>[];
-    await runZonedGuarded(() async {
-      await ZipFileEncoder().zipDirectory(Directory(source),
-          filename: zipPath,
-          onProgress: (_) => throw StateError('progress failed'));
-    }, (error, _) => errors.add(error));
-    expect(errors, hasLength(5));
-    expect(errors, everyElement(isA<StateError>()));
+    var calls = 0;
+    await expectLater(
+        ZipFileEncoder().zipDirectory(Directory(source),
+            filename: zipPath, onProgress: (_) {
+          calls++;
+          throw StateError('progress failed');
+        }),
+        throwsStateError);
+    expect(calls, 1);
     expect(
         ZipDecoder()
             .decodeBytes(File(zipPath).readAsBytesSync(), verify: true)
             .files
             .where((f) => f.isFile),
-        hasLength(5));
+        hasLength(1));
+  });
+
+  test('addDirectorySync stops and rethrows when onProgress throws', () {
+    final root = Directory.systemTemp.createTempSync('archive-zip-progress-');
+    addTearDown(() => root.deleteSync(recursive: true));
+    final source = p.join(root.path, 'src');
+    generateDataDirectory(source, fileSize: 1024, numFiles: 5);
+    final encoder = ZipFileEncoder()..create(p.join(root.path, 'out.zip'));
+    var calls = 0;
+    expect(
+        () => encoder.addDirectorySync(Directory(source), onProgress: (_) {
+              calls++;
+              throw StateError('progress failed');
+            }),
+        throwsStateError);
+    expect(calls, 1);
+    encoder.closeSync();
   });
 
   test('zip directory', () async {

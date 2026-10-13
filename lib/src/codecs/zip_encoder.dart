@@ -1209,6 +1209,9 @@ class _Crc32InputStream extends InputStream {
   int get length => _input.length;
 
   @override
+  int get totalLength => _input.totalLength;
+
+  @override
   bool get isEOS => _input.isEOS;
 
   @override

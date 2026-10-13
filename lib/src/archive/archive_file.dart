@@ -32,6 +32,11 @@ class ArchiveFile {
   /// epoch.
   late int lastModTime = DateTime.now().millisecondsSinceEpoch ~/ 1000;
 
+  /// The DOS date and time of a zip entry, `date << 16 | time`, which
+  /// [lastModTime] held before 4.6.0. Null for entries not read by
+  /// `ZipDecoder`.
+  int? lastModDosTime;
+
   /// If symbolicLink is not null, the entry is a symbolic link and this is
   /// the path to what it's linking to. This should be an archive relative path.
   /// Symlinks pointing outside of the archive will be invalid when extracting

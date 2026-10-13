@@ -29,7 +29,7 @@ class TarDecoder {
   ///
   /// {@macro archive.decoder_callback}
   ///
-  /// {@macro archive.verify_throw_on_error}
+  /// {@macro archive.archive_verify_throw_on_error}
   ///
   /// [keepEntries] is as for [decodeStream].
   Archive decodeBytes(List<int> data,
@@ -54,7 +54,7 @@ class TarDecoder {
   ///
   /// {@macro archive.decoder_callback}
   ///
-  /// {@macro archive.verify_throw_on_error}
+  /// {@macro archive.archive_verify_throw_on_error}
   ///
   /// With [keepEntries] false, [callback] is the only place the entries go:
   /// the archive returned is empty and [files] is left empty, so that memory

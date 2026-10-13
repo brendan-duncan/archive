@@ -69,6 +69,9 @@ class InputMemoryStream extends InputStream {
   @override
   int get length => buffer == null ? 0 : buffer!.length - _position;
 
+  @override
+  int get totalLength => buffer == null ? 0 : buffer!.length;
+
   /// Is the current position at the end of the stream?
   @override
   bool get isEOS => _position >= _length;

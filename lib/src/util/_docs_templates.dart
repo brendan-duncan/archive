@@ -24,6 +24,10 @@
 /// ```
 /// {@endtemplate}
 
+/// ------------------------------------------------------------------------
+/// ------------------------------------------------------------------------
+/// ------------------------------------------------------------------------
+
 /// {@template archive.converters.encoder}
 /// Example for .encoder:
 /// ```dart
@@ -282,12 +286,6 @@
 /// written out before the next one is decoded
 /// {@endtemplate}
 
-/// {@template archive.on_progress_zone}
-/// An exception thrown by [onProgress] goes to the current zone, as with a
-/// `Stream` listener, and zipping continues. A `try` around the call does not
-/// catch it, `runZonedGuarded` does.
-/// {@endtemplate}
-
 /// ------------------------------------------------------------------------
 /// ------------------------------------------------------------------------
 /// ------------------------------------------------------------------------
@@ -299,6 +297,20 @@
 /// `ArchiveChecksumException`.
 /// Without `throwOnError`, decodeBytes returns partial data and decodeStream
 /// returns false, with or without `verify`
+/// {@endtemplate}
+
+/// ------------------------------------------------------------------------
+/// ------------------------------------------------------------------------
+/// ------------------------------------------------------------------------
+
+/// {@template archive.archive_verify_throw_on_error}
+/// `throwOnError` throws `ArchiveException` on damaged or cut data.
+/// `verify` also checks checksums at a tiny cost of ~5-10% speed decrease
+/// depending on archive file. With `throwOnError` as well, a mismatch throws
+/// `ArchiveChecksumException`.
+/// Without `throwOnError`, returned archive holds entries read before damage,
+/// and damaged entry may read as partial or empty data, with or without
+/// `verify`.
 /// {@endtemplate}
 
 /// ------------------------------------------------------------------------

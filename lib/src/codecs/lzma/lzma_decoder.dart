@@ -115,7 +115,7 @@ class LzmaDecoder {
         : _literalPositionBits;
     final posMask = (1 << alignBits) - 1;
     final alignment = _writePosition & posMask;
-    final keepBytes = maxSize + alignment;
+    final keepBytes = ((maxSize + posMask) & ~posMask) + alignment;
 
     final start = _writePosition - keepBytes;
     _dictionary.setRange(0, keepBytes, _dictionary, start);
@@ -276,38 +276,75 @@ class LzmaDecoder {
   // [trimDictionary] cannot invalidate it.
   void decodeToOutput(
       InputStream input, int uncompressedLength, OutputStream output) {
+    if (uncompressedLength > 2 * 1024 * 1024) {
+      _decodeLargeToOutput(input, uncompressedLength, output);
+      return;
+    }
     _rc.setBuffer(input.toUint8List());
     _rc.initialize();
 
     final initialSize = _writePosition;
     final finalSize = initialSize + uncompressedLength;
-    if (uncompressedLength <= 2 * 1024 * 1024) {
-      _reserve(uncompressedLength);
-      _decodePackets(finalSize);
-    } else {
-      const chunkSize = 65536;
-      const maxMatchLength = 273;
-      while (_writePosition < finalSize) {
-        final remaining = finalSize - _writePosition;
-        final count = remaining < chunkSize ? remaining : chunkSize;
-        final end = _writePosition + count;
-        final tail = finalSize - end;
-        final extra = tail < maxMatchLength - 1 ? tail : maxMatchLength - 1;
-        _reserve(count + extra);
-        _decodePackets(end);
-        if (_rc.isOverrun) {
-          break;
-        }
-      }
-      if (!_rc.isOverrun && _writePosition != finalSize) {
-        throw ArchiveException('LZMA output exceeds the declared size');
-      }
-    }
+    _reserve(uncompressedLength);
+    _decodePackets(finalSize);
 
     output.writeRange(_dictionary, initialSize, _writePosition);
     if (_rc.isOverrun) {
       throw ArchiveException('LZMA data is truncated or corrupt');
     }
+  }
+
+  // A match reads at most 48 bytes for 2 bytes of output and a literal 9 for 1,
+  // so 2048 bytes of output read less than the 64 KB of input kept ahead
+  void _decodeLargeToOutput(
+      InputStream input, int uncompressedLength, OutputStream output) {
+    const pieceSize = 65536;
+    const stepSize = 2048;
+    const maxMatchLength = 273;
+    _rc.setBuffer(_readPiece(input, pieceSize));
+    _rc.initialize();
+
+    var written = _writePosition;
+    var finalSize = written + uncompressedLength;
+    while (_writePosition < finalSize) {
+      if (_rc.available < pieceSize && !input.isEOS) {
+        _rc.appendBuffer(_readPiece(input, pieceSize));
+      }
+      final remaining = finalSize - _writePosition;
+      final count = remaining < stepSize ? remaining : stepSize;
+      final end = _writePosition + count;
+      final tail = finalSize - end;
+      final extra = tail < maxMatchLength - 1 ? tail : maxMatchLength - 1;
+      _reserve(count + extra);
+      _decodePackets(end);
+      if (_rc.isOverrun || _writePosition > finalSize) {
+        break;
+      }
+      if (_writePosition - written >= pieceSize) {
+        output.writeRange(_dictionary, written, _writePosition);
+        final before = _writePosition;
+        if (dictionaryLimit > 0) {
+          trimDictionary(dictionaryLimit);
+        }
+        finalSize -= before - _writePosition;
+        written = _writePosition;
+      }
+    }
+    if (!_rc.isOverrun && _writePosition != finalSize) {
+      throw ArchiveException('LZMA output exceeds the declared size');
+    }
+
+    output.writeRange(_dictionary, written, _writePosition);
+    if (_rc.isOverrun) {
+      throw ArchiveException('LZMA data is truncated or corrupt');
+    }
+  }
+
+  static Uint8List _readPiece(InputStream input, int size) {
+    final remaining = input.length;
+    final bytes = Uint8List(remaining < size ? remaining : size);
+    final got = input.readInto(bytes, 0, bytes.length);
+    return got == bytes.length ? bytes : Uint8List.sublistView(bytes, 0, got);
   }
 
   // Returns true if the previous packet seen was a literal. The first seven

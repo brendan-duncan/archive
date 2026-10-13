@@ -99,6 +99,16 @@ void main() {
       expect(input.isEOS, equals(true));
     });
 
+    test('totalLength', () {
+      final input = InputMemoryStream.fromList(List.generate(10, (i) => i));
+      input.skip(4);
+      expect(input.length, 6);
+      expect(input.totalLength, 10);
+      final sub = input.subset(position: 2, length: 5)..skip(3);
+      expect(sub.totalLength, 5);
+      expect(InputMemoryStream.empty().totalLength, 0);
+    });
+
     test('readByte', () async {
       const data = [0xaa, 0xbb, 0xcc];
       final input = InputMemoryStream.fromList(data);

@@ -82,6 +82,13 @@ void main() {
         ..add(ArchiveFile.symlink('f', 'a/b/d/../..'));
       extractArchiveToDiskSync(archive, out);
       expect(FileSystemEntity.isLinkSync(p.join(out, 'a', 'b', 'd')), isTrue);
+      if (Platform.isWindows) {
+        // Windows drops `..` from link target before it follows a/b/d, so f
+        // points at out/a and stays inside output
+        expect(Directory(p.join(out, 'f')).resolveSymbolicLinksSync(),
+            p.join(Directory(out).resolveSymbolicLinksSync(), 'a'));
+        return;
+      }
       expect(FileSystemEntity.typeSync(p.join(out, 'f'), followLinks: false),
           FileSystemEntityType.notFound);
     });

@@ -112,6 +112,9 @@ class InputFileStream extends InputStream {
   int get length => fileRemaining;
 
   @override
+  int get totalLength => _fileSize;
+
+  @override
   int get position => _position;
 
   @override

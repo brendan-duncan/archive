@@ -6,8 +6,6 @@ const _prime3 = 0x165667b19e3779f9;
 const _prime4 = 0x85ebca77c2b2ae63;
 const _prime5 = 0x27d4eb2f165667c5;
 
-bool isXxh64Supported_() => true;
-
 class Xxh64 {
   final int _seed;
   int _v1;

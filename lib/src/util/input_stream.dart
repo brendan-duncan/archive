@@ -19,6 +19,13 @@ abstract class InputStream {
   /// How many bytes are left in the stream.
   int get length;
 
+  /// How many bytes the stream holds in all, whatever the read position.
+  ///
+  /// [position], [setPosition] and [subset] count from the start of the
+  /// stream, so this is where the stream ends in those terms, while [length]
+  /// only counts the bytes after the read position.
+  int get totalLength => position + length;
+
   /// Is the current position at the end of the stream?
   bool get isEOS;
 

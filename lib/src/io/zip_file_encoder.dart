@@ -7,7 +7,6 @@ import '../archive/compression_type.dart';
 import '../codecs/zip_encoder.dart';
 import '../util/input_file_stream.dart';
 import '../util/output_file_stream.dart';
-import '../util/report_progress.dart';
 import 'zip_file_progress.dart';
 
 class ZipFileEncoder {
@@ -22,8 +21,6 @@ class ZipFileEncoder {
   ZipFileEncoder({this.password});
 
   /// Zips a [dir] to a Zip file asynchronously.
-  ///
-  /// {@macro archive.on_progress_zone}
   Future<void> zipDirectory(Directory dir,
       {String? filename,
       int? level,
@@ -37,14 +34,16 @@ class ZipFileEncoder {
       modified: modified,
     );
 
-    await addDirectory(dir,
-        includeDirName: false,
-        level: level,
-        followLinks: followLinks,
-        onProgress: onProgress,
-        filter: filter);
-
-    await close();
+    try {
+      await addDirectory(dir,
+          includeDirName: false,
+          level: level,
+          followLinks: followLinks,
+          onProgress: onProgress,
+          filter: filter);
+    } finally {
+      await close();
+    }
   }
 
   /// Composes the path (target) of the Zip file after a [Directory] is zipped.
@@ -100,8 +99,6 @@ class ZipFileEncoder {
   }
 
   /// Adds the files under [dir] to the zip
-  ///
-  /// {@macro archive.on_progress_zone}
   void addDirectorySync(Directory dir,
       {bool includeDirName = true,
       int? level,
@@ -142,14 +139,12 @@ class ZipFileEncoder {
           includeDirName ? '$dirName/$relPath' : relPath,
           level,
         );
-        reportProgress(onProgress, progress);
+        onProgress?.call(progress);
       }
     }
   }
 
   /// Adds the files under [dir] to the zip asynchronously
-  ///
-  /// {@macro archive.on_progress_zone}
   Future<void> addDirectory(Directory dir,
       {bool includeDirName = true,
       int? level,
@@ -189,7 +184,7 @@ class ZipFileEncoder {
           includeDirName ? '$dirName/$relPath' : relPath,
           level,
         );
-        reportProgress(onProgress, progress);
+        onProgress?.call(progress);
       }
     }
   }
