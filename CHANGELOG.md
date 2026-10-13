@@ -1,3 +1,9 @@
+# 4.5.2
+
+* Fixed `ZipDecoder.decodeStream` returning an empty archive when the
+  input was not at position 0, such as after reading a magic number or
+  decoding the same stream a second time (#405).
+
 # 4.5.1
 
 * Fixed zips written on the web, which decoded to nothing: the zlib encoder

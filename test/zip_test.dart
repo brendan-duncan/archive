@@ -403,6 +403,16 @@ void main() async {
       }
     });
 
+    test('same stream can be decoded twice', () {
+      final input = InputFileStream('test/_data/zip/test.zip');
+      try {
+        expect(ZipDecoder().decodeStream(input).length, 2);
+        expect(ZipDecoder().decodeStream(input).length, 2);
+      } finally {
+        input.closeSync();
+      }
+    });
+
     test('ArchiveFile compression level', () async {
       final testArchive = Archive();
       final list = Uint8List(1000);
