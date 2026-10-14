@@ -32,6 +32,11 @@ class ArchiveFile {
   /// epoch.
   late int lastModTime = DateTime.now().millisecondsSinceEpoch ~/ 1000;
 
+  /// The DOS date and time of a zip entry, `date << 16 | time`, which
+  /// [lastModTime] held before 4.6.0. Null for entries not read by
+  /// `ZipDecoder`.
+  int? lastModDosTime;
+
   /// If symbolicLink is not null, the entry is a symbolic link and this is
   /// the path to what it's linking to. This should be an archive relative path.
   /// Symlinks pointing outside of the archive will be invalid when extracting
@@ -40,6 +45,10 @@ class ArchiveFile {
 
   /// True if the entry is a symbolic link, otherwise false.
   bool get isSymbolicLink => symbolicLink?.isNotEmpty ?? false;
+
+  /// Set by TarDecoder for a tar hard link. Its [symbolicLink] names the
+  /// target from the link's own folder, as for a symbolic link
+  bool isHardLink = false;
 
   /// The crc32 checksum of the uncompressed content.
   int? crc32;
@@ -108,7 +117,9 @@ class ArchiveFile {
   /// A file that gets its content from the given [stream].
   ArchiveFile.stream(this.name, InputStream stream) : mode = 0x1a4 {
     size = stream.length;
-    _rawContent = FileContentStream(stream);
+    _rawContent = FileContentStream(stream.position == 0
+        ? stream
+        : stream.subset(position: stream.position, length: size));
   }
 
   /// A file that gets its content from the given [file].
@@ -125,8 +136,10 @@ class ArchiveFile {
   ArchiveFile.noData(this.name) : mode = 0x1a4;
 
   /// A directory, usually representing an empty directory in an archive.
+  /// 0755 rather than the 0644 a file gets: without the execute bit the
+  /// directory cannot be entered once it is unpacked
   ArchiveFile.directory(this.name)
-      : mode = 0x1a4,
+      : mode = 0x1ed,
         isFile = false;
 
   /// Helper constructor to define a file storing the given [data], which
@@ -137,15 +150,8 @@ class ArchiveFile {
     compression = CompressionType.none;
   }
 
-  DateTime get lastModDateTime {
-    int year = ((lastModTime >> 25) & 0x7f) + 1980;
-    int month = ((lastModTime >> 21) & 0x0f);
-    int day = (lastModTime >> 16) & 0x1f;
-    int hours = (lastModTime >> 11) & 0x1f;
-    int minutes = (lastModTime >> 5) & 0x3f;
-    int seconds = (lastModTime << 1) & 0x3e;
-    return DateTime.utc(year, month, day, hours, minutes, seconds);
-  }
+  DateTime get lastModDateTime =>
+      DateTime.fromMillisecondsSinceEpoch(lastModTime * 1000);
 
   /// Write the contents of the file to the given [output]. If [freeMemory]
   /// is true, then any storage of decompressed data will be freed after

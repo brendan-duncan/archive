@@ -25,6 +25,15 @@ class OutputMemoryStream extends OutputStream {
   Uint8List getBytes() =>
       Uint8List.view(_buffer.buffer, _buffer.offsetInBytes, length);
 
+  /// Grows the buffer to hold [total] bytes without another copy. A caller that
+  /// knows the size up front saves every doubling it would have taken
+  @override
+  void reserve(int total) {
+    if (total > _buffer.length) {
+      _buffer = Uint8List(total)..setRange(0, length, _buffer);
+    }
+  }
+
   /// Clear the buffer.
   @override
   void clear() {
@@ -70,7 +79,9 @@ class OutputMemoryStream extends OutputStream {
       }
     } else {
       final bytes = stream.toUint8List();
-      _buffer.setRange(length, length + stream.length, bytes, 0);
+      _buffer.setRange(length, length + bytes.length, bytes, 0);
+      length += bytes.length;
+      return;
     }
     length += stream.length;
   }

@@ -20,10 +20,12 @@ class _GZipEncoder extends ZLibEncoderBase {
   @override
   void encodeStream(InputStream input, OutputStream output,
       {int? level, int? windowBits, bool raw = false}) {
+    final outSink = ZLibOutputSink(output);
+
     final inSink =
         GZipCodec(level: level ?? 6, windowBits: windowBits ?? 15, raw: raw)
             .encoder
-            .startChunkedConversion(OutputStreamSink(output));
+            .startChunkedConversion(outSink);
 
     while (!input.isEOS) {
       final chunkSize = min(zlibChunkSize, input.length);

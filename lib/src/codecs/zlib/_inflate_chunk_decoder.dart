@@ -1,4 +1,6 @@
+import '../../util/adler32.dart';
 import '../../util/archive_exception.dart';
+import '../../util/crc32.dart';
 import '../../util/input_decode_stream.dart';
 import '../../util/input_stream.dart';
 import '../../util/output_stream.dart';
@@ -11,23 +13,36 @@ enum InflateFormat { gzip, zlib, raw }
 /// Decodes gzip, zlib or raw deflate data with the Dart [Inflate], a deflate
 /// block at a time.
 ///
-/// A gzip member's CRC is not checked here: the output goes into a window
-/// that may have slid past the start of the member by the time its trailer
-/// is read. The length in the trailer is checked, which catches truncation.
+/// A gzip member's CRC and a zlib stream's Adler-32 are checked only with
+/// [verify]. The output goes into a window that may have slid past the start
+/// of the member by the time its trailer is read, so the checksum is updated
+/// after each deflate block. The length in the gzip trailer is always
+/// checked, which catches truncation.
 class InflateChunkDecoder implements ChunkDecoder {
   final InputStream input;
   InflateFormat format;
+  final bool verify;
 
   Inflate? _inflate;
   int _members = 0;
   int _memberStart = 0;
+  int _check = 0;
   _State _state = _State.header;
+  OutputStream? _blockOutput;
+  int _blockStart = 0;
 
-  InflateChunkDecoder(this.input, this.format);
+  InflateChunkDecoder(this.input, this.format, {this.verify = false});
 
   /// A match in deflate can reach back 32 KB.
   @override
-  int get history => 32768;
+  int get history {
+    final output = _blockOutput;
+    if (output == null) {
+      return 32768;
+    }
+    final block = output.length - _blockStart;
+    return block > 32768 ? block : 32768;
+  }
 
   @override
   bool decodeChunk(OutputStream output) {
@@ -57,13 +72,28 @@ class InflateChunkDecoder implements ChunkDecoder {
           _readZLibHeader();
         }
         _memberStart = output.length;
+        _check = format == InflateFormat.zlib ? 1 : 0;
         _inflate = Inflate.lazy(input, output: output);
         _state = _State.blocks;
         return true;
 
       case _State.blocks:
+        final before = output.length;
+        if (verify) {
+          _blockOutput = output;
+          _blockStart = before;
+        }
         if (!_inflate!.inflateBlock()) {
           _state = _State.trailer;
+        }
+        _blockOutput = null;
+        if (verify && output.length > before) {
+          final block = output.subset(before);
+          if (format == InflateFormat.gzip) {
+            _check = getCrc32(block, _check);
+          } else if (format == InflateFormat.zlib) {
+            _check = getAdler32(block, _check);
+          }
         }
         return true;
 
@@ -72,16 +102,25 @@ class InflateChunkDecoder implements ChunkDecoder {
           if (input.length < 8) {
             throw ArchiveException('Truncated gzip stream');
           }
-          input.readUint32(); // crc
+          final crc = input.readUint32();
           final size = input.readUint32();
           if ((output.length - _memberStart) % 0x100000000 != size) {
             throw ArchiveException('gzip member length does not match');
+          }
+          if (verify && crc != _check) {
+            throw ArchiveChecksumException('Invalid gzip checksum');
           }
         } else if (format == InflateFormat.zlib) {
           if (input.length < 4) {
             throw ArchiveException('Truncated zlib stream');
           }
-          input.readUint32(); // adler32
+          var adler = 0;
+          for (var i = 0; i < 4; i++) {
+            adler = (adler << 8) | input.readByte();
+          }
+          if (verify && adler != _check) {
+            throw ArchiveChecksumException('Invalid zlib checksum');
+          }
         }
         _members++;
         // A gzip stream is a series of members; the others are one stream.

@@ -12,9 +12,14 @@ bool        decodeStream(InputStream input, OutputStream output, {...});
 InputStream decodeLazy(InputStream input, {...});
 ```
 
+Without flags, `decodeBytes` returns what decoded before the damage and
 `decodeStream` returns `false` when the input is malformed or truncated;
 whatever was decoded before the failure is already in `output` and should be
-discarded. `decodeLazy` returns a stream that decodes as it is read and
+discarded. `throwOnError: true` throws `ArchiveException` instead.
+`verify: true` also checks the checksums: alone it reports a mismatch the same
+way as damage, and with `throwOnError: true` a mismatch throws
+`ArchiveChecksumException` (see [errors](README.md#errors)).
+`decodeLazy` returns a stream that decodes as it is read and
 throws `ArchiveException` when it reaches bad data (see
 [streaming](streaming.md#decoding-as-you-read-decodelazy)).
 
@@ -30,7 +35,7 @@ See [security](security.md).
 | gzip | `.gz`, `.tar.gz`. Native zlib on the VM. The most widely readable. |
 | zlib / deflate | The same compression with a different (or no) header; used inside zip, PNG and many protocols. |
 | bzip2 | `.bz2`, `.tar.bz2`. Pure Dart. |
-| zstd | `.zst`, `.tar.zst`. Pure Dart, levels from very fast to high ratio. |
+| zstd | `.zst`, `.tar.zst`. Pure Dart port of zstd 1.5.7, levels from very fast to high ratio. |
 | xz | `.xz`, `.tar.xz`. Full decoder; the encoder does not compress. |
 
 ## gzip
@@ -41,11 +46,9 @@ final fromGz = GZipDecoder().decodeBytes(gz);
 ```
 
 - `level`: 0 (store) to 9 (smallest). Default 6.
-- `GZipDecoder().decodeBytes` cannot report a truncated input; it returns
-  whatever decoded. Use `decodeStream` and check the result when that
-  matters, or set `maxOutputSize`, which routes through `decodeStream`.
-- `verify`: check the CRC of the output. Not every implementation honours
-  it.
+- Without flags `GZipDecoder().decodeBytes` returns whatever decoded from a
+  truncated input. Pass `throwOnError: true` when that matters.
+- `verify`: check the CRC and size of every member.
 - On native platforms this uses `dart:io`'s zlib. See
   [platforms](platforms.md#choosing-the-gzipzlib-implementation) for the
   pure Dart `GZipDecoderWeb`/`GZipEncoderWeb`.
@@ -79,34 +82,41 @@ final fromBz = BZip2Decoder().decodeBytes(bz, verify: true);
 
 - The encoder always uses 900 KB blocks (`bzip2 -9`); it has no level.
 - `verify` checks the block CRCs.
-- Only the first stream is decoded. Files made by concatenating bzip2
-  streams, as parallel tools such as `pbzip2` write, decode to just the
-  first part, without an error.
+- Concatenated streams, as parallel tools such as `pbzip2` write, are
+  decoded in sequence, as `bzip2 -d` does.
 
 ## zstd
 
 ```dart
-final zst = ZstdEncoder().encodeBytes(data, level: 19, checksum: true);
+final zst = ZstdEncoder().encodeBytes(data, level: 19);
 final fromZst =
     ZstdDecoder().decodeBytes(zst, verify: true, throwOnError: true);
 ```
 
+The encoder and decoder are ported from zstd 1.5.7, and the encoder output
+is byte identical with the reference at every level.
+
 `ZstdEncoder`:
 
-- `level`: `zstdMinLevel` (-7, fastest) to `zstdMaxLevel` (22, smallest).
-  0 means `zstdDefaultLevel` (3). Levels 20 and up use windows of 32 MB or
-  more, which the decoder must also hold.
+- `level`: `zstdMinLevel` (-131072, fastest) to `zstdMaxLevel` (22,
+  smallest). Negative levels are `zstd --fast=N`. 0 means `zstdDefaultLevel`
+  (3), and a level outside the range is treated as the nearest end. Levels
+  20 and up use windows of 32 MB or more, which the decoder must also hold.
 - `checksum`: append a content checksum (off by default).
-- Output is a single frame with the content size in its header.
-- No dictionary support when encoding.
+- `dictionary`: the dictionary bytes, see below. `ZstdEncoder.withDictionary`
+  takes a `ZstdDictionary` parsed once.
+- Output is a single frame.
+- `multithread` splits the work over isolates, see
+  [streams and isolates](streams-and-isolates.md#spreading-one-call-over-isolates).
 
 `ZstdDecoder`:
 
-- `ZstdDecoder(dictionary: bytes)` decodes frames made with a dictionary,
+- `ZstdDecoder(dictionary: ...)` decodes frames made with a dictionary,
   either a `zstd --train` dictionary or raw content bytes.
+  `ZstdDecoder.withDictionary` takes a `ZstdDictionary` parsed once.
 - `ZstdDecoder(maxWindowSize: ...)` is the largest window a frame may ask
-  for, default `zstdDefaultMaxWindowSize` (128 MB), up to 2 GB. Raise it
-  for files written with `zstd --long` or `--ultra`.
+  for, default `zstdDefaultMaxWindowSize` (128 MB). Raise it for files
+  written with `zstd --long` or `--ultra`.
 - `verify` checks frame checksums where present.
 - `throwOnError` makes `decodeBytes`/`decodeStream` throw
   `ArchiveException` on bad input instead of returning partial output or
@@ -118,6 +128,27 @@ final decoder = ZstdDecoder(
     dictionary: dictionary, maxWindowSize: 256 * 1024 * 1024);
 ```
 
+A dictionary trained with `zstd --train` is passed to both the encoder and the decoder.
+The frame header stores the dictionary ID, so the frame can only be decoded with the same
+dictionary:
+
+```dart
+final dictionary = File('dict').readAsBytesSync();
+final compressed =
+    ZstdEncoder(level: 6, dictionary: dictionary).encodeBytes(bytes);
+final data = ZstdDecoder(dictionary: dictionary).decodeBytes(compressed);
+
+// ZstdDictionary is parsed once, so encoders and decoders can share it
+final parsed = ZstdDictionary(dictionary);
+final again = ZstdDecoder.withDictionary(parsed).decodeBytes(compressed);
+```
+
+Unlike original zstd CLI, compression levels 20-22 do not require --ultra flag
+to work in `ZstdEncoder`, which knows the input size. `ZstdEncoderConverter`
+and `ZstdCodec` without `contentSize` reduce them to 19 unless `ultra: true` is
+given, as `zstd` does without `--ultra`: level 22 of unknown size takes 655 MB
+even for 100 bytes of input.
+
 ## xz
 
 ```dart
@@ -126,17 +157,16 @@ final fromXz = XZDecoder().decodeBytes(xz, verify: true, throwOnError: true);
 ```
 
 `XZEncoder` writes valid `.xz` files, but stores the data without
-compressing it, and reads all of its input into memory. Use it only where
+compressing it. Use it only where
 a tool requires the `.xz` format. `check:` selects the integrity check:
-`XZCheck.crc64` (default), `crc32`, `sha256` or `none`. On dart2js use
-`crc32`; see [platforms](platforms.md).
+`XZCheck.crc64` (default), `crc32`, `sha256` or `none`.
 
 `XZDecoder` reads `.xz` files with LZMA2 compression, optionally behind the
 x86 BCJ filter (the filter chains `xz` itself produces by default and with
 `--x86`). Other filters fail with an error. Legacy `.lzma` files are not
 supported. Options:
 
-- `verify`: check each block's CRC-32 or CRC-64 (CRC-64 not on dart2js).
+- `verify`: check each block's CRC-32 or CRC-64.
   SHA-256 checks are read but not verified.
 - `throwOnError`: throw `ArchiveException` on bad input instead of
   returning partial output or `false`.
@@ -185,7 +215,7 @@ await output.close();
   (`xzDefaultMemoryBudget`). It can lower the worker count.
 - `fileReadBufferSize`: read buffer for each worker when the input is an
   `InputFileStream` (default 8 MB).
-- `onError` is required if you set `throwOnError`.
+- Without `onError` a failure reaches `onDone` as empty output.
 
 `decodeStream` from an `InputFileStream` to an `OutputFileStream` is the
 cheapest combination: each worker reads its own block from the file. With

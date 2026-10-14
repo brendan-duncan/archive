@@ -12,8 +12,9 @@ can safely ask for.
 | `archive_io.dart` | yes | no (needs `dart:io`) | no (needs `dart:io`) |
 | gzip / zlib | `dart:io` native zlib | pure Dart | pure Dart |
 | `InputFileStream` / `OutputFileStream` on paths | yes | no file system | no file system |
-| Multithreaded xz | isolates | runs on the calling thread | runs on the calling thread |
-| CRC-64 (`getCrc64`, xz CRC-64 checks) | yes | no | yes |
+| Multithreaded xz decoding, zstd encoding | isolates | runs on the calling thread | runs on the calling thread |
+| `getCrc64` | yes | no | yes |
+| xz CRC-64 checks | yes | yes | yes |
 | Default `XZDecoder.maxPreallocateSize` | 2 GB | 256 MB | 256 MB |
 
 ## Native
@@ -59,24 +60,18 @@ Other web differences:
   in an archive to pre-size its output (`xzDefaultMaxPreallocateSize`),
   against 2 GB on native. Use `maxOutputSize` (see [security](security.md))
   to fail early on outputs you cannot hold.
-- **xz multithreading.** Isolates cannot be spawned on either web target.
-  Passing `XZMultithreadOptions` still works: the decode runs on the calling
-  thread and the result is delivered through `onDone`, which is called
-  before `decodeBytes`/`decodeStream` returns. Code that awaits a
-  `Completer` completed from `onDone` works the same on both.
-- **CRC-64 on dart2js.** JavaScript numbers cannot hold a 64-bit CRC.
-  `getCrc64` throws `UnsupportedError`, `XZEncoder` must be given
-  `check: XZCheck.crc32` (or `none`/`sha256`) instead of its default
-  `crc64`, and `XZDecoder` skips verifying CRC-64 checks. dart2wasm has
-  64-bit integers and supports all of these.
+- **Multithreading.** Isolates cannot be spawned on either web target.
+  Passing `XZMultithreadOptions` or `ZstdMultithreadOptions` still works:
+  the work runs on the calling thread and the result is delivered through
+  `onDone`, which is called before the call returns. Code that awaits a
+  `Completer` completed from `onDone` works the same on both, and zstd
+  writes the same bytes.
+- **CRC-64 on dart2js.** JavaScript numbers cannot hold a 64-bit CRC, so
+  `getCrc64` throws `UnsupportedError`. `XZEncoder` and `XZDecoder` compute
+  CRC-64 as two 32-bit halves and write and verify it on every platform.
 - **Speed.** The LZMA range decoder and the zstd bit reader and hash have
   64-bit versions used on the VM and wasm, and slower 32-bit versions used
   on dart2js.
-
-```dart
-// On the web, xz must not use the default CRC-64 check under dart2js.
-final xz = XZEncoder().encodeBytes(bytes, check: XZCheck.crc32);
-```
 
 ## Choosing the gzip/zlib implementation
 

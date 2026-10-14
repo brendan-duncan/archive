@@ -1,249 +1,363 @@
-import 'dart:math' as math;
 import 'dart:typed_data';
 
 import '../util/_limited_output_stream.dart';
-import '../util/archive_exception.dart';
+import '../util/chunked_sink.dart';
+import '../util/decode_guard.dart';
 import '../util/input_decode_stream.dart';
-import '../util/input_memory_stream.dart';
 import '../util/input_stream.dart';
 import '../util/output_memory_stream.dart';
 import '../util/output_stream.dart';
+import 'zstd/zstd_chunked.dart';
+import 'zstd/zstd_constants.dart';
 import 'zstd/zstd_dictionary.dart';
-import 'zstd/zstd_error.dart';
 import 'zstd/zstd_frame_decoder.dart';
+import 'zstd/zstd_window.dart';
 
-// The zstd format is specified in RFC 8878,
-// https://datatracker.ietf.org/doc/html/rfc8878.
+export 'zstd/zstd_constants.dart' show zstdDefaultMaxWindowSize;
 
-/// The default for [ZstdDecoder.maxWindowSize]: 128 MB, the same limit the
-/// reference zstd decoder applies unless told otherwise.
-const int zstdDefaultMaxWindowSize = 1 << 27;
-
-/// Decompress data in the zstd (Zstandard) format.
-///
-/// Every frame in the input is decoded, one after another, as the reference
-/// decoder does, and skippable frames are passed over.
+/// Decompress data with the zstd format decoder.
 class ZstdDecoder {
-  /// The largest window, in bytes, a frame may ask for.
-  ///
-  /// The window is the history that matches may refer back into, and the
-  /// decoder has to hold all of it. A frame names its own window size, so
-  /// this bounds what a hostile input can make the decoder allocate. Frames
-  /// written by `zstd --long` or at `--ultra` levels can need more than the
-  /// default, up to 2 GB.
+  /// Frames declaring a window above this are rejected rather than allocated
+  /// for, since the header is only as trustworthy as whoever wrote the file.
+  /// The format permits up to 3.75 TB; the default matches the reference
+  /// decoder's own ceiling
   final int maxWindowSize;
 
-  final ZstdDictionary? _dictionary;
+  /// Applied to every frame, whether or not the frame has a dictionary id.
+  /// A frame with a dictionary id is rejected unless this dictionary has
+  /// that id
+  final ZstdDictionary? dictionary;
 
-  /// Creates a decoder.
-  ///
   /// Pass [dictionary] to decode frames compressed with one. It may be a
   /// dictionary in the zstd format, as `zstd --train` writes, or any other
-  /// bytes, which are then used as raw content. Throws an [ArgumentError] if
-  /// it starts like a zstd dictionary but is not a well formed one.
-  ZstdDecoder(
-      {List<int>? dictionary, this.maxWindowSize = zstdDefaultMaxWindowSize})
-      : _dictionary = _parseDictionary(dictionary) {
-    if (maxWindowSize < 0 || maxWindowSize > 0x80000000) {
-      throw ArgumentError.value(
-          maxWindowSize, 'maxWindowSize', 'Must be between 0 and 2 GB');
+  /// bytes, which are then used as raw content
+  ZstdDecoder({int? maxWindowSize, List<int>? dictionary})
+      : this.withDictionary(
+            dictionary == null ? null : ZstdDictionary(dictionary),
+            maxWindowSize: maxWindowSize);
+
+  /// Takes a [ZstdDictionary] parsed once, so decoders can share it
+  ZstdDecoder.withDictionary(this.dictionary, {int? maxWindowSize})
+      : maxWindowSize = maxWindowSize ?? zstdDefaultMaxWindowSize {
+    if (this.maxWindowSize < 1024) {
+      throw ArgumentError.value(maxWindowSize, 'maxWindowSize',
+          'Must be at least the 1 KB minimum window');
     }
   }
 
-  static ZstdDictionary? _parseDictionary(List<int>? bytes) {
-    if (bytes == null) {
-      return null;
-    }
-    try {
-      return ZstdDictionary(bytes);
-    } on ZstdFormatError catch (e) {
-      throw ArgumentError(
-          'Malformed zstd dictionary: ${e.message}', 'dictionary');
-    } on RangeError {
-      throw ArgumentError('Truncated zstd dictionary', 'dictionary');
-    }
-  }
-
-  /// Decompress the given [data] in the zstd format.
+  /// Decompress the given [bytes] with the zstd format.
   ///
-  /// A malformed or truncated input yields whatever was decoded before the
-  /// failure, with nothing to say that it is not the whole thing. Set
-  /// [throwOnError] to get an [ArchiveException] instead.
+  /// {@macro archive.verify_throw_on_error}
   ///
-  /// [verify] checks the content checksum of each frame that has one, which
-  /// catches damage that decodes without complaint. It changes only whether a
-  /// failure is noticed, never what a successful decode returns.
-  ///
-  /// With [maxOutputSize], an [ArchiveException] is thrown as soon as the
-  /// decoded data would pass that many bytes, rather than decoding a small
-  /// input that expands without limit.
+  /// {@macro archive.max_output_size.bytes}
   Uint8List decodeBytes(List<int> data,
       {bool verify = false, bool throwOnError = false, int? maxOutputSize}) {
-    // Sized up front from what the first frame declares, which saves growing
-    // the buffer as the output arrives. The declaration is only as trustworthy
-    // as the data, so above a ceiling it is not acted on.
-    // Nor past what the input could possibly decode to, which keeps a header
-    // of a few bytes from claiming hundreds of megabytes.
-    var size = _declaredSize(data);
-    if (size != null) {
-      size = math.min(size, data.length * _maxRatio);
-      if (maxOutputSize != null) {
-        size = math.min(size, maxOutputSize);
+    final bytes = data is Uint8List ? data : Uint8List.fromList(data);
+    // One frame decodes into its own buffer and is returned as a view of it.
+    // Several would have to be joined afterwards, holding every frame and the
+    // join at once, so they go through one sink instead
+    if (maxOutputSize != null || _frameCount(bytes) > 1) {
+      final sink = OutputMemoryStream();
+      final total = uncompressedSize(bytes);
+      if (total != null && total > 0) {
+        var reserve = _affordable(total, bytes.length, zstdBlockMaximumSize);
+        if (maxOutputSize != null && maxOutputSize < reserve) {
+          reserve = maxOutputSize;
+        }
+        sink.reserve(reserve);
       }
+      decodeLimited(
+          sink,
+          maxOutputSize,
+          (output) => guardDecode('zstd', verify, throwOnError, () {
+                _decode(bytes, verify, sink, null, output);
+                return true;
+              }));
+      return _exact(sink.getBytes());
     }
-    final output = OutputMemoryStream(
-        size:
-            size != null && size > 0 && size <= _maxPreallocate ? size : null);
-    decodeStream(InputMemoryStream(data), output,
-        verify: verify,
-        throwOnError: throwOnError,
-        maxOutputSize: maxOutputSize);
-    return output.getBytes();
+    final parts = <Uint8List>[];
+    final ok = guardDecode('zstd', verify, throwOnError, () {
+      _decode(bytes, verify, null, parts);
+      return true;
+    });
+    if (!ok && parts.length > 1) {
+      final joined = OutputMemoryStream(
+          size: parts.fold<int>(0, (sum, part) => sum + part.length));
+      for (final part in parts) {
+        joined.writeBytes(part);
+      }
+      return _exact(joined.getBytes());
+    }
+    return parts.isEmpty ? Uint8List(0) : _exact(parts[0]);
   }
 
-  static const int _maxPreallocate = 256 * 1024 * 1024;
+  static Uint8List _exact(Uint8List bytes) =>
+      bytes.length < bytes.buffer.lengthInBytes >> 1
+          ? Uint8List.fromList(bytes)
+          : bytes;
 
-  // The most a byte of input can decode to: an RLE block takes four bytes,
-  // its header and the byte, to give a 128 KB block.
-  static const int _maxRatio = 32 * 1024;
-
-  // The content size the first frame declares, if the data starts with a
-  // frame that declares one.
-  static int? _declaredSize(List<int> d) {
-    if (d.length < 6 ||
-        d[0] != 0x28 ||
-        d[1] != 0xb5 ||
-        d[2] != 0x2f ||
-        d[3] != 0xfd) {
-      return null;
-    }
-    final descriptor = d[4];
-    final singleSegment = descriptor & 0x20 != 0;
-    var size = const [0, 2, 4, 8][descriptor >> 6];
-    if (size == 0) {
-      if (!singleSegment) {
-        return null;
+  /// How many frames have content, without decoding any of them. Anything the
+  /// scan cannot parse counts as one, which keeps the decode itself the
+  /// only place that reports a malformed archive
+  int _frameCount(Uint8List bytes) {
+    var at = 0;
+    var frames = 0;
+    try {
+      while (at + 4 <= bytes.length) {
+        final magic = _uint32At(bytes, at);
+        if (magic >= zstdSkippableMagicMin && magic <= zstdSkippableMagicMax) {
+          at += 8 + _uint32At(bytes, at + 4);
+          continue;
+        }
+        if (magic != zstdMagic) {
+          return 1;
+        }
+        final header =
+            readFrameHeader(bytes, at + 4, bytes.length, maxWindowSize);
+        at = _skipFrame(bytes, at + 4 + header.size, header);
+        frames++;
+        if (frames > 1) {
+          return frames;
+        }
       }
-      size = 1;
+    } catch (_) {
+      return 1;
     }
-    final pos =
-        5 + (singleSegment ? 0 : 1) + const [0, 1, 2, 4][descriptor & 3];
-    if (pos + size > d.length) {
-      return null;
-    }
-    var value = 0;
-    var scale = 1;
-    for (var i = 0; i < size; i++) {
-      value += d[pos + i] * scale;
-      scale *= 256;
-    }
-    return size == 2 ? value + 256 : value;
+    return frames;
   }
 
-  /// Decompress the given [input] in the zstd format, writing the
+  /// Decompress the given [input] with the zstd format, writing the
   /// decompressed data to the [output] stream.
   ///
-  /// Returns false if the input is malformed or truncated, in which case
-  /// [output] holds however much was decoded before the failure and should be
-  /// discarded. Set [throwOnError] to get an [ArchiveException] instead; the
-  /// partial data is in [output] either way.
+  /// {@macro archive.verify_throw_on_error}
   ///
-  /// [verify] checks the content checksum of each frame that has one.
-  ///
-  /// With [maxOutputSize], an [ArchiveException] is thrown as soon as more
-  /// than that many bytes would be written to [output], whatever
-  /// [throwOnError] is.
+  /// {@macro archive.max_output_size.stream}
   bool decodeStream(InputStream input, OutputStream output,
-          {bool verify = false,
-          bool throwOnError = false,
-          int? maxOutputSize}) =>
-      decodeLimited(output, maxOutputSize, (output) {
-        final decoder = _ZstdChunkDecoder(_frameDecoder(verify), input);
-        try {
-          while (decoder.decodeChunk(output)) {}
-          return true;
-        } on ArchiveException {
-          if (throwOnError) {
-            rethrow;
-          }
-          return false;
-        }
-      });
+      {bool verify = false, bool throwOnError = false, int? maxOutputSize}) {
+    return decodeLimited(
+        output,
+        maxOutputSize,
+        (output) => guardDecode('zstd', verify, throwOnError, () {
+              _stream(input, output, verify);
+              return true;
+            }));
+  }
 
-  /// Returns an [InputStream] that decompresses [input] as it is read.
+  /// {@macro archive.decode_lazy}
   ///
-  /// Nothing is decoded until the returned stream is read, and only a window
-  /// of the decoded data is held in memory, so a multi-gigabyte `.zst` can
-  /// be fed to another decoder, such as a tar decoder, without a temp file.
-  /// The stream is read forwards: see [InputDecodeStream] for what that
-  /// means. A malformed or truncated input throws an [ArchiveException] from
-  /// the read that runs into it. [verify] is as for [decodeStream].
+  /// [verify] checks frame checksums, and a mismatch throws from the read that
+  /// reaches the end of that frame.
   InputStream decodeLazy(InputStream input, {bool verify = false}) =>
-      InputDecodeStream(_ZstdChunkDecoder(_frameDecoder(verify), input));
+      InputDecodeStream(ChunkedSinkDecoder(
+          input,
+          (output) => ZstdChunkedDecoder(output,
+              verify: verify,
+              dictionary: dictionary,
+              maxWindowSize: maxWindowSize)));
 
-  ZstdFrameDecoder _frameDecoder(bool verify) => ZstdFrameDecoder(
-      maxWindowSize: maxWindowSize, dictionary: _dictionary, verify: verify);
-}
+  /// Reads the frames of [input] a block at a time, so neither the compressed
+  /// side nor the decoded one is ever held whole
+  void _stream(InputStream input, OutputStream output, bool verify) {
+    Uint8List? scratch;
+    var frames = 0;
+    var skipped = 0;
+    while (!input.isEOS) {
+      if (input.length < 4) {
+        throw ZstdFrameException('Trailing bytes are not a frame');
+      }
+      final magic = _uint32At(input.peekBytes(4).toUint8List(), 0);
+      if (magic >= zstdSkippableMagicMin && magic <= zstdSkippableMagicMax) {
+        if (input.length < 8) {
+          throw ZstdFrameException('Skippable frame header is truncated');
+        }
+        final size = _uint32At(input.peekBytes(8).toUint8List(), 4);
+        if (input.length < 8 + size) {
+          throw ZstdFrameException('Skippable frame is truncated');
+        }
+        input.skip(8 + size);
+        skipped++;
+        continue;
+      }
+      if (magic != zstdMagic) {
+        throw ZstdFrameException('Not a zstd frame');
+      }
 
-/// Decodes a zstd input a block at a time, passing over skippable frames.
-class _ZstdChunkDecoder implements ChunkDecoder {
-  final ZstdFrameDecoder _decoder;
-  final InputStream _input;
-  int _frames = 0;
-  bool _inFrame = false;
+      // The longest header is the magic, the descriptor, a window byte, four
+      // bytes of dictionary id and eight of content size
+      final ahead = input.length < 18 ? input.length : 18;
+      final front = input.peekBytes(ahead).toUint8List();
+      final header = readFrameHeader(front, 4, ahead, maxWindowSize);
+      final dictionary = this.dictionary;
+      if (header.dictionaryId != 0 &&
+          (dictionary == null || dictionary.id != header.dictionaryId)) {
+        throw ZstdFrameException(
+            'Frame needs dictionary ${header.dictionaryId}');
+      }
+      input.skip(4 + header.size);
 
-  _ZstdChunkDecoder(this._decoder, this._input);
+      final window = ZstdWindow(header.windowSize, output: output)
+        ..emitEachBlock = output is LimitedOutputStream;
+      if (dictionary != null && dictionary.content.isNotEmpty) {
+        window.prime(dictionary.content);
+      }
+      // One block of compressed bytes plus its header. The decoder never needs
+      // more of the input at once
+      scratch ??= Uint8List(zstdBlockMaximumSize + 3);
+      if (scratch.length < header.blockSizeMax + 3) {
+        scratch = Uint8List(header.blockSizeMax + 3);
+      }
+      try {
+        ZstdFrameDecoder().decodeBlocksFrom(
+            input, window, header, verify, dictionary, scratch);
+      } finally {
+        window.finish();
+      }
+      frames++;
+    }
+    // An archive of nothing but skippable frames decodes to nothing, the way
+    // the reference reads one. So only an empty input is a failure
+    if (frames == 0 && skipped == 0) {
+      throw ZstdFrameException('No frame: the input is empty');
+    }
+  }
 
-  @override
-  int get history => 0;
-
-  @override
-  bool decodeChunk(OutputStream output) {
+  /// Reads the size the frames declare, or null when any of them does not
+  /// say. It is a claim by whoever wrote the archive, not a fact
+  int? uncompressedSize(List<int> data) {
+    final bytes = data is Uint8List ? data : Uint8List.fromList(data);
+    var at = 0;
+    var total = 0;
     try {
-      return _decodeChunk(output);
-    } on ZstdFormatError catch (e) {
-      throw ArchiveException('Invalid zstd data: ${e.message}');
-    } on RangeError catch (e) {
-      // An index out of range is malformed data that got past the checks.
-      throw ArchiveException('Invalid zstd data: $e');
+      while (at + 4 <= bytes.length) {
+        final magic = _uint32At(bytes, at);
+        if (magic >= zstdSkippableMagicMin && magic <= zstdSkippableMagicMax) {
+          at += 8 + _uint32At(bytes, at + 4);
+          continue;
+        }
+        if (magic != zstdMagic) {
+          return null;
+        }
+        final header =
+            readFrameHeader(bytes, at + 4, bytes.length, maxWindowSize);
+        final size = header.contentSize;
+        if (size == null) {
+          return null;
+        }
+        total += size;
+        // Only the header was read, so the block headers have to be read to
+        // find where the next frame starts
+        at = _skipFrame(bytes, at + 4 + header.size, header);
+      }
+    } catch (_) {
+      return null;
+    }
+    return total;
+  }
+
+  void _decode(Uint8List bytes, bool verify, OutputMemoryStream? output,
+      List<Uint8List>? parts,
+      [OutputStream? target]) {
+    final end = bytes.length;
+    var at = 0;
+    if (end == 0) {
+      throw ZstdFrameException('No frame: the input is empty');
+    }
+    while (at < end) {
+      if (at + 4 > end) {
+        throw ZstdFrameException('Trailing bytes are not a frame');
+      }
+      final magic = _uint32At(bytes, at);
+      if (magic >= zstdSkippableMagicMin && magic <= zstdSkippableMagicMax) {
+        if (at + 8 > end) {
+          throw ZstdFrameException('Skippable frame header is truncated');
+        }
+        final size = _uint32At(bytes, at + 4);
+        if (at + 8 + size > end) {
+          throw ZstdFrameException('Skippable frame is truncated');
+        }
+        at += 8 + size;
+        continue;
+      }
+      if (magic != zstdMagic) {
+        throw ZstdFrameException('Not a zstd frame');
+      }
+
+      final header = readFrameHeader(bytes, at + 4, end, maxWindowSize);
+      final dictionary = this.dictionary;
+      if (header.dictionaryId != 0 &&
+          (dictionary == null || dictionary.id != header.dictionaryId)) {
+        throw ZstdFrameException(
+            'Frame needs dictionary ${header.dictionaryId}');
+      }
+      final prefix = dictionary?.content.length ?? 0;
+      final window = ZstdWindow(header.windowSize, output: target ?? output)
+        ..emitEachBlock = target is LimitedOutputStream;
+      final size = header.contentSize;
+      if (output == null && size != null && size > 0) {
+        // The scratch a block needs above its own output has to be part of the
+        // one allocation, or the last blocks grow the buffer and copy it all
+        window.reserve(prefix +
+            _affordable(size, end - at - 4 - header.size, header.blockSizeMax) +
+            header.blockReserve);
+      }
+      if (prefix > 0) {
+        window.prime(dictionary!.content);
+      }
+      final frame = ZstdFrameDecoder();
+      at += 4 + header.size;
+      try {
+        at += frame.decodeBlocks(
+            bytes, at, end, window, header, verify, dictionary);
+      } finally {
+        if (output != null) {
+          window.finish();
+        } else {
+          parts!.add(Uint8List.sublistView(
+              window.buffer, window.origin, window.position));
+        }
+      }
     }
   }
 
-  bool _decodeChunk(OutputStream output) {
-    if (_inFrame) {
-      if (!_decoder.decodeBlock(_input, output)) {
-        _inFrame = false;
+  /// Reads the block headers of a frame whose header ends at [start] and
+  /// returns where the frame ends
+  int _skipFrame(Uint8List bytes, int start, ZstdFrameHeader header) {
+    var at = start;
+    while (true) {
+      if (at + 3 > bytes.length) {
+        throw ZstdFrameException('Block header is truncated');
       }
-      return true;
-    }
-    if (_input.isEOS) {
-      if (_frames == 0) {
-        throw ZstdFormatError('No zstd frames');
+      final block = bytes[at] | (bytes[at + 1] << 8) | (bytes[at + 2] << 16);
+      final type = (block >> 1) & 3;
+      final size = block >> 3;
+      at += 3 + (type == zstdBlockRle ? 1 : size);
+      if (block & 1 != 0) {
+        break;
       }
-      return false;
     }
-    if (_input.length < 4) {
-      throw ZstdFormatError('Truncated frame header');
-    }
-    final magic = ZstdFrameDecoder.readLittleEndian(_input, 4);
-    if (magic == zstdFrameMagic) {
-      _decoder.startFrame(_input);
-      _inFrame = true;
-    } else if (magic >= zstdSkippableMagic && magic < zstdSkippableMagic + 16) {
-      if (_input.length < 4) {
-        throw ZstdFormatError('Truncated skippable frame');
-      }
-      final size = ZstdFrameDecoder.readLittleEndian(_input, 4);
-      if (_input.length < size) {
-        throw ZstdFormatError('Truncated skippable frame');
-      }
-      _input.skip(size);
-    } else {
-      throw ZstdFormatError(_frames == 0
-          ? 'Not zstd data'
-          : 'Unrecognized data after frame $_frames');
-    }
-    _frames++;
-    return true;
+    return at + (header.hasChecksum ? 4 : 0);
   }
+
+  /// A frame can declare any content size, so the size alone reserves no
+  /// memory. A block costs three bytes of header and yields at most
+  /// [blockSizeMax], so [remaining] bytes of input cannot produce more than
+  /// this whatever the header declares. Above that the buffer grows as needed
+  static int _affordable(int declared, int remaining, int blockSizeMax) {
+    var ceiling = ((remaining + 2) ~/ 3) * blockSizeMax;
+    // 1 MB of RLE blocks can claim 43 GB, and allocating it threw
+    // OutOfMemoryError that throwOnError: false does not catch, so
+    // reservation stops at 256 MB as in ZstdDecoder of 4.5.1
+    if (ceiling > _maxPreallocate) {
+      ceiling = _maxPreallocate;
+    }
+    return declared < ceiling ? declared : ceiling;
+  }
+
+  static const _maxPreallocate = 256 * 1024 * 1024;
+
+  static int _uint32At(Uint8List bytes, int at) =>
+      bytes[at] |
+      (bytes[at + 1] << 8) |
+      (bytes[at + 2] << 16) |
+      (bytes[at + 3] << 24);
 }

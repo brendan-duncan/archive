@@ -1,92 +1,77 @@
 import 'dart:typed_data';
+import 'zstd_web.dart';
 
-import 'zstd_bit_reader.dart';
-
-/// Writes a little endian bitstream into a buffer, lowest bits first, for the
-/// Huffman and FSE streams the encoder produces.
-///
-/// zstd reads its entropy streams backwards, so whatever is written last is
-/// read first. [closeBackward] adds the end marker those streams need.
-///
-/// Where ints are 64 bits wide the container holds up to 63 bits and is
-/// flushed 32 at a time. On JavaScript it stays below 30 bits, which numbers
-/// that size can hold without an allocation, and is flushed a byte at a time.
+/// Writes the bitstreams the format reads backwards. At most 63 bits stand
+/// unflushed. The shift masks below are no-ops because of it
 class ZstdBitWriter {
-  Uint8List _buf = Uint8List(0);
-  ByteData _data = ByteData(0);
-  int _pos = 0;
+  final ByteData view;
+
+  int _container = 0;
+  int _high = 0;
   int _bits = 0;
-  int _count = 0;
+  int _at;
 
-  /// Starts writing into [buf] at [pos].
-  void reset(Uint8List buf, int pos) {
-    if (!identical(buf, _buf)) {
-      _buf = buf;
-      _data = ByteData.sublistView(buf);
-    }
-    _pos = pos;
-    _bits = 0;
-    _count = 0;
-  }
+  ZstdBitWriter(this.view, [int start = 0]) : _at = start;
 
-  /// Adds the low [n] bits of [value], at most 32 of them. [value] must have
-  /// no bits set above those.
+  /// Counts are masked so the shift compiles without a range guard and slow
+  /// path
   @pragma('vm:prefer-inline')
-  @pragma('wasm:prefer-inline')
-  @pragma('dart2js:prefer-inline')
-  void addBits(int value, int n) {
-    if (ZstdBitReader.has64BitInts) {
-      _bits |= value << _count;
-      _count += n;
-      if (_count >= 32) {
-        _data.setUint32(_pos, _bits & 0xffffffff, Endian.little);
-        _pos += 4;
-        _bits >>>= 32;
-        _count -= 32;
-      }
-    } else {
-      if (n > 22) {
-        _addSmall(value & 0xffff, 16);
-        _addSmall(value >>> 16, n - 16);
+  void add(int value, int count) {
+    if (!zstdUse64Bit) {
+      addClean(count >= 32 ? value : value & ((1 << count) - 1), count);
+      return;
+    }
+    _container |= (value & ((1 << (count & 63)) - 1)) << (_bits & 63);
+    _bits += count;
+  }
+
+  /// [value] must have nothing set above [count]
+  @pragma('vm:prefer-inline')
+  void addClean(int value, int count) {
+    if (!zstdUse64Bit) {
+      final at = _bits & 63;
+      if (at >= 32) {
+        _high |= zstdWebShift(value, at - 32);
       } else {
-        _addSmall(value, n);
+        _container |= zstdWebShift(value, at);
+        if (at > 0) _high |= value >>> (32 - at);
       }
+      _bits += count;
+      return;
     }
+    _container |= value << (_bits & 63);
+    _bits += count;
   }
 
-  @pragma('dart2js:prefer-inline')
-  void _addSmall(int value, int n) {
-    _bits |= value << _count;
-    _count += n;
-    while (_count >= 8) {
-      _buf[_pos++] = _bits & 0xff;
-      _bits >>>= 8;
-      _count -= 8;
+  @pragma('vm:prefer-inline')
+  void flush() {
+    if (!zstdUse64Bit) {
+      final bytes = _bits >> 3;
+      view.setUint32(_at, _container, Endian.little);
+      view.setUint32(_at + 4, _high, Endian.little);
+      _at += bytes;
+      _bits &= 7;
+      final shift = (bytes << 3) & 63;
+      if (shift >= 32) {
+        _container = _high >>> (shift - 32);
+        _high = 0;
+      } else if (shift > 0) {
+        _container = (_container >>> shift) | zstdWebShift(_high, 32 - shift);
+        _high >>>= shift;
+      }
+      return;
     }
+    final bytes = _bits >> 3;
+    view.setUint64(_at, _container, Endian.little);
+    _at += bytes;
+    _bits &= 7;
+    _container >>>= (bytes << 3) & 63;
   }
 
-  void _flushBytes() {
-    while (_count > 0) {
-      _buf[_pos++] = _bits & 0xff;
-      _bits >>>= 8;
-      _count -= 8;
-    }
-    _bits = 0;
-    _count = 0;
-  }
-
-  /// Ends a forward stream, padding its last byte with zeros, and returns the
-  /// position after it.
-  int closeForward() {
-    _flushBytes();
-    return _pos;
-  }
-
-  /// Ends a stream that will be read backwards, with the end marker it needs,
-  /// and returns the position after it.
-  int closeBackward() {
-    addBits(1, 1);
-    _flushBytes();
-    return _pos;
+  /// Adds the marker bit the reader looks for
+  int close() {
+    addClean(1, 1);
+    flush();
+    return _at + (_bits > 0 ? 1 : 0);
   }
 }

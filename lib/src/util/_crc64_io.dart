@@ -22,6 +22,24 @@ Int64List _buildSlicingTables() {
   return tables;
 }
 
+/// A running CRC-64. Here an int holds the whole of it, so the halves are read
+/// back out of the one value
+class Crc64Core {
+  var _crc = 0;
+
+  void reset() {
+    _crc = 0;
+  }
+
+  void update(List<int> array) {
+    _crc = getCrc64_(array, _crc);
+  }
+
+  int get high32 => (_crc >>> 32) & 0xffffffff;
+
+  int get low32 => _crc & 0xffffffff;
+}
+
 /// Get the CRC-64 checksum of the given array. You can append bytes to an
 /// already computed crc by specifying the previous [crc] value.
 int getCrc64_(List<int> array, [int crc = 0]) =>

@@ -246,13 +246,18 @@ class _DecodeWindow extends OutputStream {
   Uint8List read(int pos, int count) {
     _ensure(pos, count);
     final n = max(0, min(count, _limit - pos));
+    if (n == 0) {
+      return Uint8List(0);
+    }
     return _buffer.sublist(pos - _start, pos - _start + n);
   }
 
   Uint8List readToEnd(int pos) => read(pos, remainingFrom(pos));
 
   int remainingFrom(int pos) {
-    _ensure(pos, 1 << 50);
+    // 1 << 50 is 1 << 18 under dart2js, whose shifts are 32-bit, and length
+    // then decoded only 256 KB ahead. The literal is exact in a double
+    _ensure(pos, 1125899906842624);
     return max(0, _limit - pos);
   }
 

@@ -2,6 +2,8 @@ import 'dart:typed_data';
 
 import '../util/_limited_output_stream.dart';
 import '../util/archive_exception.dart';
+import '../util/chunked_sink.dart';
+import '../util/decode_guard.dart';
 import '../util/input_decode_stream.dart';
 import '../util/input_memory_stream.dart';
 import '../util/input_stream.dart';
@@ -9,52 +11,67 @@ import '../util/output_memory_stream.dart';
 import '../util/output_stream.dart';
 import 'bzip2/bz2_bit_reader.dart';
 import 'bzip2/bzip2.dart';
+import 'bzip2/bzip2_chunked.dart';
 
 /// Decompress bzip2 compressed data.
 /// Derived from libbzip2 (http://www.bzip.org).
 class BZip2Decoder {
-  /// Decompress [data].
+  /// {@macro archive.verify_throw_on_error}
   ///
-  /// With [maxOutputSize], an [ArchiveException] is thrown as soon as the
-  /// decoded data would pass that many bytes, rather than decoding a small
-  /// input that expands without limit.
+  /// {@macro archive.max_output_size.bytes}
   Uint8List decodeBytes(List<int> data,
-      {bool verify = false, int? maxOutputSize}) {
+      {bool verify = false, bool throwOnError = false, int? maxOutputSize}) {
     final input = InputMemoryStream(data);
     final output = OutputMemoryStream();
-    decodeStream(input, output, verify: verify, maxOutputSize: maxOutputSize);
+    decodeStream(input, output,
+        verify: verify,
+        throwOnError: throwOnError,
+        maxOutputSize: maxOutputSize);
     return output.getBytes();
   }
 
-  /// Decompress [input] into [output], returning false if it is malformed.
+  /// {@macro archive.verify_throw_on_error}
   ///
-  /// With [maxOutputSize], an [ArchiveException] is thrown as soon as more
-  /// than that many bytes would be written to [output].
+  /// {@macro archive.max_output_size.stream}
   bool decodeStream(InputStream input, OutputStream output,
-          {bool verify = false, int? maxOutputSize}) =>
-      decodeLimited(output, maxOutputSize, (output) {
-        final decoder = _Bzip2ChunkDecoder(this, input, verify);
-        try {
-          while (decoder.decodeChunk(output)) {}
-        } on ArchiveException {
-          return false;
-        }
-        return true;
-      });
+      {bool verify = false, bool throwOnError = false, int? maxOutputSize}) {
+    return decodeLimited(
+        output,
+        maxOutputSize,
+        (output) => guardDecode('bzip2', verify, throwOnError,
+            () => _decodeStreams(input, output, verify)));
+  }
 
-  /// Returns an [InputStream] that decompresses [input] as it is read.
+  /// {@macro archive.decode_lazy}
   ///
-  /// Nothing is decoded until the returned stream is read, and only a window
-  /// of the decoded data is held in memory, so a multi-gigabyte `.bz2` can
-  /// be fed to another decoder, such as a tar decoder, without a temp file.
-  /// The stream is read forwards: see [InputDecodeStream] for what that
-  /// means. A malformed or truncated input throws an [ArchiveException] from
-  /// the read that runs into it. [verify] checks the block checksums.
+  /// [verify] checks the block checksums.
   InputStream decodeLazy(InputStream input, {bool verify = false}) =>
-      InputDecodeStream(_Bzip2ChunkDecoder(this, input, verify));
+      InputDecodeStream(ChunkedSinkDecoder(
+          input, (output) => BZip2ChunkedDecoder(output, verify: verify)));
 
-  // Reads the stream header, returning false if it is not a bzip2 stream.
-  bool _readHeader(Bz2BitReader br) {
+  bool _decodeStreams(InputStream input, OutputStream output, bool verify) {
+    // Support concatenated streams (like pbzip2, which writes one stream per
+    // block). Any trailing data that doesn't start a new stream is safely
+    // ignored
+    while (true) {
+      if (!_decodeStream(input, output, verify: verify)) {
+        return false;
+      }
+      if (input.isEOS) {
+        return true;
+      }
+      // After a stream bzip2 1.0.8 reads BZh and a digit from 1 to 9. If a byte
+      // differs, bzip2 ignores the rest as trailing garbage and exits
+      if (BZip2.breaksSignature(input.peekBytes(4).toUint8List())) {
+        return true;
+      }
+    }
+  }
+
+  bool _decodeStream(InputStream input, OutputStream output,
+      {bool verify = false}) {
+    final br = Bz2BitReader(input);
+
     _groupPos = 0;
     _groupNo = 0;
     _gSel = 0;
@@ -64,15 +81,90 @@ class BZip2Decoder {
         br.readByte() != BZip2.bzhSignature[1] ||
         br.readByte() != BZip2.bzhSignature[2]) {
       return false;
+      //throw ArchiveException('Invalid Signature');
     }
 
+    // The format has block sizes one to nine. bzip2 itself calls BZh0 a bad
+    // magic number, and a zero here would give us an empty _tt to index
     _blockSize100k = br.readByte() - BZip2.hdr0;
-    if (_blockSize100k < 0 || _blockSize100k > 9) {
+    if (_blockSize100k < 1 || _blockSize100k > 9) {
       return false;
+      //throw ArchiveException('Invalid BlockSize');
     }
 
-    _tt = Uint32List(_blockSize100k * 100000);
-    return true;
+    _tt = Uint32List(_ttStartSize);
+
+    var combinedCrc = 0;
+
+    while (!input.isEOS) {
+      final type = _readBlockType(br);
+      if (type < 0) {
+        return false;
+      }
+      if (type == blockCompressed) {
+        var storedBlockCrc = 0;
+        storedBlockCrc = (storedBlockCrc << 8) | br.readByte();
+        storedBlockCrc = (storedBlockCrc << 8) | br.readByte();
+        storedBlockCrc = (storedBlockCrc << 8) | br.readByte();
+        storedBlockCrc = (storedBlockCrc << 8) | br.readByte();
+
+        var blockCrc = _readCompressed(br, output);
+        if (blockCrc < 0 || br.overrun) {
+          return false;
+        }
+        blockCrc = BZip2.finalizeCrc(blockCrc);
+
+        if (verify && blockCrc != storedBlockCrc) {
+          throw ArchiveChecksumException('Invalid block checksum.');
+        }
+        combinedCrc = ((combinedCrc << 1) | (combinedCrc >> 31)) & 0xffffffff;
+        combinedCrc ^= blockCrc;
+      } else if (type == blockEos) {
+        // Prevent false positives from zero-padding at EOF. We manually check
+        // the remaining bits to ensure the file wasn't truncated during the
+        // checksum
+        if (br.bitsLeft + input.length * 8 < 32) {
+          return false;
+        }
+        var storedCrc = 0;
+        storedCrc = (storedCrc << 8) | br.readByte();
+        storedCrc = (storedCrc << 8) | br.readByte();
+        storedCrc = (storedCrc << 8) | br.readByte();
+        storedCrc = (storedCrc << 8) | br.readByte();
+
+        if (br.overrun) {
+          return false;
+        }
+        if (verify && storedCrc != combinedCrc) {
+          throw ArchiveChecksumException(
+              'Invalid combined checksum: $combinedCrc : $storedCrc');
+        }
+
+        output.flush();
+        return true;
+      }
+    }
+    // The input ran out before the end of stream marker
+    return false;
+  }
+
+  /// [BZip2ChunkedDecoder] calls this directly because it processes blocks
+  /// one at a time as data arrives, rather than relying on [decodeStream]
+  /// to do the setup
+  void beginStream(int blockSize100k) {
+    _blockSize100k = blockSize100k;
+    _tt = Uint32List(_ttStartSize);
+    _groupPos = 0;
+    _groupNo = 0;
+    _gSel = 0;
+    _gMinlen = 0;
+  }
+
+  /// Decodes a block (expecting the 48-bit marker and CRC we already read).
+  /// Returns the computed CRC, or -1 on error.
+  int decodeBlock(Bz2BitReader br, OutputStream output) {
+    final crc = _readCompressed(br, output);
+    return crc < 0 ? -1 : BZip2.finalizeCrc(crc);
   }
 
   int _readBlockType(Bz2BitReader br) {
@@ -143,8 +235,6 @@ class BZip2Decoder {
     _selectorMtf = Uint8List(bzMaxSelectors);
     _selector = Uint8List(bzMaxSelectors);
 
-    // A block can use no more than bzMaxSelectors, but some encoders write
-    // more. As libbzip2 does, the rest are read and ignored.
     for (var i = 0; i < _numSelectors; ++i) {
       var j = 0;
       while (true) {
@@ -159,6 +249,8 @@ class BZip2Decoder {
         }
       }
 
+      // Some encoders round the selector count up, so like bzip2 1.0.8 we read
+      // the selectors past bzMaxSelectors and drop them instead of a RangeError
       if (i < bzMaxSelectors) {
         _selectorMtf[i] = j;
       }
@@ -304,6 +396,9 @@ class BZip2Decoder {
         uc = _seqToUnseq[_mtfa[_mtfbase[0]]];
         _unzftab[uc] += es;
 
+        if (nblock + es > _tt.length) {
+          _growTt(nblock + es, nblockMAX);
+        }
         while (es > 0) {
           if (nblock >= nblockMAX) {
             return -1;
@@ -374,6 +469,9 @@ class BZip2Decoder {
 
         // end uc = MTF ( nextSym-1 )
         _unzftab[_seqToUnseq[uc]]++;
+        if (nblock == _tt.length) {
+          _growTt(nblock + 1, nblockMAX);
+        }
         _tt[nblock] = (_seqToUnseq[uc]);
         nblock++;
 
@@ -543,6 +641,7 @@ class BZip2Decoder {
             rTPos = 0;
           }
         }
+        rNToGo--;
         k1 ^= ((rNToGo == 1) ? 1 : 0);
         cNBlockUsed++;
         if (cNBlockUsed == sSaveNBlockPP) {
@@ -564,6 +663,7 @@ class BZip2Decoder {
             rTPos = 0;
           }
         }
+        rNToGo--;
         k1 ^= ((rNToGo == 1) ? 1 : 0);
         cNBlockUsed++;
         if (cNBlockUsed == sSaveNBlockPP) {
@@ -584,6 +684,7 @@ class BZip2Decoder {
             rTPos = 0;
           }
         }
+        rNToGo--;
         k1 ^= ((rNToGo == 1) ? 1 : 0);
         cNBlockUsed++;
         cStateOutLen = k1 + 4;
@@ -598,6 +699,7 @@ class BZip2Decoder {
             rTPos = 0;
           }
         }
+        rNToGo--;
         k0 ^= ((rNToGo == 1) ? 1 : 0);
         cNBlockUsed++;
       }
@@ -816,6 +918,21 @@ class BZip2Decoder {
       }
     }
   }
+
+  void _growTt(int needed, int max) {
+    var size = _tt.length * 2;
+    if (size < needed) {
+      size = needed;
+    }
+    if (size > max) {
+      size = max;
+    }
+    if (size > _tt.length) {
+      _tt = Uint32List(size)..setRange(0, _tt.length, _tt);
+    }
+  }
+
+  static const _ttStartSize = 1 << 14;
 
   late int _blockSize100k;
   late Uint32List _tt;
@@ -1373,86 +1490,4 @@ class BZip2Decoder {
     936,
     638
   ];
-}
-
-/// Decodes a bzip2 input a block at a time.
-class _Bzip2ChunkDecoder implements ChunkDecoder {
-  final BZip2Decoder _decoder;
-  final InputStream _input;
-  final bool _verify;
-  late final Bz2BitReader _br = Bz2BitReader(_input);
-  bool _started = false;
-  bool _finished = false;
-  int _combinedCrc = 0;
-
-  _Bzip2ChunkDecoder(this._decoder, this._input, this._verify);
-
-  @override
-  int get history => 0;
-
-  @override
-  bool decodeChunk(OutputStream output) {
-    if (_finished) {
-      return false;
-    }
-    if (!_started) {
-      if (!_decoder._readHeader(_br)) {
-        throw ArchiveException('Invalid bzip2 signature');
-      }
-      _started = true;
-    }
-    if (_input.isEOS) {
-      // A stream ends with an end of stream block, so this one was cut off
-      // between blocks.
-      throw ArchiveException('Truncated bzip2 stream');
-    }
-
-    try {
-      return _decodeBlock(output);
-    } on RangeError {
-      // Reading past the end of the input.
-      throw ArchiveException('Truncated bzip2 stream');
-    }
-  }
-
-  bool _decodeBlock(OutputStream output) {
-    final type = _decoder._readBlockType(_br);
-    if (type < 0) {
-      throw ArchiveException('Invalid bzip2 block signature');
-    }
-    if (type == BZip2Decoder.blockCompressed) {
-      var storedBlockCrc = 0;
-      storedBlockCrc = (storedBlockCrc << 8) | _br.readByte();
-      storedBlockCrc = (storedBlockCrc << 8) | _br.readByte();
-      storedBlockCrc = (storedBlockCrc << 8) | _br.readByte();
-      storedBlockCrc = (storedBlockCrc << 8) | _br.readByte();
-
-      var blockCrc = _decoder._readCompressed(_br, output);
-      if (blockCrc < 0) {
-        throw ArchiveException('Invalid bzip2 data');
-      }
-      blockCrc = BZip2.finalizeCrc(blockCrc);
-
-      if (_verify && blockCrc != storedBlockCrc) {
-        throw ArchiveException('Invalid bzip2 block checksum');
-      }
-      _combinedCrc = ((_combinedCrc << 1) | (_combinedCrc >> 31)) & 0xffffffff;
-      _combinedCrc ^= blockCrc;
-      return true;
-    }
-
-    var storedCrc = 0;
-    storedCrc = (storedCrc << 8) | _br.readByte();
-    storedCrc = (storedCrc << 8) | _br.readByte();
-    storedCrc = (storedCrc << 8) | _br.readByte();
-    storedCrc = (storedCrc << 8) | _br.readByte();
-
-    if (_verify && storedCrc != _combinedCrc) {
-      throw ArchiveException('Invalid bzip2 combined checksum');
-    }
-
-    output.flush();
-    _finished = true;
-    return false;
-  }
 }

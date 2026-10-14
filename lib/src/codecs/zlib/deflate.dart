@@ -104,6 +104,9 @@ class Deflate {
       int windowBits = maxWindowBits,
       int memLevel = defMemLevel,
       int strategy = zDefaultStrategy}) {
+    if (windowBits == 8) {
+      windowBits = 9;
+    }
     if (memLevel < 1 ||
         memLevel > maxMemLevel ||
         method != zDeflated ||
@@ -113,7 +116,7 @@ class Deflate {
         level > 9 ||
         strategy < 0 ||
         strategy > zHuffmanOnly) {
-      return false;
+      throw ArgumentError('Invalid Deflate parameters');
       //throw ArchiveException('Invalid Deflate parameter');
     }
 

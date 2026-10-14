@@ -1,45 +1,73 @@
+import 'dart:io';
+import 'dart:typed_data';
+
 import 'package:path/path.dart' as path;
 
 import '../archive/archive.dart';
 import '../archive/archive_file.dart';
+import '../codecs/bzip2_decoder.dart';
+import '../codecs/gzip_decoder.dart';
+import '../codecs/tar/tar_file.dart';
 import '../codecs/tar_decoder.dart';
+import '../codecs/xz_decoder.dart';
 import '../codecs/zip_decoder.dart';
+import '../codecs/zstd_decoder.dart';
+import '../util/archive_exception.dart';
+import '../util/codecs_recognizer.dart';
+import '../util/decode_guard.dart';
 import '../util/input_file_stream.dart';
+import '../util/input_stream.dart';
 import '_entry_writer.dart';
 
-/// Writes the entries of [archive] into the directory [outputPath].
+/// Writes the entries of [archive] into [outputPath]
 ///
-/// An entry whose path or link target would land outside [outputPath] is
-/// skipped. Symbolic links are created after every other entry, and one that
-/// would lead through another link is skipped too.
+/// With [throwOnError] a damaged entry throws `ArchiveException`, without it
+/// the entry is skipped and leaves no file
 ///
-/// [maxSize] limits the total size of the files written. An entry that would
-/// take it past that throws an [ArchiveException] before it is written. A zip
-/// entry is never decoded past the size the archive gives for it.
+/// {@macro archive.extract.cut_tar}
 ///
-/// An entry whose content fails to decode throws, and its partial file is
-/// removed.
+/// {@macro archive.extract.allow_absolute_symlinks}
+///
+/// {@macro archive.extract.max_size}
 void extractArchiveToDiskSync(
   Archive archive,
   String outputPath, {
   int? bufferSize,
+  bool throwOnError = false,
+  bool allowAbsoluteSymlinks = false,
   int? maxSize,
 }) {
-  final writer =
-      EntryWriter(outputPath, bufferSize: bufferSize, maxSize: maxSize);
+  final writer = EntryWriter(outputPath,
+      bufferSize: bufferSize,
+      maxSize: maxSize,
+      throwOnError: throwOnError,
+      allowAbsoluteSymlinks: allowAbsoluteSymlinks);
   for (final entry in archive) {
     writer.write(entry);
   }
   writer.finish();
 }
 
-/// Writes the entries of [archive] into the directory [outputPath].
+/// Writes the entries of [archive] into [outputPath]
 ///
-/// This is [extractArchiveToDiskSync], with the same arguments.
+/// With [throwOnError] a damaged entry throws `ArchiveException`, without it
+/// the entry is skipped and leaves no file
+///
+/// {@macro archive.extract.cut_tar}
+///
+/// {@macro archive.extract.allow_absolute_symlinks}
+///
+/// {@macro archive.extract.max_size}
 Future<void> extractArchiveToDisk(Archive archive, String outputPath,
-    {int? bufferSize, int? maxSize}) async {
+    {int? bufferSize,
+    bool throwOnError = false,
+    bool allowAbsoluteSymlinks = false,
+    int? maxSize}) async {
   extractArchiveToDiskSync(archive, outputPath,
-      bufferSize: bufferSize, maxSize: maxSize);
+      bufferSize: bufferSize,
+      throwOnError: throwOnError,
+      allowAbsoluteSymlinks: allowAbsoluteSymlinks,
+      maxSize: maxSize);
 }
 
 // a utility function to get the extension of the input file.
@@ -57,92 +85,185 @@ String getInputExtension(String inputPath) {
   return path.extension(lowerPath);
 }
 
-const _tarExtensions = {
-  '.tar.gz',
-  '.tgz',
-  '.tar.bz2',
-  '.tbz',
-  '.tar.zst',
-  '.tzst',
-  '.tar.xz',
-  '.txz',
-  '.tar',
-};
-
-/// Extracts the archive at [inputPath] into the directory [outputPath].
+/// Extracts the archive at [inputPath] into [outputPath]
 ///
-/// The archive may be a `.zip`, `.tar`, or a tar compressed as `.tar.gz`,
-/// `.tgz`, `.tar.bz2`, `.tbz`, `.tar.xz`, `.txz`, `.tar.zst` or `.tzst`.
+/// {@macro archive.verify_throw_on_error}
 ///
-/// A compressed tar is decompressed as it is read and every entry written out
-/// as it is reached, so no more than a few megabytes of it are in memory at a
-/// time and no temp file is needed.
+/// If neither option is specified, damaged or incomplete entries are skipped,
+/// and only complete ones are extracted
 ///
 /// [callback] is called for each entry once it has been written. For a
 /// compressed tar the entry's content has gone by then and cannot be read
 /// from the entry; it is in the file on disk.
 ///
-/// [bufferSize] is the size of the write buffer for each extracted file, and
-/// [password] decrypts an encrypted zip.
+/// {@macro archive.extract.allow_absolute_symlinks}
 ///
-/// [maxSize] limits the total size of the files written, which a small
-/// compressed archive can otherwise make as large as it likes. An entry that
-/// would take it past that throws an [ArchiveException] before it is
-/// written. A zip entry is never decoded past the size the archive gives for
-/// it.
-///
-/// Entries are kept inside [outputPath] as [extractArchiveToDiskSync]
-/// describes, and an entry whose content fails to decode throws.
+/// {@macro archive.extract.max_size}
 Future<void> extractFileToDisk(String inputPath, String outputPath,
     {String? password,
     int? bufferSize,
     ArchiveCallback? callback,
+    bool verify = false,
+    bool throwOnError = false,
+    bool allowAbsoluteSymlinks = false,
     int? maxSize}) async {
+  final strict = throwOnError;
+  final archivePath = inputPath;
+
   const String extensionMsg =
       '.tar.gz, .tgz, .tar.bz2, .tbz, .tar.xz, .txz, .tar.zst, .tzst, .tar '
       'or .zip';
 
   // get the extension of the input file with up to 2 components
   // e.g. for file.tar.gz, it will return '.tar.gz'
-  final archiveExt = getInputExtension(inputPath);
-  if (archiveExt.isEmpty) {
+  final archiveExt = getInputExtension(archivePath);
+
+  // Check header to avoid attempts for all formats
+  RandomAccessFile? raf;
+  Uint8List headerBytes;
+  try {
+    raf = await File(inputPath).open(mode: FileMode.read);
+    headerBytes = await raf.read(CodecsRecognizer.headerBytes);
+  } catch (_) {
+    headerBytes = Uint8List(0);
+  } finally {
+    try {
+      await raf?.close();
+    } catch (_) {
+      /* Do nothing */
+    }
+  }
+
+  ArchiveFormat recognized = CodecsRecognizer.recognize(headerBytes);
+  if (recognized == ArchiveFormat.unknown) {
+    for (final ArchiveFormat format in ArchiveFormat.values) {
+      final ArchiveExtension? aExt = CodecsRecognizer.extensionOf(format);
+      if (aExt == null) continue;
+
+      if (archiveExt == '.${aExt.defaultName}' ||
+          (aExt.tar != null && archiveExt == '.${aExt.tar}') ||
+          (aExt.tarShort != null && archiveExt == '.${aExt.tarShort}')) {
+        recognized = format;
+        break;
+      }
+    }
+  }
+
+  if (recognized == ArchiveFormat.unknown) {
     throw ArgumentError.value(
       inputPath,
       'inputPath',
       'No file extension detected, must end with $extensionMsg',
     );
   }
-  if (archiveExt != '.zip' && !_tarExtensions.contains(archiveExt)) {
-    throw ArgumentError.value(inputPath, 'inputPath', 'Must end $extensionMsg');
-  }
 
-  final writer = EntryWriter(outputPath,
-      bufferSize: bufferSize, maxSize: maxSize, setPermissions: true);
-  final file = InputFileStream(inputPath);
+  // Each of these throws where the archive ran out part way through.
+  // If neither `verify` nor `throwOnError` is set, exceptions are suppressed,
+  // and only complete tar entries are extracted
+  final InputStream Function(InputStream input)? lazy = switch (recognized) {
+    ArchiveFormat.gzip => (input) =>
+        GZipDecoder().decodeLazy(input, verify: verify),
+    ArchiveFormat.bzip2 => (input) =>
+        BZip2Decoder().decodeLazy(input, verify: verify),
+    ArchiveFormat.xz => (input) =>
+        XZDecoder().decodeLazy(input, verify: verify),
+    ArchiveFormat.zstd => (input) =>
+        ZstdDecoder().decodeLazy(input, verify: verify),
+    _ => null,
+  };
+
+  InputStream? toClose;
   try {
-    if (archiveExt == '.zip') {
-      final archive = ZipDecoder()
-          .decodeStream(file, password: password, callback: callback);
-      for (final entry in archive) {
-        writer.write(entry);
+    if (lazy != null || recognized == ArchiveFormat.tar) {
+      final input = InputFileStream(inputPath);
+      toClose = input;
+      final writer = EntryWriter(outputPath,
+          bufferSize: bufferSize,
+          maxSize: maxSize,
+          setPermissions: true,
+          throwOnError: strict,
+          allowAbsoluteSymlinks: allowAbsoluteSymlinks);
+      Object? callbackError;
+
+      void write(ArchiveFile file) {
+        writer.write(file);
+        if (callback != null) {
+          try {
+            callback(file);
+          } catch (error) {
+            callbackError = error;
+            rethrow;
+          }
+        }
       }
-      await archive.clear();
-    } else {
-      final input = tarStreamFor(archiveExt, file)!;
-      // Each entry is written as the decoder reaches it, which is the only
-      // time its content is at hand when the tar is being decompressed on the
-      // way in.
+
+      // tar has no magic bytes. The file under the gzip or zstd might not be a
+      // tar at all. The header checksum rejects it. Without the check a
+      // .sql.gz is extracted as tar entries
+      // Truncated tar entry is deleted once it is written. bsdtar and python
+      // tarfile leave partial file on disk, but they report error too
       try {
-        TarDecoder().decodeStream(input, keepEntries: false, callback: (entry) {
-          writer.write(entry);
-          callback?.call(entry);
-        });
-      } finally {
-        await input.close();
+        final tar = lazy?.call(input) ?? input;
+        final first = tar.peekBytes(512).toUint8List();
+        if (first.any((b) => b != 0) &&
+            (first.length < 512 ||
+                !tarHeaderChecksumMatches(first) ||
+                !tarHeaderSizeIsNumber(first))) {
+          throw ArgumentError.value(
+              inputPath, 'inputPath', 'Is not a tar archive');
+        }
+        TarDecoder().decodeStream(tar,
+            verify: true,
+            throwOnError: true,
+            keepEntries: false,
+            callback: write);
+        // The tar ends before the compressed data does, and the decoders only
+        // find a cut or damaged end once they reach it
+        if (strict && lazy != null) {
+          while (!tar.isEOS) {
+            tar.readBytes(1 << 16).toUint8List();
+          }
+        }
+      } catch (error) {
+        if (strict ||
+            !isDecodeDataError(error) ||
+            error is ArchiveLimitException ||
+            identical(error, callbackError) ||
+            identical(error, writer.limitError)) {
+          rethrow;
+        }
       }
+      writer.finish();
+      return;
+    }
+
+    Archive archive;
+    if (recognized == ArchiveFormat.zip) {
+      final input = InputFileStream(archivePath);
+      toClose = input;
+      archive = ZipDecoder().decodeStream(input,
+          verify: verify, throwOnError: strict, password: password);
+    } else {
+      throw ArgumentError.value(
+          inputPath, 'inputPath', 'Must end $extensionMsg');
+    }
+
+    final writer = EntryWriter(outputPath,
+        bufferSize: bufferSize,
+        maxSize: maxSize,
+        setPermissions: true,
+        throwOnError: strict,
+        allowAbsoluteSymlinks: allowAbsoluteSymlinks);
+    for (final file in archive) {
+      writer.write(file);
+      callback?.call(file);
     }
     writer.finish();
+
+    await archive.clear();
   } finally {
-    await file.close();
+    // The input handle is scoped to this call. If an error occurs midway, it
+    // is closed here
+    await toClose?.close();
   }
 }

@@ -1,181 +1,487 @@
 import 'dart:typed_data';
 
+import '../../util/archive_exception.dart';
 import 'zstd_bit_writer.dart';
-import 'zstd_error.dart';
+import 'zstd_constants.dart';
 import 'zstd_fse_encoder.dart';
-import 'zstd_huffman.dart';
+import 'zstd_web.dart';
 
-/// The longest Huffman code the encoder makes, as the reference library does
-/// by default. The format allows one bit more.
-const int zstdHuffmanEncodeMaxBits = 11;
+class ZstdHuffmanEncoderException extends ArchiveException {
+  ZstdHuffmanEncoderException(super.message);
+  @override
+  String toString() => 'ZstdHuffmanEncoderException: $message';
+}
 
-/// A Huffman code for literals.
+/// Accuracy the weight description is coded at
+const _weightLog = 6;
+
+/// Fewer literals than this go into one stream rather than four
+const zstdFourStreamsFrom = 256;
+
+/// `HUF_sort`'s buckets: a bucket per count below [_logBucketsFrom] and one per
+/// power of two above it, so ordering symbols by count is a two pass scatter
+/// rather than a comparison sort, worth 3.1% of the encoder
+const _buckets = 192;
+const _logBucketsFrom = _buckets - 1 - 32 - 1;
+const _distinctCounts = _logBucketsFrom + 7;
+
+/// `kInsertionSortThreshold`
+const _insertionFrom = 8;
+
+/// The encoding side of a literals tree: a code and its width per symbol
 class ZstdHuffmanEncoder {
-  /// The length of each symbol's code, zero for symbols that do not occur.
-  final Uint8List lengths = Uint8List(256);
-  final Uint16List codes = Uint16List(256);
-  int maxBits = 0;
+  final Uint16List codes = Uint16List(zstdHuffmanSymbolCount);
+  final Uint8List widths = Uint8List(zstdHuffmanSymbolCount);
 
-  /// The largest symbol that occurs, whose weight the description leaves out.
+  /// `HUF_flags_optimalDepth`, which the levels from `btultra` up set
+  bool optimalDepth = false;
+
+  /// Where a description is written only to be measured
+  final Uint8List _probe = Uint8List(1024);
+
+  /// `HUF_CElt`: the code of a symbol and its width in one value, which the
+  /// encoding loop reads with a single load
+  final Uint32List _elt = Uint32List(zstdHuffmanSymbolCount);
+  int tableLog = 0;
   int maxSymbol = 0;
 
-  final Uint8List _weights = Uint8List(256);
-  final Uint8List _check = Uint8List(256);
-  final Uint32List _weightCounts = Uint32List(16);
-  final Int16List _norm = Int16List(16);
-  final ZstdFseEncoder _fse = ZstdFseEncoder(6);
-  final Uint8List _scratch = Uint8List(300);
+  // The tree is built over symbols sorted by count and internal nodes above
+  // them, so one array holds both
+  static const _nodeBase = zstdHuffmanSymbolCount + 1;
+  final Uint32List _count = Uint32List(_nodeBase * 2);
+  final Uint16List _parent = Uint16List(_nodeBase * 2);
+  final Uint8List _bits = Uint8List(_nodeBase * 2);
+  final Uint16List _symbol = Uint16List(_nodeBase * 2);
+  final Uint32List _bucketBase = Uint32List(_buckets);
+  final Uint32List _bucketAt = Uint32List(_buckets);
+  final Uint32List _rankLast = Uint32List(zstdHuffmanLogMax + 3);
+  final Uint16List _perRank = Uint16List(zstdHuffmanLogMax + 1);
+  final Uint16List _valueOfRank = Uint16List(zstdHuffmanLogMax + 1);
 
-  /// Builds an optimal code of at most [zstdHuffmanEncodeMaxBits] bits for
-  /// [counts], the occurrences of each symbol up to [maxSymbol], at least two
-  /// of which must occur.
-  void build(Uint32List counts, int maxSymbol) {
-    this.maxSymbol = maxSymbol;
-    _packageMerge(counts, maxSymbol);
-
-    var maxBits = 0;
-    for (var s = 0; s <= maxSymbol; s++) {
-      if (lengths[s] > maxBits) {
-        maxBits = lengths[s];
+  /// Builds a tree over [counts], which cover [total] bytes, no code wider than
+  /// what `HUF_optimalTableLog` allows. Returns false when fewer than two
+  /// symbols are used, and such literals are written as RLE instead
+  bool build(Uint32List counts, int total) {
+    var used = 0;
+    maxSymbol = 0;
+    for (var s = 0; s < zstdHuffmanSymbolCount; s++) {
+      if (counts[s] != 0) {
+        used++;
+        maxSymbol = s;
       }
     }
-    this.maxBits = maxBits;
+    if (used < 2) {
+      return false;
+    }
 
-    // Canonical codes, laid out the way the decoder fills its table: the
-    // longest codes first, and symbols in order within a length.
-    final rankStart = Uint32List(maxBits + 2);
-    for (var s = 0; s <= maxSymbol; s++) {
-      final len = lengths[s];
-      if (len != 0) {
-        rankStart[maxBits + 1 - len] += 1 << (maxBits - len);
+    final log = optimalDepth ? _searchLog(counts, used) : _optimalLog(total);
+    _sort(counts);
+    final root = _buildTree(used - 1);
+    tableLog = _limitHeight(used - 1, log, root);
+    _assignCodes(used - 1);
+    return true;
+  }
+
+  /// `HUF_optimalTableLog`'s own search, which `btultra` and above run in place
+  /// of the estimate: every depth from the fewest bits the alphabet needs is
+  /// built and described, and the one that comes out smallest wins
+  int _searchLog(Uint32List counts, int used) {
+    final least = zstdHighestBit(used) + 1;
+    var best = 4611686018427387904;
+    var log = zstdHuffmanLogMax;
+    for (var guess = least; guess <= zstdHuffmanLogMax; guess++) {
+      _sort(counts);
+      final root = _buildTree(used - 1);
+      final height = _limitHeight(used - 1, guess, root);
+      if (height < guess && guess > least) {
+        break;
       }
-    }
-    var next = 0;
-    for (var w = 1; w <= maxBits; w++) {
-      final count = rankStart[w];
-      rankStart[w] = next;
-      next += count;
-    }
-    for (var s = 0; s <= maxSymbol; s++) {
-      final len = lengths[s];
-      if (len == 0) {
-        codes[s] = 0;
+      tableLog = height;
+      _assignCodes(used - 1);
+      final described = writeTable(_probe, 0);
+      if (described < 0) {
         continue;
       }
-      final w = maxBits + 1 - len;
-      codes[s] = rankStart[w] >> (maxBits - len);
-      rankStart[w] += 1 << (maxBits - len);
+      var bits = 0;
+      for (var s = 0; s <= maxSymbol; s++) {
+        bits += widths[s] * counts[s];
+      }
+      final size = (bits >> 3) + described;
+      if (size > best + 1) {
+        break;
+      }
+      if (size < best) {
+        best = size;
+        log = guess;
+      }
+    }
+    return log;
+  }
+
+  /// `FSE_optimalTableLog_internal` with a minus of one.
+  /// `HUF_optimalTableLog` falls back to it below `btultra`
+  int _optimalLog(int total) {
+    var log = zstdHuffmanLogMax;
+    final fromSize = zstdHighestBit(total - 1) - 1;
+    if (fromSize >= 0 && fromSize < log) {
+      log = fromSize;
+    }
+    final bySize = zstdHighestBit(total) + 1;
+    final bySymbols = zstdHighestBit(maxSymbol) + 2;
+    final least = bySize < bySymbols ? bySize : bySymbols;
+    if (least > log) {
+      log = least;
+    }
+    return log < 5 ? 5 : log;
+  }
+
+  /// Puts every symbol [counts] gives a tally into `_count` and `_symbol`,
+  /// heaviest first and ties in symbol order. `HUF_sort`
+  void _sort(Uint32List counts) {
+    _bucketBase.fillRange(0, _buckets, 0);
+    for (var s = 0; s <= maxSymbol; s++) {
+      final seen = counts[s];
+      if (seen != 0) {
+        _bucketBase[_bucketOf(seen)]++;
+      }
+    }
+    for (var b = _buckets - 1; b > 0; b--) {
+      final above = _bucketBase[b];
+      _bucketBase[b - 1] += above;
+      _bucketAt[b] = above;
+    }
+    for (var s = 0; s <= maxSymbol; s++) {
+      final seen = counts[s];
+      if (seen != 0) {
+        final at = _bucketAt[_bucketOf(seen) + 1]++;
+        _count[at] = seen;
+        _symbol[at] = s;
+      }
+    }
+    for (var b = _distinctCounts; b < _buckets - 1; b++) {
+      if (_bucketAt[b] - _bucketBase[b] > 1) {
+        _quickSort(_bucketBase[b], _bucketAt[b] - 1);
+      }
     }
   }
 
-  // Length limited code lengths by package-merge: the 2n - 2 cheapest items
-  // of the last list, each symbol's length being how many of them it is in.
-  void _packageMerge(Uint32List counts, int maxSymbol) {
-    final symbols = <int>[
-      for (var s = 0; s <= maxSymbol; s++)
-        if (counts[s] != 0) s
-    ]..sort((a, b) => counts[a] != counts[b] ? counts[a] - counts[b] : a - b);
-    final n = symbols.length;
-    for (var s = 0; s <= maxSymbol; s++) {
-      lengths[s] = 0;
+  @pragma('vm:prefer-inline')
+  static int _bucketOf(int count) => count < _distinctCounts
+      ? count
+      : zstdHighestBitFast(count) + _logBucketsFrom;
+
+  /// `HUF_simpleQuickSort`. Its partition is not stable, so which of two
+  /// symbols of equal count ends up with the shorter code is decided here and
+  /// an insertion sort in its place writes a different archive
+  void _quickSort(int low, int high) {
+    if (high - low < _insertionFrom) {
+      _insertionSort(low, high);
+      return;
+    }
+    var from = low;
+    var to = high;
+    while (from < to) {
+      final at = _partition(from, to);
+      if (at - from < to - at) {
+        _quickSort(from, at - 1);
+        from = at + 1;
+      } else {
+        _quickSort(at + 1, to);
+        to = at - 1;
+      }
+    }
+  }
+
+  void _insertionSort(int low, int high) {
+    for (var i = low + 1; i <= high; i++) {
+      final seen = _count[i];
+      final symbol = _symbol[i];
+      var at = i;
+      while (at > low && _count[at - 1] < seen) {
+        _count[at] = _count[at - 1];
+        _symbol[at] = _symbol[at - 1];
+        at--;
+      }
+      _count[at] = seen;
+      _symbol[at] = symbol;
+    }
+  }
+
+  /// The rightmost element is the pivot, which the reference settled on
+  int _partition(int low, int high) {
+    final pivot = _count[high];
+    var at = low - 1;
+    for (var j = low; j < high; j++) {
+      if (_count[j] > pivot) {
+        at++;
+        _swap(at, j);
+      }
+    }
+    _swap(at + 1, high);
+    return at + 1;
+  }
+
+  void _swap(int a, int b) {
+    final count = _count[a];
+    final symbol = _symbol[a];
+    _count[a] = _count[b];
+    _symbol[a] = _symbol[b];
+    _count[b] = count;
+    _symbol[b] = symbol;
+  }
+
+  /// Merges the two cheapest nodes until one is left, taking them from either
+  /// the sorted symbols or the nodes built so far, whichever is cheaper
+  int _buildTree(int lastSymbol) {
+    var nodeNb = _nodeBase;
+    var lowS = lastSymbol;
+    final root = nodeNb + lowS - 1;
+    var lowN = nodeNb;
+
+    _count[nodeNb] = _count[lowS] + _count[lowS - 1];
+    _parent[lowS] = nodeNb;
+    _parent[lowS - 1] = nodeNb;
+    nodeNb++;
+    lowS -= 2;
+    for (var n = nodeNb; n <= root; n++) {
+      _count[n] = 1 << 30;
     }
 
-    // Leaves are nodes 0 to n - 1; packages follow.
-    final weight = <int>[for (final s in symbols) counts[s]];
-    final left = <int>[for (var i = 0; i < n; i++) -1];
-    final right = <int>[for (var i = 0; i < n; i++) -1];
-    final keep = 2 * n - 2;
+    while (nodeNb <= root) {
+      final a = _pick(lowS, lowN);
+      if (a == lowS) {
+        lowS--;
+      } else {
+        lowN++;
+      }
+      final b = _pick(lowS, lowN);
+      if (b == lowS) {
+        lowS--;
+      } else {
+        lowN++;
+      }
+      _count[nodeNb] = _count[a] + _count[b];
+      _parent[a] = nodeNb;
+      _parent[b] = nodeNb;
+      nodeNb++;
+    }
 
-    var list = <int>[for (var i = 0; i < n; i++) i];
-    for (var level = 1; level < zstdHuffmanEncodeMaxBits; level++) {
-      final merged = <int>[];
-      var leaf = 0;
-      var i = 0;
-      while (merged.length < keep) {
-        final hasPackage = i + 1 < list.length;
-        if (leaf < n &&
-            (!hasPackage ||
-                weight[leaf] <= weight[list[i]] + weight[list[i + 1]])) {
-          merged.add(leaf++);
-        } else if (hasPackage) {
-          weight.add(weight[list[i]] + weight[list[i + 1]]);
-          left.add(list[i]);
-          right.add(list[i + 1]);
-          merged.add(weight.length - 1);
-          i += 2;
-        } else {
+    _bits[root] = 0;
+    for (var n = root - 1; n >= _nodeBase; n--) {
+      _bits[n] = _bits[_parent[n]] + 1;
+    }
+    for (var n = 0; n <= lastSymbol; n++) {
+      _bits[n] = _bits[_parent[n]] + 1;
+    }
+    return root;
+  }
+
+  @pragma('vm:prefer-inline')
+  int _pick(int lowS, int lowN) =>
+      (lowS >= 0 && _count[lowS] < _count[lowN]) ? lowS : lowN;
+
+  /// Flattens anything wider than [target] and pays the debt back by widening
+  /// the cheapest symbols, one rank at a time
+  int _limitHeight(int lastSymbol, int target, int root) {
+    final largest = _bits[lastSymbol];
+    if (largest <= target) {
+      return largest;
+    }
+
+    var cost = 0;
+    final baseCost = 1 << (largest - target);
+    var n = lastSymbol;
+    while (_bits[n] > target) {
+      cost += baseCost - (1 << (largest - _bits[n]));
+      _bits[n] = target;
+      n--;
+    }
+    while (n >= 0 && _bits[n] == target) {
+      n--;
+    }
+    cost >>= largest - target;
+
+    const noSymbol = 0xffffffff;
+    for (var i = 0; i < _rankLast.length; i++) {
+      _rankLast[i] = noSymbol;
+    }
+    var width = target;
+    for (var pos = n; pos >= 0; pos--) {
+      if (_bits[pos] >= width) {
+        continue;
+      }
+      width = _bits[pos];
+      _rankLast[target - width] = pos;
+    }
+
+    while (cost > 0) {
+      // One symbol a rank up costs the same as two a rank below it, so take
+      // whichever of the two is cheaper by count
+      var step = zstdHighestBit(cost) + 1;
+      for (; step > 1; step--) {
+        final high = _rankLast[step];
+        final low = _rankLast[step - 1];
+        if (high == noSymbol) {
+          continue;
+        }
+        if (low == noSymbol) {
+          break;
+        }
+        if (_count[high] <= 2 * _count[low]) {
           break;
         }
       }
-      list = merged;
+      while (step < _rankLast.length && _rankLast[step] == noSymbol) {
+        step++;
+      }
+      if (step >= _rankLast.length) {
+        throw ZstdHuffmanEncoderException('No rank left to widen');
+      }
+      cost -= 1 << (step - 1);
+      final pos = _rankLast[step];
+      _bits[pos]++;
+
+      if (_rankLast[step - 1] == noSymbol) {
+        _rankLast[step - 1] = pos;
+      }
+      if (pos == 0) {
+        _rankLast[step] = noSymbol;
+      } else {
+        _rankLast[step] = pos - 1;
+        if (_bits[pos - 1] != target - step) {
+          _rankLast[step] = noSymbol;
+        }
+      }
     }
 
-    final stack = <int>[];
-    for (var k = 0; k < keep && k < list.length; k++) {
-      stack.add(list[k]);
-      while (stack.isNotEmpty) {
-        final node = stack.removeLast();
-        if (node < n) {
-          lengths[symbols[node]]++;
-        } else {
-          stack
-            ..add(left[node])
-            ..add(right[node]);
+    // Widening one rank at a time can pay back more than was owed, and the way
+    // to give it back without overshooting again is to narrow the cheapest
+    // symbols of the widest rank, one at a time
+    while (cost < 0) {
+      if (_rankLast[1] == noSymbol) {
+        while (_bits[n] == target) {
+          n--;
         }
+        _bits[n + 1]--;
+        _rankLast[1] = n + 1;
+        cost++;
+        continue;
+      }
+      _bits[_rankLast[1] + 1]--;
+      _rankLast[1]++;
+      cost++;
+    }
+    return target;
+  }
+
+  /// Canonical codes: the widest rank starts at zero and each rank up starts
+  /// where the one below ended, halved
+  void _assignCodes(int lastSymbol) {
+    for (var i = 0; i <= tableLog; i++) {
+      _perRank[i] = 0;
+    }
+    for (var n = 0; n <= lastSymbol; n++) {
+      _perRank[_bits[n]]++;
+    }
+    var next = 0;
+    for (var n = tableLog; n > 0; n--) {
+      _valueOfRank[n] = next;
+      next += _perRank[n];
+      next >>= 1;
+    }
+    for (var s = 0; s < zstdHuffmanSymbolCount; s++) {
+      widths[s] = 0;
+      codes[s] = 0;
+      _elt[s] = 0;
+    }
+    for (var n = 0; n <= lastSymbol; n++) {
+      widths[_symbol[n]] = _bits[n];
+    }
+    for (var s = 0; s <= maxSymbol; s++) {
+      final width = widths[s];
+      if (width != 0) {
+        final code = _valueOfRank[width]++;
+        codes[s] = code;
+        _elt[s] = code | (width << 16);
       }
     }
   }
 
-  /// How many bits the literals counted in [counts] take with this code.
-  int bitsFor(Uint32List counts) {
-    var bits = 0;
-    for (var s = 0; s <= maxSymbol; s++) {
-      bits += counts[s] * lengths[s];
+  /// `HUF_readCTable`: the tree a dictionary described, taken as weights rather
+  /// than built from counting a block
+  void loadWeights(Uint8List weights, int log) {
+    tableLog = log;
+    maxSymbol = weights.length - 1;
+    for (var s = 0; s < zstdHuffmanSymbolCount; s++) {
+      widths[s] = 0;
+      codes[s] = 0;
+      _elt[s] = 0;
     }
-    return bits;
+    _perRank.fillRange(0, _perRank.length, 0);
+    for (var s = 0; s < weights.length; s++) {
+      final w = weights[s];
+      if (w != 0) {
+        final width = log + 1 - w;
+        widths[s] = width;
+        _perRank[width]++;
+      }
+    }
+    var next = 0;
+    for (var n = log; n > 0; n--) {
+      _valueOfRank[n] = next;
+      next += _perRank[n];
+      next >>= 1;
+    }
+    for (var s = 0; s < weights.length; s++) {
+      final width = widths[s];
+      if (width != 0) {
+        final code = _valueOfRank[width]++;
+        codes[s] = code;
+        _elt[s] = code | (width << 16);
+      }
+    }
   }
 
-  /// Writes the tree description at [pos], returning the position after it,
-  /// or -1 if the code cannot be described.
-  int writeDescription(Uint8List out, int pos, ZstdBitWriter writer) {
-    final weights = _weights;
-    final count = maxSymbol;
-    for (var s = 0; s < count; s++) {
-      final len = lengths[s];
-      weights[s] = len == 0 ? 0 : maxBits + 1 - len;
+  /// `HUF_getNbBitsFromCTable`: how wide this symbol's code is, zero above the
+  /// tree's own top symbol
+  int bitsOf(int symbol) => symbol > maxSymbol ? 0 : widths[symbol];
+
+  /// Writes the tree description at [at] and returns the bytes it took, or -1
+  /// when neither form fits, and then the literals are stored raw
+  int writeTable(Uint8List out, int at) {
+    final weights = Uint8List(maxSymbol);
+    for (var s = 0; s < maxSymbol; s++) {
+      weights[s] = widths[s] == 0 ? 0 : tableLog + 1 - widths[s];
     }
 
-    // Weights compressed with FSE, if that works out smaller.
-    final fseSize = _writeFseWeights(count, writer);
-    final directSize = count <= 128 ? 1 + ((count + 1) >> 1) : -1;
-
-    if (fseSize > 0 && (directSize < 0 || fseSize < directSize)) {
-      out.setRange(pos, pos + fseSize, _scratch);
-      return pos + fseSize;
+    final compressed = _compressWeights(out, at + 1, weights);
+    if (compressed > 1 && compressed < maxSymbol ~/ 2) {
+      out[at] = compressed;
+      return compressed + 1;
     }
-    if (directSize < 0) {
+    // The direct form has no room to name a symbol above 128
+    if (maxSymbol > 128) {
       return -1;
     }
-    out[pos] = 127 + count;
-    for (var i = 0; i < count; i += 2) {
-      final low = i + 1 < count ? weights[i + 1] : 0;
-      out[pos + 1 + (i >> 1)] = (weights[i] << 4) | low;
+    out[at] = 128 + maxSymbol - 1;
+    for (var s = 0; s < maxSymbol; s += 2) {
+      final low = s + 1 < maxSymbol ? weights[s + 1] : 0;
+      out[at + 1 + (s >> 1)] = (weights[s] << 4) | low;
     }
-    return pos + directSize;
+    return ((maxSymbol + 1) >> 1) + 1;
   }
 
-  // Compresses the weights into _scratch, header byte included, returning
-  // the size or -1. The decoder knows where the weights end only from the
-  // stream running out, so the result is decoded again to make sure it gives
-  // back exactly these weights.
-  int _writeFseWeights(int count, ZstdBitWriter writer) {
-    if (count < 2) {
-      return -1;
+  /// The weights are themselves FSE coded, two states interleaved, the way the
+  /// reader expects. Returns 0 when that is not worth doing
+  int _compressWeights(Uint8List out, int at, Uint8List weights) {
+    final size = weights.length;
+    if (size <= 2) {
+      return 0;
     }
-    final weights = _weights;
-    final counts = _weightCounts..fillRange(0, 16, 0);
+    final counts = Uint32List(zstdHuffmanLogMax + 2);
     var maxWeight = 0;
-    for (var i = 0; i < count; i++) {
+    var most = 0;
+    for (var i = 0; i < size; i++) {
       final w = weights[i];
       counts[w]++;
       if (w > maxWeight) {
@@ -183,94 +489,189 @@ class ZstdHuffmanEncoder {
       }
     }
     for (var w = 0; w <= maxWeight; w++) {
-      if (counts[w] == count) {
-        return -1;
+      if (counts[w] > most) {
+        most = counts[w];
       }
     }
+    if (most == size || most == 1) {
+      return 0;
+    }
 
-    final log = zstdFseTableLog(count, maxWeight, 6);
-    final numSymbols = zstdFseNormalize(counts, maxWeight, count, log, _norm);
-    final fse = _fse..build(_norm, numSymbols, log);
-    final out = _scratch;
-    final start =
-        zstdFseWriteDescription(out, 1, _norm, numSymbols, log, writer);
+    final log = zstdOptimalTableLog(_weightLog, size, maxWeight);
+    final normalized = Int16List(maxWeight + 1);
+    if (!zstdNormalizeCount(normalized, counts, size, maxWeight, log,
+        useLowProbCount: false)) {
+      return 0;
+    }
+    var write = at;
+    write += zstdWriteNCount(out, write, normalized, maxWeight, log);
 
-    writer.reset(out, start);
-    var i = count;
+    final table = ZstdFseCTable(log, maxWeight + 1);
+    table.build(normalized, maxWeight, log, Uint8List(1 << log),
+        Uint16List(maxWeight + 1), Uint32List(maxWeight + 2));
+
+    final writer = ZstdBitWriter(ByteData.sublistView(out), write);
+    var ip = size;
     int state1;
     int state2;
-    if (count & 1 != 0) {
-      state1 = fse.initState(weights[--i]);
-      state2 = fse.initState(weights[--i]);
-      state1 = fse.encode(writer, state1, weights[--i]);
+    if (size & 1 != 0) {
+      state1 = table.initialState(weights[--ip]);
+      state2 = table.initialState(weights[--ip]);
+      state1 = table.encode(writer, state1, weights[--ip]);
+      writer.flush();
     } else {
-      state2 = fse.initState(weights[--i]);
-      state1 = fse.initState(weights[--i]);
+      state2 = table.initialState(weights[--ip]);
+      state1 = table.initialState(weights[--ip]);
     }
-    while (i > 0) {
-      state2 = fse.encode(writer, state2, weights[--i]);
-      state1 = fse.encode(writer, state1, weights[--i]);
+    if ((size - 2) & 2 != 0) {
+      state2 = table.encode(writer, state2, weights[--ip]);
+      state1 = table.encode(writer, state1, weights[--ip]);
+      writer.flush();
     }
-    fse.flush(writer, state2);
-    fse.flush(writer, state1);
-    final end = writer.closeBackward();
-    final size = end - 1;
-    if (size >= 128) {
-      return -1;
+    while (ip > 0) {
+      state2 = table.encode(writer, state2, weights[--ip]);
+      state1 = table.encode(writer, state1, weights[--ip]);
+      state2 = table.encode(writer, state2, weights[--ip]);
+      state1 = table.encode(writer, state1, weights[--ip]);
+      writer.flush();
     }
-    out[0] = size;
+    writer.add(state2, log);
+    writer.flush();
+    writer.add(state1, log);
+    writer.flush();
+    return writer.close() - at;
+  }
 
-    try {
-      final (decodedCount, decodedEnd) =
-          ZstdHuffmanTable.readWeights(out, 0, end, _check);
-      if (decodedCount != count || decodedEnd != end) {
+  /// Encodes `src[start...end]` at [at] and returns the bytes it took, or -1
+  /// when a stream would not fit in the sixteen bits the jump table has
+  /// Set while the decoder holds a tree from a dictionary, which makes a short
+  /// section one stream whatever its size
+  bool oneStream = false;
+
+  int encodeLiterals(Uint8List out, int at, Uint8List src, int start, int end) {
+    final size = end - start;
+    if (size < zstdFourStreamsFrom || oneStream) {
+      return _encodeOne(out, at, src, start, end);
+    }
+    final segment = (size + 3) >> 2;
+    var write = at + 6;
+    for (var i = 0; i < 4; i++) {
+      final from = start + i * segment;
+      final to = i == 3 ? end : from + segment;
+      final took = _encodeOne(out, write, src, from, to);
+      if (took <= 0 || (i < 3 && took > 65535)) {
         return -1;
       }
-      for (var k = 0; k < count; k++) {
-        if (_check[k] != weights[k]) {
-          return -1;
+      if (i < 3) {
+        out[at + i * 2] = took & 0xff;
+        out[at + i * 2 + 1] = (took >> 8) & 0xff;
+      }
+      write += took;
+    }
+    return write - at;
+  }
+
+  /// Symbols go in from the last to the first, so the reader, which reads the
+  /// bytes backwards, gets them in order
+  int _encodeOne(Uint8List out, int at, Uint8List src, int start, int end) {
+    if (!zstdUse64Bit) {
+      final writer = ZstdBitWriter(ByteData.sublistView(out), at);
+      var n = end;
+      while (n > start) {
+        for (var group = 0; group < 4 && n > start; group++) {
+          final e = _elt[src[--n]];
+          writer.addClean(e & 0xffff, e >> 16);
         }
+        writer.flush();
       }
-    } on ZstdFormatError {
-      return -1;
+      return writer.close() - at;
     }
-    return end;
-  }
+    // The counts below are masked so the shifts compile without a range guard
+    final view = ByteData.sublistView(out);
+    final elt = _elt;
+    var held = 0;
+    var bits = 0;
+    var write = at;
+    var n = end;
 
-  /// Writes the literals from [start] to [end] in [lit] as one Huffman
-  /// stream, or four with a jump table before them, returning the position
-  /// after them.
-  int writeStreams(Uint8List lit, int start, int end, Uint8List out, int pos,
-      bool fourStreams, ZstdBitWriter writer) {
-    if (!fourStreams) {
-      return _writeStream(lit, start, end, out, pos, writer);
+    var odd = (end - start) & 3;
+    while (odd-- > 0) {
+      final e = elt[src[--n]];
+      held |= (e & 0xffff) << (bits & 63);
+      bits += e >> 16;
     }
-    final segment = (end - start + 3) >> 2;
-    var p = pos + 6;
-    for (var k = 0; k < 4; k++) {
-      final s = start + k * segment;
-      final e = k == 3 ? end : s + segment;
-      final next = _writeStream(lit, s, e, out, p, writer);
-      if (k < 3) {
-        final size = next - p;
-        out[pos + 2 * k] = size & 0xff;
-        out[pos + 2 * k + 1] = size >> 8;
-      }
-      p = next;
-    }
-    return p;
-  }
+    view.setUint64(write, held, Endian.little);
+    write += bits >> 3;
+    held >>>= bits & 56;
+    bits &= 7;
 
-  int _writeStream(Uint8List lit, int start, int end, Uint8List out, int pos,
-      ZstdBitWriter writer) {
-    writer.reset(out, pos);
-    final codes = this.codes;
-    final lengths = this.lengths;
-    // Backwards, so the decoder meets the first literal first
-    for (var i = end - 1; i >= start; i--) {
-      final s = lit[i];
-      writer.addBits(codes[s], lengths[s]);
+    if ((n - start) & 7 != 0) {
+      var e = elt[src[--n]];
+      held |= (e & 0xffff) << (bits & 63);
+      bits += e >> 16;
+      e = elt[src[--n]];
+      held |= (e & 0xffff) << (bits & 63);
+      bits += e >> 16;
+      e = elt[src[--n]];
+      held |= (e & 0xffff) << (bits & 63);
+      bits += e >> 16;
+      e = elt[src[--n]];
+      held |= (e & 0xffff) << (bits & 63);
+      bits += e >> 16;
+      view.setUint64(write, held, Endian.little);
+      write += bits >> 3;
+      held >>>= bits & 56;
+      bits &= 7;
     }
-    return writer.closeBackward();
+
+    // Eight symbols a pass. The second four fill a container of their own so
+    // that their chain of dependent shifts does not wait on the first four's
+    // flush, `HUF_zeroIndex1` and `HUF_mergeIndex1`. Unrolled by hand because
+    // AOT leaves a loop this short rolled, which measured ten milliseconds
+    while (n > start) {
+      var e = elt[src[--n]];
+      held |= (e & 0xffff) << (bits & 63);
+      bits += e >> 16;
+      e = elt[src[--n]];
+      held |= (e & 0xffff) << (bits & 63);
+      bits += e >> 16;
+      e = elt[src[--n]];
+      held |= (e & 0xffff) << (bits & 63);
+      bits += e >> 16;
+      e = elt[src[--n]];
+      held |= (e & 0xffff) << (bits & 63);
+      bits += e >> 16;
+      view.setUint64(write, held, Endian.little);
+      write += bits >> 3;
+      held >>>= bits & 56;
+      bits &= 7;
+
+      var spare = 0;
+      var spareBits = 0;
+      var f = elt[src[--n]];
+      spare |= (f & 0xffff) << (spareBits & 63);
+      spareBits += f >> 16;
+      f = elt[src[--n]];
+      spare |= (f & 0xffff) << (spareBits & 63);
+      spareBits += f >> 16;
+      f = elt[src[--n]];
+      spare |= (f & 0xffff) << (spareBits & 63);
+      spareBits += f >> 16;
+      f = elt[src[--n]];
+      spare |= (f & 0xffff) << (spareBits & 63);
+      spareBits += f >> 16;
+      held |= spare << (bits & 63);
+      bits += spareBits;
+      view.setUint64(write, held, Endian.little);
+      write += bits >> 3;
+      held >>>= bits & 56;
+      bits &= 7;
+    }
+
+    held |= 1 << (bits & 63);
+    bits++;
+    view.setUint64(write, held, Endian.little);
+    write += bits >> 3;
+    return write + ((bits & 7) > 0 ? 1 : 0) - at;
   }
 }

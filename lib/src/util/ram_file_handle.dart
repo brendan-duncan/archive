@@ -77,13 +77,13 @@ class RamFileHandle extends AbstractFileHandle {
 
   @override
   void writeFromSync(List<int> buffer, [int start = 0, int? end]) {
-    final int? usedEnd;
-    if (end == null) {
-      usedEnd = _writePosition + start + buffer.length;
-    } else {
-      usedEnd = _writePosition + end;
-    }
-    _ramFileData.writeFromSync(buffer, _writePosition + start, usedEnd);
+    // start and end index into buffer, as RandomAccessFile.writeFromSync does
+    final usedEnd = end ?? buffer.length;
+    final data = start == 0 && usedEnd == buffer.length
+        ? buffer
+        : buffer.sublist(start, usedEnd);
+    _ramFileData.writeFromSync(
+        data, _writePosition, _writePosition + data.length);
     _writePosition = _ramFileData._length;
   }
 }

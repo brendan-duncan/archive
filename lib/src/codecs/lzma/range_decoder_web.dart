@@ -37,6 +37,8 @@ class RangeDecoder {
   // stream is truncated or corrupt.
   bool get isOverrun => _bufferPos > _dataEnd;
 
+  bool get isNearEnd => _bufferPos > _dataEnd - 48;
+
   // Set the input being read from. Must be set before initializing or reading
   // bits.
   void setBuffer(Uint8List data) {
@@ -50,6 +52,22 @@ class RangeDecoder {
     buffer.fillRange(data.length, needed, 0);
     _bufferPos = 0;
     _dataEnd = data.length;
+  }
+
+  int get available => _dataEnd - _bufferPos;
+
+  // Must be called between packets, so [available] is not negative
+  void appendBuffer(Uint8List data) {
+    final kept = _dataEnd - _bufferPos;
+    final needed = kept + data.length + readAheadPadding;
+    final old = _buffer;
+    final buffer = old.length < needed ? Uint8List(needed) : old;
+    buffer.setRange(0, kept, old, _bufferPos);
+    buffer.setRange(kept, kept + data.length, data);
+    buffer.fillRange(kept + data.length, needed, 0);
+    _buffer = buffer;
+    _bufferPos = 0;
+    _dataEnd = kept + data.length;
   }
 
   void reset() {

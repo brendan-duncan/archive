@@ -1,21 +1,21 @@
 import 'dart:convert';
-import 'dart:typed_data';
-
-import 'package:path/path.dart' as path;
 
 import '../archive/archive.dart';
 import '../archive/archive_file.dart';
+import '../util/_link_target.dart';
 import '../util/archive_exception.dart';
+import '../util/decode_guard.dart';
+import '../util/input_decode_stream.dart';
 import '../util/input_memory_stream.dart';
 import '../util/input_stream.dart';
 import 'tar/tar_file.dart';
+import 'tar/tar_sparse.dart';
 
 /// Decode a tar formatted buffer into an [Archive] object.
+/// Hard link is decoded as [ArchiveFile.symbolicLink] with target relative to
+/// link folder and [ArchiveFile.isHardLink] set, so extracted link points to
+/// its target
 class TarDecoder {
-  static const _space = 0x20;
-  static const _equals = 0x3d;
-  static const _newline = 0x0a;
-
   final Encoding filenameEncoding;
   List<TarFile> files = [];
 
@@ -25,14 +25,22 @@ class TarDecoder {
   /// checksum is checked and an [ArchiveException] thrown if one is wrong,
   /// which is what tells a tar apart from an unrelated file.
   ///
+  /// With [storeData] false the entries hold no content, only their headers
+  ///
+  /// {@macro archive.decoder_callback}
+  ///
+  /// {@macro archive.archive_verify_throw_on_error}
+  ///
   /// [keepEntries] is as for [decodeStream].
   Archive decodeBytes(List<int> data,
       {bool verify = false,
+      bool throwOnError = false,
       bool storeData = true,
       ArchiveCallback? callback,
       bool keepEntries = true}) {
     return decodeStream(InputMemoryStream(data),
         verify: verify,
+        throwOnError: throwOnError,
         storeData: storeData,
         callback: callback,
         keepEntries: keepEntries);
@@ -42,32 +50,48 @@ class TarDecoder {
   /// checksum is checked and an [ArchiveException] thrown if one is wrong,
   /// which is what tells a tar apart from an unrelated file.
   ///
-  /// [callback] is called with each entry as it is reached. With
-  /// [keepEntries] false, that is the only place the entries go: the archive
-  /// returned is empty and [files] is left empty, so that memory does not
-  /// grow with the number of entries, which costs a few hundred bytes each.
+  /// With [storeData] false the entries hold no content, only their headers
+  ///
+  /// {@macro archive.decoder_callback}
+  ///
+  /// {@macro archive.archive_verify_throw_on_error}
+  ///
+  /// With [keepEntries] false, [callback] is the only place the entries go:
+  /// the archive returned is empty and [files] is left empty, so that memory
+  /// does not grow with the number of entries, which costs a few hundred bytes
+  /// each.
   Archive decodeStream(InputStream input,
       {bool verify = false,
+      bool throwOnError = false,
       bool storeData = true,
       ArchiveCallback? callback,
       bool keepEntries = true}) {
     final archive = Archive();
     files.clear();
+    guardDecode('tar', verify, throwOnError, () {
+      _decode(input, archive, verify || throwOnError, storeData, callback,
+          keepEntries);
+      return true;
+    });
+    return archive;
+  }
 
-    String? nextName;
-    String? nextLinkName;
-    int? nextSize;
-    int? nextModTime;
-    int? nextOwnerId;
-    int? nextGroupId;
+  void _decode(InputStream input, Archive archive, bool verify, bool storeData,
+      ArchiveCallback? callback, bool keepEntries) {
+    final metadata = TarMetadata();
+    void add(TarFile tf) => _add(archive, tf, storeData, callback, keepEntries);
 
+    if (verify && input.isEOS) {
+      throw ArchiveException('Unexpected end of tar data');
+    }
     // TarFile paxHeader = null;
     while (!input.isEOS) {
       // The end of the archive is a block of zeros; two of them can't be told
-      // from a damaged header, which is what verify is there to catch.
-      // Peeked rather than measured with the input's length, which a stream
-      // decoding as it goes cannot give without decoding everything.
-      final endCheck = input.peekBytes(512).toUint8List();
+      // from a damaged header, which is what verify is there to catch
+      final endCheck = input.peekBytes(verify ? 512 : 2).toUint8List();
+      if (verify && endCheck.length < 512 && !endCheck.any((b) => b != 0)) {
+        throw ArchiveException('Unexpected end of tar data');
+      }
       if (verify
           ? !endCheck.any((b) => b != 0)
           : endCheck.length < 2 || (endCheck[0] == 0 && endCheck[1] == 0)) {
@@ -76,252 +100,148 @@ class TarDecoder {
       // Fewer bytes than a header block can't be an entry. Without verify
       // that is the end of the archive rather than an entry read from junk;
       // with it, the header check below reports it
-      if (!verify && endCheck.length < 512) {
+      if (!verify && input.peekBytes(512).length < 512) {
         break;
       }
 
       if (verify) {
-        // A tar header carries a checksum of its own 512 bytes, taking the
-        // eight bytes of the checksum field itself as spaces. It is the only
-        // thing that tells a tar apart from an unrelated file, since every
-        // other field is free-form enough to read as something.
-        final h = endCheck;
-        if (h.length < 512) {
+        if (endCheck.length < 512) {
           throw ArchiveException('Invalid tar header');
         }
-        var unsigned = 0;
-        var signed = 0;
-        for (var i = 0; i < 512; ++i) {
-          final b = (i >= 148 && i < 156) ? _space : h[i];
-          unsigned += b;
-          // Implementations that predate unsigned char summed these signed.
-          signed += b > 127 ? b - 256 : b;
-        }
-        // The stored value is octal, padded with spaces or nulls on either
-        // side of the digits.
-        var p = 148;
-        while (p < 156 && (h[p] == _space || h[p] == 0)) {
-          p++;
-        }
-        var digits = '';
-        while (p < 156 && h[p] != _space && h[p] != 0) {
-          digits += String.fromCharCode(h[p]);
-          p++;
-        }
-        final stored = int.tryParse(digits, radix: 8);
-        if (stored != unsigned && stored != signed) {
+        // Tar has no magic bytes, so only the header checksum rejects a file
+        // that is not tar. The checksum guards structure, so either flag
+        // checks it and a mismatch throws ArchiveException.
+        if (!tarHeaderChecksumMatches(endCheck)) {
           throw ArchiveException('Invalid tar header checksum');
         }
+        if (!tarHeaderSizeIsNumber(endCheck)) {
+          throw ArchiveException('Invalid tar header size');
+        }
       }
 
+      // The length of an InputDecodeStream decodes all of the rest into its
+      // window, so a lazily decoded tar is checked as each entry is written
+      final available = input is InputDecodeStream ? null : input.length;
+      final start = input.position;
       final tf = TarFile.read(input,
-          storeData: storeData, encoding: filenameEncoding, size: nextSize);
-      // GNU tar puts filenames in files when they exceed tar's native length.
-      // Both kinds are named '././@LongLink', so only the type flag says
-      // whether the content is the next entry's name or its link target.
-      if (tf.filename == '././@LongLink' ||
-          tf.typeFlag == TarFile.longName ||
-          tf.typeFlag == TarFile.longLinkName) {
-        if (tf.typeFlag == TarFile.longLinkName) {
-          nextLinkName = _readLongName(tf.rawContent!);
-        } else {
-          nextName = _readLongName(tf.rawContent!);
+          storeData: storeData,
+          encoding: filenameEncoding,
+          size: metadata.dataSize,
+          name: metadata.name,
+          pax: metadata.pax);
+      metadata.sawHeader(tf);
+      final blocks = 1 + (tf.sparse?.extensionBlocks ?? 0);
+      if (verify &&
+          available != null &&
+          available < 512 * blocks + tf.fileSize + tf.padding) {
+        throw ArchiveException('Unexpected end of tar data');
+      }
+      // A header that carries the next entry's name or its PAX records is not
+      // an entry of its own
+      if (metadata.take(tf, filenameEncoding)) {
+        final orphan = metadata.takeOrphan();
+        if (orphan != null) {
+          add(orphan);
         }
         continue;
       }
-
-      // In POSIX formatted tar files, a separate 'PAX' file contains extended
-      // metadata for files. These are identified by having a type flag 'X'.
-      // TODO: parse these metadata values.
-      if (tf.typeFlag == TarFile.gExHeader ||
-          tf.typeFlag == TarFile.gExHeader2) {
-        // TODO handle PAX global header.
-        continue;
+      metadata.applyTo(tf);
+      if (tf.sparse != null &&
+          !tf.resolveSparse(tf.rawContent ??
+              input.subset(position: start + 512, length: tf.fileSize)) &&
+          verify) {
+        throw ArchiveException('Invalid tar sparse map');
       }
-      if (tf.typeFlag == TarFile.exHeader || tf.typeFlag == TarFile.exHeader2) {
-        // A PAX extended header is a sequence of records formatted as
-        // "%d %s=%s\n", where %d is the decimal length of the whole record,
-        // including the length field itself and the trailing newline.
-        // The records must be walked by that length rather than split on
-        // newlines, and they can't be decoded as UTF-8 up front: vendor
-        // extensions such as SCHILY.xattr store raw binary values, which may
-        // contain both invalid UTF-8 and embedded newlines.
-        final records = tf.rawContent!.toUint8List();
-        var pos = 0;
-        while (pos < records.length) {
-          // The length field, terminated by a space.
-          var sp = pos;
-          while (sp < records.length && records[sp] != _space) {
-            sp++;
-          }
-          if (sp == records.length) {
-            break;
-          }
-          final length = int.tryParse(String.fromCharCodes(records, pos, sp));
-          // A record has to at least hold the length field and its space,
-          // and can't run past the end of the header.
-          if (length == null ||
-              length <= sp - pos + 1 ||
-              pos + length > records.length) {
-            break;
-          }
-          final recordEnd = pos + length;
-          pos = recordEnd;
-
-          // The keyword, terminated by '='. Keywords are portable
-          // characters, so decoding them as ASCII is safe.
-          var eq = sp + 1;
-          while (eq < recordEnd && records[eq] != _equals) {
-            eq++;
-          }
-          if (eq == recordEnd) {
-            continue;
-          }
-          final keyword = String.fromCharCodes(records, sp + 1, eq);
-          if (keyword != 'path' &&
-              keyword != 'linkpath' &&
-              keyword != 'size' &&
-              keyword != 'mtime' &&
-              keyword != 'uid' &&
-              keyword != 'gid') {
-            // TODO: support other pax headers.
-            continue;
-          }
-
-          // The value runs to the end of the record, minus the newline.
-          var valueEnd = recordEnd;
-          if (records[valueEnd - 1] == _newline) {
-            valueEnd--;
-          }
-          // The values of these keywords are UTF-8, but don't let a malformed
-          // one abort the whole archive.
-          final value = utf8.decode(records.sublist(eq + 1, valueEnd),
-              allowMalformed: true);
-          switch (keyword) {
-            case 'path':
-              nextName = value;
-              break;
-            case 'linkpath':
-              nextLinkName = value;
-              break;
-            case 'size':
-              // A pax size record overrides the header's own field, which is
-              // how a file of 8GB or more is stored in this format.
-              nextSize = int.tryParse(value);
-              break;
-            case 'mtime':
-              // Stored as seconds, with an optional fractional part that the
-              // archive has nowhere to keep. Truncated off the string rather
-              // than through a double, which for a long enough fraction would
-              // round up and report the wrong second.
-              final dot = value.indexOf('.');
-              nextModTime =
-                  int.tryParse(dot < 0 ? value : value.substring(0, dot));
-              break;
-            case 'uid':
-              nextOwnerId = int.tryParse(value);
-              break;
-            case 'gid':
-              nextGroupId = int.tryParse(value);
-              break;
-          }
-        }
-        continue;
+      final orphan = metadata.takeOrphan();
+      if (orphan != null) {
+        add(orphan);
       }
-
-      // Fix file attributes.
-      nextSize = null;
-      if (nextName != null) {
-        tf.filename = nextName;
-        nextName = null;
-      }
-      if (nextLinkName != null) {
-        tf.nameOfLinkedFile = nextLinkName;
-        nextLinkName = null;
-      }
-      if (nextModTime != null) {
-        tf.lastModTime = nextModTime;
-        nextModTime = null;
-      }
-      if (nextOwnerId != null) {
-        tf.ownerId = nextOwnerId;
-        nextOwnerId = null;
-      }
-      if (nextGroupId != null) {
-        tf.groupId = nextGroupId;
-        nextGroupId = null;
-      }
-      // A hard link names its target from the root of the archive, but it
-      // is handed on as a symbolic link, whose target is taken from the
-      // link's own directory.
-      if (tf.typeFlag == TarFile.hardLink &&
-          (tf.nameOfLinkedFile?.isNotEmpty ?? false)) {
-        tf.nameOfLinkedFile = path.posix.relative(tf.nameOfLinkedFile!,
-            from: path.posix.dirname(tf.filename));
-      }
-      if (keepEntries) {
-        files.add(tf);
-      }
-
-      final filename = tf.filename;
-
-      if (tf.isFile) {
-        final file = storeData
-            ? ArchiveFile.stream(filename, tf.rawContent!)
-            : ArchiveFile.noData(filename);
-
-        file.mode = tf.mode;
-        file.ownerId = tf.ownerId;
-        file.groupId = tf.groupId;
-        file.lastModTime = tf.lastModTime;
-        // Every header has the field; only a link has anything in it
-        if (tf.nameOfLinkedFile?.isNotEmpty ?? false) {
-          file.symbolicLink = tf.nameOfLinkedFile!;
-        }
-
-        if (keepEntries) {
-          archive.add(file);
-        }
-
-        if (callback != null) {
-          callback(file);
-        }
-      } else {
-        final file = ArchiveFile.directory(filename);
-        file.mode = tf.mode;
-        file.ownerId = tf.ownerId;
-        file.groupId = tf.groupId;
-        file.lastModTime = tf.lastModTime;
-        // Every header has the field; only a link has anything in it
-        if (tf.nameOfLinkedFile?.isNotEmpty ?? false) {
-          file.symbolicLink = tf.nameOfLinkedFile!;
-        }
-
-        if (keepEntries) {
-          archive.add(file);
-        }
-
-        if (callback != null) {
-          callback(file);
-        }
-      }
+      add(tf);
     }
-
-    return archive;
+    final orphan = metadata.takeOrphan(true);
+    if (orphan != null) {
+      add(orphan);
+    }
   }
 
-  // The content of a long name entry, up to its terminating null. Taken as
-  // a view rather than byte by byte, which grew a list of ints.
-  static String _readLongName(InputStream content) {
-    final bytes = content.toUint8List();
-    var end = bytes.indexOf(0);
-    if (end < 0) {
-      end = bytes.length;
+  void _add(Archive archive, TarFile tf, bool storeData,
+      ArchiveCallback? callback, bool keepEntries) {
+    if (keepEntries) {
+      files.add(tf);
     }
-    try {
-      return utf8.decode(Uint8List.sublistView(bytes, 0, end));
-    } catch (_) {
-      return String.fromCharCodes(bytes, 0, end);
+
+    final filename = tf.filename;
+
+    final v7Directory = (tf.typeFlag == TarFile.normalFile ||
+            tf.typeFlag == '' ||
+            tf.typeFlag == '\u0000') &&
+        filename.endsWith('/');
+    if (tf.isFile && !v7Directory && tf.typeFlag != 'D') {
+      final sparse = tf.sparse;
+      if (storeData &&
+          sparse != null &&
+          tf.rawContent!.length < sparse.mapLength) {
+        throw ArchiveException('Unexpected end of tar data');
+      }
+      final sparseContent = storeData && sparse != null
+          ? FileContentSparse(
+              tf.rawContent!.subset(
+                  position: sparse.mapLength,
+                  length: tf.fileSize - sparse.mapLength),
+              sparse.regions,
+              sparse.realSize)
+          : null;
+      final file = !storeData
+          ? ArchiveFile.noData(filename)
+          : sparseContent != null
+              ? ArchiveFile.file(filename, sparseContent.length, sparseContent)
+              : ArchiveFile.stream(filename, tf.rawContent!);
+
+      file.mode = tf.mode;
+      file.ownerId = tf.ownerId;
+      file.groupId = tf.groupId;
+      file.lastModTime = tf.lastModTime;
+      // Every header has the field; only a link has anything in it
+      if (tf.nameOfLinkedFile?.isNotEmpty ?? false) {
+        file.isHardLink = tf.typeFlag == TarFile.hardLink;
+        file.symbolicLink = file.isHardLink
+            ? hardLinkFromFolder(filename, tf.nameOfLinkedFile!)
+            : tf.nameOfLinkedFile!;
+      }
+
+      if (keepEntries) {
+        archive.add(file);
+      }
+
+      if (callback != null) {
+        try {
+          callback(file);
+        } catch (error, stackTrace) {
+          throw CallbackFailure(error, stackTrace);
+        }
+      }
+    } else {
+      final file = ArchiveFile.directory(filename);
+      file.mode = tf.mode;
+      file.ownerId = tf.ownerId;
+      file.groupId = tf.groupId;
+      file.lastModTime = tf.lastModTime;
+      // Every header has the field; only a link has anything in it
+      if (tf.nameOfLinkedFile?.isNotEmpty ?? false) {
+        file.symbolicLink = tf.nameOfLinkedFile!;
+      }
+
+      if (keepEntries) {
+        archive.add(file);
+      }
+
+      if (callback != null) {
+        try {
+          callback(file);
+        } catch (error, stackTrace) {
+          throw CallbackFailure(error, stackTrace);
+        }
+      }
     }
   }
 }

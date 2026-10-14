@@ -1,5 +1,6 @@
 import 'dart:typed_data';
-import 'encryption.dart';
+import 'aes_ctr.dart';
+import 'sha1.dart';
 
 class Uint8ListEquality {
   static bool equals(Uint8List mac, Uint8List computedMac) {
@@ -15,82 +16,58 @@ class Uint8ListEquality {
 }
 
 class AesCipherUtil {
-  static PcHMac getMacBasedPRF(Uint8List derivedKey) {
-    var mac = PcHMac(PcSHA1Digest(), 64);
-    mac.init(PcKeyParameter(derivedKey));
-    return mac;
-  }
-
-  static void prepareBuffAESIVBytes(Uint8List buff, int nonce) {
-    buff[0] = nonce & 0xFF;
-    buff[1] = (nonce >> 8) & 0xFF;
-    buff[2] = (nonce >> 16) & 0xFF;
-    buff[3] = (nonce >> 24) & 0xFF;
-
-    for (int i = 4; i <= 15; ++i) {
-      buff[i] = 0;
-    }
-  }
+  static HmacSha1 getMacBasedPRF(Uint8List derivedKey) => HmacSha1(derivedKey);
 }
 
-// AesDecrypt
 class Aes {
-  int nonce = 1;
-  Uint8List iv = Uint8List(16);
-  Uint8List counterBlock = Uint8List(16);
   Uint8List derivedKey;
   int aesKeyStrength;
   bool encrypt;
-  PcAESEngine? aesEngine;
-  late PcHMac _macGen;
+  late AesCtr _ctr;
+  late HmacSha1 _macGen;
   late Uint8List mac;
 
-  /// Encrypts or decrypts all of the data in one call, leaving the
-  /// authentication code in [mac].
   int processData(Uint8List buff, int start, int len) {
-    update(buff, start, len);
-    finish();
-    return len;
-  }
-
-  /// Encrypts or decrypts the next [len] bytes of the data in place.
-  ///
-  /// The counter advances a block at a time, so every call but the last has
-  /// to pass a multiple of 16 bytes. Call [finish] after the last one.
-  void update(Uint8List buff, int start, int len) {
     if (!encrypt) {
       _macGen.update(buff, start, len);
     }
 
-    for (int j = start; j < start + len; j += 16) {
-      int loopCount = j + 16 <= start + len ? 16 : start + len - j;
-      AesCipherUtil.prepareBuffAESIVBytes(iv, nonce);
-      aesEngine?.processBlock(iv, 0, counterBlock, 0);
-      for (int k = 0; k < loopCount; ++k) {
-        buff[j + k] ^= counterBlock[k];
-      }
-      ++nonce;
+    _ctr.process(buff, start, start + len);
+
+    if (encrypt) {
+      _macGen.update(buff, start, len);
     }
 
+    mac = Uint8List(HmacSha1.macSize);
+    _macGen.finish(mac, 0);
+    mac = mac.sublist(0, 10);
+
+    return len;
+  }
+
+  /// Processes `buff[start, start + len)` as one piece of a longer entry,
+  /// which [processData] cannot do since it finishes [mac] on every call.
+  /// [finishMac] sets [mac] once every piece is done
+  void processPart(Uint8List buff, int start, int len) {
+    if (!encrypt) {
+      _macGen.update(buff, start, len);
+    }
+    _ctr.process(buff, start, start + len);
     if (encrypt) {
       _macGen.update(buff, start, len);
     }
   }
 
-  /// Computes the authentication code of everything passed to [update],
-  /// storing it in [mac] and returning it.
-  Uint8List finish() {
-    mac = Uint8List(_macGen.macSize);
-    _macGen.doFinal(mac, 0);
-    mac = mac.sublist(0, 10);
-    _macGen.reset();
-    return mac;
+  void finishMac() {
+    final full = Uint8List(HmacSha1.macSize);
+    _macGen.finish(full, 0);
+    mac = full.sublist(0, 10);
   }
 
   Aes(this.derivedKey, Uint8List hmacDerivedKey, this.aesKeyStrength,
       {this.encrypt = false}) {
-    aesEngine = PcAESEngine();
-    aesEngine!.init(true, PcKeyParameter(derivedKey));
+    _ctr =
+        AesCtr(derivedKey, Uint8List(16)..[0] = 1, littleEndianCounter: true);
     _macGen = AesCipherUtil.getMacBasedPRF(hmacDerivedKey);
   }
 }

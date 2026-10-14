@@ -150,8 +150,6 @@ Other notes on `InputDecodeStream`:
   Loop on `isEOS` instead.
 - A malformed or truncated input throws `ArchiveException` from the read
   that reaches the bad data, not up front.
-- An xz block that uses the x86 BCJ filter is decoded whole before any of it
-  can be read.
 
 ## Memory at a glance
 
@@ -173,4 +171,51 @@ Encoders: `ZipEncoder` streams each new entry from its source through the
 compressor into the output. `TarEncoder` copies stream-backed entries in
 chunks. `GZipEncoder`, `ZLibEncoder` and `BZip2Encoder` work in chunks or
 blocks, and `ZstdEncoder` in a sliding window that grows with the level.
-`XZEncoder` reads its whole input into memory.
+`XZEncoder` reads its input in chunks.
+
+## Showing progress while extracting
+
+`ProgressOutputStream` wraps any `OutputStream` and calls back with the number of bytes written
+through it so far, at most once per 64 KiB.
+
+This example extracts a zip and prints progress over the whole archive:
+```dart
+import 'package:archive/archive.dart';
+
+void main() async {
+  final input = InputFileStream('test.zip');
+  final archive = ZipDecoder().decodeStream(input);
+  // The zip directory records every file's unpacked size
+  final total = archive.fold<int>(0, (sum, f) => sum + (f.isFile ? f.size : 0));
+  var done = 0;
+  for (final file in archive) {
+    if (!file.isFile) continue;
+    final out = ProgressOutputStream(OutputFileStream('out/${file.name}'),
+        (written) => print('${(done + written) * 100 ~/ total}%'));
+    file.writeContent(out);
+    await out.close();
+    done += file.size;
+  }
+  await input.close();
+}
+```
+
+This example unpacks a `.tar.gz` into a `.tar`. A gzip stream does not store its uncompressed
+size up front, so the progress shows how much of the compressed file has been read:
+```dart
+import 'package:archive/archive.dart';
+
+void main() async {
+  final input = InputFileStream('data.tar.gz');
+  final total = input.length;
+  final out = ProgressOutputStream(OutputFileStream('data.tar'),
+      (_) => print('${input.position * 100 ~/ total}%'));
+  final ok = const GZipDecoder().decodeStream(input, out);
+  await out.close();
+  await input.close();
+  if (!ok) throw ArchiveException('data.tar.gz is damaged or cut short');
+}
+```
+
+Decoding is synchronous, so in Flutter run it in `Isolate.run` and send the progress through a
+`SendPort`, otherwise the UI will not repaint until it finishes.

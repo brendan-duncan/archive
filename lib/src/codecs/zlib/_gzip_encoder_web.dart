@@ -76,25 +76,31 @@ class _GZipEncoder extends ZLibEncoderBase {
 
     final dataLength = input.length;
 
-    output.writeUint16(GZipFlag.signature);
-    output.writeByte(GZipFlag.deflate);
+    final held = output.byteOrder;
+    output.byteOrder = ByteOrder.littleEndian;
+    try {
+      output.writeUint16(GZipFlag.signature);
+      output.writeByte(GZipFlag.deflate);
 
-    final flags = 0;
-    final fileModTime = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-    final extraFlags = 0;
-    final osType = GZipFlag.osUnknown;
+      final flags = 0;
+      final fileModTime = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+      final extraFlags = 0;
+      final osType = GZipFlag.osUnknown;
 
-    output.writeByte(flags);
-    output.writeUint32(fileModTime);
-    output.writeByte(extraFlags);
-    output.writeByte(osType);
+      output.writeByte(flags);
+      output.writeUint32(fileModTime);
+      output.writeByte(extraFlags);
+      output.writeByte(osType);
 
-    final deflate = Deflate.stream(input,
-        level: level ?? 6, windowBits: windowBits ?? 15, output: output);
+      final deflate = Deflate.stream(input,
+          level: level ?? 6, windowBits: windowBits ?? 15, output: output);
 
-    output.writeUint32(deflate.crc32);
+      output.writeUint32(deflate.crc32);
 
-    output.writeUint32(dataLength);
+      output.writeUint32(dataLength);
+    } finally {
+      output.byteOrder = held;
+    }
 
     output.flush();
   }

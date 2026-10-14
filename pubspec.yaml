@@ -1,8 +1,8 @@
 name: archive
-version: 4.5.2
+version: 4.6.0
 description: >-
   Provides encoders and decoders for various archive and compression formats
-  such as zip, tar, bzip2, gzip, zlib, xz and zstd.
+  such as zip, tar, bzip2, gzip, zlib, xz, and zstd.
 repository: https://github.com/brendan-duncan/archive
 topics:
   - archive
@@ -18,6 +18,8 @@ dependencies:
   posix: ^6.0.2
 
 dev_dependencies:
+  # Demo can also be built with  `dart compile js web/test_zip.dart -o web/test_zip.dart.js`,
+  # then run `python3 -m http.server -d web` and open localhost:8000/test_zip.html
   build_runner: ^2.4.14
   build_web_compilers: ^4.1.0
   http: ^1.1.0

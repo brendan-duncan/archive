@@ -17,7 +17,7 @@ void listTarFiles(String path) {
     final tarArchive = TarDecoder();
     // Tell the decoder not to store the actual file data since we don't need
     // it.
-    tarArchive.decodeStream(tar, storeData: false);
+    tarArchive.decodeStream(tar, throwOnError: true, storeData: false);
 
     print('${tarArchive.files.length} file(s)');
     for (final f in tarArchive.files) {
@@ -29,15 +29,12 @@ void listTarFiles(String path) {
 }
 
 /// Extract the entries in the given tar file to a directory.
-///
-/// Entries are kept inside [outputPath] as [extractArchiveToDiskSync]
-/// describes.
 Directory extractTarFiles(String inputPath, String outputPath) {
   final input = InputFileStream(inputPath);
   try {
-    final writer = EntryWriter(outputPath);
-    TarDecoder().decodeStream(_tarStream(inputPath, input), keepEntries: false,
-        callback: (entry) {
+    final writer = EntryWriter(outputPath, throwOnError: true);
+    TarDecoder().decodeStream(_tarStream(inputPath, input),
+        throwOnError: true, keepEntries: false, callback: (entry) {
       final path = writer.write(entry);
       if (path != null && entry.isFile && !entry.isSymbolicLink) {
         print('  extracted $path');
@@ -50,8 +47,6 @@ Directory extractTarFiles(String inputPath, String outputPath) {
   return Directory(outputPath);
 }
 
-// The tar in [input], decompressed as it is read if [path] says it is
-// compressed.
 InputStream _tarStream(String path, InputStream input) =>
     tarStreamFor(getInputExtension(path), input) ?? input;
 

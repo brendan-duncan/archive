@@ -4,6 +4,8 @@ import 'abstract_file_handle.dart';
 import 'byte_order.dart';
 import 'file_access.dart';
 import 'file_handle.dart';
+import 'input_decode_stream.dart';
+import 'input_memory_stream.dart';
 import 'input_stream.dart';
 import 'output_stream.dart';
 import 'ram_file_handle.dart';
@@ -78,8 +80,11 @@ class OutputFileStream extends OutputStream {
     if (!isOpen) {
       return;
     }
-    flush();
-    await _fileHandle.close();
+    try {
+      flush();
+    } finally {
+      await _fileHandle.close();
+    }
   }
 
   @override
@@ -87,8 +92,11 @@ class OutputFileStream extends OutputStream {
     if (!isOpen) {
       return;
     }
-    flush();
-    _fileHandle.closeSync();
+    try {
+      flush();
+    } finally {
+      _fileHandle.closeSync();
+    }
   }
 
   /// Write a byte to the end of the buffer.
@@ -99,6 +107,25 @@ class OutputFileStream extends OutputStream {
       flush();
     }
     _length++;
+  }
+
+  @override
+  void writeRange(Uint8List bytes, int start, int end) {
+    final length = end - start;
+    if (_bufferPosition + length >= _buffer.length) {
+      flush();
+    }
+    if (_bufferPosition + length < _buffer.length) {
+      _buffer.setRange(_bufferPosition, _bufferPosition + length, bytes, start);
+      _bufferPosition += length;
+      _length += length;
+      return;
+    }
+    flush();
+    // The whole list with a range, not a view of it: dart:io copies anything
+    // that is not a `Uint8List` starting at zero
+    _fileHandle.writeFromSync(bytes, start, end);
+    _length += length;
   }
 
   /// Write a set of bytes to the end of the buffer.
@@ -117,20 +144,86 @@ class OutputFileStream extends OutputStream {
     }
 
     flush();
-    _fileHandle.writeFromSync(bytes, 0, length);
+    if (bytes is Uint8List && length <= bytes.length) {
+      _fileHandle.writeFromSync(Uint8List.view(bytes.buffer),
+          bytes.offsetInBytes, bytes.offsetInBytes + length);
+    } else {
+      _fileHandle.writeFromSync(bytes, 0, length);
+    }
     _length += length;
+  }
+
+  /// Writing sparse holes as zeros filled disk, 8 GiB from 2 KB tar. On disk
+  /// we seek past them, so sparse file systems allocate no blocks
+  void writeZeros(int count) {
+    if (count <= 0) {
+      return;
+    }
+    final handle = _fileHandle;
+    if (handle is FileHandle && handle.isOpen) {
+      flush();
+      handle.position += count - 1;
+      _length += count - 1;
+      writeByte(0);
+      return;
+    }
+    final zeros = Uint8List(count < 1 << 16 ? count : 1 << 16);
+    while (count > 0) {
+      final n = count < zeros.length ? count : zeros.length;
+      writeBytes(zeros, length: n);
+      count -= n;
+    }
   }
 
   @override
   void writeStream(InputStream stream) {
-    // Until the stream ends rather than for its length, which a stream that
-    // decodes as it is read can only give by decoding everything first.
-    const chunkSize = 1024 * 1024;
-    while (!stream.isEOS) {
-      final bytes = stream.readBytes(chunkSize).toUint8List();
-      if (bytes.isEmpty) {
-        break;
+    final held = stream.position;
+    try {
+      _writeStream(stream);
+    } finally {
+      stream.setPosition(held);
+    }
+  }
+
+  void _writeStream(InputStream stream) {
+    // InputDecodeStream.length decodes everything that is left into memory
+    // before the first byte is written, so a lazy stream is read to its end
+    if (stream is InputDecodeStream) {
+      final chunk = Uint8List(16 * 1024);
+      while (!stream.isEOS) {
+        final got = stream.readInto(chunk, 0, chunk.length);
+        if (got <= 0) {
+          return;
+        }
+        writeBytes(chunk, length: got);
       }
+      return;
+    }
+    var size = stream.length;
+    const chunkSize = 1024 * 1024;
+    // Fresh 1 MB array per chunk costs page faults on first write: reading
+    // 1 GB file took 111 ms, against 45 ms with one reused buffer
+    if (stream is! InputMemoryStream && size > 0) {
+      final chunk = Uint8List(size < chunkSize ? size : chunkSize);
+      while (size > 0) {
+        final got = stream.readInto(
+            chunk, 0, size < chunk.length ? size : chunk.length);
+        if (got <= 0) {
+          return;
+        }
+        writeBytes(chunk, length: got);
+        size -= got;
+      }
+      return;
+    }
+    Uint8List? bytes;
+    while (size > chunkSize) {
+      bytes = stream.readBytes(chunkSize).toUint8List();
+      writeBytes(bytes);
+      size -= chunkSize;
+    }
+    if (size > 0) {
+      bytes = stream.readBytes(size).toUint8List();
       writeBytes(bytes);
     }
   }

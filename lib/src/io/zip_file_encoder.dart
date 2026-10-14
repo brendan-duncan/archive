@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:path/path.dart' as path;
 
 import '../archive/archive_file.dart';
+import '../archive/compression_type.dart';
 import '../codecs/zip_encoder.dart';
 import '../util/input_file_stream.dart';
 import '../util/output_file_stream.dart';
@@ -11,6 +12,7 @@ import 'zip_file_progress.dart';
 class ZipFileEncoder {
   late OutputFileStream _output;
   late ZipEncoder _encoder;
+  int? _level;
   final String? password;
 
   static const store = 0;
@@ -32,14 +34,16 @@ class ZipFileEncoder {
       modified: modified,
     );
 
-    await addDirectory(dir,
-        includeDirName: false,
-        level: level,
-        followLinks: followLinks,
-        onProgress: onProgress,
-        filter: filter);
-
-    await close();
+    try {
+      await addDirectory(dir,
+          includeDirName: false,
+          level: level,
+          followLinks: followLinks,
+          onProgress: onProgress,
+          filter: filter);
+    } finally {
+      await close();
+    }
   }
 
   /// Composes the path (target) of the Zip file after a [Directory] is zipped.
@@ -86,10 +90,15 @@ class ZipFileEncoder {
     DateTime? modified,
   }) {
     _output = outputFileStream;
-    _encoder = ZipEncoder(password: password);
+    _level = level;
+    // Without streamed ZipEncoder compressed each deflated entry into memory:
+    // 1042 MB for 920 MB file at level 1, 667 MB at level 6. With streamed it
+    // writes sizes in data descriptor after data and needs 19 MB
+    _encoder = ZipEncoder(password: password, streamed: true);
     _encoder.startEncode(_output, level: level, modified: modified);
   }
 
+  /// Adds the files under [dir] to the zip
   void addDirectorySync(Directory dir,
       {bool includeDirName = true,
       int? level,
@@ -135,6 +144,7 @@ class ZipFileEncoder {
     }
   }
 
+  /// Adds the files under [dir] to the zip asynchronously
   Future<void> addDirectory(Directory dir,
       {bool includeDirName = true,
       int? level,
@@ -190,7 +200,7 @@ class ZipFileEncoder {
 
     archiveFile.mode = (file.statSync()).mode;
 
-    _encoder.add(archiveFile, level: level);
+    _add(archiveFile, level);
   }
 
   Future<void> addFile(File file, [String? filename, int? level]) async {
@@ -204,13 +214,30 @@ class ZipFileEncoder {
 
     archiveFile.mode = (await file.stat()).mode;
 
-    _encoder.add(archiveFile, level: level);
+    _add(archiveFile, level);
 
     await fileStream.close();
   }
 
   void addArchiveFile(ArchiveFile file) {
-    _encoder.add(file);
+    _add(file, null);
+  }
+
+  void _add(ArchiveFile file, int? level) {
+    // ZipEncoder took store as deflate level 0: it buffered whole entry in
+    // memory, 2 GB for 1 GB file, and wrote method 8. We set method 0, which
+    // ZipEncoder writes straight from file
+    if ((level ?? _level) != store || file.compression != null) {
+      _encoder.add(file, level: level);
+      return;
+    }
+    final previous = file.compression;
+    file.compression = CompressionType.none;
+    try {
+      _encoder.add(file, level: level);
+    } finally {
+      file.compression = previous;
+    }
   }
 
   void closeSync() {

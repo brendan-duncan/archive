@@ -21,7 +21,8 @@ class ZLibEncoder {
   /// default.
   Uint8List encodeBytes(List<int> bytes,
           {int? level, int windowBits = maxWindowBits}) =>
-      platformZLibEncoder.encodeBytes(bytes, level: level);
+      platformZLibEncoder.encodeBytes(bytes,
+          level: level, windowBits: windowBits);
 
   /// Alias for [encodeBytes], kept for backwards compatibility.
   List<int> encode(List<int> bytes,

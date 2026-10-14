@@ -1,254 +1,248 @@
-import 'dart:math' as math;
 import 'dart:typed_data';
 
-import '../../util/input_memory_stream.dart';
+import '../../util/archive_exception.dart';
 import '../../util/input_stream.dart';
 import '../../util/output_stream.dart';
-import 'xxhash64.dart';
+import '../../util/xxh64.dart';
 import 'zstd_block_encoder.dart';
-import 'zstd_frame_decoder.dart';
-import 'zstd_match_finder.dart';
-import 'zstd_platform.dart';
+import 'zstd_block_splitter.dart';
+import 'zstd_constants.dart';
+import 'zstd_dictionary.dart';
+import 'zstd_level_params.dart';
 
-enum _Strategy { fast, doubleFast, row, lazy }
-
-// What a compression level does: the match finder, the window, the table
-// sizes and how hard it searches.
-class _LevelParams {
-  final _Strategy strategy;
-  final int windowLog;
-  final int hashLog;
-  // The long hash table for doubleFast, all the rows for row, the chain for
-  // lazy
-  final int chainLog;
-  final int searchLog;
-  // The shortest match to look for, which is also how many bytes are hashed
-  final int mls;
-  // For fast, how far to step when there is no match; for lazy, how many
-  // positions ahead to look for a better match.
-  final int depth;
-
-  const _LevelParams(this.strategy, this.windowLog, this.hashLog, this.chainLog,
-      this.searchLog, this.mls, this.depth);
-}
-
-const _levels = <_LevelParams>[
-  _LevelParams(_Strategy.fast, 19, 16, 0, 0, 6, 1), // 1
-  _LevelParams(_Strategy.doubleFast, 20, 16, 17, 0, 6, 0), // 2
-  _LevelParams(_Strategy.doubleFast, 21, 17, 18, 0, 5, 0), // 3
-  _LevelParams(_Strategy.doubleFast, 21, 18, 19, 0, 5, 0), // 4
-  _LevelParams(_Strategy.row, 21, 18, 19, 4, 5, 0), // 5
-  _LevelParams(_Strategy.row, 21, 19, 20, 4, 5, 1), // 6
-  _LevelParams(_Strategy.row, 21, 19, 20, 5, 5, 1), // 7
-  _LevelParams(_Strategy.row, 21, 19, 20, 5, 5, 2), // 8
-  _LevelParams(_Strategy.row, 22, 20, 21, 5, 5, 2), // 9
-  _LevelParams(_Strategy.row, 22, 21, 22, 5, 5, 2), // 10
-  _LevelParams(_Strategy.row, 22, 21, 22, 6, 5, 2), // 11
-  _LevelParams(_Strategy.row, 22, 22, 23, 6, 5, 2), // 12
-  _LevelParams(_Strategy.row, 23, 22, 23, 6, 5, 2), // 13
-  _LevelParams(_Strategy.row, 23, 22, 24, 6, 5, 2), // 14
-  _LevelParams(_Strategy.lazy, 23, 22, 23, 7, 5, 2), // 15
-  _LevelParams(_Strategy.lazy, 23, 22, 24, 7, 5, 2), // 16
-  _LevelParams(_Strategy.lazy, 23, 22, 24, 8, 5, 2), // 17
-  _LevelParams(_Strategy.lazy, 23, 23, 24, 8, 5, 2), // 18
-  _LevelParams(_Strategy.lazy, 23, 23, 24, 9, 5, 2), // 19
-  _LevelParams(_Strategy.lazy, 25, 23, 25, 9, 5, 2), // 20
-  _LevelParams(_Strategy.lazy, 26, 24, 25, 9, 5, 2), // 21
-  _LevelParams(_Strategy.lazy, 27, 24, 25, 10, 4, 2), // 22
-];
-
-/// The lowest compression level, the fastest.
-const int zstdMinLevel = -7;
-
-/// The highest compression level.
-const int zstdMaxLevel = 22;
-
-/// Encodes one zstd frame.
+/// Writes one frame covering `src[start...end]`, header, blocks and checksum
 class ZstdFrameEncoder {
-  final int level;
-  final bool checksum;
+  final Xxh64 _hash = Xxh64();
+  final Uint32List _rep = Uint32List(3);
 
-  ZstdFrameEncoder(this.level, this.checksum);
+  final ZstdBlockSplitter _splitter = ZstdBlockSplitter();
 
-  /// Compresses everything left in [input] into one frame on [output].
-  void encode(InputStream input, OutputStream output) {
-    final total = input.length;
-    var p = level <= 0 ? _levels[0] : _levels[level - 1];
+  void encode(Uint8List src, int start, int end, OutputStream out,
+      {bool checksum = true,
+      int level = zstdDefaultLevel,
+      ZstdDictionary? dictionary}) {
+    _write(null, src, start, end - start, out,
+        checksum: checksum, level: level, dictionary: dictionary);
+  }
 
-    // No point in a window, or tables, much larger than the input.
-    var windowLog = p.windowLog;
-    final inputLog = math.max(10, (total - 1).bitLength);
-    if (inputLog < windowLog) {
-      windowLog = inputLog;
+  /// Writes one frame of [size] bytes pulled from [input]. Only the window and
+  /// the block being parsed are held, so the frame's memory follows the level
+  /// rather than the input. The blocks fall where a whole buffer would put
+  /// them, so the bytes are the ones [encode] would have written
+  void encodeStream(InputStream input, int size, OutputStream out,
+      {bool checksum = true,
+      int level = zstdDefaultLevel,
+      ZstdDictionary? dictionary}) {
+    // A stream over memory returns its own buffer, which spares the frame
+    // both the copy and the window
+    final held = input.viewBytes(size);
+    if (held != null) {
+      _write(null, held, 0, size, out,
+          checksum: checksum, level: level, dictionary: dictionary);
+      return;
     }
-    final hashLog = math.min(p.hashLog, windowLog + 1);
-    final chainLog = math.min(p.chainLog, windowLog + 1);
-    final windowSize = 1 << windowLog;
+    _write(input, null, 0, size, out,
+        checksum: checksum, level: level, dictionary: dictionary);
+  }
 
-    final ZstdMatchFinder finder;
-    switch (p.strategy) {
-      case _Strategy.fast:
-        finder = ZstdFastMatchFinder(
-            hashLog, p.mls, level < 0 ? 1 - level : p.depth);
-      case _Strategy.doubleFast:
-        finder = ZstdDoubleFastMatchFinder(hashLog, chainLog, p.mls);
-      case _Strategy.row:
-        finder = ZstdRowMatchFinder(chainLog, p.searchLog.clamp(4, 6),
-            p.searchLog, p.mls, p.depth, 8 << p.searchLog);
-      case _Strategy.lazy:
-        finder = ZstdLazyMatchFinder(
-            hashLog, chainLog, p.searchLog, p.mls, p.depth, 8 << p.searchLog);
-    }
+  void _write(
+      InputStream? input, Uint8List? src, int start, int size, OutputStream out,
+      {required bool checksum,
+      required int level,
+      required ZstdDictionary? dictionary}) {
+    final dict =
+        dictionary != null && dictionary.usableForEncode ? dictionary : null;
+    final prefix = dict?.content.length ?? 0;
+    // `ZSTD_getCParamRowSize` and `ZSTD_adjustCParams_internal` both size the
+    // frame by the dictionary buffer, headers and all, not by its content
+    final params =
+        zstdParamsForLevel(level, size + (dictionary?.sourceSize ?? 0));
+    // A frame that fits its level's window declares the content instead, which
+    // costs a decoder nothing extra and saves the window field
+    final singleSegment = size <= (1 << params.windowLog);
+    final windowSize = singleSegment ? size : 1 << params.windowLog;
+    // How far a match may reach is the level's window, which a frame declaring
+    // its content does not shrink: with a dictionary the two differ
+    final matchWindow = 1 << params.windowLog;
 
-    // The whole input fits in the window, so the frame header can say so and
-    // leave the window size out.
-    final singleSegment = total <= windowSize;
-    _writeHeader(output, total, windowLog, singleSegment);
+    final origin = out.length;
+    _writeHeader(
+        out, size, singleSegment, checksum, params.windowLog, dict?.id ?? 0);
 
-    final blockSize = math.min(zstdBlockSizeMax, windowSize);
-    final hash = checksum ? XxHash64() : null;
-    final seqs = ZstdSequenceStore();
-    final blocks = ZstdBlockEncoder();
-
-    void writeBlock(Uint8List src, ByteData d, int start, int end, bool last) {
-      final length = end - start;
-      hash?.update(src, start, end);
-      if (_isRle(src, start, end)) {
-        _writeBlockHeader(output, last, 1, length);
-        output.writeByte(src[start]);
-        return;
-      }
-      seqs.reset();
-      finder.findMatches(src, d, start, end, windowSize, seqs);
-      final size = blocks.compress(seqs, length);
-      if (size < 0) {
-        _writeBlockHeader(output, last, 0, length);
-        output.writeBytes(Uint8List.sublistView(src, start, end));
-      } else {
-        blocks.commit();
-        _writeBlockHeader(output, last, 2, size);
-        output.writeBytes(Uint8List.sublistView(blocks.out, 0, size));
+    if (checksum) {
+      _hash.reset();
+      if (src != null) {
+        _hash.update(src, start, size);
       }
     }
 
-    if (total == 0) {
-      _writeBlockHeader(output, true, 0, 0);
-    } else if (input is InputMemoryStream) {
-      // All of it at hand already, so nothing has to slide.
-      var src = input.toUint8List();
-      if (zstdIsWasm) {
-        // The bytes may well live in a JavaScript array, every access to
-        // which is a call out of wasm; one copy is far cheaper.
-        src = Uint8List(total)..setRange(0, total, src);
+    final blockSizeMax =
+        windowSize < zstdBlockMaximumSize ? windowSize : zstdBlockMaximumSize;
+    final blocks = ZstdBlockEncoder(blockSizeMax, params);
+    // A slide has to leave the low bits of a position alone for the chain and
+    // the tree to stay addressable, so it goes in whole steps of this
+    final step = blocks.slideStep;
+
+    // The parse works in one buffer of absolute positions, so the dictionary
+    // has to sit directly before the content it is a dictionary for. A frame
+    // read from a stream keeps the window and enough spare beside it that a
+    // slide, which visits every table, is amortized over the bytes it frees
+    var slack = blocks.slideCost;
+    if (slack < matchWindow) {
+      slack = matchWindow;
+    }
+    var body = src;
+    var at = start;
+    if (src == null || dict != null) {
+      var span = size;
+      if (src == null && matchWindow + slack + blockSizeMax + step < span) {
+        span = matchWindow + slack + blockSizeMax + step;
       }
-      final d = ByteData.sublistView(src);
-      for (var pos = 0; pos < total; pos += blockSize) {
-        final end = math.min(pos + blockSize, total);
-        writeBlock(src, d, pos, end, end == total);
+      final held = Uint8List(prefix + span);
+      if (dict != null) {
+        held.setRange(0, prefix, dict.content);
       }
-      input.skip(total);
-    } else {
-      // Read in a window's worth and then some, slide it along as the
-      // blocks are compressed. A slide keeps the window behind the next
-      // block and moves the positions in the match finder's tables, by a
-      // multiple of what they are indexed by.
-      final alignment = finder.slideAlignment;
-      final int capacity =
-          windowSize + blockSize + math.max<int>(alignment, 1 << 20);
-      final buf = Uint8List(math.min(capacity, total));
-      final d = ByteData.sublistView(buf);
-      var filled = 0;
-      var pos = 0;
-      var remaining = total;
-      while (pos < filled || remaining > 0) {
-        if (filled == buf.length && pos > windowSize) {
-          final shift = (pos - windowSize) ~/ alignment * alignment;
-          if (shift > 0) {
-            buf.setRange(0, filled - shift, buf, shift);
-            filled -= shift;
-            pos -= shift;
-            finder.slide(shift);
+      if (src != null) {
+        held.setRange(prefix, prefix + size, src, start);
+      }
+      body = held;
+      at = prefix;
+    }
+    final buffer = body!;
+    var base = at - prefix;
+
+    _rep.setAll(0, dict?.repeatOffsets ?? zstdInitialRepeatOffsets);
+    if (dict != null) {
+      blocks.prime(buffer, base, at, dict);
+    }
+
+    if (size == 0) {
+      blocks.encode(buffer, at, at, base, out, true, _rep);
+    }
+    // Everything a block saved so far. It stops the splitter from cutting up
+    // data that does not compress
+    var savings = 0;
+    var filled = src == null ? at : at + size;
+    var read = src == null ? 0 : size;
+    var coded = 0;
+    while (coded < size) {
+      // A whole block has to be here before it can be parsed, and the front of
+      // the buffer goes once the window has moved past it
+      if (filled - at < blockSizeMax && read < size) {
+        if (filled == buffer.length) {
+          var delta = at > matchWindow ? at - matchWindow : 0;
+          delta -= delta % step;
+          buffer.setRange(0, filled - delta, buffer, delta);
+          at -= delta;
+          filled -= delta;
+          base = base > delta ? base - delta : 0;
+          blocks.slide(delta);
+        }
+        var want = buffer.length - filled;
+        if (want > size - read) {
+          want = size - read;
+        }
+        var got = 0;
+        while (got < want) {
+          final part = input!.readInto(buffer, filled + got, want - got);
+          if (part <= 0) {
+            throw ArchiveException('zstd: the input ended $want bytes early');
           }
+          got += part;
         }
-        if (remaining > 0 && filled < buf.length) {
-          final n = math.min(buf.length - filled, remaining);
-          buf.setRange(filled, filled + n, input.readBytes(n).toUint8List());
-          filled += n;
-          remaining -= n;
+        if (checksum) {
+          _hash.update(buffer, filled, want);
         }
-        while (pos < filled && (filled - pos >= blockSize || remaining == 0)) {
-          final end = math.min(pos + blockSize, filled);
-          writeBlock(buf, d, pos, end, remaining == 0 && end == filled);
-          pos = end;
-        }
+        filled += want;
+        read += want;
+      }
+      final left = size - coded;
+      final take =
+          _splitter.sizeFor(buffer, at, left, blockSizeMax, params, savings);
+      // `ZSTD_checkDictValidity` measures from the end of the block, and what
+      // it drops stays dropped
+      if (blocks.dictionaryEnd != 0 &&
+          at + take - blocks.dictionaryEnd > matchWindow) {
+        blocks.dropDictionary();
+      }
+      final reach = blocks.dictionaryEnd != 0 ? base : at - matchWindow;
+      final before = out.length;
+      blocks.encode(buffer, at, at + take, reach > base ? reach : base, out,
+          coded + take == size, _rep);
+      savings += take - (out.length - before);
+      at += take;
+      coded += take;
+      // The first block's cost predicts the rest, near enough that a sink
+      // holding its data takes the room once instead of doubling into it.
+      // A frame never exceeds its own bound, so neither does the estimate
+      if (coded == take && coded < size) {
+        final bound = size + (size >> 7) + 64;
+        final cost = out.length - origin;
+        var want = cost + (cost * (size - coded)) ~/ coded;
+        want += want >> 3;
+        out.reserve(origin + (want < bound ? want : bound));
       }
     }
 
-    if (hash != null) {
-      final h = hash.digestLow32();
-      output.writeByte(h & 0xff);
-      output.writeByte((h >> 8) & 0xff);
-      output.writeByte((h >> 16) & 0xff);
-      output.writeByte(h >>> 24);
+    if (checksum) {
+      final digest = _hash.digestLow;
+      out.writeByte(digest & 0xff);
+      out.writeByte((digest >>> 8) & 0xff);
+      out.writeByte((digest >>> 16) & 0xff);
+      out.writeByte((digest >>> 24) & 0xff);
     }
   }
 
-  static bool _isRle(Uint8List src, int start, int end) {
-    final b = src[start];
-    for (var i = start + 1; i < end; i++) {
-      if (src[i] != b) {
-        return false;
-      }
-    }
-    return end - start > 1;
-  }
-
-  void _writeHeader(
-      OutputStream output, int total, int windowLog, bool singleSegment) {
-    // The magic number, little endian
-    output
-      ..writeByte(0x28)
-      ..writeByte(0xB5)
-      ..writeByte(0x2F)
-      ..writeByte(0xFD);
-
-    // The content size, in as few bytes as hold it. One byte is only
-    // possible in a single segment frame, where no size field means one.
-    int fcsCode;
-    int fcsBytes;
-    var fcsValue = total;
-    if (singleSegment && total < 256) {
-      fcsCode = 0;
-      fcsBytes = 1;
-    } else if (total < 65536 + 256 && total >= 256) {
-      fcsCode = 1;
-      fcsBytes = 2;
-      fcsValue -= 256;
-    } else if (total < 0x100000000) {
-      fcsCode = 2;
-      fcsBytes = 4;
+  static void _writeHeader(OutputStream out, int size, bool singleSegment,
+      bool checksum, int windowLog, int dictionaryId) {
+    final int contentSizeFlag;
+    if (singleSegment && size < 256) {
+      contentSizeFlag = 0;
+    } else if (size >= 256 && size < 65536 + 256) {
+      contentSizeFlag = 1;
+    } else if (size < 4294967295) {
+      contentSizeFlag = 2;
     } else {
-      fcsCode = 3;
-      fcsBytes = 8;
+      contentSizeFlag = 3;
     }
+    // `ZSTD_writeFrameHeader`: as many bytes as the id needs, and the flag
+    // names which of the four widths that is
+    final idFlag = dictionaryId == 0
+        ? 0
+        : (dictionaryId < 256 ? 1 : (dictionaryId < 65536 ? 2 : 3));
 
-    output.writeByte(
-        (fcsCode << 6) | (singleSegment ? 0x20 : 0) | (checksum ? 0x04 : 0));
+    out.writeByte(zstdMagic & 0xff);
+    out.writeByte((zstdMagic >>> 8) & 0xff);
+    out.writeByte((zstdMagic >>> 16) & 0xff);
+    out.writeByte((zstdMagic >>> 24) & 0xff);
+
+    out.writeByte((contentSizeFlag << 6) |
+        (singleSegment ? 0x20 : 0) |
+        (checksum ? 4 : 0) |
+        idFlag);
+
     if (!singleSegment) {
-      output.writeByte((windowLog - 10) << 3);
+      // Exponent in the top five bits, eighths of it in the bottom three
+      out.writeByte((windowLog - 10) << 3);
     }
-    for (var i = 0; i < fcsBytes; i++) {
-      output.writeByte(fcsValue % 256);
-      fcsValue ~/= 256;
-    }
-  }
 
-  static void _writeBlockHeader(
-      OutputStream output, bool last, int type, int size) {
-    final header = (last ? 1 : 0) | (type << 1) | (size << 3);
-    output
-      ..writeByte(header & 0xff)
-      ..writeByte((header >> 8) & 0xff)
-      ..writeByte(header >> 16);
+    final idBytes = const [0, 1, 2, 4][idFlag];
+    for (var i = 0; i < idBytes; i++) {
+      out.writeByte((dictionaryId >>> (i << 3)) & 0xff);
+    }
+
+    // Divided rather than shifted, since the size reaches past 32 bits and a
+    // shift there is not portable
+    var value = contentSizeFlag == 1 ? size - 256 : size;
+    final bytes = contentSizeFlag == 0 ? 1 : 1 << contentSizeFlag;
+    for (var i = 0; i < bytes; i++) {
+      out.writeByte(value % 256);
+      value ~/= 256;
+    }
   }
 }
+
+void writeZstdFrameHeader(OutputStream out, int size, bool checksum,
+        int windowLog, int dictionaryId) =>
+    ZstdFrameEncoder._writeHeader(
+        out, size, size <= (1 << windowLog), checksum, windowLog, dictionaryId);

@@ -29,7 +29,7 @@ class InputFileStream extends InputStream {
   /// littleEndian order.
   InputFileStream.withFileHandle(AbstractFileHandle fh,
       {super.byteOrder = ByteOrder.littleEndian})
-      : _file = FileBuffer(fh),
+      : _file = FileBuffer(fh, byteOrder: byteOrder),
         _fileOffset = 0,
         _position = 0 {
     _fileSize = _file.length;
@@ -47,7 +47,8 @@ class InputFileStream extends InputStream {
     int bufferSize = FileBuffer.kDefaultBufferSize,
   }) {
     return InputFileStream.withFileBuffer(
-        FileBuffer(FileHandle(path), bufferSize: bufferSize),
+        FileBuffer(FileHandle(path),
+            byteOrder: byteOrder, bufferSize: bufferSize),
         byteOrder: byteOrder);
   }
 
@@ -55,14 +56,15 @@ class InputFileStream extends InputStream {
       Stream<Uint8List> stream, int fileLength,
       {ByteOrder byteOrder = ByteOrder.littleEndian}) async {
     return InputFileStream.withFileBuffer(
-        FileBuffer(await RamFileHandle.fromStream(stream, fileLength)),
+        FileBuffer(await RamFileHandle.fromStream(stream, fileLength),
+            byteOrder: byteOrder),
         byteOrder: byteOrder);
   }
 
   /// Create an [InputFileStream] from another [InputFileStream].
   /// If [position] is provided, it is the offset into [other] to start reading,
-  /// relative to the current position of [other]. Otherwise the current
-  /// position of [other] is used.
+  /// relative to start of [other]. Otherwise reading starts at start of
+  /// [other], not at its current position.
   /// If [length] is provided, it sets the length of this [InputFileStream],
   /// otherwise the remaining bytes in [other] is used.
   /// [bufferSize] determines the size of the cache used by the created
@@ -163,6 +165,9 @@ class InputFileStream extends InputStream {
     }
   }
 
+  /// Returns stream over part of this file. Without [position] it starts at
+  /// offset 0 of this stream, not at read position as [InputStream.subset]
+  /// says, so pass [position] to read from current position
   @override
   InputStream subset({int? position, int? length, int? bufferSize}) {
     return InputFileStream.fromFileStream(this,
@@ -185,6 +190,9 @@ class InputFileStream extends InputStream {
     if (isEOS) {
       return 0;
     }
+    if (byteOrder != _file.byteOrder) {
+      return super.readUint16();
+    }
     final b = _file.readUint16(_fileOffset + _position);
     _position += 2;
     return b;
@@ -195,6 +203,9 @@ class InputFileStream extends InputStream {
   int readUint24() {
     if (isEOS) {
       return 0;
+    }
+    if (byteOrder != _file.byteOrder) {
+      return super.readUint24();
     }
     final b = _file.readUint24(_fileOffset + _position);
     _position += 3;
@@ -207,6 +218,9 @@ class InputFileStream extends InputStream {
     if (isEOS) {
       return 0;
     }
+    if (byteOrder != _file.byteOrder) {
+      return super.readUint32();
+    }
     final b = _file.readUint32(_fileOffset + _position);
     _position += 4;
     return b;
@@ -217,6 +231,9 @@ class InputFileStream extends InputStream {
   int readUint64() {
     if (isEOS) {
       return 0;
+    }
+    if (byteOrder != _file.byteOrder) {
+      return super.readUint64();
     }
     final b = _file.readUint64(_fileOffset + _position);
     _position += 8;
@@ -239,6 +256,20 @@ class InputFileStream extends InputStream {
         position: _position, length: count);
     _position += bytes.length;
     return bytes;
+  }
+
+  @override
+  int readInto(Uint8List into, int at, int count) {
+    final remaining = fileRemaining;
+    if (count > remaining) {
+      count = remaining;
+    }
+    if (count <= 0) {
+      return 0;
+    }
+    final got = _file.readInto(_fileOffset + position, into, at, count);
+    _position += got;
+    return got;
   }
 
   @override

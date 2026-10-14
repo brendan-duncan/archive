@@ -1,7 +1,9 @@
 import 'dart:typed_data';
 
 import '../../util/adler32.dart';
+import '../../util/archive_exception.dart';
 import '../../util/byte_order.dart';
+import '../../util/decode_guard.dart';
 import '../../util/input_decode_stream.dart';
 import '../../util/input_memory_stream.dart';
 import '../../util/input_stream.dart';
@@ -21,26 +23,46 @@ class _ZLibDecoder extends ZLibDecoderBase {
 
   @override
   Uint8List decodeBytes(List<int> data,
-      {bool verify = false, bool raw = false}) {
+      {bool verify = false, bool raw = false, bool throwOnError = false}) {
     final output = OutputMemoryStream();
     decodeStream(
         InputMemoryStream(data, byteOrder: ByteOrder.bigEndian), output,
-        verify: verify, raw: raw);
+        verify: verify, raw: raw, throwOnError: throwOnError);
     return output.getBytes();
+  }
+
+  @override
+  bool decodeStream(InputStream input, OutputStream output,
+      {bool verify = false, bool raw = false, bool throwOnError = false}) {
+    final held = input.byteOrder;
+    input.byteOrder = ByteOrder.bigEndian;
+    try {
+      return guardDecode('zlib', verify, throwOnError,
+          () => _decode(input, output, verify, raw));
+    } finally {
+      input.byteOrder = held;
+    }
   }
 
   @override
   InputStream decodeLazy(InputStream input,
           {bool verify = false, bool raw = false}) =>
       InputDecodeStream(InflateChunkDecoder(
-          input, raw ? InflateFormat.raw : InflateFormat.zlib));
+          input, raw ? InflateFormat.raw : InflateFormat.zlib,
+          verify: verify));
 
-  @override
-  bool decodeStream(InputStream input, OutputStream output,
-      {bool verify = false, bool raw = false}) {
+  bool _decode(InputStream input, OutputStream output, bool verify, bool raw) {
     Uint8List? buffer;
 
+    if (input.isEOS) {
+      return false;
+    }
+
     while (!input.isEOS) {
+      if (buffer != null) {
+        output.writeBytes(buffer);
+      }
+
       /*
        * The zlib format has the following structure:
        * CMF  1 byte
@@ -61,17 +83,20 @@ class _ZLibDecoder extends ZLibDecoderBase {
       if (!raw) {
         // Both reads below are unchecked
         if (input.length < 2) {
-          return false;
+          return buffer != null;
         }
         final cmf = input.readByte();
         final flg = input.readByte();
 
-        final method = cmf & 8;
-        final cinfo = (cmf >> 3) & 8; // ignore: unused_local_variable
+        final method = cmf & 0x0f;
+        final cinfo = cmf >> 4;
 
         if (method != deflate) {
           //throw ArchiveException('Only DEFLATE compression supported: $method');
-          return false;
+          return buffer != null;
+        }
+        if (cinfo > 7) {
+          return buffer != null;
         }
 
         final fcheck = flg & 16; // ignore: unused_local_variable
@@ -81,7 +106,7 @@ class _ZLibDecoder extends ZLibDecoderBase {
         // FCHECK is set such that (cmf * 256 + flag) must be a multiple of 31.
         if (((cmf * 256) + flg) % 31 != 0) {
           //throw ArchiveException('Invalid FCHECK');
-          return false;
+          return buffer != null;
         }
 
         if (fdict != 0) {
@@ -91,24 +116,30 @@ class _ZLibDecoder extends ZLibDecoderBase {
         }
       }
 
-      if (buffer != null) {
-        output.writeBytes(buffer);
-      }
-
       // Inflate
-      buffer = Inflate.stream(input).getBytes();
+      final inflate = Inflate.stream(input, throwOnError: true);
+      buffer = inflate.getBytes();
+      if (!inflate.isFinished) {
+        output.writeBytes(buffer);
+        return false;
+      }
 
       // verify adler-32
       if (!raw) {
+        if (input.length < 4) {
+          output.writeBytes(buffer);
+          return false;
+        }
         final adler32 = input.readUint32();
         if (verify) {
           final a = getAdler32(buffer);
           if (adler32 != a) {
-            buffer = null;
-            return false;
+            output.writeBytes(buffer);
+            throw ArchiveChecksumException('Invalid zlib checksum');
           }
         }
       }
+      break;
     }
 
     if (buffer != null) {

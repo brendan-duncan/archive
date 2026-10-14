@@ -1,8 +1,6 @@
-import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:archive/archive_io.dart';
-import 'package:path/path.dart' as p;
+import 'package:archive/archive.dart';
 import 'package:test/test.dart';
 
 // A small input can decode to far more than it is: deflate reaches about
@@ -88,10 +86,12 @@ void main() {
     test('refuses a block declaring a larger dictionary', () {
       expect(XZDecoder().decodeBytes(xz), equals(data));
       final strict = XZDecoder(maxDictionarySize: 0);
-      expect(strict.decodeStream(InputMemoryStream(xz), OutputMemoryStream()),
-          isFalse);
+      expect(
+          () =>
+              strict.decodeStream(InputMemoryStream(xz), OutputMemoryStream()),
+          throwsA(isA<ArchiveLimitException>()));
       expect(() => strict.decodeBytes(xz, throwOnError: true),
-          throwsA(isA<ArchiveException>()));
+          throwsA(isA<ArchiveLimitException>()));
     });
 
     test('rejects a negative limit', () {
@@ -108,53 +108,19 @@ void main() {
         final honest = ZipDecoder().decodeBytes(zip);
         expect(honest[0].readBytes(), equals(data));
 
-        final lying = ZipDecoder().decodeBytes(withDeclaredSize(zip, 1000));
+        final lying = ZipDecoder()
+            .decodeBytes(withDeclaredSize(zip, 1000), throwOnError: true);
         expect(lying[0].size, equals(1000));
         expect(() => lying[0].readBytes(), throwsA(isA<ArchiveException>()));
         expect(() => lying[0].writeContent(OutputMemoryStream()),
             throwsA(isA<ArchiveException>()));
+
+        final quiet = ZipDecoder().decodeBytes(withDeclaredSize(zip, 1000));
+        expect(
+            () => quiet[0].readBytes(), throwsA(isA<ArchiveLimitException>()));
+        expect(() => quiet[0].writeContent(OutputMemoryStream()),
+            throwsA(isA<ArchiveLimitException>()));
       });
     }
-  });
-
-  group('extract maxSize', () {
-    late Directory dir;
-    setUp(() => dir = Directory.systemTemp.createTempSync('limits'));
-    tearDown(() => dir.deleteSync(recursive: true));
-
-    final archive = Archive()
-      ..add(ArchiveFile.bytes('a', Uint8List(1000)))
-      ..add(ArchiveFile.bytes('b', Uint8List(1000)));
-
-    for (final ext in ['.tar.gz', '.zip']) {
-      test(ext, () async {
-        final bytes = ext == '.zip'
-            ? ZipEncoder().encodeBytes(archive)
-            : GZipEncoder().encodeBytes(TarEncoder().encodeBytes(archive));
-        final path = p.join(dir.path, 'in$ext');
-        File(path).writeAsBytesSync(bytes);
-
-        await extractFileToDisk(path, p.join(dir.path, 'ok'), maxSize: 2000);
-        expect(File(p.join(dir.path, 'ok', 'b')).lengthSync(), equals(1000));
-
-        await expectLater(
-            extractFileToDisk(path, p.join(dir.path, 'over'), maxSize: 1999),
-            throwsA(isA<ArchiveException>()));
-        expect(File(p.join(dir.path, 'over', 'b')).existsSync(), isFalse);
-      });
-    }
-
-    test('extractArchiveToDisk', () async {
-      await extractArchiveToDisk(archive, p.join(dir.path, 'ok'),
-          maxSize: 2000);
-      await expectLater(
-          extractArchiveToDisk(archive, p.join(dir.path, 'over'),
-              maxSize: 1999),
-          throwsA(isA<ArchiveException>()));
-      expect(
-          () => extractArchiveToDiskSync(archive, p.join(dir.path, 'sync'),
-              maxSize: 1999),
-          throwsA(isA<ArchiveException>()));
-    });
   });
 }

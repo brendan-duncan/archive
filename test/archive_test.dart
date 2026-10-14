@@ -4,6 +4,11 @@ import 'package:archive/archive.dart';
 import 'package:test/test.dart';
 
 void main() {
+  test('CompressionType keeps the indexes of 4.5.1', () {
+    expect(CompressionType.values.map((t) => t.name),
+        ['none', 'deflate', 'bzip2', 'zstd', 'lzma', 'xz']);
+  });
+
   group('archive', () {
     test('replace existing file', () {
       final archive = Archive();

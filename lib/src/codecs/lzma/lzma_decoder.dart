@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import '../../util/archive_exception.dart';
 import '../../util/input_stream.dart';
 import '../../util/output_stream.dart';
 import 'range_decoder.dart';
@@ -114,7 +115,7 @@ class LzmaDecoder {
         : _literalPositionBits;
     final posMask = (1 << alignBits) - 1;
     final alignment = _writePosition & posMask;
-    final keepBytes = maxSize + alignment;
+    final keepBytes = ((maxSize + posMask) & ~posMask) + alignment;
 
     final start = _writePosition - keepBytes;
     _dictionary.setRange(0, keepBytes, _dictionary, start);
@@ -200,10 +201,7 @@ class LzmaDecoder {
   @pragma('vm:unsafe:no-bounds-checks')
   void _decodePackets(int finalSize) {
     final positionMask = (1 << _positionBits) - 1;
-    while (_writePosition < finalSize) {
-      if (_rc.isOverrun) {
-        throw RangeError('LZMA data is truncated or corrupt');
-      }
+    while (_writePosition < finalSize && !_rc.isNearEnd) {
       final posState = _writePosition & positionMask;
       if (_rc.readBitRaw(_nonLiteralTables[state.index].table, posState) == 0) {
         _decodeLiteral();
@@ -212,6 +210,25 @@ class LzmaDecoder {
       } else {
         _decodeRepeat(posState);
       }
+    }
+    var packetStart = _writePosition;
+    while (_writePosition < finalSize) {
+      if (_rc.isOverrun) {
+        _writePosition = packetStart;
+        return;
+      }
+      packetStart = _writePosition;
+      final posState = _writePosition & positionMask;
+      if (_rc.readBitRaw(_nonLiteralTables[state.index].table, posState) == 0) {
+        _decodeLiteral();
+      } else if (_rc.readBitRaw(_repeatTable.table, state.index) == 0) {
+        _decodeMatch(posState);
+      } else {
+        _decodeRepeat(posState);
+      }
+    }
+    if (_rc.isOverrun) {
+      _writePosition = packetStart;
     }
   }
 
@@ -238,6 +255,9 @@ class LzmaDecoder {
 
     final initialSize = _reserve(uncompressedLength);
     _decodePackets(initialSize + uncompressedLength);
+    if (_rc.isOverrun) {
+      throw ArchiveException('LZMA data is truncated or corrupt');
+    }
 
     return _dictionary.sublist(initialSize, _writePosition);
   }
@@ -251,19 +271,80 @@ class LzmaDecoder {
   // Decode [input], which contains compressed LZMA data that unpacks to
   // [uncompressedLength] bytes, appending the result directly to [output].
   //
-  // This avoids the intermediate copy [decode] has to make. The view handed to
-  // [OutputStream.writeBytes] does not outlive the call, so a later
+  // This avoids the intermediate copy [decode] has to make. The range passed
+  // to [OutputStream.writeRange] is read before the call returns, so a later
   // [trimDictionary] cannot invalidate it.
   void decodeToOutput(
       InputStream input, int uncompressedLength, OutputStream output) {
+    if (uncompressedLength > 2 * 1024 * 1024) {
+      _decodeLargeToOutput(input, uncompressedLength, output);
+      return;
+    }
     _rc.setBuffer(input.toUint8List());
     _rc.initialize();
 
-    final initialSize = _reserve(uncompressedLength);
-    _decodePackets(initialSize + uncompressedLength);
+    final initialSize = _writePosition;
+    final finalSize = initialSize + uncompressedLength;
+    _reserve(uncompressedLength);
+    _decodePackets(finalSize);
 
-    output.writeBytes(
-        Uint8List.sublistView(_dictionary, initialSize, _writePosition));
+    output.writeRange(_dictionary, initialSize, _writePosition);
+    if (_rc.isOverrun) {
+      throw ArchiveException('LZMA data is truncated or corrupt');
+    }
+  }
+
+  // A match reads at most 48 bytes for 2 bytes of output and a literal 9 for 1,
+  // so 2048 bytes of output read less than the 64 KB of input kept ahead
+  void _decodeLargeToOutput(
+      InputStream input, int uncompressedLength, OutputStream output) {
+    const pieceSize = 65536;
+    const stepSize = 2048;
+    const maxMatchLength = 273;
+    _rc.setBuffer(_readPiece(input, pieceSize));
+    _rc.initialize();
+
+    var written = _writePosition;
+    var finalSize = written + uncompressedLength;
+    while (_writePosition < finalSize) {
+      if (_rc.available < pieceSize && !input.isEOS) {
+        _rc.appendBuffer(_readPiece(input, pieceSize));
+      }
+      final remaining = finalSize - _writePosition;
+      final count = remaining < stepSize ? remaining : stepSize;
+      final end = _writePosition + count;
+      final tail = finalSize - end;
+      final extra = tail < maxMatchLength - 1 ? tail : maxMatchLength - 1;
+      _reserve(count + extra);
+      _decodePackets(end);
+      if (_rc.isOverrun || _writePosition > finalSize) {
+        break;
+      }
+      if (_writePosition - written >= pieceSize) {
+        output.writeRange(_dictionary, written, _writePosition);
+        final before = _writePosition;
+        if (dictionaryLimit > 0) {
+          trimDictionary(dictionaryLimit);
+        }
+        finalSize -= before - _writePosition;
+        written = _writePosition;
+      }
+    }
+    if (!_rc.isOverrun && _writePosition != finalSize) {
+      throw ArchiveException('LZMA output exceeds the declared size');
+    }
+
+    output.writeRange(_dictionary, written, _writePosition);
+    if (_rc.isOverrun) {
+      throw ArchiveException('LZMA data is truncated or corrupt');
+    }
+  }
+
+  static Uint8List _readPiece(InputStream input, int size) {
+    final remaining = input.length;
+    final bytes = Uint8List(remaining < size ? remaining : size);
+    final got = input.readInto(bytes, 0, bytes.length);
+    return got == bytes.length ? bytes : Uint8List.sublistView(bytes, 0, got);
   }
 
   // Returns true if the previous packet seen was a literal. The first seven
@@ -292,7 +373,7 @@ class LzmaDecoder {
       // write position back without adjusting the remembered distances.
       final matchIndex = _writePosition - _distance0 - 1;
       if (matchIndex < 0) {
-        throw RangeError('LZMA match byte refers outside the dictionary');
+        throw ArchiveException('LZMA match byte refers outside the dictionary');
       }
       value = _rc.decodeMatchedByte(probs, baseIndex, _dictionary[matchIndex]);
     }
@@ -368,7 +449,7 @@ class LzmaDecoder {
     if (src < 0 ||
         _writePosition + length > _dictionary.length ||
         (dictionaryLimit > 0 && distance >= dictionaryLimit)) {
-      throw RangeError('LZMA match refers outside the dictionary');
+      throw ArchiveException('LZMA match refers outside the dictionary');
     }
     if (distance == 0) {
       // A run of a single repeated byte, which is common in padded binaries.

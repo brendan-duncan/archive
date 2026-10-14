@@ -30,32 +30,48 @@ class TarFileEncoder {
     final tgzPath = filename ?? '$dirPath.tar.gz';
     final tzstPath = filename ?? '$dirPath.tar.zst';
 
-    Directory tempDir;
+    Directory? tempDir;
     if (compression == gzip || compression == zstd) {
       tempDir = await Directory.systemTemp.createTemp('dart_archive');
       tarPath = '${tempDir.path}/temp.tar';
     }
 
     // Encode a directory from disk to disk, no memory
-    open(tarPath);
-    await addDirectory(Directory(dirPath),
-        followLinks: followLinks, filter: filter);
-    await close();
+    try {
+      open(tarPath);
+      try {
+        await addDirectory(Directory(dirPath),
+            followLinks: followLinks, filter: filter);
+      } finally {
+        await close();
+      }
 
-    if (compression == gzip) {
-      final input = InputFileStream(tarPath);
-      final output = OutputFileStream(tgzPath);
-      GZipEncoder().encodeStream(input, output, level: level ?? 6);
-      await input.close();
-      await File(tarPath).delete();
-    } else if (compression == zstd) {
-      final input = InputFileStream(tarPath);
-      final output = OutputFileStream(tzstPath);
-      ZstdEncoder().encodeStream(input, output,
-          level: level ?? zstdDefaultLevel, checksum: true);
-      await input.close();
-      await output.close();
-      await File(tarPath).delete();
+      if (compression == gzip) {
+        InputFileStream? input;
+        OutputFileStream? output;
+        try {
+          input = InputFileStream(tarPath);
+          output = OutputFileStream(tgzPath);
+          GZipEncoder().encodeStream(input, output, level: level ?? 6);
+        } finally {
+          await input?.close();
+          await output?.close();
+        }
+      } else if (compression == zstd) {
+        InputFileStream? input;
+        OutputFileStream? output;
+        try {
+          input = InputFileStream(tarPath);
+          output = OutputFileStream(tzstPath);
+          ZstdEncoder()
+              .encodeStream(input, output, level: level, checksum: true);
+        } finally {
+          await input?.close();
+          await output?.close();
+        }
+      }
+    } finally {
+      await tempDir?.delete(recursive: true);
     }
   }
 

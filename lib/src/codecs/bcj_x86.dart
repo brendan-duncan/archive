@@ -1,5 +1,8 @@
 import 'dart:typed_data';
 
+import '../util/input_stream.dart';
+import '../util/output_stream.dart';
+
 const _maskToBitNumber = [0, 1, 2, 2, 3, 3, 3, 3];
 const _maskArray = [0xffffffff, 0xffffff, 0xffff, 0xff];
 
@@ -17,15 +20,40 @@ bool _testMsByte(int b) => b == 0x00 || b == 0xff;
 ///
 /// The filter state never crosses an xz block boundary, so a whole block can
 /// be passed in a single call.
+int bcjX86Decode(Uint8List buffer, [int startOffset = 0]) =>
+    _decode(buffer, startOffset, 0, startOffset - 5).$1;
+
+class BcjX86Decoder {
+  BcjX86Decoder([int startOffset = 0])
+      : _nowPos = startOffset,
+        _prevPos = startOffset - 5;
+
+  int _nowPos;
+  int _prevPos;
+  var _prevMask = 0;
+
+  // E8 or E9 operand may continue in next piece, so up to 4 trailing bytes
+  // stay unfiltered and are left out of returned count
+  int decode(Uint8List buffer) {
+    final (done, prevMask, prevPos) =
+        _decode(buffer, _nowPos, _prevMask, _prevPos);
+    _prevMask = prevMask;
+    _prevPos = prevPos;
+    _nowPos += done;
+    return done;
+  }
+}
+
+// Loop stays outside BcjX86Decoder: with `this` live across it, 2 spilled
+// values were reloaded per byte, 6% more instructions and 1% more cycles
+// on enwik8
 @pragma('vm:unsafe:no-bounds-checks')
-void bcjX86Decode(Uint8List buffer, [int startOffset = 0]) {
+(int, int, int) _decode(
+    Uint8List buffer, int nowPos, int prevMask, int prevPos) {
   if (buffer.length < 5) {
-    return;
+    return (0, prevMask, prevPos);
   }
 
-  final nowPos = startOffset;
-  var prevMask = 0;
-  var prevPos = nowPos - 5;
   final limit = buffer.length - 5;
   var bufferPos = 0;
 
@@ -85,4 +113,71 @@ void bcjX86Decode(Uint8List buffer, [int startOffset = 0]) {
       bufferPos++;
     }
   }
+
+  return (bufferPos, prevMask, prevPos);
+}
+
+class BcjX86OutputStream extends OutputStream {
+  BcjX86OutputStream(this.output, [int startOffset = 0])
+      : _filter = BcjX86Decoder(startOffset),
+        super(byteOrder: output.byteOrder);
+
+  final OutputStream output;
+  final BcjX86Decoder _filter;
+  var _tail = Uint8List(0);
+  var _written = 0;
+
+  @override
+  int get length => _written;
+
+  // LZMA writes view of its dictionary, and later matches read those bytes,
+  // so we filter copy
+  @override
+  void writeRange(Uint8List bytes, int start, int end) {
+    if (end <= start) {
+      return;
+    }
+    final held = _tail.length;
+    final piece = Uint8List(held + end - start)
+      ..setRange(0, held, _tail)
+      ..setRange(held, held + end - start, bytes, start);
+    _written += end - start;
+    final done = _filter.decode(piece);
+    output.writeRange(piece, 0, done);
+    _tail = Uint8List.fromList(Uint8List.sublistView(piece, done));
+  }
+
+  @override
+  void writeBytes(List<int> bytes, {int? length}) => writeRange(
+      bytes is Uint8List ? bytes : Uint8List.fromList(bytes),
+      0,
+      length ?? bytes.length);
+
+  @override
+  void writeByte(int value) => writeRange(Uint8List(1)..[0] = value, 0, 1);
+
+  @override
+  void writeStream(InputStream stream) {
+    final bytes = stream.toUint8List();
+    writeRange(bytes, 0, bytes.length);
+  }
+
+  /// Up to 4 held bytes are lost unless this runs at end of block
+  void finish() {
+    output.writeRange(_tail, 0, _tail.length);
+    _tail = Uint8List(0);
+  }
+
+  @override
+  void flush() => output.flush();
+
+  @override
+  void clear() {
+    _tail = Uint8List(0);
+    _written = 0;
+  }
+
+  @override
+  Uint8List subset(int start, [int? end]) =>
+      throw UnsupportedError('filtered output cannot be read back');
 }

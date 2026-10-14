@@ -10,8 +10,9 @@ Dart. It runs on the Dart VM, Flutter, and the web (dart2js and dart2wasm).
 | [Reading archives](reading-archives.md) | Zip and tar decoding, encrypted zips, symlinks, extracting to disk |
 | [Creating archives](creating-archives.md) | Building an `Archive`, zip and tar encoding, zipping and tarring directories |
 | [Compression codecs](compression.md) | gzip, zlib/deflate, bzip2, xz, zstd: options and usage |
+| [Streams and isolates](streams-and-isolates.md) | `Stream` converters, running a codec off the UI isolate, multithreaded xz and zstd |
 | [Untrusted input](security.md) | Size limits, path checks, and a checklist for archives you did not create |
-| [Migrating 3.x to 4.x](../doc/migrating_3_to_4.md) | Renamed classes and the 4.0 content model |
+| [Migrating 3.x to 4.x](migrating_3_to_4.md) | Renamed classes and the 4.0 content model |
 
 ## Archives and compression
 
@@ -108,9 +109,51 @@ final original = ZLibDecoder().decodeBytes(compressed);
 ## Errors
 
 Problems with the data are reported as `ArchiveException`, which extends
-`FormatException`. Some decoders report a truncated or corrupt input through
-a `false` return value instead of throwing; see each codec in
-[compression](compression.md).
+`FormatException`.
+
+Decoders, and their wrappers like `extractFileToDisk`, `extractArchiveToDisk`, `extractArchiveToDiskSync` now share one
+contract for errors. Without flags they never throw on *damaged* data and return what decoded before the damage. 
+`throwOnError: true` throws `ArchiveException` on damaged or cut data. `verify: true` also checks checksums: alone it
+reports a mismatch or damage like no flags do, `decodeStream` returns `false` and `decodeBytes` returns what decoded, and
+with `throwOnError: true` as well a mismatch throws `ArchiveChecksumException`.
+
+UNCHANGED: errors that are not damaged data keep their type and are thrown regardless of `verify` and `throwOnError`:
+
+| Category | Thrown as | Example |
+|---|---|---|
+| Invalid parameters | `ArgumentError` | `ZstdDecoder(maxWindowSize: 100)`, below the 1024 byte minimum |
+| Size limits: `maxOutputSize`, `maxSize`, `maxWindowSize`, `maxDictionarySize`, `TarFile.maxMetadataSize`, the declared size of a compressed zip entry | `ArchiveLimitException`, a subclass of `ArchiveException` | `GZipDecoder().decodeBytes(bomb, maxOutputSize: 1 << 20)` |
+| Passwords and AES MAC | `ArchivePasswordException`, `ArchiveMacException` | `ZipDecoder().decodeBytes(zip, password: 'wrong')` |
+| Your callbacks | the exception the callback throws | an exception in `ArchiveCallback` stops extraction, one in `ProgressOutputStream.onProgress` goes to the current zone and work continues |
+| System | `FileSystemException`, `OutOfMemoryError` and other platform errors | the disk fills up while `extractFileToDisk` writes |
+
+Converters (`xzCodec`, `zstdCodec`, `bzip2Codec` and `tarCodec`) work like `gzip` and `zlib` from 
+`dart:io`, as the format specifications expect: they verify checksums by default and report every error to the stream.
+`zipCodec` has only encoder part so there is nothing it can verify.
+
+```dart
+try {
+  // `verify: true` alone reports a mismatch through the return value only, so pass `throwOnError: true` with it to
+  // get `ArchiveChecksumException`. `throwOnError` alone may be used when you don't want to pay for an extra
+  // ~5-10% speed decrease, yet still wish to get the basic validation errors, or work with archives that remain
+  // valid regardless of their incorrect checksum
+  final data = XZDecoder().decodeBytes(bytes, verify: true, throwOnError: true);
+  print('${data.length} bytes');
+} on ArchiveChecksumException {
+  print('the data decoded but does not match its checksum');
+} on ArchiveException {
+  print('the archive is damaged or cut short');
+} catch (error) {
+  // Disk full, closed socket, OOM and other exceptions from `UNCHANGED` block are not damage
+  // related and keep their type and are still reported as before
+  print('could not write the output: $error');
+} // `ZipDecoder` may also throw `ArchivePasswordException` (regardless of `throwOnError`), a subclass of
+  // `ArchiveException`: catch it above `ArchiveException` to tell them apart. An AES entry that does not match its
+  // MAC throws `ArchiveMacException`, a subclass of `ArchiveChecksumException`, regardless of flags as well.
+  // A size limit throws `ArchiveLimitException`, a subclass of `ArchiveException`, regardless of flags too.
+  //
+  // Same example can be used for `decodeStream` and wrappers like `extractFileToDisk`
+```
 
 ## The `tar` command
 

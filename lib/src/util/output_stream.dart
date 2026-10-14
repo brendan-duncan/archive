@@ -30,7 +30,22 @@ abstract class OutputStream {
   /// Write a set of bytes to the output stream.
   void writeBytes(List<int> bytes, {int? length});
 
+  /// Writes `bytes[start...end]`. A sink that passes its data to something
+  /// outside Dart takes the range rather than a view of it, since a view is
+  /// copied on the way out
+  void writeRange(Uint8List bytes, int start, int end) {
+    writeBytes(Uint8List.sublistView(bytes, start, end));
+  }
+
+  /// Tells a sink that holds its data the size it will reach, so it can take
+  /// the room in one go rather than doubling into it. A sink that writes
+  /// through has nothing to reserve and ignores it
+  void reserve(int total) {}
+
   /// Write an InputStream to the output stream.
+  ///
+  /// Writes [stream] from its current position to its end and leaves that
+  /// position unchanged, so [stream] can be written again
   void writeStream(InputStream stream);
 
   /// Write a 16-bit word to the output stream.

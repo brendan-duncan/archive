@@ -16,6 +16,7 @@ class InputMemoryStream extends InputStream {
       {super.byteOrder = ByteOrder.littleEndian, int? offset, int? length})
       : _position = 0 {
     offset ??= 0;
+    RangeError.checkNotNegative(offset, 'offset');
     // Clamp the window to the buffer. A length can arrive here straight from a
     // size field in an archive, so the comparison is written as a subtraction
     // from a value known to be non-negative rather than as `offset + length >
@@ -102,15 +103,25 @@ class InputMemoryStream extends InputStream {
   /// Rewind the read head of the stream by the given number of bytes.
   @override
   void rewind([int length = 1]) {
-    _position -= length;
-    _position = _position.clamp(0, _length);
+    if (length >= _position) {
+      _position = 0;
+    } else if (length <= _position - _length) {
+      _position = _length;
+    } else {
+      _position -= length;
+    }
   }
 
   /// Move the read position by [count] bytes.
   @override
   void skip(int count) {
-    _position += count;
-    _position = _position.clamp(0, _length);
+    if (count >= _length - _position) {
+      _position = _length;
+    } else if (count <= -_position) {
+      _position = 0;
+    } else {
+      _position += count;
+    }
   }
 
   /// Access the buffer relative from the current position.
@@ -140,6 +151,35 @@ class InputMemoryStream extends InputStream {
   }
 
   @override
+  Uint8List? viewBytes(int count) {
+    final source = buffer;
+    if (source == null || count > source.length - _position) {
+      return null;
+    }
+    final view = Uint8List.sublistView(source, _position, _position + count);
+    _position += count;
+    return view;
+  }
+
+  @override
+  int readInto(Uint8List into, int at, int count) {
+    final source = buffer;
+    if (source == null) {
+      return 0;
+    }
+    var got = count;
+    if (got > source.length - _position) {
+      got = source.length - _position;
+    }
+    if (got <= 0) {
+      return 0;
+    }
+    into.setRange(at, at + got, source, _position);
+    _position += got;
+    return got;
+  }
+
+  @override
   Uint8List toUint8List() {
     if (buffer == null) {
       return Uint8List(0);
@@ -150,6 +190,9 @@ class InputMemoryStream extends InputStream {
       len = available;
     }
 
+    if (_position < 0) {
+      throw RangeError.range(_position, 0, buffer!.length, 'position');
+    }
     final bytes =
         Uint8List.view(buffer!.buffer, buffer!.offsetInBytes + _position, len);
 

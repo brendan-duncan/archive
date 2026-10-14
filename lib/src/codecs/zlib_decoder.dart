@@ -1,7 +1,6 @@
 import 'dart:typed_data';
 
 import '../util/_limited_output_stream.dart';
-import '../util/input_decode_stream.dart';
 import '../util/input_memory_stream.dart';
 import '../util/input_stream.dart';
 import '../util/output_memory_stream.dart';
@@ -19,48 +18,60 @@ class ZLibDecoder {
   const ZLibDecoder();
 
   /// Decompress the given [bytes] with the ZLib format.
-  /// [verify] can be used to validate the checksum of the decompressed data,
-  /// though it is not guaranteed this will be used.
+  ///
   /// If [raw] is true, the input will be considered deflate compressed data
   /// without a zlib header.
   ///
-  /// With [maxOutputSize], an [ArchiveException] is thrown as soon as the
-  /// decoded data would pass that many bytes, rather than decoding a small
-  /// input that expands without limit.
+  /// {@macro archive.verify_throw_on_error}
+  ///
+  /// On dart:io only `verify` finds a cut stream: `ArchiveChecksumException`.
+  /// Over 4 KB of bytes after the stream also read as a wrong checksum there.
+  /// Neither flag finds a cut [raw] stream there: it has no checksum.
+  ///
+  /// {@macro archive.max_output_size.bytes}
   Uint8List decodeBytes(List<int> bytes,
-      {bool verify = false, bool raw = false, int? maxOutputSize}) {
+      {bool verify = false,
+      bool raw = false,
+      bool throwOnError = false,
+      int? maxOutputSize}) {
     if (maxOutputSize == null) {
-      return platformZLibDecoder.decodeBytes(bytes, verify: verify, raw: raw);
+      return platformZLibDecoder.decodeBytes(bytes,
+          verify: verify, raw: raw, throwOnError: throwOnError);
     }
     final output = OutputMemoryStream();
     decodeStream(InputMemoryStream(bytes), output,
-        verify: verify, raw: raw, maxOutputSize: maxOutputSize);
+        verify: verify,
+        raw: raw,
+        throwOnError: throwOnError,
+        maxOutputSize: maxOutputSize);
     return output.getBytes();
   }
 
   /// Decompress the given [input] with the ZLib format, writing the
   /// decompressed data to the [output] stream.
-  /// [verify] can be used to validate the checksum of the decompressed data,
-  /// though it is not guaranteed this will be used.
+  ///
   /// If [raw] is true, the input will be considered deflate compressed data
   /// without a zlib header.
   ///
-  /// With [maxOutputSize], an [ArchiveException] is thrown as soon as more
-  /// than that many bytes would be written to [output].
+  /// {@macro archive.verify_throw_on_error}
+  ///
+  /// On dart:io only `verify` finds a cut stream: `ArchiveChecksumException`.
+  /// Over 4 KB of bytes after the stream also read as a wrong checksum there.
+  /// Neither flag finds a cut [raw] stream there: it has no checksum.
+  ///
+  /// {@macro archive.max_output_size.stream}
   bool decodeStream(InputStream input, OutputStream output,
-          {bool verify = false, bool raw = false, int? maxOutputSize}) =>
+          {bool verify = false,
+          bool raw = false,
+          bool throwOnError = false,
+          int? maxOutputSize}) =>
       decodeLimited(
           output,
           maxOutputSize,
           (output) => platformZLibDecoder.decodeStream(input, output,
-              verify: verify, raw: raw));
+              verify: verify, raw: raw, throwOnError: throwOnError));
 
-  /// Returns an [InputStream] that decompresses [input] as it is read.
-  ///
-  /// Nothing is decoded until the returned stream is read, and only a window
-  /// of the decoded data is held in memory. The stream is read forwards: see
-  /// [InputDecodeStream] for what that means. A malformed or truncated input
-  /// throws an [ArchiveException] from the read that runs into it.
+  /// {@macro archive.decode_lazy}
   InputStream decodeLazy(InputStream input,
           {bool verify = false, bool raw = false}) =>
       platformZLibDecoder.decodeLazy(input, verify: verify, raw: raw);

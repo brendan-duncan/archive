@@ -1,9 +1,7 @@
 import 'dart:convert';
-import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:archive/archive_io.dart';
-import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
 import '_test_util.dart';
@@ -225,6 +223,43 @@ void main() {
       }
     });
 
+    test('web gzip and zlib check the trailer checksum with verify', () {
+      final gz = GZipEncoder().encodeBytes(data);
+      final z = ZLibEncoder().encodeBytes(data);
+      final badGz = Uint8List.fromList(gz)..[gz.length - 8] ^= 0xff;
+      final badZ = Uint8List.fromList(z)..[z.length - 1] ^= 0xff;
+      InputStream gzip(bool verify) => const GZipDecoderWeb()
+          .decodeLazy(InputMemoryStream(badGz), verify: verify);
+      InputStream zlib(bool verify) => const ZLibDecoderWeb()
+          .decodeLazy(InputMemoryStream(badZ), verify: verify);
+      for (final decode in [gzip, zlib]) {
+        compareBytes(readAll(decode(false), 4096), data);
+        expect(() => readAll(decode(true), 4096),
+            throwsA(isA<ArchiveChecksumException>()));
+      }
+    });
+
+    test('web gzip and zlib with verify read on after skip', () {
+      final gz = GZipEncoder().encodeBytes(data);
+      final z = ZLibEncoder().encodeBytes(data);
+      final badGz = Uint8List.fromList(gz)..[gz.length - 8] ^= 0xff;
+      final badZ = Uint8List.fromList(z)..[z.length - 1] ^= 0xff;
+      for (final skip in [1000, 70000, 1024 * 1024]) {
+        for (final (decoder, good, bad) in [
+          (const GZipDecoderWeb().decodeLazy, gz, badGz),
+          (const ZLibDecoderWeb().decodeLazy, z, badZ),
+        ]) {
+          final stream = decoder(InputMemoryStream(good), verify: true)
+            ..skip(skip);
+          compareBytes(readAll(stream, 4096), data.sublist(skip));
+          final damaged = decoder(InputMemoryStream(bad), verify: true)
+            ..skip(skip);
+          expect(() => readAll(damaged, 4096),
+              throwsA(isA<ArchiveChecksumException>()));
+        }
+      }
+    });
+
     test('zlib', () {
       for (final raw in [false, true]) {
         final z =
@@ -234,6 +269,35 @@ void main() {
           const ZLibDecoderWeb().decodeLazy(InputMemoryStream(z), raw: raw),
         ]) {
           compareBytes(readAll(decoder, 4096), data);
+        }
+      }
+    });
+
+    test('zlib, damaged data throws ArchiveException without verify', () {
+      final z = ZLibEncoder().encodeBytes(data);
+      // Block type 3 is reserved, so deflate data is invalid
+      final wrongData = Uint8List.fromList(z)..[2] = 0x07;
+      for (final decoder in [
+        ZLibDecoder().decodeLazy(InputMemoryStream(wrongData)),
+        const ZLibDecoderWeb().decodeLazy(InputMemoryStream(wrongData)),
+      ]) {
+        expect(() => readAll(decoder, 4096), throwsA(isA<ArchiveException>()));
+      }
+    });
+
+    test('zlib, wrong checksum with verify', () {
+      final z = ZLibEncoder().encodeBytes(data);
+      final wrongSum = Uint8List.fromList(z)..[z.length - 1] ^= 0xff;
+      final wrongData = Uint8List.fromList(z)..[z.length ~/ 2] ^= 0x55;
+      final cut = z.sublist(0, z.length - 3);
+      for (final input in [wrongSum, wrongData, cut]) {
+        for (final decoder in [
+          ZLibDecoder().decodeLazy(InputMemoryStream(input), verify: true),
+          const ZLibDecoderWeb()
+              .decodeLazy(InputMemoryStream(input), verify: true),
+        ]) {
+          expect(
+              () => readAll(decoder, 4096), throwsA(isA<ArchiveException>()));
         }
       }
     });
@@ -275,76 +339,59 @@ void main() {
       expect(() => readAll(XZDecoder().decodeLazy(InputMemoryStream(cut))),
           throwsA(isA<ArchiveException>()));
 
-      // Real archives: checks summed on the way, concatenated streams, and
-      // the x86 filter, which has to see the whole block.
-      for (final name in ['crc32', 'crc64', 'sha256', 'concatenated', 'x86']) {
-        final bytes = File('test/_data/xz/$name.xz').readAsBytesSync();
-        final expected = XZDecoder().decodeBytes(bytes, verify: true);
-        final lazy =
-            XZDecoder().decodeLazy(InputMemoryStream(bytes), verify: true);
-        compareBytes(readAll(lazy, 777), expected);
-      }
-      // A damaged check is caught when the block ends.
-      final bytes = File('test/_data/xz/crc32.xz').readAsBytesSync();
-      final index = bytes.length - 12 - 4 - 8;
-      bytes[index] ^= 0xff;
-      final lazy =
-          XZDecoder().decodeLazy(InputMemoryStream(bytes), verify: true);
-      expect(() => readAll(lazy), throwsA(isA<ArchiveException>()));
-    });
-
-    test('from a file', () {
-      final dir = Directory.systemTemp.createTempSync('archive-lazy-');
-      addTearDown(() => dir.deleteSync(recursive: true));
-      final path = p.join(dir.path, 'data.gz');
-      File(path).writeAsBytesSync(GZipEncoder().encodeBytes(data));
-      final input = InputFileStream(path);
-      final output = OutputFileStream(p.join(dir.path, 'data'));
-      output.writeStream(GZipDecoder().decodeLazy(input));
-      output.closeSync();
-      input.closeSync();
-      compareBytes(File(p.join(dir.path, 'data')).readAsBytesSync(), data);
+      expect(
+          () => readAll(
+              XZDecoder(maxDictionarySize: 0).decodeLazy(InputMemoryStream(x))),
+          throwsA(isA<ArchiveLimitException>()));
     });
   });
 
-  group('extractFileToDisk from a compressed tar', () {
-    final big = sample(2 * 1024 * 1024 + 123);
-    final small = utf8.encode('hello\n');
+  test('a view longer than the decoded data reads what there is', () {
+    final data = sample(5000);
+    final stream = InputDecodeStream(_ListDecoder(data));
+    stream.skip(4000);
+    final view = stream.readBytes(3000);
+    stream.skip(0);
+    expect(view.toUint8List(), equals(data.sublist(4000)));
 
-    Uint8List tar() {
-      final archive = Archive()
-        ..add(ArchiveFile.bytes('dir/big.txt', big))
-        ..add(ArchiveFile.bytes('small.txt', small))
-        ..add(ArchiveFile.directory('empty/'));
-      return TarEncoder().encodeBytes(archive);
+    final late = InputDecodeStream(_ListDecoder(data));
+    final past = late.subset(position: 6000, length: 100);
+    expect(past.toUint8List(), isEmpty);
+
+    // Once the window has slid along, a position past the end lies past its
+    // buffer too
+    final big = sample(300000);
+    final slid = InputDecodeStream(_ListDecoder(big));
+    while (!slid.isEOS) {
+      slid.readBytes(1000).toUint8List();
     }
+    expect(slid.subset(position: 400000, length: 10).toUint8List(), isEmpty);
 
-    final encoders = <String, Uint8List Function(Uint8List)>{
-      'tar': (t) => t,
-      'tar.gz': (t) => GZipEncoder().encodeBytes(t),
-      'tgz': (t) => GZipEncoder().encodeBytes(t),
-      'tar.bz2': (t) => BZip2Encoder().encodeBytes(t),
-      'tar.zst': (t) => ZstdEncoder().encodeBytes(t, checksum: true),
-      'tar.xz': (t) => XZEncoder().encodeBytes(t),
-    };
+    final output = OutputMemoryStream();
+    output.writeStream(InputDecodeStream(_ListDecoder(data)).readBytes(8000));
+    expect(output.getBytes(), equals(data));
+  });
 
-    for (final e in encoders.entries) {
-      test(e.key, () async {
-        final dir = Directory.systemTemp.createTempSync('archive-extract-');
-        addTearDown(() => dir.deleteSync(recursive: true));
-        final path = p.join(dir.path, 'a.${e.key}');
-        File(path).writeAsBytesSync(e.value(tar()));
+  test('TarDecoder reads a lazy stream without decoding ahead', () {
+    final tar = TarEncoder().encodeBytes(Archive()
+      ..add(ArchiveFile.bytes('a', Uint8List(1 << 20)))
+      ..add(ArchiveFile.bytes('b', Uint8List(31 << 20))));
+    final source = _ListDecoder(tar);
+    final decodedAtFirst = <int>[];
+    TarDecoder().decodeStream(InputDecodeStream(source),
+        throwOnError: true, keepEntries: false, callback: (entry) {
+      decodedAtFirst.add(source._pos);
+      entry.writeContent(OutputMemoryStream());
+    });
+    expect(decodedAtFirst, hasLength(2));
+    expect(decodedAtFirst.first, lessThan(4 << 20));
+  });
 
-        final seen = <String>[];
-        final out = p.join(dir.path, 'out');
-        await extractFileToDisk(path, out, callback: (f) => seen.add(f.name));
-
-        expect(seen, ['dir/big.txt', 'small.txt', 'empty/']);
-        compareBytes(
-            File(p.join(out, 'dir', 'big.txt')).readAsBytesSync(), big);
-        compareBytes(File(p.join(out, 'small.txt')).readAsBytesSync(), small);
-        expect(Directory(p.join(out, 'empty')).existsSync(), isTrue);
-      });
-    }
+  test('decodeLazy over a lazy input reads it a piece at a time', () {
+    final xz = XZEncoder().encodeBytes(sample(1 << 20));
+    final inner = _ListDecoder(xz);
+    final lazy = XZDecoder().decodeLazy(InputDecodeStream(inner));
+    expect(lazy.readByte(), sample(1)[0]);
+    expect(inner._pos, lessThan(xz.length ~/ 2));
   });
 }

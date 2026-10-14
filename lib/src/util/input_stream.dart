@@ -50,6 +50,21 @@ abstract class InputStream {
   /// Move the read position by [length] bytes.
   void skip(int length);
 
+  /// Reads [count] bytes into [into] at [at] and moves the read position on.
+  /// Returns how many were read. It is short only at the end of the stream.
+  /// A caller that reuses one buffer leaves no garbage behind
+  int readInto(Uint8List into, int at, int count) {
+    final bytes = readBytes(count).toUint8List();
+    final got = bytes.length < count ? bytes.length : count;
+    into.setRange(at, at + got, bytes);
+    return got;
+  }
+
+  /// Returns [count] bytes at the read position as a view of the stream's own
+  /// storage, moving the read position on. Null when this stream has no such
+  /// storage, and then you read into a buffer of your own
+  Uint8List? viewBytes(int count) => null;
+
   /// Read [count] bytes from an [offset] of the current read position, without
   /// moving the read position.
   InputStream peekBytes(int count, {int offset = 0}) =>

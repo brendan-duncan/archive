@@ -1,68 +1,159 @@
 import 'dart:typed_data';
 
-import 'zstd_error.dart';
+import '../../util/archive_exception.dart';
+
+import 'zstd_constants.dart';
 import 'zstd_fse.dart';
 import 'zstd_huffman.dart';
 
-const int _dictionaryMagic = 0xEC30A437;
+class ZstdDictionaryException extends ArchiveException {
+  ZstdDictionaryException(super.message);
+  @override
+  String toString() => 'ZstdDictionaryException: $message';
+}
 
-/// A zstd dictionary, as described in RFC 8878 section 5.
+/// A parsed zstd dictionary, ready to be passed to a decoder.
 ///
-/// A formatted dictionary, the kind `zstd --train` writes, starts with a
-/// magic number and carries entropy tables and repeat offsets for frames to
-/// start from. Anything else is taken whole as raw content.
+/// Parsing is done once here rather than once per frame. Anything that is not a
+/// formatted dictionary is taken as raw content, the way the reference decoder
+/// takes it
 class ZstdDictionary {
-  /// The ID frames refer to this dictionary by, or zero for raw content.
+  /// Zero for a raw content dictionary, which no frame can name
   final int id;
 
-  /// The bytes that precede each frame's content, for matches to refer back
-  /// into.
+  /// What matches reach back into, placed before the output of every frame
   final Uint8List content;
 
-  final ZstdHuffmanTable? huffman;
-  final ZstdFseTable? llTable;
-  final ZstdFseTable? ofTable;
-  final ZstdFseTable? mlTable;
+  /// The whole buffer this was read from, headers and all. The reference sizes
+  /// a frame's parameters by this rather than by the content alone
+  final int sourceSize;
 
-  /// The three repeat offsets frames start with.
-  final List<int> repeatOffsets;
+  /// The three offsets a frame starts with
+  final Uint32List repeatOffsets;
 
-  ZstdDictionary._(this.id, this.content, this.huffman, this.llTable,
-      this.ofTable, this.mlTable, this.repeatOffsets);
+  /// False for a raw content dictionary, whose tables a first block cannot
+  /// repeat
+  final bool hasEntropy;
 
-  /// Parses [bytes] as a dictionary.
-  ///
-  /// Throws a [ZstdFormatError] if they start with the dictionary magic
-  /// number but are not a well formed dictionary.
-  factory ZstdDictionary(List<int> bytes) {
-    final d = bytes is Uint8List ? bytes : Uint8List.fromList(bytes);
-    if (d.length < 8 || _read32(d, 0) != _dictionaryMagic) {
-      return ZstdDictionary._(0, d, null, null, null, null, const [1, 4, 8]);
+  final ZstdHuffmanTable huffman;
+
+  /// The tree as it was described. An encoder builds from it
+  final Uint8List huffmanWeights;
+
+  /// The three sequence distributions, by slot. These are kept rather than the
+  /// rows they build into, so the row layout stays a matter for the decoder
+  final List<Int16List> counts;
+  final List<int> maxSymbols;
+  final List<int> logs;
+
+  /// `ZSTD_compress_insertDictionary` drops one under eight bytes, the decoder
+  /// keeps it
+  bool get usableForEncode => sourceSize >= 8 && content.isNotEmpty;
+
+  ZstdDictionary._(
+      this.id,
+      this.content,
+      this.sourceSize,
+      this.repeatOffsets,
+      this.hasEntropy,
+      this.huffman,
+      this.huffmanWeights,
+      this.counts,
+      this.maxSymbols,
+      this.logs);
+
+  factory ZstdDictionary(List<int> data) {
+    try {
+      return _read(data);
+    } on ZstdDictionaryException {
+      rethrow;
+    } on ArchiveException catch (error) {
+      throw ZstdDictionaryException(error.message);
     }
-    final id = _read32(d, 4);
-    var pos = 8;
-    final huffman = ZstdHuffmanTable();
-    pos = huffman.readDescription(d, pos, d.length);
-    final of = ZstdFseTable(ZstdFseKind.offset, zstdOfMaxLog);
-    pos = of.readDescription(d, pos, d.length);
-    final ml = ZstdFseTable(ZstdFseKind.matchLength, zstdMlMaxLog);
-    pos = ml.readDescription(d, pos, d.length);
-    final ll = ZstdFseTable(ZstdFseKind.literalsLength, zstdLlMaxLog);
-    pos = ll.readDescription(d, pos, d.length);
-    if (pos + 12 > d.length) {
-      throw ZstdFormatError('Truncated dictionary');
-    }
-    final reps = [_read32(d, pos), _read32(d, pos + 4), _read32(d, pos + 8)];
-    pos += 12;
-    final content = Uint8List.sublistView(d, pos);
-    for (final r in reps) {
-      if (r == 0 || r > content.length) {
-        throw ZstdFormatError('Invalid dictionary repeat offset $r');
-      }
-    }
-    return ZstdDictionary._(id, content, huffman, ll, of, ml, reps);
   }
 
-  static int _read32(Uint8List d, int i) =>
-      d[i] | (d[i + 1] << 8) | (d[i + 2] << 16) | (d[i + 3] * 0x1000000);
+  static ZstdDictionary _read(List<int> data) {
+    final bytes = data is Uint8List ? data : Uint8List.fromList(data);
+    if (bytes.length < 8 || _uint32At(bytes, 0) != zstdDictionaryMagic) {
+      return ZstdDictionary._(
+          0,
+          bytes,
+          bytes.length,
+          Uint32List.fromList(zstdInitialRepeatOffsets),
+          false,
+          ZstdHuffmanTable(),
+          Uint8List(0), const [], const [], const []);
+    }
+
+    final end = bytes.length;
+    final huffman = ZstdHuffmanTable();
+    final scratch = ZstdHuffmanScratch();
+    var at = 8;
+    at += readHuffmanTable(bytes, at, end, huffman, scratch);
+    final huffmanWeights =
+        Uint8List.sublistView(scratch.weights, 0, huffman.symbolCount);
+
+    final counts = [
+      for (var i = 0; i < 3; i++) Int16List(zstdMatchLengthCodeMax + 1)
+    ];
+    final maxSymbols = [0, 0, 0];
+    final logs = [0, 0, 0];
+    // A dictionary stores the three tables offset first, the decoder wants them
+    // by slot
+    for (final slot in const [
+      zstdSlotOffset,
+      zstdSlotMatchLength,
+      zstdSlotLiteralsLength
+    ]) {
+      final distribution = readFseDistribution(
+          bytes, at, end, counts[slot], _maxSymbol[slot],
+          maxAccuracyLog: _maxLog[slot]);
+      maxSymbols[slot] = distribution.maxSymbol;
+      logs[slot] = distribution.accuracyLog;
+      at += distribution.bytesRead;
+    }
+
+    if (at + 12 > end) {
+      throw ZstdDictionaryException('Repeat offsets are truncated');
+    }
+    final content = Uint8List.sublistView(bytes, at + 12);
+    final repeatOffsets = Uint32List(zstdRepeatOffsetCount);
+    for (var i = 0; i < zstdRepeatOffsetCount; i++) {
+      final value = _uint32At(bytes, at + (i << 2));
+      if (value == 0 || value > content.length) {
+        throw ZstdDictionaryException(
+            'Repeat offset $value reaches outside the dictionary content');
+      }
+      repeatOffsets[i] = value;
+    }
+
+    return ZstdDictionary._(
+        _uint32At(bytes, 4),
+        content,
+        bytes.length,
+        repeatOffsets,
+        true,
+        huffman,
+        Uint8List.fromList(huffmanWeights),
+        counts,
+        maxSymbols,
+        logs);
+  }
+
+  static const _maxSymbol = [
+    zstdLiteralsLengthCodeMax,
+    zstdOffsetCodeMax,
+    zstdMatchLengthCodeMax,
+  ];
+  static const _maxLog = [
+    zstdLiteralsLengthLogMax,
+    zstdOffsetLogMax,
+    zstdMatchLengthLogMax,
+  ];
+
+  static int _uint32At(Uint8List bytes, int at) =>
+      bytes[at] |
+      (bytes[at + 1] << 8) |
+      (bytes[at + 2] << 16) |
+      (bytes[at + 3] << 24);
 }

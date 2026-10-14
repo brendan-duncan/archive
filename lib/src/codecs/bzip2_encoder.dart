@@ -1,6 +1,6 @@
 import 'dart:typed_data';
 
-//import '../util/archive_exception.dart';
+import '../util/archive_exception.dart';
 import '../util/byte_order.dart';
 import '../util/input_memory_stream.dart';
 import '../util/input_stream.dart';
@@ -12,28 +12,51 @@ import 'bzip2/bzip2.dart';
 /// Compress data using the BZip2 format.
 /// Derived from libbzip2 (http://www.bzip.org).
 class BZip2Encoder {
-  Uint8List encodeBytes(List<int> data) {
+  Uint8List encodeBytes(List<int> data, {int blockSize100k = 9}) {
     final inputStream = InputMemoryStream(data, byteOrder: ByteOrder.bigEndian);
     final output = OutputMemoryStream(byteOrder: ByteOrder.bigEndian);
-    encodeStream(inputStream, output);
+    encodeStream(inputStream, output, blockSize100k: blockSize100k);
     return output.getBytes();
   }
 
   /// Alias for [encodeBytes], kept for backwards compatibility.
   List<int> encode(List<int> bytes) => encodeBytes(bytes);
 
-  bool encodeStream(InputStream input, OutputStream output) {
+  bool encodeStream(InputStream input, OutputStream output,
+      {int blockSize100k = 9}) {
     this.input = input;
-    bw = Bz2BitWriter(output);
+    beginStream(output, blockSize100k: blockSize100k);
+    while (!input.isEOS) {
+      var full = false;
+      while (!full && !input.isEOS) {
+        full = addByte(input.readByte());
+      }
+      if (!endBlock()) {
+        return false;
+      }
+    }
+    endStream();
+    return true;
+  }
 
-    final blockSize100k = 9;
+  /// Instead of consuming an [InputStream], [BZip2ChunkedEncoder] drives this
+  /// method directly alongside [addByte], [endBlock], and [endStream]. This
+  /// guarantees identical output to [encodeStream]
+  void beginStream(OutputStream output, {int blockSize100k = 9}) {
+    // The format requires the block size to be a single digit (1-9).
+    // Invalid values will silently corrupt the header signature. 0 is error
+    if (blockSize100k < 1 || blockSize100k > 9) {
+      throw ArgumentError.value(
+          blockSize100k, 'blockSize100k', 'Must be 1 to 9');
+    }
+    bw = Bz2BitWriter(output);
 
     bw.writeBytes(BZip2.bzhSignature);
     bw.writeByte(BZip2.hdr0 + blockSize100k);
 
     _nblockMax = 100000 * blockSize100k - 19;
     _workFactor = 30;
-    var combinedCRC = 0;
+    _combinedCRC = 0;
 
     var n = 100000 * blockSize100k;
     _arr1 = Uint32List(n);
@@ -62,51 +85,55 @@ class BZip2Encoder {
       _lenPack[i] = Uint32List(4);
     }
 
-    // Write blocks
-    while (!input.isEOS) {
-      final blockCRC = _writeBlock();
-      if (blockCRC < 0) {
-        return false;
-      }
-      combinedCRC = ((combinedCRC << 1) | (combinedCRC >> 31)) & 0xffffffff;
-      combinedCRC ^= blockCRC;
-      _blockNo++;
-    }
-
-    bw.writeBytes(BZip2.eosMagic);
-    bw.writeUint32(combinedCRC);
-    bw.flush();
-
-    return true;
+    _startBlock();
   }
 
-  int _writeBlock() {
-    _inUse = Uint8List(256);
+  /// Adds a byte to the current block. Returns true if block is full,
+  /// meaning [endBlock] must be called before adding any more data
+  bool addByte(int byte) {
+    _addCharToBlock(byte);
+    return _nblock >= _nblockMax;
+  }
 
-    _nblock = 0;
-    _blockCRC = BZip2.initialCrc;
-
-    // copy_input_until_stop
-    _stateInCh = 256;
-    _stateInLen = 0;
-    while (_nblock < _nblockMax && !input.isEOS) {
-      _addCharToBlock(input.readByte());
+  /// Compresses the block and updates the overall stream checksum.
+  /// We skip empty blocks to avoid altering and breaking the combined CRC
+  bool endBlock() {
+    if (_nblock == 0 && _stateInCh == 256) {
+      return true;
     }
-
     if (_stateInCh < 256) {
       _addPairToBlock();
     }
-
     _stateInCh = 256;
     _stateInLen = 0;
-
     _blockCRC = BZip2.finalizeCrc(_blockCRC);
-
     if (!_compressBlock()) {
-      return -1;
+      return false;
     }
+    _combinedCRC = ((_combinedCRC << 1) | (_combinedCRC >> 31)) & 0xffffffff;
+    _combinedCRC ^= _blockCRC;
+    _blockNo++;
+    _startBlock();
+    return true;
+  }
 
-    return _blockCRC;
+  /// The EOF marker, the combined stream checksum, and padding to finish the
+  /// byte
+  void endStream() {
+    if (!endBlock()) {
+      throw ArchiveException('bzip2: a block could not be coded');
+    }
+    bw.writeBytes(BZip2.eosMagic);
+    bw.writeUint32(_combinedCRC);
+    bw.flush();
+  }
+
+  void _startBlock() {
+    _inUse = Uint8List(256);
+    _nblock = 0;
+    _blockCRC = BZip2.initialCrc;
+    _stateInCh = 256;
+    _stateInLen = 0;
   }
 
   bool _compressBlock() {
@@ -2073,6 +2100,9 @@ class BZip2Encoder {
   late InputStream input;
   late Bz2BitWriter bw;
   late int _nblockMax;
+
+  /// Combined stream checksum from all blocks, ready for the footer
+  var _combinedCRC = 0;
   late int _stateInCh;
   late int _stateInLen;
   late int _nblock;

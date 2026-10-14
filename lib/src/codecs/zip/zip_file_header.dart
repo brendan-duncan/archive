@@ -1,5 +1,8 @@
+import 'dart:convert';
 import 'dart:typed_data';
 
+import '../../util/_zip_name.dart';
+import '../../util/archive_exception.dart';
 import '../../util/input_memory_stream.dart';
 import '../../util/input_stream.dart';
 import 'zip_file.dart';
@@ -25,7 +28,12 @@ class ZipFileHeader {
   String fileComment = '';
   ZipFile? file;
 
-  void read(InputStream input, {InputStream? fileBytes, String? password}) {
+  void read(InputStream input,
+      {InputStream? fileBytes,
+      String? password,
+      bool verify = false,
+      int prefix = 0,
+      Encoding? filenameEncoding}) {
     versionMadeBy = input.readUint16();
     versionNeededToExtract = input.readUint16();
     generalPurposeBitFlag = input.readUint16();
@@ -43,9 +51,13 @@ class ZipFileHeader {
     externalFileAttributes = input.readUint32();
     localHeaderOffset = input.readUint32();
 
-    if (fnameLen > 0) {
-      filename = input.readString(size: fnameLen);
+    if (verify && fnameLen + extraLen + commentLen > input.length) {
+      throw ArchiveException('zip: central directory header is damaged');
     }
+
+    final nameBytes = input.readBytes(fnameLen).toUint8List();
+    filename = zipName(nameBytes, generalPurposeBitFlag, filenameEncoding);
+    String? unicodePath;
 
     if (extraLen > 0) {
       final extraBytes = input.readBytes(extraLen);
@@ -96,6 +108,8 @@ class ZipFileHeader {
               diskNumberStart = extraBytes.readUint32();
               size -= 4;
             }
+          } else if (id == 0x7075) {
+            unicodePath = zipUnicodePath(nameBytes, extraBytes);
           }
         }
       }
@@ -105,11 +119,37 @@ class ZipFileHeader {
       fileComment = input.readString(size: commentLen);
     }
 
+    if (prefix != 0 &&
+        fileBytes != null &&
+        !_localHeaderAt(fileBytes, localHeaderOffset + prefix) &&
+        _localHeaderAt(fileBytes, localHeaderOffset)) {
+      if (verify) {
+        throw ArchiveException('zip: central directory is damaged');
+      }
+      prefix = 0;
+    }
+    localHeaderOffset += prefix;
+
     if (fileBytes != null) {
       fileBytes.setPosition(localHeaderOffset);
       file = ZipFile(this);
-      file!.read(fileBytes, password: password);
+      file!.read(fileBytes,
+          password: password,
+          verify: verify,
+          filenameEncoding: filenameEncoding);
     }
+    if (unicodePath != null) {
+      filename = unicodePath;
+      file?.filename = unicodePath;
+    }
+  }
+
+  bool _localHeaderAt(InputStream input, int position) {
+    if (position < 0) {
+      return false;
+    }
+    input.setPosition(position);
+    return input.length >= 30 && input.readUint32() == ZipFile.zipSignature;
   }
 
   @override

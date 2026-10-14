@@ -2,11 +2,10 @@ import 'dart:typed_data';
 
 import '../../util/input_stream.dart';
 import 'xz_index.dart';
+import 'xz_stream_decoder.dart';
 
-/// Whether this platform can decode on isolates.
-///
-/// False here: neither dart2js nor dart2wasm can spawn one, so callers decode
-/// inline on the calling isolate instead.
+/// Needs to be reviewed for WASM in a year or two, isolated might land there
+/// by that time #55364
 const bool xzIsolatesSupported = false;
 
 /// A stretch of a file on disk holding an xz archive.
@@ -25,7 +24,12 @@ XZFileRegion? xzFileRegionOf(InputStream input) => null;
 XZLayout? xzLayoutOfFile(XZFileRegion region, {int? maxUncompressedSize}) =>
     null;
 
-/// Never called on this platform; [xzIsolatesSupported] gates it.
+/// Never called on this platform
+Stream<Uint8List> xzDecodeStreamMultithreaded(Stream<List<int>> input,
+        {required bool verify, int? workers, int? memoryBudget}) =>
+    throw UnsupportedError('Isolates are not available on this platform');
+
+/// Never called on this platform
 Future<bool> xzDecodeMultithreaded({
   Uint8List? bytes,
   String? path,
@@ -34,11 +38,11 @@ Future<bool> xzDecodeMultithreaded({
   required XZLayout? layout,
   required bool verify,
   required int maxPreallocateSize,
-  int maxDictionarySize = 0,
+  int maxDictionarySize = xzDefaultMaxDictionarySize,
   int? workers,
   int? memoryBudget,
   required void Function(int outputOffset, Uint8List chunk) onChunk,
-  void Function(int outputOffset, bool ok)? onBlockDone,
+  void Function(int block, bool ok)? onBlockDone,
   void Function(String reason)? onFailureReason,
   bool orderedOutput = false,
   required int fileReadBufferSize,

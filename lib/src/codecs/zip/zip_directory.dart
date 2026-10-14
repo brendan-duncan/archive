@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:math';
 import '../../util/archive_exception.dart';
 import '../../util/input_memory_stream.dart';
@@ -26,18 +27,20 @@ class ZipDirectory {
   String zipFileComment = '';
   final fileHeaders = <ZipFileHeader>[];
 
-  void read(InputStream input, {String? password}) {
+  void read(InputStream input,
+      {String? password, bool verify = false, Encoding? filenameEncoding}) {
     // The caller may read on from where the stream was, or decode it again,
     // so leave the read position as it was found.
     final pos = input.position;
     try {
-      _read(input, password);
+      _read(input, password, verify, filenameEncoding);
     } finally {
       input.setPosition(pos);
     }
   }
 
-  void _read(InputStream input, String? password) {
+  void _read(InputStream input, String? password, bool verify,
+      Encoding? filenameEncoding) {
     filePosition = _findSignature(input);
     if (filePosition < 0) {
       return;
@@ -56,26 +59,92 @@ class ZipDirectory {
     centralDirectoryOffset = input.readUint32();
 
     final len = input.readUint16();
+    if (verify && len > input.length) {
+      throw ArchiveException('zip: archive comment is truncated');
+    }
     if (len > 0) {
       zipFileComment = input.readString(size: len, utf8: false);
     }
 
     _readZip64Data(input);
 
+    var prefix = 0;
+    final start = _prefixStart(input);
+    if (start > centralDirectoryOffset &&
+        !_signatureAt(input, centralDirectoryOffset, ZipFileHeader.signature)) {
+      prefix = start - centralDirectoryOffset;
+      centralDirectoryOffset = start;
+    }
+
+    if (centralDirectoryOffset < 0 ||
+        centralDirectorySize < 0 ||
+        centralDirectoryOffset > filePosition ||
+        (verify &&
+            centralDirectorySize > filePosition - centralDirectoryOffset)) {
+      if (verify) {
+        throw ArchiveException('zip: central directory is damaged');
+      }
+      return;
+    }
+
     final dirContent = input.subset(
         position: centralDirectoryOffset,
         length: centralDirectorySize,
         bufferSize: min(centralDirectorySize, 1024));
+    final fileBytes = verify
+        ? input.subset(position: 0, length: centralDirectoryOffset)
+        : input;
 
     while (!dirContent.isEOS) {
-      final fileSig = dirContent.readUint32();
+      final fileSig = dirContent.length >= 46 ? dirContent.readUint32() : 0;
       if (fileSig != ZipFileHeader.signature) {
+        if (verify && !_hasPrefix(input)) {
+          throw ArchiveException('zip: central directory is damaged');
+        }
         break;
       }
       final header = ZipFileHeader()
-        ..read(dirContent, fileBytes: input, password: password);
+        ..read(dirContent,
+            fileBytes: fileBytes,
+            password: password,
+            verify: verify,
+            prefix: prefix,
+            filenameEncoding: filenameEncoding);
       fileHeaders.add(header);
     }
+    if (verify &&
+        fileHeaders.length % 0x10000 !=
+            totalCentralDirectoryEntries % 0x10000) {
+      throw ArchiveException(
+          'zip: central directory entry count does not match');
+    }
+  }
+
+  // do not accidentally recognize sfx as bad file
+  bool _hasPrefix(InputStream input) => _prefixStart(input) >= 0;
+
+  int _prefixStart(InputStream input) {
+    var end = filePosition;
+    final locator = end - zip64EocdLocatorSize;
+    if (locator >= 0) {
+      input.setPosition(locator);
+      if (input.readUint32() == zip64EocdLocatorSignature) {
+        end = locator - zip64EocdSize;
+      }
+    }
+    final start = end - centralDirectorySize;
+    if (start < 0 || start == centralDirectoryOffset) {
+      return -1;
+    }
+    return _signatureAt(input, start, ZipFileHeader.signature) ? start : -1;
+  }
+
+  bool _signatureAt(InputStream input, int position, int signature) {
+    if (position < 0) {
+      return false;
+    }
+    input.setPosition(position);
+    return input.length >= 4 && input.readUint32() == signature;
   }
 
   void _readZip64Data(InputStream input) {
@@ -105,14 +174,24 @@ class ZipDirectory {
     }
 
     /*final startZip64Disk =*/ zip64.readUint32();
-    final zip64DirOffset = zip64.readUint64();
+    var zip64DirOffset = zip64.readUint64();
     /*final numZip64Disks =*/ zip64.readUint32();
 
-    // The record comes before the locator, and is 56 bytes before any
-    // extensible data.
-    if (zip64DirOffset < 0 || zip64DirOffset > locPos - 56) {
+    final before = locPos - zip64EocdSize;
+    if (zip64DirOffset >= 0 &&
+        zip64DirOffset < before &&
+        !_signatureAt(input, zip64DirOffset, zip64EocdSignature) &&
+        _signatureAt(input, before, zip64EocdSignature)) {
+      zip64DirOffset = before;
+    }
+    if (!_signatureAt(input, zip64DirOffset, zip64EocdSignature)) {
       throw ArchiveException('Invalid zip64 end of central directory offset');
     }
+    if (input.length < zip64EocdSize - 4) {
+      input.setPosition(ip);
+      return;
+    }
+
     input.setPosition(zip64DirOffset);
 
     // Zip64 end of central directory record

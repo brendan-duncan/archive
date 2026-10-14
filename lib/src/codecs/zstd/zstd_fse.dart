@@ -1,326 +1,258 @@
 import 'dart:typed_data';
 
-import 'zstd_error.dart';
+import '../../util/archive_exception.dart';
 
-// Finite State Entropy (tANS) tables, as described in RFC 8878 section 4.1.
-// The same decoding table serves the Huffman weights and the three sequence
-// fields. For the sequence fields it also carries the baseline and extra bit
-// count of each state's code, so decoding a field takes one lookup.
+import 'zstd_constants.dart';
 
-const int zstdMaxLlCode = 35;
-const int zstdMaxMlCode = 52;
-const int zstdMaxOfCode = 31;
-const int zstdLlMaxLog = 9;
-const int zstdMlMaxLog = 9;
-const int zstdOfMaxLog = 8;
-
-/// The baseline of each literals length code.
-const List<int> zstdLlBase = [
-  0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, //
-  16, 18, 20, 22, 24, 28, 32, 40, 48, 64, 128, 256, 512, 1024, 2048, 4096,
-  8192, 16384, 32768, 65536,
-];
-
-/// The number of extra bits each literals length code takes.
-const List<int> zstdLlBits = [
-  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, //
-  1, 1, 1, 1, 2, 2, 3, 3, 4, 6, 7, 8, 9, 10, 11, 12,
-  13, 14, 15, 16,
-];
-
-/// The baseline of each match length code.
-const List<int> zstdMlBase = [
-  3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, //
-  19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34,
-  35, 37, 39, 41, 43, 47, 51, 59, 67, 83, 99, 131, 259, 515, 1027, 2051,
-  4099, 8195, 16387, 32771, 65539,
-];
-
-/// The number of extra bits each match length code takes.
-const List<int> zstdMlBits = [
-  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, //
-  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-  1, 1, 1, 1, 2, 2, 3, 3, 4, 4, 5, 7, 8, 9, 10, 11,
-  12, 13, 14, 15, 16,
-];
-
-/// The predefined distributions, and their accuracy logs below.
-const List<int> zstdLlDefaultNorm = [
-  4, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 1, 1, //
-  2, 2, 2, 2, 2, 2, 2, 2, 2, 3, 2, 1, 1, 1, 1, 1,
-  -1, -1, -1, -1,
-];
-
-const List<int> zstdMlDefaultNorm = [
-  1, 4, 3, 2, 2, 2, 2, 2, 2, 1, 1, 1, 1, 1, 1, 1, //
-  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, -1, -1,
-  -1, -1, -1, -1, -1,
-];
-
-const int zstdLlDefaultLog = 6;
-const int zstdMlDefaultLog = 6;
-const int zstdOfDefaultLog = 5;
-
-const List<int> zstdOfDefaultNorm = [
-  1, 1, 1, 1, 1, 1, 2, 2, 2, 1, 1, 1, 1, 1, 1, 1, //
-  1, 1, 1, 1, 1, 1, 1, 1, -1, -1, -1, -1, -1,
-];
-
-/// What a table decodes, which decides the baselines stored with each state.
-enum ZstdFseKind { literalsLength, matchLength, offset, plain }
-
-/// An FSE decoding table.
+/// One packed row per state:
+///
+/// ```
+/// bits  0..7   symbol
+/// bits  8..15  bits to read for the next state
+/// bits 16..31  baseline to add to them
+/// ```
 class ZstdFseTable {
-  final ZstdFseKind kind;
+  Uint32List rows;
+  int accuracyLog;
 
-  int accuracyLog = 0;
+  ZstdFseTable(int maxLog)
+      : rows = Uint32List(1 << maxLog),
+        accuracyLog = 0;
 
-  /// The symbol each state decodes to.
-  final Uint8List symbol;
+  @pragma('vm:prefer-inline')
+  int get size => 1 << accuracyLog;
 
-  /// The number of bits read to move on from each state.
-  final Uint8List nbBits;
+  @pragma('vm:prefer-inline')
+  int get mask => (1 << accuracyLog) - 1;
 
-  /// What those bits are added to, to give the next state.
-  final Uint16List stateBase;
-
-  /// For the sequence fields, the value of each state's code before its extra
-  /// bits are added.
-  final Uint32List baseValue;
-
-  /// For the sequence fields, how many extra bits each state's code takes.
-  final Uint8List extraBits;
-
-  ZstdFseTable(this.kind, int maxLog)
-      : symbol = Uint8List(1 << maxLog),
-        nbBits = Uint8List(1 << maxLog),
-        stateBase = Uint16List(1 << maxLog),
-        baseValue = Uint32List(kind == ZstdFseKind.plain ? 0 : 1 << maxLog),
-        extraBits = Uint8List(kind == ZstdFseKind.plain ? 0 : 1 << maxLog);
-
-  int get _maxLog => symbol.length.bitLength - 1;
-
-  int get _maxSymbol => switch (kind) {
-        ZstdFseKind.literalsLength => zstdMaxLlCode,
-        ZstdFseKind.matchLength => zstdMaxMlCode,
-        ZstdFseKind.offset => zstdMaxOfCode,
-        ZstdFseKind.plain => 255,
-      };
-
-  /// Builds the table for one of the predefined distributions.
-  static ZstdFseTable predefined(ZstdFseKind kind) {
-    final (norm, log) = switch (kind) {
-      ZstdFseKind.literalsLength => (zstdLlDefaultNorm, zstdLlDefaultLog),
-      ZstdFseKind.matchLength => (zstdMlDefaultNorm, zstdMlDefaultLog),
-      ZstdFseKind.offset => (zstdOfDefaultNorm, zstdOfDefaultLog),
-      ZstdFseKind.plain => throw ArgumentError.value(kind),
-    };
-    final table = ZstdFseTable(kind, log);
-    table.build(Int16List.fromList(norm), norm.length, log);
-    return table;
-  }
-
-  /// Makes this a table that always decodes [symbol] and reads no bits, for
-  /// the RLE compression mode.
-  void buildRle(int symbol) {
-    if (symbol > _maxSymbol) {
-      throw ZstdFormatError('RLE symbol $symbol out of range');
-    }
+  void setRle(int symbol) {
     accuracyLog = 0;
-    this.symbol[0] = symbol;
-    nbBits[0] = 0;
-    stateBase[0] = 0;
-    _fillBaselines(1);
-  }
-
-  // Scratch space for the probabilities read from a description.
-  static final Int16List _norm = Int16List(256);
-
-  /// Reads a table description starting at [pos] and builds the table from
-  /// it, returning the position of the first byte after the description.
-  int readDescription(Uint8List src, int pos, int end) {
-    if (pos >= end) {
-      throw ZstdFormatError('Truncated FSE table description');
-    }
-    final maxSymbol = _maxSymbol;
-    final norm = _norm;
-    final endBit = end * 8;
-    var bitPos = pos * 8;
-
-    // Reads n bits, at most 16, from the forward little endian bitstream.
-    // Bytes past the end read as zero; overrunning it is caught at the end.
-    int read(int n) {
-      final i = bitPos >> 3;
-      var v = 0;
-      if (i < end) {
-        v = src[i];
-        if (i + 1 < end) {
-          v |= src[i + 1] << 8;
-          if (i + 2 < end) {
-            v |= src[i + 2] << 16;
-          }
-        }
-      }
-      final r = (v >> (bitPos & 7)) & ((1 << n) - 1);
-      bitPos += n;
-      return r;
-    }
-
-    final log = read(4) + 5;
-    if (log > _maxLog) {
-      throw ZstdFormatError('FSE accuracy log $log too large');
-    }
-
-    // [remaining] is one more than the probability points still to hand out,
-    // which is what the field widths are worked out from.
-    var remaining = (1 << log) + 1;
-    var threshold = 1 << log;
-    var bits = log + 1;
-    var symbols = 0;
-    var previousZero = false;
-
-    while (remaining > 1 && symbols <= maxSymbol) {
-      if (previousZero) {
-        // A run of zero probabilities, two bits at a time.
-        var run = symbols;
-        for (;;) {
-          final repeat = read(2);
-          run += repeat;
-          if (repeat != 3) {
-            break;
-          }
-        }
-        if (run > maxSymbol + 1) {
-          throw ZstdFormatError('FSE table has too many symbols');
-        }
-        while (symbols < run) {
-          norm[symbols++] = 0;
-        }
-        if (symbols > maxSymbol) {
-          break;
-        }
-      }
-
-      // Small values take one bit less.
-      final max = (2 * threshold - 1) - remaining;
-      final low = read(bits - 1);
-      int count;
-      if (low < max) {
-        count = low;
-      } else {
-        count = low | (read(1) << (bits - 1));
-        if (count >= threshold) {
-          count -= max;
-        }
-      }
-      // A count of zero stands for a probability below one, which still takes
-      // one state.
-      count--;
-      remaining -= count < 0 ? -count : count;
-      norm[symbols++] = count;
-      previousZero = count == 0;
-
-      if (remaining < threshold) {
-        if (remaining <= 1) {
-          break;
-        }
-        bits = remaining.bitLength;
-        threshold = 1 << (bits - 1);
-      }
-    }
-
-    if (remaining != 1 || bitPos > endBit) {
-      throw ZstdFormatError('Corrupt FSE table description');
-    }
-    build(norm, symbols, log);
-    return (bitPos + 7) >> 3;
-  }
-
-  /// Builds the table from the probabilities of the first [numSymbols]
-  /// symbols in [norm], which sum to 2^[log], with -1 standing for a
-  /// probability below one.
-  void build(Int16List norm, int numSymbols, int log) {
-    final size = 1 << log;
-    final symbol = this.symbol;
-    final nbBits = this.nbBits;
-    final stateBase = this.stateBase;
-    // The next state counter for each symbol, reused as it is consumed.
-    final next = Uint16List(256);
-
-    // Symbols with a probability below one each take a single state, from the
-    // top of the table down.
-    var high = size;
-    for (var s = 0; s < numSymbols; s++) {
-      if (norm[s] == -1) {
-        symbol[--high] = s;
-        next[s] = 1;
-      }
-    }
-
-    // The rest are spread through the table, skipping the states taken above.
-    final step = (size >> 1) + (size >> 3) + 3;
-    final mask = size - 1;
-    var pos = 0;
-    for (var s = 0; s < numSymbols; s++) {
-      final n = norm[s];
-      if (n <= 0) {
-        continue;
-      }
-      next[s] = n;
-      for (var i = 0; i < n; i++) {
-        symbol[pos] = s;
-        do {
-          pos = (pos + step) & mask;
-        } while (pos >= high);
-      }
-    }
-    if (pos != 0) {
-      throw ZstdFormatError('Corrupt FSE distribution');
-    }
-
-    for (var i = 0; i < size; i++) {
-      final n = next[symbol[i]]++;
-      final b = log - (n.bitLength - 1);
-      nbBits[i] = b;
-      stateBase[i] = (n << b) - size;
-    }
-
-    accuracyLog = log;
-    _fillBaselines(size);
-  }
-
-  void _fillBaselines(int size) {
-    switch (kind) {
-      case ZstdFseKind.literalsLength:
-        for (var i = 0; i < size; i++) {
-          final s = symbol[i];
-          baseValue[i] = zstdLlBase[s];
-          extraBits[i] = zstdLlBits[s];
-        }
-      case ZstdFseKind.matchLength:
-        for (var i = 0; i < size; i++) {
-          final s = symbol[i];
-          baseValue[i] = zstdMlBase[s];
-          extraBits[i] = zstdMlBits[s];
-        }
-      case ZstdFseKind.offset:
-        for (var i = 0; i < size; i++) {
-          final s = symbol[i];
-          // Code 31 is written out: it is the sign bit wherever the shift
-          // operators work on 32 bits.
-          baseValue[i] = s == 31 ? 0x80000000 : 1 << s;
-          extraBits[i] = s;
-        }
-      case ZstdFseKind.plain:
-        break;
-    }
+    rows[0] = symbol;
   }
 }
 
-final ZstdFseTable zstdPredefinedLlTable =
-    ZstdFseTable.predefined(ZstdFseKind.literalsLength);
-final ZstdFseTable zstdPredefinedMlTable =
-    ZstdFseTable.predefined(ZstdFseKind.matchLength);
-final ZstdFseTable zstdPredefinedOfTable =
-    ZstdFseTable.predefined(ZstdFseKind.offset);
+class ZstdFseDistribution {
+  /// -1 means a probability of less than one
+  final Int16List counts;
+  final int maxSymbol;
+  final int accuracyLog;
+  final int bytesRead;
+
+  ZstdFseDistribution(
+      this.counts, this.maxSymbol, this.accuracyLog, this.bytesRead);
+}
+
+class ZstdFseException extends ArchiveException {
+  ZstdFseException(super.message);
+  @override
+  String toString() => 'ZstdFseException: $message';
+}
+
+/// [end] bounds the available input, not the description, whose length is only
+/// known once it has been read. [counts] is written in place over
+/// `0..maxSymbolValue`
+ZstdFseDistribution readFseDistribution(
+    Uint8List data, int start, int end, Int16List counts, int maxSymbolValue,
+    {required int maxAccuracyLog}) {
+  if (start >= end) {
+    _tableDescriptionIsEmpty();
+  }
+  // A loop, not `fillRange`, which reaches the element setter through a mixin
+  // and so is not inlined
+  for (var s = maxSymbolValue; s >= 0; s--) {
+    counts[s] = 0;
+  }
+
+  final view = ByteData.sublistView(data);
+  final accuracyLog = (data[start] & 0xf) + 5;
+  if (accuracyLog > maxAccuracyLog) {
+    _accuracyTooLarge(accuracyLog, maxAccuracyLog);
+  }
+
+  final tableSize = 1 << accuracyLog;
+  // Plus one because a probability is encoded as its value minus one
+  var remaining = tableSize + 1;
+  var threshold = tableSize;
+  var nbBits = accuracyLog + 1;
+  var bitPos = 4;
+  var symbol = 0;
+  var previousWasZero = false;
+
+  while (remaining > 1 && symbol <= maxSymbolValue) {
+    if (previousWasZero) {
+      var zeros = 0;
+      var flag = 3;
+      while (flag == 3) {
+        flag = _peek(view, start, end, bitPos, 2);
+        bitPos += 2;
+        zeros += flag;
+      }
+      if (symbol + zeros > maxSymbolValue + 1) {
+        _zeroRunRunsPast();
+      }
+      symbol += zeros;
+      previousWasZero = false;
+      if (symbol > maxSymbolValue) {
+        break;
+      }
+    }
+
+    // Small values cost one bit less, so the width depends on the value as well
+    // as on the points left
+    final max = (threshold << 1) - 1 - remaining;
+    final low = _peek(view, start, end, bitPos, nbBits - 1);
+    int value;
+    if (low < max) {
+      value = low;
+      bitPos += nbBits - 1;
+    } else {
+      value = _peek(view, start, end, bitPos, nbBits);
+      if (value >= threshold) {
+        value -= max;
+      }
+      bitPos += nbBits;
+    }
+
+    final count = value - 1;
+    remaining -= count < 0 ? -count : count;
+    if (remaining < 0) {
+      _probabilitiesOvershootTheTable();
+    }
+    counts[symbol] = count;
+    symbol++;
+    previousWasZero = count == 0;
+
+    if (remaining < threshold) {
+      if (remaining <= 1) {
+        break;
+      }
+      nbBits = zstdHighestBit(remaining) + 1;
+      threshold = 1 << (nbBits - 1);
+    }
+  }
+
+  if (remaining != 1) {
+    _probabilitiesDoNotAdd();
+  }
+  // `FSE_readNCount_body` has no lower bound on the symbol count: one symbol
+  // taking the whole table is a description the reference reads
+
+  final bytesRead = (bitPos + 7) >> 3;
+  if (start + bytesRead > end) {
+    _tableDescriptionIsTruncated();
+  }
+  return ZstdFseDistribution(counts, symbol - 1, accuracyLog, bytesRead);
+}
+
+/// [spread] and [nextState] are scratch, passed in so a decoder allocates them
+/// once per frame rather than once per block
+void buildFseTable(ZstdFseTable table, Int16List counts, int maxSymbol,
+    int accuracyLog, Uint8List spread, Uint16List nextState) {
+  final tableSize = 1 << accuracyLog;
+  table.accuracyLog = accuracyLog;
+  final rows = table.rows;
+
+  final highBit = zstdHighBitTable;
+  zstdSpreadSymbols(counts, maxSymbol, tableSize, spread, nextState);
+
+  // Increasing state order visits each symbol's rows in the order the format
+  // wants, so the running counter alone fixes width and baseline
+  for (var state = 0; state < tableSize; state++) {
+    final symbol = spread[state];
+    final next = nextState[symbol];
+    nextState[symbol] = next + 1;
+    final nbBits = accuracyLog - highBit[next];
+    rows[state] =
+        symbol | (nbBits << 8) | (((next << nbBits) - tableSize) << 16);
+  }
+}
+
+/// Forward little-endian. Bytes past [end] read as zero, a real overrun is
+/// caught by the checks in [readFseDistribution]
+@pragma('vm:prefer-inline')
+int _peek(ByteData view, int start, int end, int bitPos, int count) {
+  if (count == 0) {
+    return 0;
+  }
+  final at = start + (bitPos >> 3);
+  int window;
+  if (at + 4 <= end) {
+    window = view.getUint32(at, Endian.little);
+  } else {
+    window = 0;
+    for (var i = 0; i < 4; i++) {
+      final byte = at + i;
+      if (byte < end) {
+        window |= view.getUint8(byte) << (i << 3);
+      }
+    }
+  }
+  return (window >> (bitPos & 7)) & ((1 << count) - 1);
+}
+
+/// Places every symbol across the table's states, the format's own order:
+/// probabilities of less than one take one row each from the end, retreating,
+/// and each is a full state reset, then the rest fill the table by a fixed step
+/// and skip what was taken
+void zstdSpreadSymbols(Int16List counts, int maxSymbol, int tableSize,
+    Uint8List spread, Uint16List nextState) {
+  var highThreshold = tableSize - 1;
+  for (var s = 0; s <= maxSymbol; s++) {
+    final count = counts[s];
+    if (count == -1) {
+      spread[highThreshold] = s;
+      highThreshold--;
+      nextState[s] = 1;
+    } else {
+      nextState[s] = count;
+    }
+  }
+
+  final step = (tableSize >> 1) + (tableSize >> 3) + 3;
+  final mask = tableSize - 1;
+  var position = 0;
+  for (var s = 0; s <= maxSymbol; s++) {
+    final count = counts[s];
+    for (var i = 0; i < count; i++) {
+      spread[position] = s;
+      do {
+        position = (position + step) & mask;
+      } while (position > highThreshold);
+    }
+  }
+  if (position != 0) {
+    _tableSpreadDidNot();
+  }
+}
+
+/// Every throw here lives out of line: inline, the exception's own
+/// construction puts an allocation and a call into a function that is
+/// otherwise straight-line work, and costs registers where nothing throws
+@pragma('vm:never-inline')
+Never _tableDescriptionIsEmpty() =>
+    throw ZstdFseException('Table description is empty');
+
+@pragma('vm:never-inline')
+Never _zeroRunRunsPast() =>
+    throw ZstdFseException('Zero run runs past the last symbol');
+
+@pragma('vm:never-inline')
+Never _probabilitiesOvershootTheTable() =>
+    throw ZstdFseException('Probabilities overshoot the table size');
+
+@pragma('vm:never-inline')
+Never _probabilitiesDoNotAdd() =>
+    throw ZstdFseException('Probabilities do not add up to the table size');
+
+@pragma('vm:never-inline')
+Never _tableDescriptionIsTruncated() =>
+    throw ZstdFseException('Table description is truncated');
+
+@pragma('vm:never-inline')
+Never _tableSpreadDidNot() =>
+    throw ZstdFseException('Table spread did not return to its start');
+
+@pragma('vm:never-inline')
+Never _accuracyTooLarge(int accuracyLog, int maxAccuracyLog) =>
+    throw ZstdFseException(
+        'Accuracy log $accuracyLog exceeds the $maxAccuracyLog allowed here');

@@ -20,9 +20,7 @@ class _ZLibEncoder extends ZLibEncoderBase {
   void encodeStream(InputStream input, OutputStream output,
       {int? level, int? windowBits, bool raw = false}) {
     final inSink =
-        ZLibCodec(level: level ?? 6, windowBits: windowBits ?? 15, raw: raw)
-            .encoder
-            .startChunkedConversion(OutputStreamSink(output));
+        startEncode(output, level: level, windowBits: windowBits, raw: raw);
 
     while (!input.isEOS) {
       final chunkSize = min(zlibChunkSize, input.length);
@@ -31,4 +29,10 @@ class _ZLibEncoder extends ZLibEncoderBase {
     }
     inSink.close();
   }
+
+  Sink<List<int>> startEncode(OutputStream output,
+          {int? level, int? windowBits, bool raw = false}) =>
+      ZLibCodec(level: level ?? 6, windowBits: windowBits ?? 15, raw: raw)
+          .encoder
+          .startChunkedConversion(ZLibOutputSink(output));
 }

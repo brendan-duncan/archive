@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import '../../util/archive_exception.dart';
+import '../../util/decode_guard.dart';
 import '../../util/input_memory_stream.dart';
 import '../../util/input_stream.dart';
 import '../../util/output_memory_stream.dart';
@@ -14,6 +15,11 @@ class Inflate {
   InputStream? _input;
   InputStream? _nextInput;
   OutputStream _output;
+  OutputStream? _sink;
+  final bool _throwOnError;
+  bool _finished = false;
+
+  bool get isFinished => _finished;
 
   /// Decompress the given [bytes].
   /// If [output] is provided, the decompressed data will be written to that,
@@ -21,9 +27,11 @@ class Inflate {
   /// If [uncompressedSize] is provided and [output] is not, then the
   /// internal memory buffer will be pre-allocated to that size, reducing the
   /// need to grow the uncompressed data buffer.
-  Inflate(List<int> bytes, {OutputStream? output, int? uncompressedSize})
+  Inflate(List<int> bytes,
+      {OutputStream? output, int? uncompressedSize, bool throwOnError = false})
       : _input = InputMemoryStream(bytes),
-        _output = output ?? OutputMemoryStream(size: uncompressedSize) {
+        _output = output ?? OutputMemoryStream(size: uncompressedSize),
+        _throwOnError = throwOnError {
     _inflate();
   }
 
@@ -34,24 +42,30 @@ class Inflate {
   /// immediately. Instead, you can call the [addBytes] or [addStream] method
   /// to add compressed byte chunks to be decompressed, allowing the compressed
   /// data to be streamed in without being stored entirely in memory.
-  Inflate.stream(this._input, {OutputStream? output, int? uncompressedSize})
-      : _output = output ?? OutputMemoryStream(size: uncompressedSize) {
+  Inflate.stream(this._input,
+      {OutputStream? output, int? uncompressedSize, bool throwOnError = false})
+      : _output = output ?? OutputMemoryStream(size: uncompressedSize),
+        _throwOnError = throwOnError {
     _inflate();
   }
 
   /// Set up to decompress [input] into [output] a block at a time with
   /// [inflateBlock], rather than all at once.
   Inflate.lazy(this._input, {OutputStream? output})
-      : _output = output ?? OutputMemoryStream();
-
-  bool _failed = false;
+      : _output = output ?? OutputMemoryStream(),
+        _throwOnError = false;
 
   /// Decompresses the next deflate block. Returns false once the final block
   /// has been decompressed. Throws an [ArchiveException] if the data is
   /// malformed or ends early.
   bool inflateBlock() {
-    final more = _parseBlock();
-    if (!more && _failed) {
+    final bool more;
+    try {
+      more = _parseBlock();
+    } on RangeError {
+      throw ArchiveException('Invalid deflate data');
+    }
+    if (!more && !_finished) {
       throw ArchiveException('Invalid deflate data');
     }
     return more;
@@ -111,6 +125,9 @@ class Inflate {
       // If it didn't finish reading the block, it will have thrown an exception
       _blockPos = 0;
     } catch (e) {
+      if (!isDecodeDataError(e)) {
+        rethrow;
+      }
       return false;
     }
 
@@ -127,11 +144,41 @@ class Inflate {
       return;
     }
 
-    while (!_inputStream!.isEOS) {
-      if (!_parseBlock()) {
-        return;
-      }
+    final sink = _output;
+    if (sink is! OutputMemoryStream) {
+      _sink = sink;
+      _output = OutputMemoryStream();
     }
+    try {
+      while (!_inputStream!.isEOS) {
+        if (!_parseBlock()) {
+          return;
+        }
+        _drain(_window);
+      }
+    } finally {
+      _drain(0);
+      _output = sink;
+      _sink = null;
+    }
+  }
+
+  static const _window = 32768;
+
+  void _drain(int keep) {
+    final sink = _sink;
+    if (sink == null) {
+      return;
+    }
+    final buffer = _output as OutputMemoryStream;
+    final length = buffer.length;
+    if (length - keep < (keep == 0 ? 1 : 1024 * 1024)) {
+      return;
+    }
+    final bytes = buffer.getBytes();
+    sink.writeBytes(Uint8List.sublistView(bytes, 0, length - keep));
+    _output = OutputMemoryStream(size: 2 * 1024 * 1024)
+      ..writeBytes(Uint8List.sublistView(bytes, length - keep));
   }
 
   /// Parse deflated block.  Returns true if there is more to read, false
@@ -153,25 +200,25 @@ class Inflate {
     switch (blockType) {
       case 0: // Uncompressed block
         if (_parseUncompressedBlock() == -1) {
-          _failed = true;
           return false;
         }
         break;
       case 1: // Fixed huffman block
         if (_parseFixedHuffmanBlock() == -1) {
-          _failed = true;
           return false;
         }
         break;
       case 2: // Dynamic huffman block
         if (_parseDynamicHuffmanBlock() == -1) {
-          _failed = true;
           return false;
         }
         break;
       default:
-        _failed = true;
         return false;
+    }
+
+    if (finalBlock) {
+      _finished = true;
     }
 
     // Continue while not the final block
@@ -214,7 +261,7 @@ class Inflate {
     // Not enough buffer
     while (_bitBufferLen < maxCodeLength) {
       if (_inputStream!.isEOS) {
-        return -1;
+        break;
       }
 
       final octet = _inputStream!.readByte();
@@ -228,7 +275,7 @@ class Inflate {
     final codeLength = codeWithLength >> 16;
     // An entry no code was assigned to: the code is incomplete, which is
     // damage. Consuming no bits, it would otherwise be read again forever
-    if (codeLength == 0) {
+    if (codeLength == 0 || codeLength > _bitBufferLen) {
       return -1;
     }
 
@@ -247,7 +294,7 @@ class Inflate {
     final nlen = _readBits(16) ^ 0xffff;
 
     // Make sure the block size checksum is valid.
-    if (len != 0 && len != nlen) {
+    if (len != nlen) {
       return -1;
     }
 
@@ -271,7 +318,7 @@ class Inflate {
       return -1;
     }
     numLitLengthCodes += 257;
-    if (numLitLengthCodes > 288) {
+    if (numLitLengthCodes > 286) {
       return -1;
     }
     // number of distance codes.
@@ -303,7 +350,10 @@ class Inflate {
       codeLengths[_order[i]] = len;
     }
 
-    final codeLengthsTable = HuffmanTable(codeLengths);
+    final codeLengthsTable = _table(codeLengths, codeLengthCodes: true);
+    if (codeLengthsTable == null) {
+      return -1;
+    }
 
     final litLenDistLengths = Uint8List(numLitLengthCodes + numDistanceCodes);
 
@@ -321,8 +371,23 @@ class Inflate {
       return -1;
     }
 
-    return _decodeHuffman(
-        HuffmanTable(litlenLengths), HuffmanTable(distLengths));
+    final litLen = _table(litlenLengths);
+    final dist = litLen == null ? null : _table(distLengths);
+    if (litLen == null || dist == null) {
+      return -1;
+    }
+    return _decodeHuffman(litLen, dist);
+  }
+
+  HuffmanTable? _table(List<int> lengths, {bool codeLengthCodes = false}) {
+    try {
+      return HuffmanTable(lengths, codeLengthCodes: codeLengthCodes);
+    } on FormatException {
+      if (_throwOnError) {
+        rethrow;
+      }
+      return null;
+    }
   }
 
   int _decodeHuffman(HuffmanTable litLen, HuffmanTable dist) {
@@ -348,15 +413,22 @@ class Inflate {
       // length code
       final ti = code - 257;
 
-      var codeLength = _lengthCodeTable[ti] + _readBits(_lengthExtraTable[ti]);
+      final lengthExtra = _readBits(_lengthExtraTable[ti]);
+      if (lengthExtra < 0) {
+        return -1;
+      }
+      var codeLength = _lengthCodeTable[ti] + lengthExtra;
 
       // distance code
       final distCode = _readCodeByTable(dist);
       if (distCode < 0 || distCode > 29) {
         return -1;
       }
-      final distance =
-          _distCodeTable[distCode] + _readBits(_distExtraTable[distCode]);
+      final distanceExtra = _readBits(_distExtraTable[distCode]);
+      if (distanceExtra < 0) {
+        return -1;
+      }
+      final distance = _distCodeTable[distCode] + distanceExtra;
       // A match can only reach back into what has been written. Further is
       // damage, and would index behind the output, or with a distance of
       // zero never finish
@@ -387,6 +459,9 @@ class Inflate {
       switch (code) {
         case 16:
           // Repeat last code
+          if (i == 0) {
+            return -1;
+          }
           var repeat = _readBits(2);
           if (repeat == -1) {
             return -1;
@@ -745,6 +820,8 @@ class Inflate {
 
   /// Fixed huffman distance code table
   static const _fixedDistanceTableData = <int>[
+    5,
+    5,
     5,
     5,
     5,

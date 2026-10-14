@@ -21,6 +21,19 @@ class BZip2 {
 
   static const hdr0 = 0x30;
 
+  /// True when byte of [head] differs from BZh and digit from 1 to 9
+  static bool breaksSignature(List<int> head) {
+    for (var i = 0; i < head.length && i < 4; i++) {
+      final fits = i < 3
+          ? head[i] == bzhSignature[i]
+          : head[i] > hdr0 && head[i] <= hdr0 + 9;
+      if (!fits) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   static const List<int> compressedMagic = [0x31, 0x41, 0x59, 0x26, 0x53, 0x59];
 
   static const List<int> eosMagic = [0x17, 0x72, 0x45, 0x38, 0x50, 0x90];

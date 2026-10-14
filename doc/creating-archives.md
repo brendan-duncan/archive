@@ -13,7 +13,7 @@ Build an `Archive` of `ArchiveFile` entries, then encode it with
 | `ArchiveFile.string(name, text)` | Text, encoded as UTF-8. |
 | `ArchiveFile.stream(name, inputStream)` | Read from an `InputStream` when encoding, e.g. an `InputFileStream`. |
 | `ArchiveFile.directory(name)` | A directory entry. |
-| `ArchiveFile.symlink(name, target)` | A symbolic link (tar only; see below). |
+| `ArchiveFile.symlink(name, target)` | A symbolic link (see below). |
 | `ArchiveFile.noCompress(name, size, bytes)` | Bytes stored without compression in a zip. |
 | `ArchiveFile(name, size, bytes)` | Older form of `.bytes`. |
 
@@ -58,9 +58,29 @@ archive.add(ArchiveFile.string('data.json', jsonText)
   ..compressionLevel = 19);
 ```
 
-`CompressionType` is `deflate` (the default), `bzip2`, `zstd` or `none`.
-Not every zip reader supports bzip2 or zstd entries; deflate is the safe
-choice when you don't control the reader.
+`CompressionType` is `deflate` (the default), `bzip2`, `zstd`, `xz`, `lzma`
+or `none`. There is no LZMA encoder, so an `lzma` entry is written with
+deflate, and `XZEncoder` stores its data, so an `xz` entry is not smaller
+than its content. Not every zip reader supports bzip2, zstd or xz entries;
+deflate is the safe choice when you don't control the reader.
+
+For a zstd entry the level runs from `zstdMinLevel` to `zstdMaxLevel`, and
+a negative level is `zstd --fast=N`. Only 0 means the default level, so -1
+is `--fast=1` there, not deflate's default.
+
+How an entry is written depends on where its content is:
+
+- Content from a stream, such as `ArchiveFile.stream` over an
+  `InputFileStream`, is compressed straight into the output, and encrypted
+  on the way when there is a password. Its CRC and sizes follow the data in
+  a data descriptor (general purpose bit 3), so the entry is never held in
+  memory and the source is read once.
+- Content already in memory, and stored entries without a password whose
+  stream can be read twice, get their CRC and sizes in the local header.
+  Java's `ZipInputStream` refuses a stored entry with a data descriptor,
+  and EPUB and OpenDocument need their stored `mimetype` entry without one.
+- `ZipEncoder(streamed: true)` writes in-memory entries through a data
+  descriptor as well.
 
 Other options:
 
@@ -140,7 +160,8 @@ final tar = TarEncoder().encodeBytes(archive);
 ```
 
 `TarEncoder` writes ustar headers, with GNU long name and long link entries
-for paths over 100 bytes. It stores mode, owner and group IDs, modification
+for paths over 100 bytes, and a pax header for names and link targets that
+are not ASCII. It stores mode, owner and group IDs, modification
 time and symbolic links. Use `encodeStream(archive, outputStream)` to write
 to a file, or `start(output)`, `add(entry)` and `finish()` to add entries one
 at a time.
@@ -158,8 +179,10 @@ final tbz = BZip2Encoder().encodeBytes(tar);
 `XZEncoder` stores data without compressing it, so it is not useful for
 `.tar.xz`.
 
-There is no encoder that writes into another encoder as it goes. For large
-files, write the tar to a file first, then compress that file:
+`tarCodec.encoder` followed by `zstdCodec.encoder` or `bzip2Codec.encoder`
+compresses the tar as it is written, see
+[streams and isolates](streams-and-isolates.md). With `InputStream` and
+`OutputStream`, write the tar to a file first, then compress that file:
 
 ```dart
 final tarOut = OutputFileStream('logs.tar');
@@ -206,5 +229,6 @@ there, or build the `Archive` yourself with `/` separators.
 
 ## Symbolic links
 
-Only `TarEncoder` writes symbolic links. `ZipEncoder` cannot encode an
-`ArchiveFile.symlink` entry; leave links out of archives you encode as zip.
+`TarEncoder` and `ZipEncoder` both write `ArchiveFile.symlink` entries. A zip
+link is a stored entry whose content is the target, with the Unix link file
+type in its external attributes.

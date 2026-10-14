@@ -2,27 +2,16 @@ import 'dart:typed_data';
 
 import '../../util/crc32.dart';
 
-// Reads the stream index of an xz archive, which describes every block without
-// decoding any of them.
-//
-// The index is what makes parallel decoding possible: it gives the compressed
-// and the uncompressed size of every block, and blocks are independent of each
-// other, so where each one sits in the input and in the output can both be
-// worked out up front.
-
-/// Random access over the compressed bytes of an xz archive.
-///
-/// The stream index sits at the end of an archive but describes offsets from
-/// its start, so parsing it has to reach both ends. Going through this
-/// interface lets a file be indexed without reading all of it into memory.
+/// The stream index sits at the end of an archive. It describes offsets from
+/// the start. Parsing it reaches both ends. This interface indexes a file
+/// without reading all of it into memory
 abstract class XZByteSource {
   /// Total number of bytes in the archive.
   int get length;
 
   /// The bytes from [start] (inclusive) to [end] (exclusive).
   ///
-  /// The result must not be modified by the caller, and may be a view onto
-  /// storage the source owns.
+  /// The result is read only!! It may be a view onto storage the source owns
   Uint8List range(int start, int end);
 }
 
@@ -59,12 +48,15 @@ class XZBlockLayout {
   /// check type, which every block in a stream shares.
   final int streamFlags;
 
+  final int unpaddedLength;
+
   const XZBlockLayout({
     required this.compressedOffset,
     required this.compressedLength,
     required this.outputOffset,
     required this.uncompressedLength,
     required this.streamFlags,
+    required this.unpaddedLength,
   });
 
   /// The type of integrity check stored at the end of the block.
@@ -103,25 +95,12 @@ int xzCheckSize(int checkType) {
   return 64;
 }
 
-/// Reads the layout of every block in [source] from the stream indexes.
-///
-/// Returns null when the layout cannot be established. This only ever feeds
-/// buffer sizing and work scheduling, so anything unexpected makes it give up
-/// rather than fail: the data itself is validated when it is decoded.
-///
-/// [maxUncompressedSize] caps the total decoded size that will be reported. A
-/// valid index can describe an output much larger than the available memory,
-/// so a caller that is about to allocate that much passes its own ceiling and
-/// gets null instead of an unusable answer.
+/// Reads the block layout of [source] from stream indexes,
+/// or null if unreadable or over [maxUncompressedSize].
 XZLayout? parseXZLayout(XZByteSource source, {int? maxUncompressedSize}) {
   try {
     var end = _skipTrailingZeroPadding(source, source.length);
     var total = 0;
-
-    // Streams are concatenated back to back and only the last one can be found
-    // directly, so the archive is walked backwards, one stream footer at a
-    // time. Each stream's blocks are collected in order and the streams
-    // themselves are reversed at the end.
     final streams = <List<XZBlockLayout>>[];
 
     while (end > 0) {
@@ -146,6 +125,11 @@ XZLayout? parseXZLayout(XZByteSource source, {int? maxUncompressedSize}) {
         return null;
       }
       final streamFlags = footer[9];
+      // Reserved flag bits set: the block decoder rejects such a stream,
+      // so its layout is useless
+      if (streamFlags & 0xf0 != 0) {
+        return null;
+      }
 
       // Backward size holds the size of the index in four byte units, minus one.
       final backwardSize =
@@ -192,6 +176,10 @@ XZLayout? parseXZLayout(XZByteSource source, {int? maxUncompressedSize}) {
           value += (data & 0x7f) * multiplier;
 
           if ((data & 0x80) == 0) {
+            // liblzma vli_decoder.c takes only the shortest encoding
+            if (data == 0 && i > 0) {
+              return -1;
+            }
             return value;
           }
 
@@ -233,6 +221,7 @@ XZLayout? parseXZLayout(XZByteSource source, {int? maxUncompressedSize}) {
           outputOffset: total,
           uncompressedLength: uncompressedLength,
           streamFlags: streamFlags,
+          unpaddedLength: unpaddedLength,
         ));
 
         blocksSize += paddedLength;
@@ -241,10 +230,21 @@ XZLayout? parseXZLayout(XZByteSource source, {int? maxUncompressedSize}) {
         }
 
         total += uncompressedLength;
-        if (blocksSize > indexStart ||
+        if (total < 0 ||
+            blocksSize > indexStart ||
             (maxUncompressedSize != null && total > maxUncompressedSize)) {
           return null;
         }
+      }
+
+      if (crcStart - position > 3) {
+        return null;
+      }
+      while (position < crcStart) {
+        if (index[position - indexStart] != 0) {
+          return null;
+        }
+        position++;
       }
 
       // The twelve byte stream header sits in front of the blocks.
@@ -265,11 +265,9 @@ XZLayout? parseXZLayout(XZByteSource source, {int? maxUncompressedSize}) {
       if (header[6] != 0 || header[7] != streamFlags) {
         return null;
       }
-      // And covers them with its own CRC32, which is the only thing standing
-      // between a damaged header and a decode that never looks at it: the
-      // blocks are found through the index, so nothing downstream would read
-      // these bytes again. Without this an archive that xz rejects decodes
-      // here without complaint.
+      // Stream Flags are covered by their own CRC32, without this check a
+      // damaged header xz rejects would decode silently
+      // 0-5=magic, 6-7=stream flags, 8-11=crc32
       final headerCrc =
           header[8] | header[9] << 8 | header[10] << 16 | header[11] << 24;
       if (getCrc32(Uint8List.sublistView(header, 6, 8)) != headerCrc) {
@@ -285,6 +283,7 @@ XZLayout? parseXZLayout(XZByteSource source, {int? maxUncompressedSize}) {
           outputOffset: block.outputOffset,
           uncompressedLength: block.uncompressedLength,
           streamFlags: block.streamFlags,
+          unpaddedLength: block.unpaddedLength,
         );
       }
       streams.add(blocks);
@@ -312,6 +311,7 @@ XZLayout? parseXZLayout(XZByteSource source, {int? maxUncompressedSize}) {
         outputOffset: outputOffset,
         uncompressedLength: block.uncompressedLength,
         streamFlags: block.streamFlags,
+        unpaddedLength: block.unpaddedLength,
       );
       outputOffset += block.uncompressedLength;
     }
@@ -348,6 +348,10 @@ int xzBlockDictionarySize(Uint8List header) {
         final data = header[position++];
         value += (data & 0x7f) * multiplier;
         if ((data & 0x80) == 0) {
+          // liblzma vli_decoder.c takes only the shortest encoding
+          if (data == 0 && i > 0) {
+            return -1;
+          }
           return value;
         }
         multiplier *= 128;
