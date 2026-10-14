@@ -1380,8 +1380,8 @@ void main() {
     final zipPath = p.join(root.path, 'out.zip');
     var calls = 0;
     await expectLater(
-        ZipFileEncoder().zipDirectory(Directory(source),
-            filename: zipPath, onProgress: (_) {
+        ZipFileEncoder().zipDirectory(Directory(source), filename: zipPath,
+            onProgress: (_) {
           calls++;
           throw StateError('progress failed');
         }),

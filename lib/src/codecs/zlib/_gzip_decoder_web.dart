@@ -28,7 +28,7 @@ class _GZipDecoder extends ZLibDecoderBase {
 
   @override
   Uint8List decodeBytes(List<int> data,
-      {bool verify = false, bool raw = false, bool throwOnError = false}) {
+      {bool verify = false, bool raw = false, bool? throwOnError}) {
     final output = OutputMemoryStream();
     decodeStream(InputMemoryStream(data), output,
         verify: verify, raw: raw, throwOnError: throwOnError);
@@ -37,16 +37,17 @@ class _GZipDecoder extends ZLibDecoderBase {
 
   @override
   bool decodeStream(InputStream input, OutputStream output,
-      {bool verify = false, bool raw = false, bool throwOnError = false}) {
+      {bool verify = false, bool raw = false, bool? throwOnError}) {
+    final strict = throwOnError ?? verify;
     final held = input.byteOrder;
     input.byteOrder = ByteOrder.littleEndian;
     // Apple gzip and Python gzip decode members with reserved FLG bits or wrong
     // FHCRC, so rejecting them without flags loses data. We check header like
     // zlib only with verify or throwOnError
-    final strict = _verifyHeader || verify || throwOnError;
+    final checkHeader = _verifyHeader || verify || strict;
     try {
-      return guardDecode('gzip', verify, throwOnError,
-          () => _decode(input, output, verify, raw, strict));
+      return guardDecode('gzip', verify, strict,
+          () => _decode(input, output, verify, raw, checkHeader));
     } finally {
       input.byteOrder = held;
     }

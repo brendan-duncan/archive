@@ -104,10 +104,10 @@ Future<void> extractFileToDisk(String inputPath, String outputPath,
     int? bufferSize,
     ArchiveCallback? callback,
     bool verify = false,
-    bool throwOnError = false,
+    bool? throwOnError,
     bool allowAbsoluteSymlinks = false,
     int? maxSize}) async {
-  final strict = throwOnError;
+  final strict = throwOnError ?? verify;
   final archivePath = inputPath;
 
   const String extensionMsg =

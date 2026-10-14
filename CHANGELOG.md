@@ -4,10 +4,14 @@
   `BZip2Decoder` and `ZstdDecoder`) and their wrappers like `extractFileToDisk`, `extractArchiveToDisk`,
   `extractArchiveToDiskSync` now share the same contract: by default no *damaged data* errors are thrown anymore.
   If error is needed, specify `throwOnError: true` to `decodeBytes` or `decodeStream`. If checksum verification 
-  is required, specify `verify: true` to `decodeBytes` or `decodeStream`: alone it reports a mismatch or damage like
-  no flags do, `decodeStream` returns `false` and `decodeBytes` returns partial data, and with `throwOnError: true` as
-  well a mismatch throws. All `throwOnError` are reported as `ArchiveException` and checksum exceptions with
-  `ArchiveChecksumException` that extends `ArchiveException`. Read README for migration tips
+  is required, specify `verify: true` to `decodeBytes` or `decodeStream`: `throwOnError` defaults to `verify`, so a
+  mismatch or damage throws. With `verify: true, throwOnError: false` it is reported like no flags do,
+  `decodeStream` returns `false` and `decodeBytes` returns partial data. All `throwOnError` are reported as
+  `ArchiveException` and checksum exceptions with `ArchiveChecksumException` that extends `ArchiveException`.
+  `throwOnError` is now `bool?` in these signatures, so a subclass that overrides them has to follow. Without flags,
+  a damaged gzip or zlib stream from dart:io now decodes without an error, where 4.5.x threw because dart:io always
+  checks the trailer. Errors such as `RangeError` from damaged data are reported the same way as other damage, where
+  4.5.x rethrew some of them as `ArchiveException`. Read README for migration tips
   and exceptions that are still reported with original type (everything unrelated to damaged data and package code).
 * *Unlike decoders mentioned above*, all new converters APIs mentioned beneath use both `verify` and
   `throwOnError` by default due to the specification of their format so that they completely coincide with dart 

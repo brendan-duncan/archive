@@ -47,10 +47,10 @@ archives (over 4 GB, or over 65,535 entries) are read automatically.
 
 ### Checking integrity
 
-`ZipDecoder().decodeStream(input, verify: true, throwOnError: true)` checks
+`ZipDecoder().decodeStream(input, verify: true)` checks
 the CRC-32 of each entry when its content is read and throws
-`ArchiveChecksumException` on a mismatch. With `verify: true` alone a
-mismatched entry gives no error. To check an entry without keeping the data, use the `ZipFile`
+`ArchiveChecksumException` on a mismatch. With `throwOnError: false` as well
+a mismatched entry gives no error. To check an entry without keeping the data, use the `ZipFile`
 behind it:
 
 ```dart
@@ -108,8 +108,8 @@ ignored. GNU and pax sparse files are expanded.
 
 Options:
 
-- `verify: true` checks each header's checksum and stops at a mismatch, with
-  `throwOnError: true` as well it throws `ArchiveException`. Without it, a
+- `verify: true` checks each header's checksum and throws `ArchiveException`
+  at a mismatch, or stops there with `throwOnError: false`. Without it, a
   file that is not a tar can decode as garbage entries; use it when you are
   not sure the input is a tar.
 - `storeData: false` skips file contents, for listing. The headers, with

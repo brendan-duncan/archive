@@ -32,7 +32,7 @@ class ZLibDecoder {
   Uint8List decodeBytes(List<int> bytes,
       {bool verify = false,
       bool raw = false,
-      bool throwOnError = false,
+      bool? throwOnError,
       int? maxOutputSize}) {
     if (maxOutputSize == null) {
       return platformZLibDecoder.decodeBytes(bytes,
@@ -63,7 +63,7 @@ class ZLibDecoder {
   bool decodeStream(InputStream input, OutputStream output,
           {bool verify = false,
           bool raw = false,
-          bool throwOnError = false,
+          bool? throwOnError,
           int? maxOutputSize}) =>
       decodeLimited(
           output,

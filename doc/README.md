@@ -113,9 +113,9 @@ Problems with the data are reported as `ArchiveException`, which extends
 
 Decoders, and their wrappers like `extractFileToDisk`, `extractArchiveToDisk`, `extractArchiveToDiskSync` now share one
 contract for errors. Without flags they never throw on *damaged* data and return what decoded before the damage. 
-`throwOnError: true` throws `ArchiveException` on damaged or cut data. `verify: true` also checks checksums: alone it
-reports a mismatch or damage like no flags do, `decodeStream` returns `false` and `decodeBytes` returns what decoded, and
-with `throwOnError: true` as well a mismatch throws `ArchiveChecksumException`.
+`throwOnError: true` throws `ArchiveException` on damaged or cut data. `verify: true` also checks checksums, and a mismatch throws `ArchiveChecksumException`.
+`throwOnError` defaults to `verify`, so `verify: true` alone throws too; pass `throwOnError: false` with it to have
+a mismatch or damage reported like no flags do, `decodeStream` returns `false` and `decodeBytes` returns what decoded.
 
 UNCHANGED: errors that are not damaged data keep their type and are thrown regardless of `verify` and `throwOnError`:
 
@@ -133,11 +133,11 @@ Converters (`xzCodec`, `zstdCodec`, `bzip2Codec` and `tarCodec`) work like `gzip
 
 ```dart
 try {
-  // `verify: true` alone reports a mismatch through the return value only, so pass `throwOnError: true` with it to
-  // get `ArchiveChecksumException`. `throwOnError` alone may be used when you don't want to pay for an extra
+  // `verify: true` throws `ArchiveChecksumException` on a mismatch, as `throwOnError` defaults to `verify`.
+  // `throwOnError` alone may be used when you don't want to pay for an extra
   // ~5-10% speed decrease, yet still wish to get the basic validation errors, or work with archives that remain
   // valid regardless of their incorrect checksum
-  final data = XZDecoder().decodeBytes(bytes, verify: true, throwOnError: true);
+  final data = XZDecoder().decodeBytes(bytes, verify: true);
   print('${data.length} bytes');
 } on ArchiveChecksumException {
   print('the data decoded but does not match its checksum');

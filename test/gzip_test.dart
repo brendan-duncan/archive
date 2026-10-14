@@ -1038,7 +1038,7 @@ void main() {
         expect(
             const GZipDecoderWeb().decodeStream(
                 InputMemoryStream(badGzip), gzipOut,
-                verify: true),
+                verify: true, throwOnError: false),
             isFalse);
         expect(gzipOut.getBytes(), data);
         final badZlib = Uint8List.fromList(zlib)..[zlib.length - 1] ^= 1;
@@ -1046,10 +1046,26 @@ void main() {
         expect(
             const ZLibDecoderWeb().decodeStream(
                 InputMemoryStream(badZlib), zlibOut,
-                verify: true),
+                verify: true, throwOnError: false),
             isFalse);
         expect(zlibOut.getBytes(), data);
-        expect(const ZLibDecoderWeb().decodeBytes(badZlib, verify: true), data);
+        expect(
+            const ZLibDecoderWeb()
+                .decodeBytes(badZlib, verify: true, throwOnError: false),
+            data);
+      });
+
+      test('verify alone throws on checksum mismatch', () {
+        final badGzip = Uint8List.fromList(gzip)..[gzip.length - 8] ^= 1;
+        final badZlib = Uint8List.fromList(zlib)..[zlib.length - 1] ^= 1;
+        for (final decode in [
+          () => const GZipDecoderWeb().decodeBytes(badGzip, verify: true),
+          () => const ZLibDecoderWeb().decodeBytes(badZlib, verify: true),
+          () => GZipDecoder().decodeBytes(badGzip, verify: true),
+          () => ZLibDecoder().decodeBytes(badZlib, verify: true),
+        ]) {
+          expect(decode, throwsA(isA<ArchiveException>()));
+        }
       });
 
       test('dart:io decoders keep output when trailer is truncated', () {

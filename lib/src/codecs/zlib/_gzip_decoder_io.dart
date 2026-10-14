@@ -25,17 +25,16 @@ class _GZipDecoder extends ZLibDecoderBase {
 
   @override
   Uint8List decodeBytes(List<int> data,
-      {bool verify = false, bool raw = false, bool throwOnError = false}) {
+      {bool verify = false, bool raw = false, bool? throwOnError}) {
+    final strict = throwOnError ?? verify;
     var out = Uint8List(0);
     final partial = OutputMemoryStream();
     var declared = 0;
-    guardDecode('gzip', verify, throwOnError, () {
+    guardDecode('gzip', verify, strict, () {
       if (!_nativeConcatenated &&
-          (verify ||
-              throwOnError ||
-              _hasAdditionalMember(InputMemoryStream(data)))) {
+          (verify || strict || _hasAdditionalMember(InputMemoryStream(data)))) {
         out = web.nativeGZipDecoder
-            .decodeBytes(data, verify: verify, throwOnError: throwOnError);
+            .decodeBytes(data, verify: verify, throwOnError: strict);
         return true;
       }
       final bytes = data is Uint8List ? data : Uint8List.fromList(data);
@@ -64,7 +63,7 @@ class _GZipDecoder extends ZLibDecoderBase {
       }
       try {
         out = _convertMembers(bytes, seen - trailerLength, isGZip,
-            verify && isGZip, partial, (verify || throwOnError) && isGZip);
+            verify && isGZip, partial, (verify || strict) && isGZip);
       } on FormatException catch (error) {
         if (!verify || !isGZip) {
           rethrow;
@@ -113,14 +112,15 @@ class _GZipDecoder extends ZLibDecoderBase {
 
   @override
   bool decodeStream(InputStream input, OutputStream output,
-      {bool verify = false, bool raw = false, bool throwOnError = false}) {
-    return guardDecode('gzip', verify, throwOnError, () {
+      {bool verify = false, bool raw = false, bool? throwOnError}) {
+    final strict = throwOnError ?? verify;
+    return guardDecode('gzip', verify, strict, () {
       if (!_nativeConcatenated &&
-          (verify || throwOnError || _hasAdditionalMember(input))) {
-        return web.nativeGZipDecoder.decodeStream(input, output,
-            verify: verify, throwOnError: throwOnError);
+          (verify || strict || _hasAdditionalMember(input))) {
+        return web.nativeGZipDecoder
+            .decodeStream(input, output, verify: verify, throwOnError: strict);
       }
-      return _decodeStream(input, output, verify, throwOnError);
+      return _decodeStream(input, output, verify, strict);
     });
   }
 

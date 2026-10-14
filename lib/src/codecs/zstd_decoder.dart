@@ -51,7 +51,8 @@ class ZstdDecoder {
   ///
   /// {@macro archive.max_output_size.bytes}
   Uint8List decodeBytes(List<int> data,
-      {bool verify = false, bool throwOnError = false, int? maxOutputSize}) {
+      {bool verify = false, bool? throwOnError, int? maxOutputSize}) {
+    final strict = throwOnError ?? verify;
     final bytes = data is Uint8List ? data : Uint8List.fromList(data);
     // One frame decodes into its own buffer and is returned as a view of it.
     // Several would have to be joined afterwards, holding every frame and the
@@ -69,14 +70,14 @@ class ZstdDecoder {
       decodeLimited(
           sink,
           maxOutputSize,
-          (output) => guardDecode('zstd', verify, throwOnError, () {
+          (output) => guardDecode('zstd', verify, strict, () {
                 _decode(bytes, verify, sink, null, output);
                 return true;
               }));
       return _exact(sink.getBytes());
     }
     final parts = <Uint8List>[];
-    final ok = guardDecode('zstd', verify, throwOnError, () {
+    final ok = guardDecode('zstd', verify, strict, () {
       _decode(bytes, verify, null, parts);
       return true;
     });
@@ -133,11 +134,12 @@ class ZstdDecoder {
   ///
   /// {@macro archive.max_output_size.stream}
   bool decodeStream(InputStream input, OutputStream output,
-      {bool verify = false, bool throwOnError = false, int? maxOutputSize}) {
+      {bool verify = false, bool? throwOnError, int? maxOutputSize}) {
+    final strict = throwOnError ?? verify;
     return decodeLimited(
         output,
         maxOutputSize,
-        (output) => guardDecode('zstd', verify, throwOnError, () {
+        (output) => guardDecode('zstd', verify, strict, () {
               _stream(input, output, verify);
               return true;
             }));

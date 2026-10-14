@@ -171,8 +171,7 @@ void main() {
     test('window above limit throws', () {
       final bytes =
           File('${directory.path}/mix-200k-l19.zst').readAsBytesSync();
-      expect(
-          () => ZstdDecoder(maxWindowSize: 1024).decodeBytes(bytes),
+      expect(() => ZstdDecoder(maxWindowSize: 1024).decodeBytes(bytes),
           throwsA(isA<ArchiveLimitException>()));
     });
 
@@ -455,8 +454,8 @@ void main() {
         for (final input in [joined, broken]) {
           final out = OutputMemoryStream();
           expect(
-              ZstdDecoder()
-                  .decodeStream(InputMemoryStream(input), out, verify: true),
+              ZstdDecoder().decodeStream(InputMemoryStream(input), out,
+                  verify: true, throwOnError: false),
               isFalse);
           expect(out.getBytes(), [if (input == joined) ...prefix, ...decoded]);
         }

@@ -22,14 +22,15 @@ class _ZLibDecoder extends ZLibDecoderBase {
 
   @override
   Uint8List decodeBytes(List<int> data,
-      {bool verify = false, bool raw = false, bool throwOnError = false}) {
+      {bool verify = false, bool raw = false, bool? throwOnError}) {
+    final strict = throwOnError ?? verify;
     var out = Uint8List(0);
     // OutputMemoryStream grows by doubling, which costs 5-9% of time on text
     // against upstream, but peak RSS on 200 MB output
     // is 344 MB against 466 MB in upstream
     final partial = OutputMemoryStream();
     List<int>? input = data;
-    guardDecode('zlib', verify, throwOnError, () {
+    guardDecode('zlib', verify, strict, () {
       final held = input!;
       input = null;
       final bytes = held is Uint8List ? held : Uint8List.fromList(held);
@@ -82,9 +83,10 @@ class _ZLibDecoder extends ZLibDecoderBase {
 
   @override
   bool decodeStream(InputStream input, OutputStream output,
-      {bool verify = false, bool raw = false, bool throwOnError = false}) {
-    return guardDecode('zlib', verify, throwOnError,
-        () => _decodeStream(input, output, verify, raw, throwOnError));
+      {bool verify = false, bool raw = false, bool? throwOnError}) {
+    final strict = throwOnError ?? verify;
+    return guardDecode('zlib', verify, strict,
+        () => _decodeStream(input, output, verify, raw, strict));
   }
 
   @override

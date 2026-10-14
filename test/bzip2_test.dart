@@ -170,13 +170,16 @@ void main() {
     }
   });
 
-  test('wrong block CRC throws only with verify and throwOnError', () async {
+  test('wrong block CRC throws only with verify', () async {
     final data = Uint8List.fromList(List.generate(5000, (i) => i % 251));
     final bad = Uint8List.fromList(BZip2Encoder().encodeBytes(data));
     bad[10] ^= 0xff;
     expect(BZip2Decoder().decodeBytes(bad), data);
     expect(BZip2Decoder().decodeBytes(bad, throwOnError: true), data);
-    expect(BZip2Decoder().decodeBytes(bad, verify: true), data);
+    expect(BZip2Decoder().decodeBytes(bad, verify: true, throwOnError: false),
+        data);
+    expect(() => BZip2Decoder().decodeBytes(bad, verify: true),
+        throwsA(isA<ArchiveChecksumException>()));
     expect(
         () => BZip2Decoder().decodeBytes(bad, verify: true, throwOnError: true),
         throwsA(isA<ArchiveChecksumException>()));

@@ -34,7 +34,7 @@ class TarDecoder {
   /// [keepEntries] is as for [decodeStream].
   Archive decodeBytes(List<int> data,
       {bool verify = false,
-      bool throwOnError = false,
+      bool? throwOnError,
       bool storeData = true,
       ArchiveCallback? callback,
       bool keepEntries = true}) {
@@ -62,15 +62,16 @@ class TarDecoder {
   /// each.
   Archive decodeStream(InputStream input,
       {bool verify = false,
-      bool throwOnError = false,
+      bool? throwOnError,
       bool storeData = true,
       ArchiveCallback? callback,
       bool keepEntries = true}) {
+    final strict = throwOnError ?? verify;
     final archive = Archive();
     files.clear();
-    guardDecode('tar', verify, throwOnError, () {
-      _decode(input, archive, verify || throwOnError, storeData, callback,
-          keepEntries);
+    guardDecode('tar', verify, strict, () {
+      _decode(
+          input, archive, verify || strict, storeData, callback, keepEntries);
       return true;
     });
     return archive;

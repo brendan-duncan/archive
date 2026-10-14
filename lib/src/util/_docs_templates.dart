@@ -293,10 +293,12 @@
 /// {@template archive.verify_throw_on_error}
 /// `throwOnError` throws `ArchiveException` on damaged or cut data.
 /// `verify` also checks checksums at a tiny cost of ~5-10% speed decrease
-/// depending on archive file. With `throwOnError` as well, a mismatch throws
-/// `ArchiveChecksumException`.
+/// depending on archive file, and a mismatch throws
+/// `ArchiveChecksumException`. `throwOnError` defaults to `verify`, so
+/// `verify` alone throws too; pass `throwOnError: false` with it to have
+/// failures reported without throwing.
 /// Without `throwOnError`, decodeBytes returns partial data and decodeStream
-/// returns false, with or without `verify`
+/// returns false.
 /// {@endtemplate}
 
 /// ------------------------------------------------------------------------
@@ -306,11 +308,12 @@
 /// {@template archive.archive_verify_throw_on_error}
 /// `throwOnError` throws `ArchiveException` on damaged or cut data.
 /// `verify` also checks checksums at a tiny cost of ~5-10% speed decrease
-/// depending on archive file. With `throwOnError` as well, a mismatch throws
-/// `ArchiveChecksumException`.
+/// depending on archive file, and a mismatch throws
+/// `ArchiveChecksumException`. `throwOnError` defaults to `verify`, so
+/// `verify` alone throws too; pass `throwOnError: false` with it to have
+/// failures reported without throwing.
 /// Without `throwOnError`, returned archive holds entries read before damage,
-/// and damaged entry may read as partial or empty data, with or without
-/// `verify`.
+/// and damaged entry may read as partial or empty data.
 /// {@endtemplate}
 
 /// ------------------------------------------------------------------------

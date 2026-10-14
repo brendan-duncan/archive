@@ -16,9 +16,10 @@ Without flags, `decodeBytes` returns what decoded before the damage and
 `decodeStream` returns `false` when the input is malformed or truncated;
 whatever was decoded before the failure is already in `output` and should be
 discarded. `throwOnError: true` throws `ArchiveException` instead.
-`verify: true` also checks the checksums: alone it reports a mismatch the same
-way as damage, and with `throwOnError: true` a mismatch throws
-`ArchiveChecksumException` (see [errors](README.md#errors)).
+`verify: true` also checks the checksums, and a mismatch throws
+`ArchiveChecksumException`: `throwOnError` defaults to `verify`. Pass
+`throwOnError: false` with it to have a mismatch reported the same way as
+damage (see [errors](README.md#errors)).
 `decodeLazy` returns a stream that decodes as it is read and
 throws `ArchiveException` when it reaches bad data (see
 [streaming](streaming.md#decoding-as-you-read-decodelazy)).

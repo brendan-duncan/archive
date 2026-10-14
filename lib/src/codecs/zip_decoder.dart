@@ -54,7 +54,7 @@ class ZipDecoder {
   /// AES data that does not match its MAC always throws `ArchiveMacException`
   Archive decodeBytes(List<int> bytes,
           {bool verify = false,
-          bool throwOnError = false,
+          bool? throwOnError,
           String? password,
           ArchiveCallback? callback}) =>
       decodeStream(InputMemoryStream(bytes),
@@ -73,15 +73,16 @@ class ZipDecoder {
   /// AES data that does not match its MAC always throws `ArchiveMacException`
   Archive decodeStream(InputStream input,
       {bool verify = false,
-      bool throwOnError = false,
+      bool? throwOnError,
       String? password,
       ArchiveCallback? callback}) {
+    final strict = throwOnError ?? verify;
     final archive = Archive();
     final held = input.byteOrder;
     input.byteOrder = ByteOrder.littleEndian;
     try {
-      guardDecode('zip', verify, throwOnError, () {
-        _decode(input, archive, verify, throwOnError, password, callback);
+      guardDecode('zip', verify, strict, () {
+        _decode(input, archive, verify, strict, password, callback);
         return true;
       });
     } finally {

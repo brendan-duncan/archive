@@ -20,7 +20,7 @@ class BZip2Decoder {
   ///
   /// {@macro archive.max_output_size.bytes}
   Uint8List decodeBytes(List<int> data,
-      {bool verify = false, bool throwOnError = false, int? maxOutputSize}) {
+      {bool verify = false, bool? throwOnError, int? maxOutputSize}) {
     final input = InputMemoryStream(data);
     final output = OutputMemoryStream();
     decodeStream(input, output,
@@ -34,11 +34,12 @@ class BZip2Decoder {
   ///
   /// {@macro archive.max_output_size.stream}
   bool decodeStream(InputStream input, OutputStream output,
-      {bool verify = false, bool throwOnError = false, int? maxOutputSize}) {
+      {bool verify = false, bool? throwOnError, int? maxOutputSize}) {
+    final strict = throwOnError ?? verify;
     return decodeLimited(
         output,
         maxOutputSize,
-        (output) => guardDecode('bzip2', verify, throwOnError,
+        (output) => guardDecode('bzip2', verify, strict,
             () => _decodeStreams(input, output, verify)));
   }
 

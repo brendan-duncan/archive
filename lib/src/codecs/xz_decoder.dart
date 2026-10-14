@@ -64,23 +64,24 @@ class XZDecoder {
   /// {@macro archive.max_output_size.bytes}
   Uint8List decodeBytes(List<int> data,
       {bool verify = false,
-      bool throwOnError = false,
+      bool? throwOnError,
       int? maxOutputSize,
       XZMultithreadOptions<Uint8List>? multithread}) {
     _checkMaxOutputSize(maxOutputSize);
+    final strict = throwOnError ?? verify;
     final bytes = data is Uint8List ? data : Uint8List.fromList(data);
 
     if (multithread == null) {
-      return _decodeBytes(bytes, verify, throwOnError, maxOutputSize);
+      return _decodeBytes(bytes, verify, strict, maxOutputSize);
     }
-    _checkOptions(multithread, throwOnError);
+    _checkOptions(multithread, strict);
 
     if (!xzIsolatesSupported) {
       // No isolates here, so this blocks the caller, but the result is still
       // delivered the way the caller asked for it.
       _report(
           multithread,
-          () => _decodeBytes(bytes, verify, throwOnError, maxOutputSize),
+          () => _decodeBytes(bytes, verify, strict, maxOutputSize),
           Uint8List(0));
       return Uint8List(0);
     }
@@ -88,10 +89,10 @@ class XZDecoder {
     _reportAsync(
         multithread,
         () => _decodeBytesOnIsolates(
-            bytes, verify, throwOnError, maxOutputSize, multithread),
+            bytes, verify, strict, maxOutputSize, multithread),
         Uint8List(0),
         verify,
-        throwOnError);
+        strict);
     return Uint8List(0);
   }
 
@@ -111,20 +112,20 @@ class XZDecoder {
   /// {@macro archive.max_output_size.stream}
   bool decodeStream(InputStream input, OutputStream output,
       {bool verify = false,
-      bool throwOnError = false,
+      bool? throwOnError,
       int? maxOutputSize,
       XZMultithreadOptions<bool>? multithread}) {
     _checkMaxOutputSize(maxOutputSize);
+    final strict = throwOnError ?? verify;
     if (multithread == null) {
-      return _decodeStream(input, output, verify, throwOnError, maxOutputSize);
+      return _decodeStream(input, output, verify, strict, maxOutputSize);
     }
-    _checkOptions(multithread, throwOnError);
+    _checkOptions(multithread, strict);
 
     if (!xzIsolatesSupported) {
       _report(
           multithread,
-          () =>
-              _decodeStream(input, output, verify, throwOnError, maxOutputSize),
+          () => _decodeStream(input, output, verify, strict, maxOutputSize),
           false);
       return false;
     }
@@ -132,10 +133,10 @@ class XZDecoder {
     _reportAsync(
         multithread,
         () => _decodeStreamOnIsolates(
-            input, output, verify, throwOnError, maxOutputSize, multithread),
+            input, output, verify, strict, maxOutputSize, multithread),
         false,
         verify,
-        throwOnError);
+        strict);
     return false;
   }
 

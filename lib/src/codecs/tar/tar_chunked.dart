@@ -271,6 +271,19 @@ class TarEntry {
   /// Resolves when the content stream stops pulling from the reader
   Future<void> _settled = Future.value();
 
+  /// The read the content stream has in flight. On dart2wasm an async*
+  /// generator runs on to its next await before a cancel reaches it, and the
+  /// cancel completes before that read does, so settling has to wait for it
+  Future<Uint8List>? _reading;
+
+  Future<void> _readDone() async {
+    try {
+      await _reading;
+    } catch (_) {
+      // The content stream reports it, if anyone still listens
+    }
+  }
+
   /// A standard file only (not a link or a device)
   bool get isFile => type == TarEntryType.file;
 
@@ -311,6 +324,7 @@ class TarEntry {
     try {
       await writeTarEntryFile(path, _parts());
     } finally {
+      await _readDone();
       _finish!();
     }
   }
@@ -343,6 +357,7 @@ class TarEntry {
         unawaited(inner!
             .cancel()
             .catchError((Object _) {})
+            .whenComplete(_readDone)
             .whenComplete(() => _finish?.call()));
       },
     );
@@ -404,14 +419,18 @@ class TarEntry {
     while (need > 0) {
       final Uint8List piece;
       try {
-        piece = await _reader.some(need);
+        // _left drops as soon as the bytes leave the reader, not when this
+        // generator resumes, which can be after a cancel has settled
+        piece = await (_reading = _reader.some(need).then((piece) {
+          _left -= piece.length;
+          return piece;
+        }));
       } catch (error, stack) {
         Error.throwWithStackTrace(sourceError(error), stack);
       }
       if (piece.isEmpty) {
         throw ArchiveException('tar: unexpected end of archive $name');
       }
-      _left -= piece.length;
       need -= piece.length;
       yield piece;
     }

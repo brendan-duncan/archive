@@ -469,15 +469,22 @@ void main() {
         expect(
             XZDecoder().decodeStream(
                 InputMemoryStream(compressed), OutputMemoryStream(),
-                verify: true),
+                verify: true, throwOnError: false),
             isFalse);
+        expect(
+            () => XZDecoder().decodeStream(
+                InputMemoryStream(compressed), OutputMemoryStream(),
+                verify: true),
+            throwsA(isA<ArchiveChecksumException>()));
         expect(
             () => XZDecoder().decodeStream(
                 InputMemoryStream(compressed), OutputMemoryStream(),
                 verify: true, throwOnError: true),
             throwsA(isA<ArchiveChecksumException>()));
 
-        expect(XZDecoder().decodeBytes(compressed, verify: true),
+        expect(
+            XZDecoder()
+                .decodeBytes(compressed, verify: true, throwOnError: false),
             XZDecoder().decodeBytes(compressed));
         expect(
             () => XZDecoder()

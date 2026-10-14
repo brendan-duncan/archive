@@ -626,8 +626,7 @@ void main() async {
       }
     });
 
-    test('EOCD is found when the input is not at position 0', testOn: 'vm',
-        () {
+    test('EOCD is found when the input is not at position 0', testOn: 'vm', () {
       final dir = Directory.systemTemp.createTempSync('archive-position-');
       addTearDown(() => dir.deleteSync(recursive: true));
       final content = 'known payload' * 400;
@@ -2568,8 +2567,7 @@ void main() async {
     // entry `a`, so the entry takes more than 64 KB of input
     test('LZMA entry over 2 MiB is written in pieces', testOn: 'vm', () {
       final file = ZipDecoder()
-          .decodeBytes(
-              File('test/_data/zip/lzma_stream.zip').readAsBytesSync())
+          .decodeBytes(File('test/_data/zip/lzma_stream.zip').readAsBytesSync())
           .files
           .single;
       final output = _RecordingOutput();

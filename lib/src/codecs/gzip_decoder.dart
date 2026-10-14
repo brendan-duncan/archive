@@ -25,7 +25,7 @@ class GZipDecoder {
   ///
   /// {@macro archive.max_output_size.bytes}
   Uint8List decodeBytes(List<int> bytes,
-      {bool verify = false, bool throwOnError = false, int? maxOutputSize}) {
+      {bool verify = false, bool? throwOnError, int? maxOutputSize}) {
     if (maxOutputSize == null) {
       return platformGZipDecoder.decodeBytes(bytes,
           verify: verify, throwOnError: throwOnError);
@@ -50,9 +50,7 @@ class GZipDecoder {
   ///
   /// {@macro archive.max_output_size.stream}
   bool decodeStream(InputStream input, OutputStream output,
-          {bool verify = false,
-          bool throwOnError = false,
-          int? maxOutputSize}) =>
+          {bool verify = false, bool? throwOnError, int? maxOutputSize}) =>
       decodeLimited(
           output,
           maxOutputSize,

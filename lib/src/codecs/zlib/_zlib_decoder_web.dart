@@ -23,7 +23,7 @@ class _ZLibDecoder extends ZLibDecoderBase {
 
   @override
   Uint8List decodeBytes(List<int> data,
-      {bool verify = false, bool raw = false, bool throwOnError = false}) {
+      {bool verify = false, bool raw = false, bool? throwOnError}) {
     final output = OutputMemoryStream();
     decodeStream(
         InputMemoryStream(data, byteOrder: ByteOrder.bigEndian), output,
@@ -33,12 +33,13 @@ class _ZLibDecoder extends ZLibDecoderBase {
 
   @override
   bool decodeStream(InputStream input, OutputStream output,
-      {bool verify = false, bool raw = false, bool throwOnError = false}) {
+      {bool verify = false, bool raw = false, bool? throwOnError}) {
+    final strict = throwOnError ?? verify;
     final held = input.byteOrder;
     input.byteOrder = ByteOrder.bigEndian;
     try {
-      return guardDecode('zlib', verify, throwOnError,
-          () => _decode(input, output, verify, raw));
+      return guardDecode(
+          'zlib', verify, strict, () => _decode(input, output, verify, raw));
     } finally {
       input.byteOrder = held;
     }

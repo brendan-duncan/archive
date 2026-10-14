@@ -129,12 +129,21 @@ void main() {
   test('deprecated AesDecrypt gives 4.5.1 output for every key size', () {
     final key = Uint8List.fromList(List.generate(32, (i) => i * 7 + 1));
     final expected = {
-      AesDecrypt.aes128: ('d32d0ad52d4ed58b6317deed012136d826d691f7ff4777c2'
-          '2ecdf8e2f91b91cf443ff02f99db97a3', 3369014201),
-      AesDecrypt.aes192: ('4b15aef6ff6dcbd545d8d06d006bc0ecf00395b8df3e963f'
-          '3dc9e310f1cc63f69d499fbd0b579419', 3585951987),
-      AesDecrypt.aes256: ('f427ca4a77eb2d14a5d4ab8ddb8b34c6528c221b4162af68'
-          'afafcc3c2de7d931e272c24cb20eb662', 1934873602),
+      AesDecrypt.aes128: (
+        'd32d0ad52d4ed58b6317deed012136d826d691f7ff4777c2'
+            '2ecdf8e2f91b91cf443ff02f99db97a3',
+        3369014201
+      ),
+      AesDecrypt.aes192: (
+        '4b15aef6ff6dcbd545d8d06d006bc0ecf00395b8df3e963f'
+            '3dc9e310f1cc63f69d499fbd0b579419',
+        3585951987
+      ),
+      AesDecrypt.aes256: (
+        'f427ca4a77eb2d14a5d4ab8ddb8b34c6528c221b4162af68'
+            'afafcc3c2de7d931e272c24cb20eb662',
+        1934873602
+      ),
     };
     for (final MapEntry(key: mode, value: (hex, crc)) in expected.entries) {
       final data = Uint8List.fromList(List.generate(40, (i) => i * 3));
