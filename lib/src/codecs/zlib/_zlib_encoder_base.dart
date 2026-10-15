@@ -49,7 +49,7 @@ class ZLibOutputSink implements Sink<List<int>> {
   void close() => _output.flush();
 }
 
-Uint8List convertKeepingPartial(Converter<List<int>, List<int>> decoder,
+bool convertKeepingPartial(Converter<List<int>, List<int>> decoder,
     Uint8List bytes, int end, OutputMemoryStream partial,
     {List<int>? trailer}) {
   final sink = decoder.startChunkedConversion(ZLibOutputSink(partial));
@@ -58,16 +58,17 @@ Uint8List convertKeepingPartial(Converter<List<int>, List<int>> decoder,
   } else {
     sink.add(Uint8List.sublistView(bytes, 0, end));
   }
+  var accepted = true;
   if (trailer != null) {
-    addTrailerUnchecked(sink, trailer);
+    accepted = addTrailerUnchecked(sink, trailer);
   }
   sink.close();
-  return partial.getBytes();
+  return accepted;
 }
 
-void addTrailerUnchecked(Sink<List<int>> sink, List<int> trailer) {
+bool addTrailerUnchecked(Sink<List<int>> sink, List<int> trailer) {
   if (trailer.isEmpty) {
-    return;
+    return true;
   }
   try {
     sink.add(trailer);
@@ -75,6 +76,7 @@ void addTrailerUnchecked(Sink<List<int>> sink, List<int> trailer) {
     // This catch also hides garbage after gzip member: throwOnError accepts 8
     // or 9 trailing zero bytes, while verify rejects them. Only second inflate
     // pass finds where member ends, and it is too slow for this rare case
-    return;
+    return false;
   }
+  return true;
 }

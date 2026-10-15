@@ -259,19 +259,19 @@ class XZDecoder {
       }
       // The decoder records why it gave up, so the exception can say more than
       // that something was wrong somewhere.
-      throw _invalid(decoder.failureReason);
+      throw _invalid(decoder.failureReason, verify);
     });
   }
 
   // The exception a rejected archive turns into, naming the reason when the
   // decoder managed to identify one.
-  static ArchiveException _invalid(String? reason) {
+  static ArchiveException _invalid(String? reason, bool verify) {
     final message =
         reason == null ? 'Invalid XZ archive' : 'Invalid XZ archive: $reason';
     if (xzIsLimitFailure(reason)) {
       return ArchiveLimitException(message);
     }
-    return xzCheckFailures.contains(reason)
+    return xzIsCheckFailure(reason, verify)
         ? ArchiveChecksumException(message)
         : ArchiveException(message);
   }
@@ -326,7 +326,7 @@ class XZDecoder {
             fileReadBufferSize: options.fileReadBufferSize,
           ));
       if (!ok) {
-        throwIfStrict(_invalid(reason), verify, throwOnError);
+        throwIfStrict(_invalid(reason, verify), verify, throwOnError);
       }
       // Whether or not it succeeded, this yields what was decoded, which is
       // what the single threaded path does too.
@@ -398,7 +398,7 @@ class XZDecoder {
     if (ok && !overran) {
       return output;
     }
-    throwIfStrict(_invalid(reason), verify, throwOnError);
+    throwIfStrict(_invalid(reason, verify), verify, throwOnError);
 
     // Blocks are decoded out of order, so the output stops where the single
     // threaded decode would have given up: at the first block that is not
@@ -481,7 +481,7 @@ class XZDecoder {
       input.skip(input.length);
     }
     if (!ok) {
-      throwIfStrict(_invalid(reason), verify, throwOnError);
+      throwIfStrict(_invalid(reason, verify), verify, throwOnError);
     }
     return ok;
   }

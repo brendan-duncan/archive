@@ -24,7 +24,7 @@ class ZLibDecoder {
   ///
   /// {@macro archive.verify_throw_on_error}
   ///
-  /// On dart:io only `verify` finds a cut stream: `ArchiveChecksumException`.
+  /// On dart:io only `verify` finds a cut stream: `ArchiveException`.
   /// Over 4 KB of bytes after the stream also read as a wrong checksum there.
   /// Neither flag finds a cut [raw] stream there: it has no checksum.
   ///
@@ -55,7 +55,7 @@ class ZLibDecoder {
   ///
   /// {@macro archive.verify_throw_on_error}
   ///
-  /// On dart:io only `verify` finds a cut stream: `ArchiveChecksumException`.
+  /// On dart:io only `verify` finds a cut stream: `ArchiveException`.
   /// Over 4 KB of bytes after the stream also read as a wrong checksum there.
   /// Neither flag finds a cut [raw] stream there: it has no checksum.
   ///

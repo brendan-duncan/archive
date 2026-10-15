@@ -12,6 +12,7 @@ import '../../util/input_stream.dart';
 import '../../util/output_memory_stream.dart';
 import '../../util/output_stream.dart';
 import '_gzip_decoder_web.dart' as web;
+import '_gzip_header.dart';
 import '_output_stream_sink.dart';
 import '_zlib_decoder_base.dart';
 import '_zlib_decoder_io.dart';
@@ -45,6 +46,7 @@ class _GZipDecoder extends ZLibDecoderBase {
         return false;
       }
       FormatException? trailerError;
+      var trailerAccepted = true;
       if (isGZip) {
         declared = min(
             bytes[seen - 4] |
@@ -62,12 +64,13 @@ class _GZipDecoder extends ZLibDecoderBase {
         }
       }
       try {
-        out = _convertMembers(bytes, seen - trailerLength, isGZip,
-            verify && isGZip, partial, (verify || strict) && isGZip);
+        (out, trailerAccepted) = _convertMembers(bytes, seen - trailerLength,
+            isGZip, verify && isGZip, partial, (verify || strict) && isGZip);
       } on FormatException catch (error) {
         if (!verify || !isGZip) {
           rethrow;
         }
+        checkGZipHeaderCrc(InputMemoryStream(bytes));
         trailerError = error;
         out = partial.getBytes();
       }
@@ -85,7 +88,8 @@ class _GZipDecoder extends ZLibDecoderBase {
           out.length,
           sum,
           isGZip,
-          verify);
+          verify,
+          trailerAccepted);
       if (trailerError != null) {
         throw trailerError;
       }
@@ -358,6 +362,7 @@ class _GZipChunkDecoder implements ChunkDecoder {
         inSink.add(chunk);
       }
     } on FormatException {
+      _checkHeaderCrc();
       final empty = isGZip ? emptyMemberIn(chunk) : -1;
       if (empty < 0) {
         rethrow;
@@ -369,6 +374,16 @@ class _GZipChunkDecoder implements ChunkDecoder {
     fed = pieces ? _none : chunk;
     fedAt = at;
     last8 = _lastBytes(last8, chunk);
+  }
+
+  void _checkHeaderCrc() {
+    if (!verify) {
+      return;
+    }
+    final position = input.position;
+    input.setPosition(bodyStart);
+    checkGZipHeaderCrc(input);
+    input.setPosition(position);
   }
 
   void _finish() {
@@ -387,6 +402,7 @@ class _GZipChunkDecoder implements ChunkDecoder {
     }
 
     FormatException? trailerError;
+    var trailerAccepted = true;
     try {
       if (verify && isGZip) {
         _addTrailer(inSink, trailer);
@@ -404,14 +420,15 @@ class _GZipChunkDecoder implements ChunkDecoder {
           throw ArchiveException('gzip: unexpected end of input');
         }
       } else {
-        addTrailerUnchecked(inSink, tail);
+        trailerAccepted = addTrailerUnchecked(inSink, tail);
       }
       inSink.close();
     } on FormatException catch (error) {
+      _checkHeaderCrc();
       trailerError = error;
     }
-    valid = _checkTrailer(
-        checked, seen, outSink.written, outSink.value, isGZip, verify);
+    valid = _checkTrailer(checked, seen, outSink.written, outSink.value, isGZip,
+        verify, trailerAccepted);
     if (trailerError != null) {
       throw trailerError;
     }
@@ -432,7 +449,7 @@ class _GZipChunkDecoder implements ChunkDecoder {
   }
 
   static bool _checkTrailer(Uint8List trailer, int seen, int written, int sum,
-      bool isGZip, bool verify) {
+      bool isGZip, bool verify, bool trailerAccepted) {
     // The decoder underneath checks the CRC and the length of every member
     // whose trailer it reaches, and rejects trailing bytes that do not begin
     // another member. What it does not reject is a member cut short before its
@@ -454,7 +471,7 @@ class _GZipChunkDecoder implements ChunkDecoder {
     // checked with verify instead.
     if (!isGZip) {
       if (verify) {
-        checkZlibAdler(trailer, sum);
+        checkZlibAdler(trailer, sum, trailerAccepted);
       }
       return true;
     }
@@ -540,8 +557,8 @@ int _toNextMember(InputStream input, int left) {
   return -1;
 }
 
-Uint8List _convertMembers(Uint8List bytes, int end, bool isGZip, bool checked,
-    OutputMemoryStream partial, bool whole) {
+(Uint8List, bool) _convertMembers(Uint8List bytes, int end, bool isGZip,
+    bool checked, OutputMemoryStream partial, bool whole) {
   var probe = whole ? _ProbeSink(partial) : null;
   final output = probe ?? ZLibOutputSink(partial);
   var sink = GZipCodec().decoder.startChunkedConversion(output);
@@ -567,7 +584,7 @@ Uint8List _convertMembers(Uint8List bytes, int end, bool isGZip, bool checked,
         rethrow;
       }
       sink.close();
-      return partial.getBytes();
+      return (partial.getBytes(), false);
     }
     sink = GZipCodec().decoder.startChunkedConversion(output);
     for (var next = _afterEmptyMember(_none, body, trailer, from + 1);
@@ -594,7 +611,7 @@ Uint8List _convertMembers(Uint8List bytes, int end, bool isGZip, bool checked,
     throw ArchiveException('gzip: unexpected end of input');
   }
   sink.close();
-  return partial.getBytes();
+  return (partial.getBytes(), true);
 }
 
 class _ProbeSink extends ZLibOutputSink {

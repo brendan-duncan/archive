@@ -4,6 +4,7 @@ import '../../util/crc32.dart';
 import '../../util/input_decode_stream.dart';
 import '../../util/input_stream.dart';
 import '../../util/output_stream.dart';
+import '_gzip_header.dart';
 import 'gzip_flag.dart';
 import 'inflate.dart';
 
@@ -58,6 +59,9 @@ class InflateChunkDecoder implements ChunkDecoder {
         }
         if (format == InflateFormat.gzip) {
           final start = input.position;
+          if (verify) {
+            checkGZipHeaderCrc(input);
+          }
           if (!_readGZipHeader()) {
             if (_members != 0) {
               throw ArchiveException('Data after the last gzip member');

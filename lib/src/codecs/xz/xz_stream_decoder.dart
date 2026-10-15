@@ -59,6 +59,22 @@ const xzCheckFailures = {
   xzBlockCheckFailed,
 };
 
+const xzStreamHeaderCrcFailed = 'Invalid stream header CRC checksum';
+const xzBlockHeaderCrcFailed = 'Invalid block header CRC checksum';
+const xzIndexCrcFailed = 'Invalid stream index CRC checksum';
+const xzFooterCrcFailed = 'Invalid stream footer CRC checksum';
+
+const xzHeaderCheckFailures = {
+  xzStreamHeaderCrcFailed,
+  xzBlockHeaderCrcFailed,
+  xzIndexCrcFailed,
+  xzFooterCrcFailed,
+};
+
+bool xzIsCheckFailure(String? reason, bool verify) =>
+    xzCheckFailures.contains(reason) ||
+    (verify && xzHeaderCheckFailures.contains(reason));
+
 /// True when [reason] reports block whose dictionary exceeds
 /// `maxDictionarySize`
 bool xzIsLimitFailure(String? reason) =>
@@ -240,7 +256,7 @@ class XZStreamDecoder {
 
     final crc = input.readUint32();
     if (getCrc32(header.toUint8List()) != crc) {
-      return _fail('Invalid stream header CRC checksum');
+      return _fail(xzStreamHeaderCrcFailed);
     }
 
     return true;
@@ -566,7 +582,7 @@ class XZStreamDecoder {
 
     final crc = input.readUint32();
     if (getCrc32(header.toUint8List()) != crc) {
-      return _fail('Invalid block header CRC checksum');
+      return _fail(xzBlockHeaderCrcFailed);
     }
 
     // Entries are stored as (id, value) pairs. The supported chains are LZMA2
@@ -746,7 +762,7 @@ class XZStreamDecoder {
     }
     final crc = input.readUint32();
     if (getCrc32(indexData.toUint8List()) != crc) {
-      return _failLength('Invalid stream index CRC checksum');
+      return _failLength(xzIndexCrcFailed);
     }
 
     return indexLength + 4;
@@ -774,7 +790,7 @@ class XZStreamDecoder {
     footer.reset();
 
     if (getCrc32(footer.toUint8List()) != crc) {
-      return _fail('Invalid stream footer CRC checksum');
+      return _fail(xzFooterCrcFailed);
     }
 
     // The stream is invalid if at least one byte is corrupted.

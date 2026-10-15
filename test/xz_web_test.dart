@@ -2,12 +2,15 @@ import 'dart:typed_data';
 
 import 'package:archive/archive.dart'
     show
+        ArchiveChecksumException,
         ArchiveException,
         InputMemoryStream,
+        OutputMemoryStream,
         SinkOutputStream,
         XZCheck,
         XZDecoder,
-        XZEncoder;
+        XZEncoder,
+        XzCodec;
 import 'package:archive/src/codecs/xz/xz_chunked.dart';
 import 'package:archive/src/codecs/xz/xz_index.dart';
 import 'package:test/test.dart';
@@ -69,6 +72,60 @@ void main() {
               InputMemoryStream(damaged), SinkOutputStream(_Collect()),
               verify: true, throwOnError: true),
           throwsA(isA<ArchiveException>()));
+    });
+
+    test(
+        'verify reports wrong header, index or footer CRC as checksum '
+        'mismatch on every path', () async {
+      final data = Uint8List.fromList(
+          List<int>.generate(3000, (i) => (i * 31 + (i >> 9)) & 0xff));
+      final archive = XZEncoder().encodeBytes(data);
+      final end = archive.length;
+      final blockHeaderSize = (archive[12] + 1) * 4;
+      final crcOffsets = {
+        'stream header': 8,
+        'block header': 12 + blockHeaderSize - 4,
+        'index': end - 16,
+        'footer': end - 12,
+      };
+      for (final MapEntry(key: name, value: offset) in crcOffsets.entries) {
+        final damaged = Uint8List.fromList(archive)..[offset] ^= 1;
+        final checksum = throwsA(isA<ArchiveChecksumException>());
+        expect(() => XZDecoder().decodeBytes(damaged, verify: true), checksum,
+            reason: '$name, decodeBytes');
+        expect(
+            () => XZDecoder().decodeStream(
+                InputMemoryStream(damaged), OutputMemoryStream(),
+                verify: true),
+            checksum,
+            reason: '$name, decodeStream');
+        expect(
+            () => XZDecoder()
+                .decodeLazy(InputMemoryStream(damaged), verify: true)
+                .toUint8List(),
+            checksum,
+            reason: '$name, decodeLazy');
+        expect(() => XzCodec().decoder.convert(damaged), checksum,
+            reason: '$name, convert');
+        await expectLater(
+            Stream<List<int>>.fromIterable(
+                    [damaged.sublist(0, 7), damaged.sublist(7)])
+                .transform(XzCodec().decoder)
+                .toList(),
+            checksum,
+            reason: '$name, transform');
+        expect(
+            () => XZDecoder()
+                .decodeBytes(damaged, verify: false, throwOnError: true),
+            throwsA(allOf(isA<ArchiveException>(),
+                isNot(isA<ArchiveChecksumException>()))),
+            reason: '$name, throwOnError without verify');
+        expect(
+            () => XzCodec(verify: false).decoder.convert(damaged),
+            throwsA(allOf(isA<ArchiveException>(),
+                isNot(isA<ArchiveChecksumException>()))),
+            reason: '$name, convert without verify');
+      }
     });
   });
 }
