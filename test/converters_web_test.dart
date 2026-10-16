@@ -189,6 +189,125 @@ void main() {
               .decodeBytes(damaged, verify: true, throwOnError: true),
           throwsA(isA<ArchiveException>()));
     });
+
+    test('verify reports wrong header CRC as checksum mismatch on every path',
+        () {
+      final zlib = Uint8List.fromList([
+        0x78, 0x9c, 0xab, 0x62, 0x64, 0x62, 0x66, 0x61, 0x65, //
+        0x63, 0xe7, 0xe0, 0x04, 0x00, 0x05, 0x73, 0x00, 0xa8,
+      ]);
+      final plain = [122, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+      expect(GZipDecoder().decodeBytes(zlib, verify: true), plain);
+      expect(
+          GZipDecoder()
+              .decodeLazy(InputMemoryStream(zlib), verify: true)
+              .toUint8List(),
+          plain);
+      for (final payload in [data, Uint8List.fromList('abc'.codeUnits)]) {
+        final encoded = GZipEncoder().encodeBytes(payload);
+        final header = [
+          ...encoded.sublist(0, 10)..[3] |= 2 | 8,
+          ...'a.bin'.codeUnits,
+          0,
+        ];
+        final crc = getCrc32(header);
+        final member = Uint8List.fromList([
+          ...header,
+          crc & 255,
+          (crc >> 8) & 255,
+          ...encoded.sublist(10),
+        ]);
+        expect(GZipDecoder().decodeBytes(member, verify: true), payload);
+        final output = OutputMemoryStream();
+        expect(
+            GZipDecoder()
+                .decodeStream(InputMemoryStream(member), output, verify: true),
+            isTrue);
+        expect(output.getBytes(), payload);
+        expect(
+            GZipDecoder()
+                .decodeLazy(InputMemoryStream(member), verify: true)
+                .toUint8List(),
+            payload);
+        final notChecksum = throwsA(allOf(
+            isA<ArchiveException>(), isNot(isA<ArchiveChecksumException>())));
+        final badBlock = Uint8List.fromList(member)..[header.length + 2] |= 6;
+        expect(() => GZipDecoder().decodeBytes(badBlock, verify: true),
+            notChecksum);
+        expect(
+            () => GZipDecoder().decodeStream(
+                InputMemoryStream(badBlock), OutputMemoryStream(),
+                verify: true),
+            notChecksum);
+        expect(
+            () => GZipDecoder()
+                .decodeLazy(InputMemoryStream(badBlock), verify: true)
+                .toUint8List(),
+            notChecksum);
+        final damaged = Uint8List.fromList(member)..[header.length] ^= 1;
+        for (final input in [damaged, damaged.sublist(0, header.length + 5)]) {
+          expect(() => GZipDecoder().decodeBytes(input, verify: true),
+              throwsA(isA<ArchiveChecksumException>()));
+          expect(
+              () => GZipDecoder().decodeStream(
+                  InputMemoryStream(input), OutputMemoryStream(),
+                  verify: true),
+              throwsA(isA<ArchiveChecksumException>()));
+          expect(
+              () => GZipDecoder()
+                  .decodeLazy(InputMemoryStream(input), verify: true)
+                  .toUint8List(),
+              throwsA(isA<ArchiveChecksumException>()));
+        }
+        expect(() => GZipDecoder().decodeBytes(damaged, throwOnError: true),
+            notChecksum);
+        expect(
+            () => GZipDecoder().decodeStream(
+                InputMemoryStream(damaged), OutputMemoryStream(),
+                throwOnError: true),
+            notChecksum);
+        try {
+          GZipDecoder().decodeLazy(InputMemoryStream(damaged)).toUint8List();
+        } on ArchiveException catch (error) {
+          expect(error, isNot(isA<ArchiveChecksumException>()));
+        }
+      }
+    });
+
+    test('verify reports cut zlib stream as ArchiveException on every path',
+        () {
+      final zlib = Uint8List.fromList(ZLibEncoder().encodeBytes(data));
+      final paths = <String, void Function(Uint8List)>{
+        'zlib bytes': (b) => ZLibDecoder().decodeBytes(b, verify: true),
+        'zlib stream': (b) => ZLibDecoder().decodeStream(
+            InputMemoryStream(b), OutputMemoryStream(),
+            verify: true),
+        'zlib lazy': (b) => ZLibDecoder()
+            .decodeLazy(InputMemoryStream(b), verify: true)
+            .toUint8List(),
+        'gzip bytes': (b) => GZipDecoder().decodeBytes(b, verify: true),
+        'gzip stream': (b) => GZipDecoder().decodeStream(
+            InputMemoryStream(b), OutputMemoryStream(),
+            verify: true),
+        'gzip lazy': (b) => GZipDecoder()
+            .decodeLazy(InputMemoryStream(b), verify: true)
+            .toUint8List(),
+      };
+      final wrongAdler = Uint8List.fromList(zlib)..[zlib.length - 1] ^= 1;
+      for (final MapEntry(key: name, value: decode) in paths.entries) {
+        expect(() => decode(zlib), returnsNormally, reason: name);
+        expect(
+            () => decode(wrongAdler), throwsA(isA<ArchiveChecksumException>()),
+            reason: '$name, wrong Adler-32');
+        for (final cut in [1, 4, 5, zlib.length ~/ 2]) {
+          expect(
+              () => decode(zlib.sublist(0, zlib.length - cut)),
+              throwsA(allOf(isA<ArchiveException>(),
+                  isNot(isA<ArchiveChecksumException>()))),
+              reason: '$name, $cut bytes cut');
+        }
+      }
+    });
   });
 
   group('zstd converters on web', () {

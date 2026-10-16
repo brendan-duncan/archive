@@ -60,12 +60,13 @@ class _ZLibDecoder extends ZLibDecoderBase {
       // dart:io drops output of failing inflate call, up to 64 KiB before
       // damage. Feeding 8 KiB pieces keeps that output but costs 15-17% on
       // text and 80% on random data, and second decode reads input twice
-      out = convertKeepingPartial(ZLibCodec(raw: raw).decoder, bytes,
-          bytes.length - trailerLength, partial,
+      final trailerAccepted = convertKeepingPartial(ZLibCodec(raw: raw).decoder,
+          bytes, bytes.length - trailerLength, partial,
           trailer: bytes.sublist(bytes.length - trailerLength));
+      out = partial.getBytes();
       // }
       if (verify && !raw) {
-        checkZlibAdler(tail!, getAdler32(out));
+        checkZlibAdler(tail!, getAdler32(out), trailerAccepted);
         // if (!_completeDeflate(InputMemoryStream(bytes), 0, bytes.length)) {
         //   return false;
         // }
@@ -127,7 +128,8 @@ class _ZLibDecoder extends ZLibDecoderBase {
     // if (!raw && (verify || throwOnError)) {
     //   inSink.add(_adlerTrailer(outSink.value));
     // }
-    addTrailerUnchecked(inSink, input.readBytes(trailerLength).toUint8List());
+    final trailerAccepted = addTrailerUnchecked(
+        inSink, input.readBytes(trailerLength).toUint8List());
     inSink.close();
     if (raw) {
       return true;
@@ -137,7 +139,8 @@ class _ZLibDecoder extends ZLibDecoderBase {
     }
     final back = min(zlibAdlerWindow, seen - trailerLength - left);
     input.rewind(back + trailerLength);
-    checkZlibAdler(input.readBytes(back + 4).toUint8List(), outSink.value);
+    checkZlibAdler(input.readBytes(back + 4).toUint8List(), outSink.value,
+        trailerAccepted);
     // if (!_completeDeflate(input, start, seen)) {
     //   return false;
     // }
@@ -224,7 +227,7 @@ class _ZLibDecoder extends ZLibDecoderBase {
 
 const zlibAdlerWindow = 4096;
 
-void checkZlibAdler(Uint8List tail, int sum) {
+void checkZlibAdler(Uint8List tail, int sum, bool trailerAccepted) {
   for (var at = tail.length - 4; at >= 0; at--) {
     final adler = (tail[at] << 24) |
         (tail[at + 1] << 16) |
@@ -233,6 +236,10 @@ void checkZlibAdler(Uint8List tail, int sum) {
     if (sum == adler) {
       return;
     }
+  }
+  if (trailerAccepted) {
+    throw ArchiveException(
+        'zlib stream is truncated or followed by other data');
   }
   throw ArchiveChecksumException('Invalid zlib checksum');
 }

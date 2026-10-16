@@ -422,8 +422,10 @@ void main() {
           if (name == 'zlib') {
             expect(decode(cut, false, true), isTrue);
             expect(decode(cut, true, false), isFalse);
-            expect(() => decode(cut, true, true),
-                throwsA(isA<ArchiveChecksumException>()));
+            expect(
+                () => decode(cut, true, true),
+                throwsA(allOf(isA<ArchiveException>(),
+                    isNot(isA<ArchiveChecksumException>()))));
           }
           for (final bad in [
             if (name != 'zlib') cut,
@@ -712,7 +714,8 @@ void main() {
         expect(
             () => const ZLibDecoder()
                 .decodeBytes(padded, verify: true, throwOnError: true),
-            throwsA(isA<ArchiveChecksumException>()));
+            throwsA(allOf(isA<ArchiveException>(),
+                isNot(isA<ArchiveChecksumException>()))));
         expect(const ZLibDecoderWeb().decodeBytes(padded, verify: true), data);
       });
 

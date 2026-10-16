@@ -71,9 +71,10 @@ class NativeChunkDecoder implements ChunkDecoder {
 
     if (input.isEOS) {
       _closed = true;
+      var trailerAccepted = true;
       try {
         if (_holdsTrailer) {
-          addTrailerUnchecked(codec, _held);
+          trailerAccepted = addTrailerUnchecked(codec, _held);
         }
         codec.close();
       } on FormatException catch (error) {
@@ -86,7 +87,7 @@ class NativeChunkDecoder implements ChunkDecoder {
         if (_seen < 6) {
           throw ArchiveException('Truncated zlib stream');
         }
-        checkZlibAdler(_tail, _sink.sum);
+        checkZlibAdler(_tail, _sink.sum, trailerAccepted);
       }
       return false;
     }
