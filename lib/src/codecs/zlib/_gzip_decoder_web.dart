@@ -231,7 +231,7 @@ class _GZipDecoder extends ZLibDecoderBase {
           checksum = getCrc32(header.readBytes(count).toUint8List(), checksum);
         }
         if (checksum & 0xffff != expected) {
-          throw ArchiveException('Invalid gzip header checksum');
+          throw ArchiveChecksumException('Invalid gzip header checksum');
         }
       } else {
         // just throw away for now

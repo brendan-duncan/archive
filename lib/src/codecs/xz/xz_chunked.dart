@@ -330,7 +330,7 @@ class XzChunkedDecoder extends ChunkedSink {
             return;
           }
           if (_readUint32() != _indexCrc) {
-            throw ArchiveException('xz: invalid stream index CRC checksum');
+            throw _crcFailure('xz: invalid stream index CRC checksum');
           }
           _indexSize = _streamPosition - _indexStart;
           _stage = _Stage.streamFooter;
@@ -399,10 +399,13 @@ class XzChunkedDecoder extends ChunkedSink {
     final crc = getCrc32(flags);
     skip(2);
     if (_readUint32() != crc) {
-      throw ArchiveException('xz: invalid stream header CRC checksum');
+      throw _crcFailure('xz: invalid stream header CRC checksum');
     }
     _stage = _Stage.blockOrIndex;
   }
+
+  ArchiveException _crcFailure(String message) =>
+      verify ? ArchiveChecksumException(message) : ArchiveException(message);
 
   /// False while waiting for the rest of a block to send to a worker,
   /// or for workers to finish before decoding a block itself
@@ -413,7 +416,9 @@ class XzChunkedDecoder extends ChunkedSink {
       final message = 'xz: ${_xz.failureReason}';
       throw xzIsLimitFailure(_xz.failureReason)
           ? ArchiveLimitException(message)
-          : ArchiveException(message);
+          : xzIsCheckFailure(_xz.failureReason, verify)
+              ? ArchiveChecksumException(message)
+              : ArchiveException(message);
     }
     _declaredCompressedLength = _xz.blockCompressedLength;
     _declaredUncompressedLength = _xz.blockUncompressedLength;
@@ -620,7 +625,7 @@ class XzChunkedDecoder extends ChunkedSink {
     final crc = _readUint32();
     final footer = view(6);
     if (getCrc32(footer) != crc) {
-      throw ArchiveException('xz: invalid stream footer CRC checksum');
+      throw _crcFailure('xz: invalid stream footer CRC checksum');
     }
     final backwardSize = ((footer[0] |
                 (footer[1] << 8) |

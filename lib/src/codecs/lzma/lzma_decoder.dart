@@ -86,6 +86,18 @@ class LzmaDecoder {
   /// pointed at. Zero means no limit, for callers that decode raw LZMA.
   int dictionaryLimit = 0;
 
+  /// Whether the last decode stopped at the end marker of the stream, a
+  /// match at distance 0xffffffff, which a plain LZMA stream of unknown
+  /// size ends with
+  bool get endMarkerSeen => _endMarkerSeen;
+  bool _endMarkerSeen = false;
+
+  // A flag test per packet in _decodePackets cost 0.7% on a 67 MB decode, so
+  // the end marker moves the write position to the end the loop runs to and
+  // the position of the marker is restored after the loop
+  int _finalSize = 0;
+  int _markerPosition = 0;
+
   /// Creates an LZMA decoder.
   LzmaDecoder() {
     for (var i = 0; i < _LzmaState.values.length; i++) {
@@ -201,6 +213,7 @@ class LzmaDecoder {
   @pragma('vm:unsafe:no-bounds-checks')
   void _decodePackets(int finalSize) {
     final positionMask = (1 << _positionBits) - 1;
+    _finalSize = finalSize;
     while (_writePosition < finalSize && !_rc.isNearEnd) {
       final posState = _writePosition & positionMask;
       if (_rc.readBitRaw(_nonLiteralTables[state.index].table, posState) == 0) {
@@ -230,6 +243,9 @@ class LzmaDecoder {
     if (_rc.isOverrun) {
       _writePosition = packetStart;
     }
+    if (_endMarkerSeen) {
+      _writePosition = _markerPosition;
+    }
   }
 
   Uint8List decodeUncompressed(InputStream input, int uncompressedLength) {
@@ -252,10 +268,11 @@ class LzmaDecoder {
   Uint8List decode(InputStream input, int uncompressedLength) {
     _rc.setBuffer(input.toUint8List());
     _rc.initialize();
+    _endMarkerSeen = false;
 
     final initialSize = _reserve(uncompressedLength);
     _decodePackets(initialSize + uncompressedLength);
-    if (_rc.isOverrun) {
+    if (_rc.isOverrun && !_endMarkerSeen) {
       throw ArchiveException('LZMA data is truncated or corrupt');
     }
 
@@ -282,6 +299,7 @@ class LzmaDecoder {
     }
     _rc.setBuffer(input.toUint8List());
     _rc.initialize();
+    _endMarkerSeen = false;
 
     final initialSize = _writePosition;
     final finalSize = initialSize + uncompressedLength;
@@ -289,7 +307,7 @@ class LzmaDecoder {
     _decodePackets(finalSize);
 
     output.writeRange(_dictionary, initialSize, _writePosition);
-    if (_rc.isOverrun) {
+    if (_rc.isOverrun && !_endMarkerSeen) {
       throw ArchiveException('LZMA data is truncated or corrupt');
     }
   }
@@ -303,10 +321,11 @@ class LzmaDecoder {
     const maxMatchLength = 273;
     _rc.setBuffer(_readPiece(input, pieceSize));
     _rc.initialize();
+    _endMarkerSeen = false;
 
     var written = _writePosition;
     var finalSize = written + uncompressedLength;
-    while (_writePosition < finalSize) {
+    while (_writePosition < finalSize && !_endMarkerSeen) {
       if (_rc.available < pieceSize && !input.isEOS) {
         _rc.appendBuffer(_readPiece(input, pieceSize));
       }
@@ -330,12 +349,12 @@ class LzmaDecoder {
         written = _writePosition;
       }
     }
-    if (!_rc.isOverrun && _writePosition != finalSize) {
+    if (!_rc.isOverrun && !_endMarkerSeen && _writePosition != finalSize) {
       throw ArchiveException('LZMA output exceeds the declared size');
     }
 
     output.writeRange(_dictionary, written, _writePosition);
-    if (_rc.isOverrun) {
+    if (_rc.isOverrun && !_endMarkerSeen) {
       throw ArchiveException('LZMA data is truncated or corrupt');
     }
   }
@@ -390,6 +409,12 @@ class LzmaDecoder {
   void _decodeMatch(int posState) {
     final length = _matchLengthDecoder.readLength(posState);
     final distance = _distanceDecoder.readDistance(length);
+    if (distance == 0xffffffff) {
+      _endMarkerSeen = true;
+      _markerPosition = _writePosition;
+      _writePosition = _finalSize;
+      return;
+    }
 
     _repeatData(distance, length);
 
