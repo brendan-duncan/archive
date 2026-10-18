@@ -209,6 +209,7 @@
   after its data. The archives decode the same, but their bytes differ from earlier versions.
 * Fixed `OutputFileStream.writeStream` moving the read position of its source to the end, unlike the other
   `OutputStream` types. The source position is now left unchanged.
+* `ZipDirectory.read` no longer reads every entry's local header. A `ZipFileHeader` reads its `file` when it is first asked for, and leaves the stream where it was. `ZipDecoder` reads each entry's `file` as before.
 
 # 4.5.2
 

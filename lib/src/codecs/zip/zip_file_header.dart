@@ -26,7 +26,22 @@ class ZipFileHeader {
   String filename = '';
   Uint8List? extraField;
   String fileComment = '';
-  ZipFile? file;
+  ZipFile? _file;
+  void Function()? _readFile;
+
+  /// The entry's local header and data, read from the archive when first asked
+  /// for, so listing the central directory does not seek to every entry.
+  ZipFile? get file {
+    final read = _readFile;
+    _readFile = null;
+    read?.call();
+    return _file;
+  }
+
+  set file(ZipFile? value) {
+    _readFile = null;
+    _file = value;
+  }
 
   void read(InputStream input,
       {InputStream? fileBytes,
@@ -131,16 +146,23 @@ class ZipFileHeader {
     localHeaderOffset += prefix;
 
     if (fileBytes != null) {
-      fileBytes.setPosition(localHeaderOffset);
-      file = ZipFile(this);
-      file!.read(fileBytes,
-          password: password,
-          verify: verify,
-          filenameEncoding: filenameEncoding);
+      _readFile = () {
+        // Read after the directory, so leave the stream where it was.
+        final position = fileBytes.position;
+        fileBytes.setPosition(localHeaderOffset);
+        _file = ZipFile(this)
+          ..read(fileBytes,
+              password: password,
+              verify: verify,
+              filenameEncoding: filenameEncoding);
+        fileBytes.setPosition(position);
+        if (unicodePath != null) {
+          _file!.filename = unicodePath;
+        }
+      };
     }
     if (unicodePath != null) {
       filename = unicodePath;
-      file?.filename = unicodePath;
     }
   }
 
