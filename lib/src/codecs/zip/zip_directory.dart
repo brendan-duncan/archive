@@ -29,18 +29,39 @@ class ZipDirectory {
 
   void read(InputStream input,
       {String? password, bool verify = false, Encoding? filenameEncoding}) {
+    fileHeaders.addAll(headers(input,
+        password: password,
+        verify: verify,
+        filenameEncoding: filenameEncoding));
+  }
+
+  /// The central directory's entries, read one at a time as they are iterated,
+  /// so a caller that walks a large archive holds one header at a time.
+  /// [fileHeaders] is left empty.
+  ///
+  /// With [files] false a header has no [ZipFileHeader.file] and keeps no
+  /// reference to [input], for a caller that reads entries itself.
+  Iterable<ZipFileHeader> headers(InputStream input,
+      {String? password,
+      bool verify = false,
+      bool files = true,
+      Encoding? filenameEncoding}) sync* {
     // The caller may read on from where the stream was, or decode it again,
     // so leave the read position as it was found.
     final pos = input.position;
     try {
-      _read(input, password, verify, filenameEncoding);
+      for (final header
+          in _headers(input, password, verify, files, filenameEncoding)) {
+        input.setPosition(pos);
+        yield header;
+      }
     } finally {
       input.setPosition(pos);
     }
   }
 
-  void _read(InputStream input, String? password, bool verify,
-      Encoding? filenameEncoding) {
+  Iterable<ZipFileHeader> _headers(InputStream input, String? password,
+      bool verify, bool files, Encoding? filenameEncoding) sync* {
     filePosition = _findSignature(input);
     if (filePosition < 0) {
       return;
@@ -91,10 +112,13 @@ class ZipDirectory {
         position: centralDirectoryOffset,
         length: centralDirectorySize,
         bufferSize: min(centralDirectorySize, 1024));
-    final fileBytes = verify
-        ? input.subset(position: 0, length: centralDirectoryOffset)
-        : input;
+    final fileBytes = !files
+        ? null
+        : verify
+            ? input.subset(position: 0, length: centralDirectoryOffset)
+            : input;
 
+    var count = 0;
     while (!dirContent.isEOS) {
       final fileSig = dirContent.length >= 46 ? dirContent.readUint32() : 0;
       if (fileSig != ZipFileHeader.signature) {
@@ -110,11 +134,10 @@ class ZipDirectory {
             verify: verify,
             prefix: prefix,
             filenameEncoding: filenameEncoding);
-      fileHeaders.add(header);
+      count++;
+      yield header;
     }
-    if (verify &&
-        fileHeaders.length % 0x10000 !=
-            totalCentralDirectoryEntries % 0x10000) {
+    if (verify && count % 0x10000 != totalCentralDirectoryEntries % 0x10000) {
       throw ArchiveException(
           'zip: central directory entry count does not match');
     }
