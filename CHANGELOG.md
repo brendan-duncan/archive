@@ -20,8 +20,8 @@
   and `ZLibDecoder` that rely on dart:io implementation still may not catch the checksum issue and report an error
   with `throwOnError` for some damaged archives: a gzip whose damaged data decodes longer than its declared size
   passes as a concatenated gzip, a checksum error inside a concatenated gzip is reported as `ArchiveException`, and
-  a truncated zlib stream is found only with `verify`, and thrown as `ArchiveChecksumException` with `throwOnError`
-  as well. `GZipDecoderWeb` and
+  a truncated zlib stream is found only with `verify`, and thrown as `ArchiveException`, as a truncated gzip is.
+  `GZipDecoderWeb` and
   `ZLibDecoderWeb` report all of these. Cut raw deflate stream (`raw: true`) is not found by any flags there,
   it has no checksum.
 * *BREAKING CHANGE*: Added `writeRange` and `reserve` to `OutputStream`, and `readInto` and `viewBytes` to
@@ -163,6 +163,12 @@
 * Fixed `LzmaDecoder` throwing `RangeError` for truncated or damaged LZMA data, and `XZDecoder` reading more bytes
   than the input has for a stream cut inside a stream header, block header, LZMA2 chunk header, index or footer. They
   throw `ArchiveException` and report a truncated stream.
+* `LzmaDecoder` stops at the end marker of an LZMA stream of unknown size, as NSIS installers store them, instead of
+  failing. `endMarkerSeen` tells whether it did. `XZDecoder` rejects an LZMA2 chunk that has one, which LZMA2 does not
+  allow.
+* With `verify`, a wrong CRC in an xz stream header, block header, index or footer, and a wrong gzip header checksum
+  (FHCRC), throw `ArchiveChecksumException` instead of `ArchiveException`. `GZipDecoderWeb` checks the header
+  checksum.
 * Fixed `TarDecoder` adding garbage folders to names in archives made by GNU tar `--incremental`.
 * Fixed `TarDecoder` treating some folder entries (GNU and very old tar formats) as files.
 * Fixed `TarDecoder` long names in archives made by older versions of this package.
