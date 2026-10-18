@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:archive/archive.dart';
 import 'package:test/test.dart';
@@ -50,6 +51,22 @@ void main() {
             'content ${name.substring(4, 5)}');
       }
       expect(input.position, 5);
+    });
+
+    test('a damaged local header throws on every read, not null', () {
+      final damaged = Uint8List.fromList(bytes);
+      final first = ZipDirectory()..read(InputMemoryStream(damaged));
+      damaged[first.fileHeaders[1].localHeaderOffset] ^= 0xff;
+      final input = InputMemoryStream(damaged);
+      final directory = ZipDirectory()..read(input, verify: true);
+      input.setPosition(5);
+
+      final header = directory.fileHeaders[1];
+      expect(() => header.file, throwsA(isA<ArchiveException>()));
+      expect(() => header.file, throwsA(isA<ArchiveException>()));
+      expect(input.position, 5);
+      expect(
+          utf8.decode(directory.fileHeaders[2].file!.readBytes()), 'content 2');
     });
   });
 }

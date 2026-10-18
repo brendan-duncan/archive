@@ -31,10 +31,17 @@ class ZipFileHeader {
 
   /// The entry's local header and data, read from the archive when first asked
   /// for, so listing the central directory does not seek to every entry.
+  ///
+  /// The archive's stream has to be open still when this is first read. A
+  /// damaged local header throws here, and again on every later read, rather
+  /// than during [ZipDirectory.read].
   ZipFile? get file {
     final read = _readFile;
-    _readFile = null;
-    read?.call();
+    if (read != null) {
+      read();
+      // Only once it succeeded, so a failure is not followed by a null
+      _readFile = null;
+    }
     return _file;
   }
 
@@ -150,12 +157,15 @@ class ZipFileHeader {
         // Read after the directory, so leave the stream where it was.
         final position = fileBytes.position;
         fileBytes.setPosition(localHeaderOffset);
-        _file = ZipFile(this)
-          ..read(fileBytes,
-              password: password,
-              verify: verify,
-              filenameEncoding: filenameEncoding);
-        fileBytes.setPosition(position);
+        try {
+          _file = ZipFile(this)
+            ..read(fileBytes,
+                password: password,
+                verify: verify,
+                filenameEncoding: filenameEncoding);
+        } finally {
+          fileBytes.setPosition(position);
+        }
         if (unicodePath != null) {
           _file!.filename = unicodePath;
         }
