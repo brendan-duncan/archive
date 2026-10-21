@@ -219,6 +219,9 @@
   asked for, and leaves the stream where it was. `ZipDecoder` reads each entry's `file` as before. Code that uses
   `ZipDirectory` directly has to keep the stream open until it has read `file`, and gets an error in a local header
   from `file` instead of from `read`.
+* Added `ZipDirectory.headers`, which reads the central directory one entry at a time as it is iterated, so a
+  caller that walks a large archive holds one header at a time. `ZipDirectory.read` collects it into `fileHeaders`
+  as before. With `files: false` the headers keep no reference to the stream, for a caller that reads entries itself.
 
 # 4.5.2
 
