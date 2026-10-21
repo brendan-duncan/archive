@@ -141,10 +141,13 @@ class ZipFileHeader {
       fileComment = input.readString(size: commentLen);
     }
 
+    // The offset may count the prefix already. A local header with this
+    // entry's name is preferred, so an offset that counts it twice and lands
+    // on another entry's local header is not taken for this one.
     if (prefix != 0 &&
         fileBytes != null &&
-        !_localHeaderAt(fileBytes, localHeaderOffset + prefix) &&
-        _localHeaderAt(fileBytes, localHeaderOffset)) {
+        _localHeaderAt(fileBytes, localHeaderOffset, nameBytes) >
+            _localHeaderAt(fileBytes, localHeaderOffset + prefix, nameBytes)) {
       if (verify) {
         throw ArchiveException('zip: central directory is damaged');
       }
@@ -176,12 +179,29 @@ class ZipFileHeader {
     }
   }
 
-  bool _localHeaderAt(InputStream input, int position) {
+  /// 0 if there is no local header at [position], 1 if there is one with a
+  /// name other than [name], and 2 if there is one with [name].
+  int _localHeaderAt(InputStream input, int position, Uint8List name) {
     if (position < 0) {
-      return false;
+      return 0;
     }
     input.setPosition(position);
-    return input.length >= 30 && input.readUint32() == ZipFile.zipSignature;
+    if (input.length < 30 || input.readUint32() != ZipFile.zipSignature) {
+      return 0;
+    }
+    input.skip(22);
+    final nameLen = input.readUint16();
+    if (nameLen != name.length || input.length < 2 + nameLen) {
+      return 1;
+    }
+    input.skip(2);
+    final localName = input.readBytes(nameLen).toUint8List();
+    for (var i = 0; i < nameLen; i++) {
+      if (localName[i] != name[i]) {
+        return 1;
+      }
+    }
+    return 2;
   }
 
   @override

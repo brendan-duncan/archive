@@ -36,11 +36,16 @@ class ZipDirectory {
   }
 
   /// The central directory's entries, read one at a time as they are iterated,
-  /// so a caller that walks a large archive holds one header at a time.
-  /// [fileHeaders] is left empty.
+  /// so a caller that walks a large archive and does not keep the headers
+  /// holds one at a time. [fileHeaders] is left empty.
   ///
-  /// With [files] false a header has no [ZipFileHeader.file] and keeps no
-  /// reference to [input], for a caller that reads entries itself.
+  /// Each iteration reads the directory again from [input], and sets this
+  /// directory's fields such as [zipFileComment] again.
+  ///
+  /// A header's [ZipFileHeader.file] reads its entry from [input] when first
+  /// asked for, so each header keeps a reference to [input]. With [files]
+  /// false a header has no [ZipFileHeader.file] and keeps no reference to
+  /// [input], for a caller that reads entries itself.
   Iterable<ZipFileHeader> headers(InputStream input,
       {String? password,
       bool verify = false,
@@ -112,11 +117,11 @@ class ZipDirectory {
         position: centralDirectoryOffset,
         length: centralDirectorySize,
         bufferSize: min(centralDirectorySize, 1024));
-    final fileBytes = !files
-        ? null
-        : verify
-            ? input.subset(position: 0, length: centralDirectoryOffset)
-            : input;
+    // Passed even without [files], since a prefixed archive's local header
+    // offsets are checked against it.
+    final fileBytes = verify
+        ? input.subset(position: 0, length: centralDirectoryOffset)
+        : input;
 
     var count = 0;
     while (!dirContent.isEOS) {
@@ -134,6 +139,10 @@ class ZipDirectory {
             verify: verify,
             prefix: prefix,
             filenameEncoding: filenameEncoding);
+      if (!files) {
+        // Drops the reader that would read the entry, and with it the stream.
+        header.file = null;
+      }
       count++;
       yield header;
     }

@@ -39,6 +39,33 @@ void main() {
       expect(listed.map((h) => h.file), everyElement(isNull));
     });
 
+    test('with files false finds the local headers of a prefixed archive', () {
+      // A prefix the central directory offset leaves out, but the local header
+      // offsets count.
+      const prefix = 37;
+      final prefixed =
+          Uint8List.fromList([...List.filled(prefix, 0x4d), ...bytes]);
+      final data = ByteData.sublistView(prefixed);
+      for (var i = prefix; i + 4 <= prefixed.length; i++) {
+        if (data.getUint32(i, Endian.little) == 0x02014b50) {
+          data.setUint32(i + 42, data.getUint32(i + 42, Endian.little) + prefix,
+              Endian.little);
+        }
+      }
+
+      final offsets = ZipDirectory()
+          .headers(InputMemoryStream(prefixed), files: false)
+          .map((h) => h.localHeaderOffset)
+          .toList();
+      expect(offsets, [
+        for (final h in ZipDirectory().headers(InputMemoryStream(bytes)))
+          h.localHeaderOffset + prefix
+      ]);
+      for (final offset in offsets) {
+        expect(data.getUint32(offset, Endian.little), 0x04034b50);
+      }
+    });
+
     test('reads a record only when it is iterated to', () {
       // Damage the second central directory record's signature.
       final damaged = Uint8List.fromList(bytes);

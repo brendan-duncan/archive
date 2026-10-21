@@ -1677,6 +1677,40 @@ void main() async {
     });
 
     test(
+        'zip after prefix counted in local header offsets only decodes each '
+        'entry from its own local header', () {
+      final bytes = ZipEncoder().encodeBytes(Archive()
+        ..add(ArchiveFile.string('a.txt', 'one'))
+        ..add(ArchiveFile.string('b.txt', 'two'))
+        ..add(ArchiveFile.string('c.txt', 'six')));
+      final central = <int>[];
+      for (var i = 0; i + 4 <= bytes.length; i++) {
+        if (ByteData.sublistView(bytes).getUint32(i, Endian.little) ==
+            0x02014b50) {
+          central.add(i);
+        }
+      }
+      // A prefix as long as the distance to the third entry's local header,
+      // so the first entry's offset counted twice lands on it.
+      final prefix =
+          ByteData.sublistView(bytes).getUint32(central[2] + 42, Endian.little);
+      final prefixed =
+          Uint8List.fromList([...List.filled(prefix, 0x4d), ...bytes]);
+      final data = ByteData.sublistView(prefixed);
+      for (final c in central) {
+        data.setUint32(
+            c + prefix + 42,
+            data.getUint32(c + prefix + 42, Endian.little) + prefix,
+            Endian.little);
+      }
+
+      final archive = ZipDecoder().decodeBytes(prefixed);
+      expect(archive.files.map((f) => f.name), ['a.txt', 'b.txt', 'c.txt']);
+      expect(archive.files.map((f) => String.fromCharCodes(f.content)),
+          ['one', 'two', 'six']);
+    });
+
+    test(
         'wrong central directory offset decodes as unzip does, verify with '
         'throwOnError throws',
         testOn: 'vm', () {
