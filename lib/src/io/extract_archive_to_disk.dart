@@ -186,7 +186,11 @@ Future<void> extractFileToDisk(String inputPath, String outputPath,
       Object? callbackError;
 
       void write(ArchiveFile file) {
-        writer.write(file);
+        // Rejected paths and failed entries are not extracted, so they must
+        // not be reported as successfully written to a caller.
+        if (writer.write(file) == null) {
+          return;
+        }
         if (callback != null) {
           try {
             callback(file);
@@ -255,6 +259,7 @@ Future<void> extractFileToDisk(String inputPath, String outputPath,
         throwOnError: strict,
         allowAbsoluteSymlinks: allowAbsoluteSymlinks);
     for (final file in archive) {
+      // ZIP progress callbacks include rejected entries, one per input entry.
       writer.write(file);
       callback?.call(file);
     }
