@@ -10,6 +10,56 @@ import 'package:test/test.dart';
 
 void main() {
   for (final compression in [TarFileEncoder.gzip, TarFileEncoder.zstd]) {
+    for (final hardLink in [false, true]) {
+      test(
+          'output aliases are excluded: compression=$compression hardLink=$hardLink',
+          () async {
+        final base =
+            Directory.systemTemp.createTempSync('archive-output-alias-');
+        addTearDown(() => base.deleteSync(recursive: true));
+        final source = Directory(p.join(base.path, 'source'))..createSync();
+        File(p.join(source.path, 'keep.txt')).writeAsStringSync('keep');
+        late Directory input;
+        late String output;
+        if (hardLink) {
+          input = source;
+          output = p.join(base.path, 'result.archive');
+          File(output).writeAsBytesSync([]);
+          final alias = p.join(source.path, 'alias.archive');
+          final result = Platform.isWindows
+              ? Process.runSync('cmd', ['/c', 'mklink', '/H', alias, output])
+              : Process.runSync('ln', [output, alias]);
+          expect(result.exitCode, 0, reason: '${result.stderr}');
+        } else {
+          final alias = Link(p.join(base.path, 'alias'))
+            ..createSync(source.path);
+          input = Directory(alias.path);
+          output = p.join(source.path, 'result.archive');
+        }
+        final seen = <String>[];
+        final progress = <double>[];
+        await TarFileEncoder().tarDirectory(input,
+            compression: compression,
+            filename: output, filter: (file, fraction) {
+          seen.add(p.basename(file.path));
+          progress.add(fraction);
+          return ZipFileOperation.include;
+        });
+        final bytes = File(output).readAsBytesSync();
+        final decoded = compression == TarFileEncoder.gzip
+            ? GZipDecoder().decodeBytes(bytes, verify: true)
+            : ZstdDecoder().decodeBytes(bytes, verify: true);
+        final archive = TarDecoder().decodeBytes(decoded, verify: true);
+        expect(archive.files.map((file) => file.name),
+            ['${p.basename(input.path)}/keep.txt']);
+        expect(archive.first.readBytes(), 'keep'.codeUnits);
+        expect(seen, ['keep.txt']);
+        expect(progress, [1.0]);
+      });
+    }
+  }
+
+  for (final compression in [TarFileEncoder.gzip, TarFileEncoder.zstd]) {
     test('compressed output inside the source is not archived: $compression',
         () async {
       final base = Directory.systemTemp.createTempSync('archive-self-output-');

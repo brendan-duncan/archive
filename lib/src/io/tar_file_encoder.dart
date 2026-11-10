@@ -118,9 +118,16 @@ class TarFileEncoder {
       {bool followLinks = true,
       bool includeDirName = true,
       ZipFileProgress? filter}) async {
-    Stream<FileSystemEntity> files() =>
-        dir.list(recursive: true, followLinks: followLinks).where((file) =>
-            !path.equals(path.absolute(file.path), path.absolute(tarPath)));
+    Stream<FileSystemEntity> files() async* {
+      await for (final file
+          in dir.list(recursive: true, followLinks: followLinks)) {
+        if (file is File &&
+            await FileSystemEntity.identical(file.path, tarPath)) {
+          continue;
+        }
+        yield file;
+      }
+    }
 
     // Only filters need a preliminary count for progress fractions.
     var numFiles = 0;
