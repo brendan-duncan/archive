@@ -49,6 +49,29 @@ void main() {
       expect(buffer.readBytes(1, 0x7fffffffffffffff), testData.sublist(1));
     }, testOn: 'vm');
 
+    test('small buffered reads cannot expose bytes past EOF', () {
+      final buffer = FileBuffer(FileHandle(testPath), bufferSize: 16);
+      addTearDown(buffer.closeSync);
+      // Prime the reusable cache with earlier bytes. Reading a short tail
+      // must not append leftover cached data or zero padding.
+      expect(buffer.readBytes(0, 16), testData.sublist(0, 16));
+      expect(buffer.readBytes(testData.length - 3, 8),
+          testData.sublist(testData.length - 3));
+      expect(buffer.readBytes(testData.length, 4), isEmpty);
+      expect(buffer.readBytes(testData.length + 100, 4), isEmpty);
+      expect(buffer.readBytes(0, -1), isEmpty);
+      expect(() => buffer.readBytes(-1, 4), throwsRangeError);
+    });
+
+    test('readBytes returns only actual bytes when the file ends early', () {
+      final buffer =
+          FileBuffer(_OverstatedLengthHandle(testPath), bufferSize: 8);
+      addTearDown(buffer.closeSync);
+      expect(buffer.readBytes(118, 8), testData.sublist(118));
+      expect(buffer.readBytes(80, 60), testData.sublist(80));
+      expect(buffer.readBytes(125, 8), isEmpty);
+    });
+
     test('negative count reads same bytes from file and memory', () {
       final file = InputFileStream(testPath)..readBytes(10);
       addTearDown(file.closeSync);
@@ -88,6 +111,39 @@ void main() {
       addTearDown(input.closeSync);
       expect(input.toUint8List(), testData);
       expect(input.readBytes(6).toUint8List(), testData.sublist(0, 6));
+    });
+
+    test('truncated numeric reads do not advance beyond file or subset', () {
+      final readers = <(int, int Function(InputStream))>[
+        (2, (stream) => stream.readUint16()),
+        (3, (stream) => stream.readUint24()),
+        (4, (stream) => stream.readUint32()),
+        (8, (stream) => stream.readUint64()),
+      ];
+      for (final (width, read) in readers) {
+        for (var available = 0; available < width; available++) {
+          final file = InputFileStream(testPath);
+          try {
+            for (final offset in [10, testData.length - available]) {
+              for (final order in ByteOrder.values) {
+                final part = file.subset(position: offset, length: available)
+                  ..byteOrder = order;
+                expect(read(part), 0,
+                    reason: 'width=$width, left=$available, offset=$offset, '
+                        'order=$order');
+                expect(part.position, available);
+                expect(part.length, 0);
+                expect(part.isEOS, isTrue);
+                expect(read(part), 0);
+                expect(part.position, available);
+              }
+            }
+            expect(file.position, 0);
+          } finally {
+            file.closeSync();
+          }
+        }
+      }
     });
 
     test('readInto on subset stops at subset end', () {
@@ -479,4 +535,11 @@ class _ShortReadHandle extends _CountingHandle {
     final count = length ?? buffer.length;
     return super.readInto(buffer, count > 3 ? 3 : count);
   }
+}
+
+class _OverstatedLengthHandle extends _ShortReadHandle {
+  _OverstatedLengthHandle(super.path);
+
+  @override
+  int get length => super.length + 20;
 }
