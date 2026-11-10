@@ -272,65 +272,63 @@ class ZipDirectory {
 
   int _findSignature(InputStream input) {
     const signatureSize = 4;
-    // The directory and archive contents are written to the end of the zip
-    // file. We need to search from the end to find these structures,
-    // starting with the 'End of central directory' record (EOCD).
-    // An EOCD record is at least [eocdSize] bytes, so its signature can never
-    // start any later than that many bytes from the end of the file. Anything
-    // after that point is too short to be a record and is not a candidate.
-    // The positions searched are from the start of the stream, so this takes
-    // its total length rather than the bytes after the read position, which
-    // the caller may have moved.
+    // ZIP permits a 65535-byte comment after the 22-byte EOCD record.
+    // Keep a small extra window for nonstandard archives with trailing junk,
+    // which this decoder historically accepted. Never scan a whole large
+    // archive just because its end record is corrupt or absent.
     final lastCandidate = input.totalLength - eocdSize;
     if (lastCandidate < 0) {
       return -1;
     }
-    // Because InputFileStream buffering is designed around forward
-    // reading and not reverse reading like here, move the read position
-    // back by chunks and then read those chunks of bytes, to avoid
-    // thrashing the buffer updates.
+    const trailingJunkAllowance = 4096;
+    final earliestCandidate =
+        max(0, lastCandidate - 0xffff - trailingJunkAllowance);
+
+    // Preserve the input's read position, including if an archive is invalid.
     final pos = input.position;
-    // Every candidate offset in [0, lastCandidate] has to be tested, and
-    // testing the last one means reading the signatureSize bytes that follow
-    // it, so this is how much of the file the search can need.
-    final searchLength = lastCandidate + signatureSize;
-    const bufferSize = 1024;
-    final chunkSize = min(searchLength, bufferSize);
+    try {
+      const bufferSize = 1024;
+      final searchLength = lastCandidate + signatureSize;
+      final chunkSize = min(searchLength, bufferSize);
+      var startPos = searchLength - chunkSize;
+      var fallback = -1;
 
-    var startPos = searchLength - chunkSize;
+      while (true) {
+        input.setPosition(startPos);
+        // Overlap reverse chunks by three bytes, covering signatures that
+        // straddle a chunk boundary without loading a large temporary buffer.
+        final chunk =
+            InputMemoryStream(input.readBytes(chunkSize).toUint8List());
+        for (var chunkPos = chunkSize - signatureSize;
+            chunkPos >= 0;
+            --chunkPos) {
+          chunk.setPosition(chunkPos);
+          if (chunk.readUint32() != eocdSignature) {
+            continue;
+          }
+          final candidate = startPos + chunkPos;
+          fallback = fallback < 0 ? candidate : fallback;
 
-    while (true) {
-      input.setPosition(startPos);
-      // Need to search for the signature backwards from the end of the file,
-      // without incurring file io seeking performance issues, so we read a
-      // chunk of data starting from the end of the file and search backwards
-      // within that. This avoids signatures from nested zips being found.
-      final chunk = InputMemoryStream(input.readBytes(chunkSize).toUint8List());
-      // A chunk of chunkSize bytes read at startPos can test the candidate
-      // offsets startPos through startPos + chunkSize - signatureSize.
-      for (var chunkPos = chunkSize - signatureSize;
-          chunkPos >= 0;
-          --chunkPos) {
-        chunk.setPosition(chunkPos);
-        final sig = chunk.readUint32();
-        if (sig == eocdSignature) {
-          input.setPosition(pos);
-          return startPos + chunkPos;
+          // An EOCD-shaped byte sequence may also occur inside the archive
+          // comment. Prefer the candidate whose comment reaches EOF exactly.
+          // Keep the latest candidate as a compatibility fallback for ZIPs
+          // with trailing junk or a truncated archive comment.
+          input.setPosition(candidate + 20);
+          final commentLength = input.readUint16();
+          if (candidate + eocdSize + commentLength == input.totalLength) {
+            return candidate;
+          }
         }
+        if (startPos <= earliestCandidate) {
+          break;
+        }
+        startPos = max(
+            earliestCandidate,
+            startPos - (chunkSize - (signatureSize - 1)));
       }
-      if (startPos == 0) {
-        break;
-      }
-      // Step back so the next chunk's candidates end exactly one byte below
-      // this chunk's lowest one, which keeps every candidate offset covered
-      // including the signatures straddling the boundary between two chunks.
-      // The step is positive whenever startPos is, because a chunk smaller
-      // than bufferSize only happens when the whole search fits in one chunk,
-      // and that leaves startPos at zero. So the loop always reaches zero.
-      startPos = max(0, startPos - (chunkSize - (signatureSize - 1)));
+      return fallback;
+    } finally {
+      input.setPosition(pos);
     }
-
-    input.setPosition(pos);
-    return -1;
   }
 }
