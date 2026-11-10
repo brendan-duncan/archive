@@ -93,7 +93,7 @@ class BZip2Decoder {
       //throw ArchiveException('Invalid BlockSize');
     }
 
-    _tt = Uint32List(_ttStartSize);
+    _prepareTt();
 
     var combinedCrc = 0;
 
@@ -154,7 +154,7 @@ class BZip2Decoder {
   /// to do the setup
   void beginStream(int blockSize100k) {
     _blockSize100k = blockSize100k;
-    _tt = Uint32List(_ttStartSize);
+    _prepareTt();
     _groupPos = 0;
     _groupNo = 0;
     _gSel = 0;
@@ -920,6 +920,16 @@ class BZip2Decoder {
     }
   }
 
+  // Reuse storage across members; each block rewrites its active table prefix
+  // before reading it, so clearing the full allocation is unnecessary.
+  void _prepareTt() {
+    if (_hasTt) {
+      return;
+    }
+    _tt = Uint32List(_ttStartSize);
+    _hasTt = true;
+  }
+
   void _growTt(int needed, int max) {
     var size = _tt.length * 2;
     if (size < needed) {
@@ -937,6 +947,7 @@ class BZip2Decoder {
 
   late int _blockSize100k;
   late Uint32List _tt;
+  bool _hasTt = false;
   late Uint8List _inUse16;
   late Uint8List _inUse;
   late Uint8List _seqToUnseq;
