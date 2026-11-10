@@ -178,6 +178,18 @@ class InputDecodeStream extends InputStream {
   }
 
   @override
+  int readInto(Uint8List into, int at, int count) {
+    final own = _length;
+    if (own != null) {
+      count = max(0, min(count, own - _position));
+    }
+    final bytes = _window.read(_absolute, count);
+    into.setRange(at, at + bytes.length, bytes);
+    _position += bytes.length;
+    return bytes.length;
+  }
+
+  @override
   Uint8List toUint8List() {
     final own = _length;
     if (own != null) {
