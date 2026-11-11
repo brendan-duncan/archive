@@ -251,6 +251,10 @@
   `addDirectory` without callbacks adds entries as the directory is listed, instead of listing the whole tree first.
 * Fixed `ZipFileEncoder.addFileSync` leaving its input file open, and `addFile` leaving it open when the entry fails.
   `close` and `closeSync` close the output when finishing the zip fails.
+* Fixed `extractFileToDisk`, `extractArchiveToDisk` and `extractArchiveToDiskSync` writing nothing, without an error,
+  when the output path is spelled differently from its real path: a Windows 8.3 short name, such as `RUNNER~1` in
+  `%TEMP%` on GitHub runners, or a different letter case on a case-insensitive file system. Every entry was taken for
+  one outside the output directory (#439).
 
 # 4.5.2
 

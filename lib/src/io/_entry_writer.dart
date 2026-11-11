@@ -63,7 +63,7 @@ class EntryWriter {
       : setPermissions = setPermissions && posix.isPosixSupported() {
     _prepareOutDir(outputPath);
     _realOut = _realPath(outputPath);
-    _paths = _OutputPaths(_realOut);
+    _paths = _OutputPaths(outputPath, _realOut);
   }
 
   /// Writes [file], returning where, or null if it was refused for pointing
@@ -235,7 +235,7 @@ void _createDelayedLinksSync(Map<String, ArchiveFile> delayed,
       created.add(entry);
     }
   }
-  final paths = _OutputPaths(realOut);
+  final paths = _OutputPaths(outputPath, realOut);
   for (final MapEntry(key: filePath, value: file) in created) {
     if (!_isValidSymLink(
         outputPath, realOut, file, allowAbsoluteSymlinks, paths)) {
@@ -251,7 +251,17 @@ class _OutputPaths {
   final _dirs = <String, String?>{};
   final _inside = <String, bool>{};
 
-  _OutputPaths(this.realOut);
+  /// The output directory, spelled as the parents of entry paths spell it.
+  final String _outDir;
+
+  /// Entry directories are joined onto the real path of the output directory.
+  /// Rebuilt from its text instead, it would keep a Windows 8.3 short name or
+  /// a letter case other than the disk's, which [_realPath] resolves, and no
+  /// entry would be inside it.
+  _OutputPaths(String outputPath, this.realOut)
+      : _outDir = path.dirname(_entryPath(outputPath, '_')) {
+    _dirs[_outDir] = realOut;
+  }
 
   bool isEntryWithin(String filePath) {
     final dir = path.dirname(filePath);
@@ -316,6 +326,7 @@ class _OutputPaths {
     if (link) {
       _dirs.clear();
       _inside.clear();
+      _dirs[_outDir] = realOut;
     }
   }
 }
