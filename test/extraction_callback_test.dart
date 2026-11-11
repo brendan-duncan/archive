@@ -9,8 +9,7 @@ import 'package:test/test.dart';
 
 void main() {
   for (final extension in ['tar', 'tar.gz', 'zip']) {
-    test('$extension preserves its callback policy for rejected entries',
-        () async {
+    test('$extension callback skips rejected entries', () async {
       final dir = Directory.systemTemp.createTempSync('archive-callback-');
       addTearDown(() => dir.deleteSync(recursive: true));
       final out = Directory(p.join(dir.path, 'out'))..createSync();
@@ -38,19 +37,11 @@ void main() {
       await extractFileToDisk(sourceFile.path, out.path,
           callback: (entry) => observed.add(entry.name));
 
-      expect(
-          observed,
-          extension == 'zip'
-              ? ['../outside.txt', 'escape', 'occupied', 'nested/inside.txt']
-              : ['nested/inside.txt']);
+      expect(observed, ['nested/inside.txt']);
       expect(File(p.join(dir.path, 'outside.txt')).existsSync(), isFalse);
       expect(Link(p.join(out.path, 'escape')).existsSync(), isFalse);
       expect(occupied.readAsStringSync(), 'keep');
       expect(existing.readAsStringSync(), 'written');
-      expect(
-        File(p.join(out.path, 'nested', 'inside.txt')).readAsStringSync(),
-        'written',
-      );
     });
   }
 }

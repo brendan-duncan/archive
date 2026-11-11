@@ -92,9 +92,12 @@ String getInputExtension(String inputPath) {
 /// If neither option is specified, damaged or incomplete entries are skipped,
 /// and only complete ones are extracted
 ///
-/// [callback] is called for each entry once it has been written. For a
-/// compressed tar the entry's content has gone by then and cannot be read
-/// from the entry; it is in the file on disk.
+/// [callback] is called for each entry once it has been written, and not for
+/// an entry that is refused, such as one whose path points outside
+/// [outputPath]. A symbolic link is reported when it is recorded: links are
+/// created after all other entries, and one that then resolves outside
+/// [outputPath] is removed. For a compressed tar the entry's content has gone
+/// by then and cannot be read from the entry; it is in the file on disk.
 ///
 /// {@macro archive.extract.allow_absolute_symlinks}
 ///
@@ -259,9 +262,11 @@ Future<void> extractFileToDisk(String inputPath, String outputPath,
         throwOnError: strict,
         allowAbsoluteSymlinks: allowAbsoluteSymlinks);
     for (final file in archive) {
-      // ZIP progress callbacks include rejected entries, one per input entry.
-      writer.write(file);
-      callback?.call(file);
+      // As for tar, an entry refused for pointing outside [outputPath] is not
+      // reported as written
+      if (writer.write(file) != null) {
+        callback?.call(file);
+      }
     }
     writer.finish();
 

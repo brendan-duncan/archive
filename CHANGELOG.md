@@ -70,6 +70,8 @@
   the last one. It keeps the last one, as 3.x did.
 * *BREAKING CHANGE*: `extractFileToDisk` calls `callback` for a zip entry after the entry is written, as it does for
   tar. It used to call it for every zip entry while the central directory was read, before any file was written.
+  For zip and tar it is no longer called for an entry that is not written, such as one whose path points outside the
+  output directory, or a zip link that cannot be read, so a caller counting the calls may see fewer than the entries.
 * Fixed `extractFileToDisk` extracting junk entries from a gzip, bzip2, xz or zstd file that does not hold a tar, also
   when its name ends with `.tar.gz` or a similar extension. It throws `ArgumentError` for such a file.
 * Fixed `BZip2Decoder` returning only the first stream of concatenated bzip2 files, as `pbzip2` writes them, without

@@ -1703,8 +1703,7 @@ void main() {
       expect(seen, ['a.bin', 'b.bin']);
     });
 
-    test('callback receives each entry once when zip link cannot be read',
-        () async {
+    test('callback skips a zip link that cannot be read', () async {
       final directory = Directory.systemTemp.createTempSync('archive-extract-');
       addTearDown(() => directory.deleteSync(recursive: true));
       final zip = ZipEncoder().encodeBytes(Archive()
@@ -1732,12 +1731,11 @@ void main() {
       await extractFileToDisk(input.path, p.join(directory.path, 'out'),
           callback: (file) => seen.add(file.name));
       expect(File(p.join(directory.path, 'out', 'c.bin')).existsSync(), isTrue);
-      expect(seen, ['a.bin', 'link', 'c.bin']);
+      // The link is not written, so it is not reported
+      expect(seen, ['a.bin', 'c.bin']);
     });
 
-    test(
-        'callback receives each entry once when duplicate name comes before '
-        'unreadable zip link', () async {
+    test('callback skips unreadable zip link after a duplicate name', () async {
       final directory = Directory.systemTemp.createTempSync('archive-extract-');
       addTearDown(() => directory.deleteSync(recursive: true));
       final output = OutputMemoryStream();
@@ -1772,7 +1770,7 @@ void main() {
       await extractFileToDisk(input.path, p.join(directory.path, 'out'),
           callback: (file) => seen.add(file.name));
       expect(File(p.join(directory.path, 'out', 'c.bin')).existsSync(), isTrue);
-      expect(seen, ['a.bin', 'link', 'c.bin']);
+      expect(seen, ['a.bin', 'c.bin']);
     });
 
     test('verify checks checksum of compressed tar container', () async {
