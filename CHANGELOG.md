@@ -233,6 +233,11 @@
 * Fixed `LzmaDecoder.decodeUncompressed` leaving zeroes in the dictionary for the missing bytes of a stored chunk that
   is cut short, which a later chunk could copy. It throws `ArchiveException` for a short or negative length and
   leaves the decoder as it was. `XZDecoder` still returns the bytes before the cut of such a chunk.
+* Fixed `ZipDecoder` finding no entries in a zip whose comment holds the end of central directory signature. A
+  candidate whose comment length reaches the end of the file is preferred.
+* `ZipDecoder` searches for the end of central directory only in the last 65535 + 4096 + 22 bytes of the input,
+  instead of the whole file, so a corrupt or non-zip file is no longer read to its start. A zip followed by more
+  than 69631 bytes, less its comment, is no longer found.
 
 # 4.5.2
 

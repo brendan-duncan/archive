@@ -272,10 +272,12 @@ class ZipDirectory {
 
   int _findSignature(InputStream input) {
     const signatureSize = 4;
-    // ZIP permits a 65535-byte comment after the 22-byte EOCD record.
-    // Keep a small extra window for nonstandard archives with trailing junk,
-    // which this decoder historically accepted. Never scan a whole large
-    // archive just because its end record is corrupt or absent.
+    // ZIP permits a 65535-byte comment after the 22-byte EOCD record, so the
+    // record starts in the last 65535 + 22 bytes. Bytes appended after a zip,
+    // such as a signature, push it further back, and the search allows 4 KB
+    // more for those. The window is shared: an archive with a short comment
+    // can have up to 69631 bytes after it, less the comment. A corrupt or
+    // missing record then costs a read of that window, not of the whole file.
     final lastCandidate = input.totalLength - eocdSize;
     if (lastCandidate < 0) {
       return -1;
@@ -323,8 +325,7 @@ class ZipDirectory {
           break;
         }
         startPos = max(
-            earliestCandidate,
-            startPos - (chunkSize - (signatureSize - 1)));
+            earliestCandidate, startPos - (chunkSize - (signatureSize - 1)));
       }
       return fallback;
     } finally {
