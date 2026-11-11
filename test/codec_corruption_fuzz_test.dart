@@ -44,11 +44,13 @@ void main() {
     ),
   ];
 
-  for (final (name, compressed, decode) in codecs) {
-    test('$name: verified mutations must reject or preserve exact content',
-        () {
+  for (var c = 0; c < codecs.length; c++) {
+    final (name, compressed, decode) = codecs[c];
+    // Seeded by index: gzip, zlib and zstd have names of the same length,
+    // and seeds from the length gave the three the same cases
+    test('$name: verified mutations must reject or preserve exact content', () {
       expect(decode(compressed), source);
-      final rng = Random(0x63245 + name.codeUnits.length);
+      final rng = Random(0x63245 + c);
       for (var i = 0; i < 80; i++) {
         final broken = Uint8List.fromList(compressed);
         final offset = rng.nextInt(broken.length);
@@ -62,9 +64,8 @@ void main() {
       }
     });
 
-    test('$name: deterministic malformed short data remains within limit',
-        () {
-      final rng = Random(0x17219 + name.length);
+    test('$name: deterministic malformed short data remains within limit', () {
+      final rng = Random(0x17219 + c);
       for (var i = 0; i < 250; i++) {
         final length = rng.nextInt(80);
         final bytes = Uint8List.fromList(
