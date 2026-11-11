@@ -1,9 +1,21 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import '../../util/input_memory_stream.dart';
 import '../../util/input_stream.dart';
 import '../../util/output_memory_stream.dart';
 import '../../util/output_stream.dart';
+
+/// The length of [input] where it is known without reading it, which lets
+/// `Deflate` size its tables to a small input. The length of a lazily decoded
+/// stream decodes all of it, so only a stream in memory is asked
+int? deflateInputSize(InputStream input) =>
+    input is InputMemoryStream ? input.length : null;
+
+/// The size of the buffer [length] bytes are deflated into, or null for the
+/// default. A small input gets room for itself and a header, not 32 KB
+int? deflateBufferSize(int length) =>
+    length < OutputMemoryStream.defaultBufferSize ? length + 64 : null;
 
 abstract class ZLibEncoderBase {
   const ZLibEncoderBase();

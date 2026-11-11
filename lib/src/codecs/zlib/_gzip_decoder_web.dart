@@ -8,7 +8,6 @@ import '../../util/decode_guard.dart';
 import '../../util/input_decode_stream.dart';
 import '../../util/input_memory_stream.dart';
 import '../../util/input_stream.dart';
-import '../../util/output_memory_stream.dart';
 import '../../util/output_stream.dart';
 import '_inflate_chunk_decoder.dart';
 import '_zlib_decoder_base.dart';
@@ -29,7 +28,7 @@ class _GZipDecoder extends ZLibDecoderBase {
   @override
   Uint8List decodeBytes(List<int> data,
       {bool verify = false, bool raw = false, bool? throwOnError}) {
-    final output = OutputMemoryStream();
+    final output = inflateBuffer(data.length);
     decodeStream(InputMemoryStream(data), output,
         verify: verify, raw: raw, throwOnError: throwOnError);
     return output.getBytes();

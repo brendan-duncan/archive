@@ -18,7 +18,8 @@ class _ZLibEncoder extends ZLibEncoderBase {
 
   Uint8List encodeBytes(List<int> bytes,
       {int? level, int? windowBits, bool raw = false}) {
-    final output = OutputMemoryStream(byteOrder: ByteOrder.bigEndian);
+    final output = OutputMemoryStream(
+        size: deflateBufferSize(bytes.length), byteOrder: ByteOrder.bigEndian);
     encodeStream(InputMemoryStream(bytes), output,
         level: level, windowBits: windowBits, raw: raw);
     return output.getBytes();
@@ -30,7 +31,10 @@ class _ZLibEncoder extends ZLibEncoderBase {
     // has no reason to touch the byte order of [output]
     if (raw) {
       Deflate.stream(input,
-          level: level ?? 6, windowBits: windowBits ?? 15, output: output);
+          level: level ?? 6,
+          windowBits: windowBits ?? 15,
+          output: output,
+          inputSize: deflateInputSize(input));
       return;
     }
     // [output] may be part way through a format of
@@ -78,7 +82,10 @@ class _ZLibEncoder extends ZLibEncoderBase {
     input.setPosition(startPos);
 
     Deflate.stream(input,
-        level: level ?? 6, windowBits: windowBits ?? 15, output: output);
+        level: level ?? 6,
+        windowBits: windowBits ?? 15,
+        output: output,
+        inputSize: deflateInputSize(input));
 
     output
       ..writeUint32(adler32)

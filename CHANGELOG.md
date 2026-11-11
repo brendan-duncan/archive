@@ -34,6 +34,17 @@
   `addDirectory` without callbacks adds entries as the directory is listed, instead of listing the whole tree first.
 * Fixed `ZipFileEncoder.addFileSync` leaving its input file open, and `addFile` leaving it open when the entry fails.
   `close` and `closeSync` close the output when finishing the zip fails.
+* Small entries no longer get a 32 KB buffer each. On 20000 entries of 200 bytes, `ZipEncoder.encodeBytes` with
+  deflate is about 2.5 times faster, `TarEncoder.encodeBytes` 1.6 times, and reading every entry of a zip 1.5 times.
+  `ZLibDecoder.decodeBytes` and `GZipDecoder.decodeBytes` size their output from `maxOutputSize` or the input length.
+* A streamed zip entry is deflated in 64 KB pieces, not 1 KB: `ZipFileEncoder` is about 15% faster at level 1 and 4% at
+  level 6 on a 256 MB file, for the same output bytes.
+* `Deflate` no longer clears its new hash table, which took most of the time of deflating a small input: 20000
+  inputs of 200 bytes take a third of the time. Added `inputSize` to `Deflate` and `Deflate.stream`, which sizes the
+  window and literal buffer to a small input of known length without changing the output. The web `ZLibEncoder`,
+  `GZipEncoder` and `ZipEncoder` pass it.
+* On the web, `ZLibDecoder.decodeBytes` inflates straight into its result instead of into a second buffer that was
+  then copied.
 
 # 4.6.0
 

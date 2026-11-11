@@ -29,7 +29,7 @@ class _GZipDecoder extends ZLibDecoderBase {
       {bool verify = false, bool raw = false, bool? throwOnError}) {
     final strict = throwOnError ?? verify;
     var out = Uint8List(0);
-    final partial = OutputMemoryStream();
+    final partial = inflateBuffer(data.length);
     var declared = 0;
     guardDecode('gzip', verify, strict, () {
       if (!_nativeConcatenated &&

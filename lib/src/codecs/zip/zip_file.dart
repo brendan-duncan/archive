@@ -620,7 +620,7 @@ class ZipFile extends FileContent {
       _rawContent!.setPosition(savePos);
       return InputMemoryStream(content);
     } else if (compressionMethod == CompressionType.bzip2) {
-      final output = OutputMemoryStream();
+      final output = _sizedOutput();
       final savePos = _rawContent!.position;
       final ok = BZip2Decoder()
           .decodeStream(_rawContent!, output, maxOutputSize: _outputLimit);
@@ -631,12 +631,12 @@ class ZipFile extends FileContent {
       }
       return InputMemoryStream(content);
     } else if (compressionMethod == CompressionType.lzma) {
-      final output = OutputMemoryStream();
+      final output = _sizedOutput();
       _decodeLzma(output);
       return InputMemoryStream(_exact(output.getBytes()));
     } else if (compressionMethod == CompressionType.zstd ||
         compressionMethod == CompressionType.xz) {
-      final output = OutputMemoryStream();
+      final output = _sizedOutput();
       decodeLimited(output, _outputLimit, (output) {
         _decodeZstdOrXz(output);
         return true;
@@ -656,6 +656,13 @@ class ZipFile extends FileContent {
   }
 
   static const _maxVerifyBufferSize = 1 << 20;
+
+  // A small entry gets a buffer of its declared size, not the 32 KB default
+  OutputMemoryStream _sizedOutput() => OutputMemoryStream(
+      size: uncompressedSize > 0 &&
+              uncompressedSize < OutputMemoryStream.defaultBufferSize
+          ? uncompressedSize
+          : null);
 
   static Uint8List _exact(Uint8List bytes) =>
       bytes.length < bytes.buffer.lengthInBytes >> 1

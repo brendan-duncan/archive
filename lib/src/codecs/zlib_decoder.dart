@@ -38,7 +38,13 @@ class ZLibDecoder {
       return platformZLibDecoder.decodeBytes(bytes,
           verify: verify, raw: raw, throwOnError: throwOnError);
     }
-    final output = OutputMemoryStream();
+    // The limit is often the known size, as for a zip entry, and the 32 KB
+    // default for each small entry cost a third of the time of reading them
+    final output = OutputMemoryStream(
+        size: maxOutputSize >= 0 &&
+                maxOutputSize < OutputMemoryStream.defaultBufferSize
+            ? maxOutputSize
+            : null);
     decodeStream(InputMemoryStream(bytes), output,
         verify: verify,
         raw: raw,

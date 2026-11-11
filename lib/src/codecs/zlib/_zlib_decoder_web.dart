@@ -24,7 +24,7 @@ class _ZLibDecoder extends ZLibDecoderBase {
   @override
   Uint8List decodeBytes(List<int> data,
       {bool verify = false, bool raw = false, bool? throwOnError}) {
-    final output = OutputMemoryStream();
+    final output = inflateBuffer(data.length);
     decodeStream(
         InputMemoryStream(data, byteOrder: ByteOrder.bigEndian), output,
         verify: verify, raw: raw, throwOnError: throwOnError);
@@ -117,9 +117,36 @@ class _ZLibDecoder extends ZLibDecoderBase {
         }
       }
 
-      // Inflate
-      final inflate = Inflate.stream(input, throwOnError: true);
+      // Inflate. An empty buffer in memory is inflated into as it is, where
+      // a buffer of the inflate's own was copied into it afterwards: reading
+      // 20000 entries of 200 bytes took 261 ms on JS, not 132 ms. Any other
+      // output still gets the data once it is whole
+      final direct = output is OutputMemoryStream && output.length == 0;
+      final inflate = Inflate.stream(input,
+          output: direct ? output : null,
+          uncompressedSize: input is InputMemoryStream
+              ? inflateBufferSize(input.length)
+              : null,
+          throwOnError: true);
       buffer = inflate.getBytes();
+      if (direct) {
+        // Already in [output], so there is nothing left to write
+        final written = buffer;
+        buffer = null;
+        if (!inflate.isFinished) {
+          return false;
+        }
+        if (!raw) {
+          if (input.length < 4) {
+            return false;
+          }
+          final adler32 = input.readUint32();
+          if (verify && adler32 != getAdler32(written)) {
+            throw ArchiveChecksumException('Invalid zlib checksum');
+          }
+        }
+        break;
+      }
       if (!inflate.isFinished) {
         output.writeBytes(buffer);
         return false;

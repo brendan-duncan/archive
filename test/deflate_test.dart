@@ -5,6 +5,50 @@ import 'package:archive/archive.dart';
 import 'package:test/test.dart';
 
 void main() {
+  // Tables sized to the input must not change what is written
+  test('inputSize gives the same bytes as the default tables', () {
+    var seed = 7;
+    int next() => seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+    for (final size in [
+      0,
+      1,
+      2,
+      3,
+      249,
+      250,
+      251,
+      1021,
+      1022,
+      1023,
+      5000,
+      32505,
+      32506,
+      32507,
+      70000
+    ]) {
+      final text = Uint8List(size);
+      final noise = Uint8List(size);
+      for (var i = 0; i < size; i++) {
+        text[i] = 97 + (next() >> 8) % 4;
+        noise[i] = next() >> 8;
+      }
+      for (final bytes in [text, noise, Uint8List(size)]) {
+        for (final level in [0, 1, 4, 6, 9]) {
+          for (final windowBits in [9, 15]) {
+            final want =
+                Deflate(bytes, level: level, windowBits: windowBits).getBytes();
+            final got = Deflate(bytes,
+                    level: level, windowBits: windowBits, inputSize: size)
+                .getBytes();
+            expect(got, want,
+                reason: 'size $size level $level windowBits $windowBits');
+            expect(Inflate(got).getBytes(), bytes);
+          }
+        }
+      }
+    }
+  });
+
   group('dynamic Huffman table validation', () {
     final archives = {
       'incomplete code length table':

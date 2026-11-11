@@ -36,13 +36,21 @@ class Deflate {
   /// If [output] is provided, the compressed data will be written to that
   /// [OutputStream], otherwise the compressed data will be accessed from
   /// the [getBytes] method.
+  ///
+  /// {@template archive.deflate_input_size}
+  /// [inputSize] is the length of all the data that will be deflated, for a
+  /// caller that knows it and adds no more than that. The window and the
+  /// literal buffer of a small input are then sized to it rather than to
+  /// 32 KB, and the output is the same bytes.
+  /// {@endtemplate}
   Deflate(List<int> bytes,
       {int level = DeflateLevel.defaultCompression,
       int windowBits = maxWindowBits,
-      OutputStream? output})
+      OutputStream? output,
+      int? inputSize})
       : _input = InputMemoryStream(bytes),
         _output = output ?? OutputMemoryStream() {
-    if (_init(level, windowBits: windowBits)) {
+    if (_init(level, windowBits: windowBits, inputSize: inputSize)) {
       _deflate(_DeflateFlushMode.finish);
     }
   }
@@ -56,12 +64,15 @@ class Deflate {
   /// If [output] is provided, the compressed data will be written to that
   /// [OutputStream], otherwise the compressed data will be accessed from
   /// the [getBytes] method.
+  ///
+  /// {@macro archive.deflate_input_size}
   Deflate.stream(this._input,
       {int level = DeflateLevel.defaultCompression,
       int windowBits = maxWindowBits,
-      OutputStream? output})
+      OutputStream? output,
+      int? inputSize})
       : _output = output ?? OutputMemoryStream() {
-    _init(level, windowBits: windowBits);
+    _init(level, windowBits: windowBits, inputSize: inputSize);
     _deflate(_DeflateFlushMode.finish);
   }
 
@@ -103,7 +114,8 @@ class Deflate {
       {int method = zDeflated,
       int windowBits = maxWindowBits,
       int memLevel = defMemLevel,
-      int strategy = zDefaultStrategy}) {
+      int strategy = zDefaultStrategy,
+      int? inputSize}) {
     if (windowBits == 8) {
       windowBits = 9;
     }
@@ -130,6 +142,27 @@ class Deflate {
     _dynamicDistTree = Uint16List((2 * dCodes + 1) * 2);
     _bitLengthTree = Uint16List((2 * blCodes + 1) * 2);
 
+    var litBits = memLevel + 6; // 16K elements by default
+    if (inputSize != null && inputSize >= 0) {
+      // A window that holds all of the input never slides, and a block ends
+      // early only when the literal buffer fills, so neither changes a byte
+      // of the output. The hash table keeps its size: with fewer bits more
+      // strings share a chain, and a match can be missed.
+      // The literal buffer stays at 1024 or more, so that the header of a
+      // dynamic block, a few hundred bytes, still ends before the distances
+      // it is laid over
+      var bits = 9;
+      while (bits < windowBits && (1 << bits) <= inputSize + minLookAhead) {
+        bits++;
+      }
+      windowBits = bits;
+      var fit = 10;
+      while (fit < litBits && (1 << fit) < inputSize + 2) {
+        fit++;
+      }
+      litBits = fit;
+    }
+
     _windowBits = windowBits;
     _windowSize = 1 << _windowBits;
     _windowMask = _windowSize - 1;
@@ -143,7 +176,7 @@ class Deflate {
     _prev = Uint16List(_windowSize);
     _head = Uint16List(_hashSize);
 
-    _litBufferSize = 1 << (memLevel + 6); // 16K elements by default
+    _litBufferSize = 1 << litBits;
 
     // We overlay pending_buf and d_buf+l_buf. This works since the average
     // output size for (length,distance) codes is <= 24 bits.
@@ -244,7 +277,8 @@ class Deflate {
   void _lmInit() {
     _actualWindowSize = 2 * _windowSize;
 
-    _head.fillRange(0, _hashSize, 0);
+    // _head is new, and so all zero. Clearing its 32768 entries again here
+    // took 40 of the 48 microseconds an empty input costs to deflate
 
     _strStart = 0;
     _blockStart = 0;

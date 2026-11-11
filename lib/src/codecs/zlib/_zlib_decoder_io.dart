@@ -7,7 +7,6 @@ import '../../util/archive_exception.dart';
 import '../../util/decode_guard.dart';
 import '../../util/input_decode_stream.dart';
 import '../../util/input_stream.dart';
-import '../../util/output_memory_stream.dart';
 import '../../util/output_stream.dart';
 import '_native_chunk_decoder_io.dart';
 import '_output_stream_sink.dart';
@@ -28,7 +27,7 @@ class _ZLibDecoder extends ZLibDecoderBase {
     // OutputMemoryStream grows by doubling, which costs 5-9% of time on text
     // against upstream, but peak RSS on 200 MB output
     // is 344 MB against 466 MB in upstream
-    final partial = OutputMemoryStream();
+    final partial = inflateBuffer(data.length);
     List<int>? input = data;
     guardDecode('zlib', verify, strict, () {
       final held = input!;

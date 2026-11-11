@@ -397,7 +397,7 @@ class TarFile {
     // The name, linkname, magic, uname, and gname are null-terminated
     // character strings. All other fields are zero-filled octal numbers in
     // ASCII. Each numeric field of width w contains w minus 1 digits, and a null.
-    final header = OutputMemoryStream();
+    final header = OutputMemoryStream(size: 512);
     _writeString(header, filename, 100, filenameEncoder);
     _writeInt(header, mode, 8);
     _writeInt(header, ownerId, 8);

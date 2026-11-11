@@ -17,7 +17,9 @@ class _GZipEncoder extends ZLibEncoderBase {
   @override
   Uint8List encodeBytes(List<int> bytes,
       {int? level, int? windowBits, bool raw = false}) {
-    final output = OutputMemoryStream(byteOrder: ByteOrder.littleEndian);
+    final output = OutputMemoryStream(
+        size: deflateBufferSize(bytes.length),
+        byteOrder: ByteOrder.littleEndian);
     encodeStream(InputMemoryStream(bytes), output,
         level: level, windowBits: windowBits, raw: raw);
     return output.getBytes();
@@ -69,7 +71,10 @@ class _GZipEncoder extends ZLibEncoderBase {
 
     if (raw) {
       Deflate.stream(input,
-          level: level ?? 6, windowBits: windowBits ?? 15, output: output);
+          level: level ?? 6,
+          windowBits: windowBits ?? 15,
+          output: output,
+          inputSize: deflateInputSize(input));
       output.flush();
       return;
     }
@@ -93,7 +98,10 @@ class _GZipEncoder extends ZLibEncoderBase {
       output.writeByte(osType);
 
       final deflate = Deflate.stream(input,
-          level: level ?? 6, windowBits: windowBits ?? 15, output: output);
+          level: level ?? 6,
+          windowBits: windowBits ?? 15,
+          output: output,
+          inputSize: deflateInputSize(input));
 
       output.writeUint32(deflate.crc32);
 

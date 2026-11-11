@@ -700,6 +700,21 @@ class _ObservedInput extends InputMemoryStream {
     read += piece.length;
     return piece;
   }
+
+  // The encoder takes its pieces as views of a stream in memory
+  @override
+  Uint8List? viewBytes(int count) {
+    final piece = super.viewBytes(count);
+    read += piece?.length ?? 0;
+    return piece;
+  }
+
+  @override
+  int readInto(Uint8List into, int at, int count) {
+    final got = super.readInto(into, at, count);
+    read += got;
+    return got;
+  }
 }
 
 class _ObservedOutput extends _Held {
