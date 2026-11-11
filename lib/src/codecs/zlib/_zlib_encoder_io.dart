@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:math';
 import 'dart:typed_data';
 
 import '../../util/input_stream.dart';
@@ -22,10 +21,16 @@ class _ZLibEncoder extends ZLibEncoderBase {
     final inSink =
         startEncode(output, level: level, windowBits: windowBits, raw: raw);
 
+    // A lazy source's length would decode its entire remainder into RAM.
+    // Reuse one scratch buffer for both memory-backed and file-backed input.
+    // The native chunked codec consumes add() synchronously.
+    final scratch = Uint8List(zlibChunkSize);
     while (!input.isEOS) {
-      final chunkSize = min(zlibChunkSize, input.length);
-      final chunk = input.readBytes(chunkSize).toUint8List();
-      inSink.add(chunk);
+      final got = input.readInto(scratch, 0, scratch.length);
+      if (got <= 0) {
+        break;
+      }
+      inSink.add(Uint8List.sublistView(scratch, 0, got));
     }
     inSink.close();
   }

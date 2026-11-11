@@ -66,6 +66,33 @@ void main() {
       expect(stream.readByte(), 0);
     });
 
+    test('short readInto advances only by bytes returned at EOF', () {
+      final data = sample(1003);
+      final stream = InputDecodeStream(_ListDecoder(data));
+      final target = Uint8List(2048)..fillRange(0, 2048, 0xa5);
+      expect(stream.readInto(target, 3, 1500), data.length);
+      expect(stream.position, data.length);
+      expect(target.sublist(3, 3 + data.length), data);
+      expect(target.take(3), everyElement(0xa5));
+      expect(target.skip(3 + data.length), everyElement(0xa5));
+      expect(stream.readInto(target, 0, target.length), 0);
+      expect(stream.position, data.length);
+    });
+
+    test('readInto respects a lazy view boundary and truncated view EOF', () {
+      final stream = InputDecodeStream(_ListDecoder(sample(1003)));
+      final view = stream.subset(position: 1000, length: 20);
+      final target = Uint8List(50);
+      expect(view.readInto(target, 0, 50), 3);
+      expect(view.position, 3);
+      expect(view.readInto(target, 0, 50), 0);
+      expect(view.position, 3);
+      expect(stream.position, 0);
+      final bounded = stream.subset(position: 1000, length: 2);
+      expect(bounded.readInto(target, 0, 50), 2);
+      expect(bounded.position, 2);
+    });
+
     test('readByte and the multi-byte reads', () {
       final stream = InputDecodeStream(_ListDecoder(data));
       expect(stream.readByte(), data[0]);
