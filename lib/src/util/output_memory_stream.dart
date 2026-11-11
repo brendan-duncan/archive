@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import '_copy_stream.dart';
 import 'byte_order.dart';
 import 'input_decode_stream.dart';
 import 'input_memory_stream.dart';
@@ -89,16 +90,10 @@ class OutputMemoryStream extends OutputStream {
       return;
     }
 
-    // Copy bounded pieces through a view, leaving the source position intact.
-    final reader = stream.subset(position: stream.position);
-    final scratch = Uint8List(64 * 1024);
-    while (!reader.isEOS) {
-      final got = reader.readInto(scratch, 0, scratch.length);
-      if (got <= 0) {
-        break;
-      }
-      writeBytes(scratch, length: got);
-    }
+    // The length of any other stream is known without reading it, so the
+    // buffer grows once, not by doubling as the pieces arrive
+    reserve(length + stream.length);
+    copyStreamInPieces(stream, this);
   }
 
   @override

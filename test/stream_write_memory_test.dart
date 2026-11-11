@@ -3,16 +3,20 @@ import 'dart:typed_data';
 import 'package:archive/archive.dart';
 import 'package:test/test.dart';
 
-/// A source that can be read in bounded chunks but refuses eager reads.
+/// A source that can be read in bounded chunks but refuses eager reads, and
+/// counts the bytes read through it. Its [subset] hands back the inner stream,
+/// as a checksumming wrapper does, so reads that go through a subset are not
+/// counted.
 class _NoEagerInput extends InputStream {
   _NoEagerInput(List<int> bytes)
       : _source = InputMemoryStream(bytes),
         super(byteOrder: ByteOrder.littleEndian);
 
   final InputMemoryStream _source;
+  int read = 0;
 
   @override
-  int get length => throw StateError('length would decode a lazy source');
+  int get length => _source.length;
   @override
   int get position => _source.position;
   @override
@@ -39,8 +43,12 @@ class _NoEagerInput extends InputStream {
   @override
   int readByte() => _source.readByte();
   @override
-  int readInto(Uint8List into, int at, int count) =>
-      _source.readInto(into, at, count);
+  int readInto(Uint8List into, int at, int count) {
+    final got = _source.readInto(into, at, count);
+    read += got;
+    return got;
+  }
+
   @override
   Uint8List toUint8List() => throw StateError('unexpected eager conversion');
 }
@@ -109,15 +117,19 @@ void main() {
     expect(output.getBytes(), List.filled(1000, 1));
     expect(allocations, lessThan(20));
   });
-  test('OutputMemoryStream streams input without querying lazy length', () {
+
+  test('OutputMemoryStream reads input through it in pieces, growing once', () {
     final data = _fixture();
     final input = _NoEagerInput(data)..skip(17);
-    final output = OutputMemoryStream();
+    final output = OutputMemoryStream(size: 3);
     output.writeBytes([1, 2, 3]);
     output.writeStream(input);
 
     expect(output.getBytes(), [1, 2, 3, ...data.skip(17)]);
     expect(input.position, 17, reason: 'writeStream must preserve position');
+    expect(input.read, data.length - 17);
+    // Sized to the stream up front rather than doubled into
+    expect(output.getBytes().buffer.lengthInBytes, data.length - 17 + 3);
   });
 
   test('OutputMemoryStream growth copies only written content', () {
@@ -137,6 +149,7 @@ void main() {
     final got = decoded.toUint8List();
     expect(got, data.sublist(31));
     expect(source.position, 31, reason: 'writeStream preserves source');
+    expect(source.read, data.length - 31);
     decoded.closeSync();
   });
 
