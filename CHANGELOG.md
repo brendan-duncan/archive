@@ -1,4 +1,4 @@
-# 4.6.1
+# 4.7.0
 
 * Fixed `extractFileToDisk`, `extractArchiveToDisk` and `extractArchiveToDiskSync` writing nothing, without an error,
   when the output path is spelled differently from its real path: a Windows 8.3 short name, such as `RUNNER~1` in
