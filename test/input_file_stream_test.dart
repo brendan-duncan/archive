@@ -72,6 +72,30 @@ void main() {
       expect(buffer.readBytes(125, 8), isEmpty);
     });
 
+    test('scalar reads return 0 when the file ends early', () {
+      final buffer =
+          FileBuffer(_OverstatedLengthHandle(testPath), bufferSize: 8);
+      addTearDown(buffer.closeSync);
+      final reads = <int Function(int)>[
+        buffer.readUint8,
+        buffer.readUint16,
+        buffer.readUint24,
+        buffer.readUint32,
+        buffer.readUint64,
+      ];
+      for (final read in reads) {
+        // Fill the buffer with the first bytes, so that a short refill would
+        // leave them behind the bytes the file still has.
+        expect(buffer.readUint64(0), 0x0706050403020100);
+        expect(read(testData.length), 0);
+        expect(buffer.readUint64(0), 0x0706050403020100);
+        if (read != buffer.readUint8) {
+          expect(read(testData.length - 1), 0);
+        }
+      }
+      expect(buffer.readUint8(testData.length - 1), testData.length - 1);
+    });
+
     test('negative count reads same bytes from file and memory', () {
       final file = InputFileStream(testPath)..readBytes(10);
       addTearDown(file.closeSync);

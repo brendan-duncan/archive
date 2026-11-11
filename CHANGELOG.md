@@ -222,6 +222,12 @@
 * Added `ZipDirectory.headers`, which reads the central directory one entry at a time as it is iterated, so a
   caller that walks a large archive holds one header at a time. `ZipDirectory.read` collects it into `fileHeaders`
   as before. With `files: false` the headers keep no reference to the stream, for a caller that reads entries itself.
+* Fixed `InputFileStream.readUint16`, `readUint24`, `readUint32` and `readUint64` reading past the end of a subset
+  into the bytes after it, and moving the position past the end, when fewer bytes were left than the value needs.
+  They return 0 and stop at the end, as at the end of the file. This affected truncated zip and tar headers.
+* Fixed `FileBuffer.readBytes` returning bytes of an earlier read for a range that runs past the end of the file. It
+  returns only the bytes the file has. It and the 8 to 64-bit reads of `FileBuffer` also did this when the file is
+  shorter than its handle's `length`, for instance a file truncated while open.
 
 # 4.5.2
 

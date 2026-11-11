@@ -123,6 +123,11 @@ class FileBuffer {
     }
     if (position < _position || position >= (_position + _bufferLength)) {
       _readBuffer(position);
+      // A handle that delivers fewer bytes than its length reports leaves the
+      // rest of the buffer holding bytes of an earlier read
+      if (_bufferLength < 1) {
+        return 0;
+      }
     }
     final p = position - _position;
     return _buffer![p];
@@ -135,6 +140,9 @@ class FileBuffer {
     }
     if (position < _position || position + 2 > (_position + _bufferLength)) {
       _readBuffer(position);
+      if (_bufferLength < 2) {
+        return 0;
+      }
     }
     var p = position - _position;
     final b1 = _buffer![p++];
@@ -152,6 +160,9 @@ class FileBuffer {
     }
     if (position < _position || position + 3 > (_position + _bufferLength)) {
       _readBuffer(position);
+      if (_bufferLength < 3) {
+        return 0;
+      }
     }
     var p = position - _position;
     final b1 = _buffer![p++];
@@ -170,6 +181,9 @@ class FileBuffer {
     }
     if (position < _position || position + 4 > (_position + _bufferLength)) {
       _readBuffer(position);
+      if (_bufferLength < 4) {
+        return 0;
+      }
     }
     var p = position - _position;
     final b1 = _buffer![p++];
@@ -189,6 +203,9 @@ class FileBuffer {
     }
     if (position < _position || position + 8 > (_position + _bufferLength)) {
       _readBuffer(position);
+      if (_bufferLength < 8) {
+        return 0;
+      }
     }
     var p = position - _position;
     final b1 = _buffer![p++];
