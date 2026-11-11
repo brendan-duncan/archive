@@ -249,13 +249,19 @@ class LzmaDecoder {
   }
 
   Uint8List decodeUncompressed(InputStream input, int uncompressedLength) {
-    final inputData = input.readBytes(uncompressedLength);
+    // A stored LZMA2 chunk promises an exact byte count. Subset streams may
+    // stop at EOF before that count; reserving the claimed length and moving
+    // _writePosition anyway would leave a gap of zeroes in the dictionary.
+    if (uncompressedLength < 0) {
+      throw ArchiveException('Invalid LZMA2 uncompressed chunk size');
+    }
+    final inputBytes = input.readBytes(uncompressedLength).toUint8List();
+    if (inputBytes.length != uncompressedLength) {
+      throw ArchiveException('Truncated LZMA2 uncompressed chunk');
+    }
     final initialSize = _reserve(uncompressedLength);
-
-    final inputBytes = inputData.toUint8List();
     _dictionary.setAll(initialSize, inputBytes);
-    _writePosition += uncompressedLength;
-
+    _writePosition += inputBytes.length;
     return inputBytes;
   }
 

@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:archive/archive.dart';
@@ -43,6 +44,53 @@ void main() {
     expect(() => decoder.decode(InputMemoryStream(cut), 1 << 16),
         throwsA(isA<ArchiveException>()));
     expect(decoder.endMarkerSeen, isFalse);
+  });
+
+  test('LZMA2 stored chunk refuses truncated content without zero padding', () {
+    final decoder = LzmaDecoder()..reset(resetDictionary: true);
+    final cut = InputMemoryStream([10, 20, 30]);
+    expect(
+        () => decoder.decodeUncompressed(cut, 5),
+        throwsA(isA<ArchiveException>()
+            .having((e) => e.message, 'message', contains('Truncated LZMA2'))));
+    // A failed uncompressed chunk must not advance the decoder dictionary.
+    expect(
+        decoder.decodeUncompressed(InputMemoryStream([40, 50]), 2), [40, 50]);
+  });
+
+  test('LZMA2 stored chunk refuses invalid negative sizes', () {
+    final decoder = LzmaDecoder();
+    expect(() => decoder.decodeUncompressed(InputMemoryStream([1, 2]), -1),
+        throwsA(isA<ArchiveException>()));
+    expect(decoder.decodeUncompressed(InputMemoryStream([7, 8]), 2), [7, 8]);
+  });
+
+  test('a rejected stored chunk preserves dictionary and range decoder state',
+      testOn: 'vm', () {
+    // This fixture contains compressed 350, stored 200, then compressed 350
+    // bytes; the last chunk keeps the first chunk's probabilities and state.
+    final bytes =
+        File('test/_data/xz/lzma2_copy_keeps_state.xz').readAsBytesSync();
+    final expected = List.filled(
+            20, 'the quick brown fox jumps over the lazy dog 0123456789\n')
+        .join()
+        .codeUnits;
+    final decoder = LzmaDecoder()
+      ..reset(
+          literalContextBits: 3,
+          literalPositionBits: 0,
+          positionBits: 0,
+          resetDictionary: true);
+    expect(decoder.decode(InputMemoryStream(bytes.sublist(30, 285)), 350),
+        expected.sublist(0, 350));
+    expect(
+        decoder.decodeUncompressed(
+            InputMemoryStream(bytes.sublist(288, 488)), 200),
+        expected.sublist(350, 550));
+    expect(() => decoder.decodeUncompressed(InputMemoryStream([1, 2, 3]), 5),
+        throwsA(isA<ArchiveException>()));
+    expect(decoder.decode(InputMemoryStream(bytes.sublist(493, 702)), 350),
+        expected.sublist(550, 900));
   });
 
   test('LZMA2 chunk with an end marker is rejected', () {
