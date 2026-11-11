@@ -217,6 +217,53 @@ void main() {
     });
   });
 
+  group('output path spelled differently from the disk', () {
+    // The output directory resolves to another spelling than the one given,
+    // so entries are checked against its real path, not its text.
+    Archive withEscape() => Archive()
+      ..add(text('a/b.txt', 'kept'))
+      ..add(ArchiveFile.symlink('l', '..'))
+      ..add(text('l/x', 'escaped'));
+
+    void expectExtracted(String outPath) {
+      expect(File(p.join(outPath, 'a', 'b.txt')).readAsStringSync(), 'kept');
+      expect(File(p.join(dir.path, 'x')).existsSync(), isFalse);
+    }
+
+    test('in letter case', () {
+      Directory(p.join(dir.path, 'Out')).createSync();
+      final lower = p.join(dir.path, 'out');
+      if (!Directory(lower).existsSync()) {
+        markTestSkipped('the file system is case-sensitive');
+        return;
+      }
+      extractArchiveToDiskSync(withEscape(), lower);
+      expectExtracted(lower);
+    });
+
+    test('as a Windows 8.3 short name', () {
+      final long = Directory(p.join(dir.path, 'long_directory_name'))
+        ..createSync();
+      final result = Process.runSync(
+          'cmd', ['/c', 'for %I in ("${long.path}") do @echo %~sI']);
+      final short = (result.stdout as String).trim();
+      if (result.exitCode != 0 || short.isEmpty || short == long.path) {
+        markTestSkipped('the volume has no 8.3 names');
+        return;
+      }
+      extractArchiveToDiskSync(withEscape(), short);
+      expectExtracted(short);
+    }, skip: Platform.isWindows ? null : 'Windows only');
+
+    test('through a link', () {
+      Directory(p.join(dir.path, 'real')).createSync();
+      final link = p.join(dir.path, 'link');
+      Link(link).createSync(p.join(dir.path, 'real'));
+      extractArchiveToDiskSync(withEscape(), link);
+      expectExtracted(link);
+    });
+  });
+
   test('extractTarFiles keeps entries inside the output', () {
     final archive = Archive()
       ..add(text('../outside.txt', 'escaped'))
