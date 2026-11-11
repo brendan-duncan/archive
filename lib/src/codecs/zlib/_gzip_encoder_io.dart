@@ -26,17 +26,7 @@ class _GZipEncoder extends ZLibEncoderBase {
             .encoder
             .startChunkedConversion(outSink);
 
-    // A lazy source's length would decode its entire remainder into RAM.
-    // Reuse one scratch buffer for both memory-backed and file-backed input.
-    // The native chunked codec consumes add() synchronously.
-    final scratch = Uint8List(zlibChunkSize);
-    while (!input.isEOS) {
-      final got = input.readInto(scratch, 0, scratch.length);
-      if (got <= 0) {
-        break;
-      }
-      inSink.add(Uint8List.sublistView(scratch, 0, got));
-    }
+    addInChunks(input, inSink);
     inSink.close();
   }
 }

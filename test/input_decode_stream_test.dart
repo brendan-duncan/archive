@@ -66,6 +66,17 @@ void main() {
       expect(stream.readByte(), 0);
     });
 
+    test('readInto of a negative or zero count reads nothing', () {
+      final data = sample(100);
+      final stream = InputDecodeStream(_ListDecoder(data))..skip(5);
+      final target = Uint8List(4)..fillRange(0, 4, 0xa5);
+      expect(stream.readInto(target, 0, -3), 0);
+      expect(stream.readInto(target, 0, 0), 0);
+      expect(stream.position, 5);
+      expect(target, everyElement(0xa5));
+      expect(stream.readByte(), data[5]);
+    });
+
     test('short readInto advances only by bytes returned at EOF', () {
       final data = sample(1003);
       final stream = InputDecodeStream(_ListDecoder(data));

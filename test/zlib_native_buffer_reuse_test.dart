@@ -15,6 +15,10 @@ class _ReadIntoOnly extends InputMemoryStream {
   int bulkReads = 0;
   Uint8List? scratch;
 
+  // No views, so it is read as a file is
+  @override
+  Uint8List? viewBytes(int count) => null;
+
   @override
   InputStream readBytes(int count) {
     if (count > 4100) {

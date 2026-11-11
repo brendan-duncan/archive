@@ -180,6 +180,9 @@ class InputDecodeStream extends InputStream {
 
   @override
   int readInto(Uint8List into, int at, int count) {
+    if (count <= 0) {
+      return 0;
+    }
     final own = _length;
     if (own != null) {
       count = max(0, min(count, own - _position));

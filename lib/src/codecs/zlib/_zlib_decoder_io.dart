@@ -25,6 +25,9 @@ class _ZLibDecoder extends ZLibDecoderBase {
       {bool verify = false, bool raw = false, bool? throwOnError}) {
     final strict = throwOnError ?? verify;
     var out = Uint8List(0);
+    // OutputMemoryStream grows by doubling, which costs 5-9% of time on text
+    // against upstream, but peak RSS on 200 MB output
+    // is 344 MB against 466 MB in upstream
     final partial = OutputMemoryStream();
     List<int>? input = data;
     guardDecode('zlib', verify, strict, () {
@@ -38,12 +41,35 @@ class _ZLibDecoder extends ZLibDecoderBase {
       final tail = verify && !raw
           ? bytes.sublist(max(0, bytes.length - 4 - zlibAdlerWindow))
           : null;
+      // Computed Adler-32 fed as trailer lets dart:io reject crafted deflate
+      // with matching checksum, but Adler-32 on every input made throwOnError
+      // 12-20% slower on 100 and 500 MB, so it stays off
+      // var adler = 1;
+      // if (!raw && (verify || throwOnError)) {
+      //   final outSink = ZLibOutputSink(partial)
+      //     ..value = 1
+      //     ..update = getAdler32;
+      //   final inSink = ZLibCodec().decoder.startChunkedConversion(outSink);
+      //   inSink.add(
+      //       Uint8List.sublistView(bytes, 0, bytes.length - trailerLength));
+      //   inSink.add(_adlerTrailer(outSink.value));
+      //   inSink.close();
+      //   out = partial.getBytes();
+      //   adler = outSink.value;
+      // } else {
+      // dart:io drops output of failing inflate call, up to 64 KiB before
+      // damage. Feeding 8 KiB pieces keeps that output but costs 15-17% on
+      // text and 80% on random data, and second decode reads input twice
       final trailerAccepted = convertKeepingPartial(ZLibCodec(raw: raw).decoder,
           bytes, bytes.length - trailerLength, partial,
           trailer: bytes.sublist(bytes.length - trailerLength));
       out = partial.getBytes();
+      // }
       if (verify && !raw) {
         checkZlibAdler(tail!, getAdler32(out), trailerAccepted);
+        // if (!_completeDeflate(InputMemoryStream(bytes), 0, bytes.length)) {
+        //   return false;
+        // }
       }
       return true;
     });
@@ -79,27 +105,21 @@ class _ZLibDecoder extends ZLibDecoderBase {
     if (!raw && seen < trailerLength + 2) {
       return false;
     }
+    // final start = input.position;
     final outSink = ZLibOutputSink(output);
+    // if (!raw && (verify || throwOnError)) {
     if (verify && !raw) {
       outSink
         ..value = 1
         ..update = getAdler32;
     }
     final inSink = ZLibCodec(raw: raw).decoder.startChunkedConversion(outSink);
-    var left = seen - trailerLength;
-    // File-backed reads need one reusable buffer to avoid per-chunk copies.
-    final scratch = Uint8List(zlibChunkSize);
-    while (left > 0) {
-      final take = min(zlibChunkSize, left);
-      final got = input.readInto(scratch, 0, take);
-      if (got <= 0) {
-        break;
-      }
-      // dart:io's chunked decoder processes add synchronously, so the
-      // underlying bytes can be overwritten on the next iteration.
-      inSink.add(Uint8List.sublistView(scratch, 0, got));
-      left -= got;
-    }
+    final fed = addInChunks(input, inSink, seen - trailerLength);
+    // Computed Adler-32 trailer made throwOnError 12-20% slower on 100 and
+    // 500 MB for crafted streams only, so it stays off as in decodeBytes
+    // if (!raw && (verify || throwOnError)) {
+    //   inSink.add(_adlerTrailer(outSink.value));
+    // }
     final trailerAccepted = addTrailerUnchecked(
         inSink, input.readBytes(trailerLength).toUint8List());
     inSink.close();
@@ -109,13 +129,93 @@ class _ZLibDecoder extends ZLibDecoderBase {
     if (!verify) {
       return true;
     }
-    final back = min(zlibAdlerWindow, seen - trailerLength - left);
+    final back = min(zlibAdlerWindow, fed);
     input.rewind(back + trailerLength);
     checkZlibAdler(input.readBytes(back + 4).toUint8List(), outSink.value,
         trailerAccepted);
+    // if (!_completeDeflate(input, start, seen)) {
+    //   return false;
+    // }
     return true;
   }
 }
+
+// Second inflate pass in Dart made verify on 100 MB enwik8 take 645 ms,
+// not 191 ms, and catches only crafted streams, so this check stays off
+// dart:io can accept a block without BFINAL when its Adler-32 matches,
+// so validate the DEFLATE terminator separately
+// bool _completeDeflate(InputStream input, int start, int seen) {
+//   final held = input.position;
+//   try {
+//     input.setPosition(start + 1);
+//     final flags = input.readByte();
+//     if (flags & 0x20 != 0) {
+//       if (input.length < 4) {
+//         return false;
+//       }
+//       input.skip(4);
+//     }
+//     final deflateStart = input.position;
+//     final end = start + seen - 4;
+//     while (input.position < end) {
+//       final header = input.readByte();
+//       if (header & 6 != 0) {
+//         input.setPosition(deflateStart);
+//         break;
+//       }
+//       if (input.position + 4 > end) {
+//         return false;
+//       }
+//       final length = input.readByte() | (input.readByte() << 8);
+//       final inverse = input.readByte() | (input.readByte() << 8);
+//       if ((length ^ inverse) != 0xffff || input.position + length > end) {
+//         return false;
+//       }
+//       input.skip(length);
+//       if (header & 1 != 0) {
+//         return true;
+//       }
+//     }
+//     if (input.position >= end) {
+//       return false;
+//     }
+//     final inflate = Inflate.stream(input, output: _CountOutputStream());
+//     return inflate.isFinished && input.position <= start + seen - 4;
+//   } finally {
+//     input.setPosition(held);
+//   }
+// }
+//
+// class _CountOutputStream extends OutputMemoryStream {
+//   _CountOutputStream() : super(size: 0);
+//
+//   @override
+//   void writeByte(int value) {
+//     length++;
+//   }
+//
+//   @override
+//   void writeBytes(List<int> bytes, {int? length}) {
+//     this.length += length ?? bytes.length;
+//   }
+//
+//   @override
+//   void writeStream(InputStream stream) {
+//     length += stream.length;
+//   }
+//
+//   @override
+//   void writeBackReference(int distance, int count) {
+//     length += count;
+//   }
+// }
+
+// Uint8List _adlerTrailer(int value) => Uint8List.fromList([
+//       value >> 24 & 0xff,
+//       value >> 16 & 0xff,
+//       value >> 8 & 0xff,
+//       value & 0xff,
+//     ]);
 
 const zlibAdlerWindow = 4096;
 

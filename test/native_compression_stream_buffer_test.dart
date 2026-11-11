@@ -14,8 +14,9 @@ class _ChunkOnlyInput extends InputMemoryStream {
 
   int calls = 0;
 
+  // No views, so it is read as a file or a lazy stream is
   @override
-  int get length => throw StateError('eager length requested');
+  Uint8List? viewBytes(int count) => null;
 
   @override
   InputStream readBytes(int count) =>
@@ -123,4 +124,45 @@ void main() {
       }
     }
   });
+
+  test('memory input is handed to the native codecs as views, not copied', () {
+    // 2 MB and 7 bytes: whole chunks, then a short last one
+    final bytes = _payload(2 * 1024 * 1024 + 7);
+    final source = _ViewCountingInput(bytes);
+    final packed = OutputMemoryStream();
+    GZipEncoder().encodeStream(source, packed, level: 1);
+    expect(source.readIntoCalls, 0);
+    expect(source.views, greaterThan(10));
+    expect(GZipDecoder().decodeBytes(packed.getBytes(), verify: true), bytes);
+
+    final zlib = OutputMemoryStream();
+    ZLibEncoder().encodeStream(_ViewCountingInput(bytes), zlib, level: 1);
+    final compressed = _ViewCountingInput(zlib.getBytes());
+    final out = OutputMemoryStream();
+    expect(ZLibDecoder().decodeStream(compressed, out, verify: true), isTrue);
+    expect(compressed.readIntoCalls, 0);
+    expect(out.getBytes(), bytes);
+  });
+}
+
+class _ViewCountingInput extends InputMemoryStream {
+  _ViewCountingInput(super.bytes);
+
+  int views = 0;
+  int readIntoCalls = 0;
+
+  @override
+  Uint8List? viewBytes(int count) {
+    final view = super.viewBytes(count);
+    if (view != null) {
+      views++;
+    }
+    return view;
+  }
+
+  @override
+  int readInto(Uint8List into, int at, int count) {
+    readIntoCalls++;
+    return super.readInto(into, at, count);
+  }
 }
