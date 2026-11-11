@@ -24,7 +24,8 @@ int _openDescriptorsFor(String filePath) {
 
 void main() {
   test('a rejected file entry does not keep an input handle open', () {
-    if (!Platform.isLinux || !Directory('/proc/self/fd').existsSync()) {
+    final linux = Platform.isLinux && Directory('/proc/self/fd').existsSync();
+    if (!linux && !Platform.isWindows) {
       return;
     }
     final dir = Directory.systemTemp.createTempSync('archive-zip-fd-');
@@ -33,14 +34,19 @@ void main() {
       ..writeAsBytesSync([1, 2, 3]);
     final output = p.join(dir.path, 'archive.zip');
     final encoder = ZipFileEncoder()..create(output);
-    final before = _openDescriptorsFor(inputFile.path);
+    final before = linux ? _openDescriptorsFor(inputFile.path) : 0;
     try {
       // Invalid zip names fail before the encoder's normal autoClose callback.
       expect(
         () => encoder.addFileSync(inputFile, ''.padRight(65536, 'a')),
         throwsA(isA<ArchiveException>()),
       );
-      expect(_openDescriptorsFor(inputFile.path), before);
+      if (linux) {
+        expect(_openDescriptorsFor(inputFile.path), before);
+      } else {
+        // Windows does not delete a file that is still open
+        inputFile.deleteSync();
+      }
     } finally {
       encoder.closeSync();
     }

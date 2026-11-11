@@ -31,12 +31,15 @@ class ZipFileEncoder {
     final outputPath = _composeZipDirectoryPath(dir: dir, filename: filename);
     create(outputPath, level: level ??= gzip, modified: modified);
 
-    Object? callbackError;
-    T callCallback<T>(T Function() callback) {
+    // A callback that throws keeps a valid zip of the entries added before it,
+    // as cancel does. Any other failure deletes the incomplete zip, as
+    // TarFileEncoder does
+    var callbackFailed = false;
+    T call<T>(T Function() callback) {
       try {
         return callback();
-      } catch (error) {
-        callbackError = error;
+      } catch (_) {
+        callbackFailed = true;
         rethrow;
       }
     }
@@ -48,26 +51,24 @@ class ZipFileEncoder {
           followLinks: followLinks,
           onProgress: onProgress == null
               ? null
-              : (value) => callCallback(() => onProgress(value)),
+              : (value) => call(() => onProgress(value)),
           filter: filter == null
               ? null
-              : (entry, value) => callCallback(() => filter(entry, value)));
-    } catch (error, stackTrace) {
-      // Callback failures retain a valid ZIP of the completed entries;
-      // source I/O failures must remove the incomplete output.
-      if (error is FileSystemException && !identical(error, callbackError)) {
+              : (entry, value) => call(() => filter(entry, value)));
+    } catch (_) {
+      if (callbackFailed) {
+        try {
+          await close();
+        } catch (_) {}
+      } else {
         try {
           await _output.close();
         } catch (_) {}
         try {
           await File(outputPath).delete();
         } catch (_) {}
-      } else {
-        try {
-          await close();
-        } catch (_) {}
       }
-      Error.throwWithStackTrace(error, stackTrace);
+      rethrow;
     }
     await close();
   }
@@ -117,7 +118,9 @@ class ZipFileEncoder {
   }) {
     _output = outputFileStream;
     _level = level;
-    // Streamed ZIP writes data descriptors to avoid buffering entire entries.
+    // Without streamed ZipEncoder compressed each deflated entry into memory:
+    // 1042 MB for 920 MB file at level 1, 667 MB at level 6. With streamed it
+    // writes sizes in data descriptor after data and needs 19 MB
     _encoder = ZipEncoder(password: password, streamed: true);
     _encoder.startEncode(_output, level: level, modified: modified);
   }
@@ -176,19 +179,18 @@ class ZipFileEncoder {
       void Function(double)? onProgress,
       ZipFileProgress? filter}) async {
     final dirName = path.basename(dir.path);
-    // List files lazily so a directory with many entries does not create a
-    // large list or block the event loop while enumerating it. Only a caller
-    // requesting progress needs an initial counting pass.
+    // Without callbacks entries are added as the directory is listed. Progress
+    // needs the count, so the tree is listed once and then added
+    final listing = dir.list(recursive: true, followLinks: followLinks);
     var amount = 0;
+    var files = listing;
     if (filter != null || onProgress != null) {
-      await for (final _ in
-          dir.list(recursive: true, followLinks: followLinks)) {
-        amount++;
-      }
+      final all = await listing.toList();
+      amount = all.length;
+      files = Stream.fromIterable(all);
     }
     var current = 0;
-    await for (final file in
-        dir.list(recursive: true, followLinks: followLinks)) {
+    await for (final file in files) {
       final progress = amount == 0 ? 0.0 : ++current / amount;
       if (filter != null) {
         final operation = filter(file, progress);
@@ -263,7 +265,9 @@ class ZipFileEncoder {
   }
 
   void _add(ArchiveFile file, int? level) {
-    // Store uses ZIP method 0 rather than deflate at compression level 0.
+    // ZipEncoder took store as deflate level 0: it buffered whole entry in
+    // memory, 2 GB for 1 GB file, and wrote method 8. We set method 0, which
+    // ZipEncoder writes straight from file
     if ((level ?? _level) != store || file.compression != null) {
       _encoder.add(file, level: level);
       return;

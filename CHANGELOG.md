@@ -246,6 +246,11 @@
   metadata fails, and `close` closes the output when finishing the tar fails.
 * `TarFileEncoder.addDirectory` without a `filter` adds entries as the directory is listed, instead of listing the
   whole tree first.
+* `ZipFileEncoder.zipDirectory` deletes the zip when adding an entry fails, as `TarFileEncoder.tarDirectory` does. When
+  `filter` or `onProgress` throws, the zip of the entries added before it is kept, as with `ZipFileOperation.cancel`.
+  `addDirectory` without callbacks adds entries as the directory is listed, instead of listing the whole tree first.
+* Fixed `ZipFileEncoder.addFileSync` leaving its input file open, and `addFile` leaving it open when the entry fails.
+  `close` and `closeSync` close the output when finishing the zip fails.
 
 # 4.5.2
 

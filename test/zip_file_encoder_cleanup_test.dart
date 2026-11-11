@@ -62,6 +62,21 @@ void main() {
     expect(File(out).existsSync(), isFalse);
   });
 
+  test('a source error that is not a FileSystemException deletes the ZIP',
+      () async {
+    final root = Directory.systemTemp.createTempSync('archive-zip-name-');
+    addTearDown(() => root.deleteSync(recursive: true));
+    final source = Directory(p.join(root.path, 'source'))..createSync();
+    File(p.join(source.path, 'a.txt')).writeAsStringSync('data');
+    final out = p.join(root.path, 'archive.zip');
+    final encoder = ZipFileEncoder();
+    await expectLater(
+      encoder.zipDirectory(source, filename: out, level: 70000),
+      throwsA(anything),
+    );
+    expect(File(out).existsSync(), isFalse);
+  });
+
   test('ZIP cancellation still completes as a valid partial archive', () async {
     final root = Directory.systemTemp.createTempSync('archive-zip-cancel-');
     addTearDown(() => root.deleteSync(recursive: true));
