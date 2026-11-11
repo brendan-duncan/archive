@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'byte_order.dart';
+import 'input_decode_stream.dart';
 import 'input_memory_stream.dart';
 import 'input_stream.dart';
 import 'output_stream.dart';
@@ -68,22 +69,36 @@ class OutputMemoryStream extends OutputStream {
 
   @override
   void writeStream(InputStream stream) {
-    while (length + stream.length > _buffer.length) {
-      _expandBuffer((length + stream.length) - _buffer.length);
-    }
-
     if (stream is InputMemoryStream) {
+      // An in-memory stream already provides direct access to its data.
+      final count = stream.length;
+      while (length + count > _buffer.length) {
+        _expandBuffer(length + count - _buffer.length);
+      }
       if (stream.buffer != null) {
         _buffer.setRange(
-            length, length + stream.length, stream.buffer!, stream.position);
+            length, length + count, stream.buffer!, stream.position);
       }
-    } else {
-      final bytes = stream.toUint8List();
-      _buffer.setRange(length, length + bytes.length, bytes, 0);
-      length += bytes.length;
+      length += count;
       return;
     }
-    length += stream.length;
+
+    // Advancing a decode view discards data at the source's original position.
+    if (stream is InputDecodeStream) {
+      writeBytes(stream.toUint8List());
+      return;
+    }
+
+    // Copy bounded pieces through a view, leaving the source position intact.
+    final reader = stream.subset(position: stream.position);
+    final scratch = Uint8List(64 * 1024);
+    while (!reader.isEOS) {
+      final got = reader.readInto(scratch, 0, scratch.length);
+      if (got <= 0) {
+        break;
+      }
+      writeBytes(scratch, length: got);
+    }
   }
 
   @override
@@ -141,8 +156,9 @@ class OutputMemoryStream extends OutputStream {
     if (newLength < minLength) {
       newLength = minLength;
     }
-    final newBuffer = Uint8List(newLength)
-      ..setRange(0, _buffer.length, _buffer);
+    // The unwritten tail of the previous allocation is not data. Copying
+    // the entire capacity can move hundreds of megabytes of unused bytes.
+    final newBuffer = Uint8List(newLength)..setRange(0, length, _buffer);
     _buffer = newBuffer;
   }
 }

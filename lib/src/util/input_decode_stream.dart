@@ -306,7 +306,23 @@ class _DecodeWindow extends OutputStream {
   }
 
   @override
-  void writeStream(InputStream stream) => writeBytes(stream.toUint8List());
+  void writeStream(InputStream stream) {
+    // Advancing a decode view discards data at the source's original position.
+    if (stream is InputDecodeStream) {
+      writeBytes(stream.toUint8List());
+      return;
+    }
+    // Copy bounded pieces through a view, leaving the source position intact.
+    final reader = stream.subset(position: stream.position);
+    final scratch = Uint8List(64 * 1024);
+    while (!reader.isEOS) {
+      final got = reader.readInto(scratch, 0, scratch.length);
+      if (got <= 0) {
+        break;
+      }
+      writeBytes(scratch, length: got);
+    }
+  }
 
   @override
   void writeBackReference(int distance, int count) {
