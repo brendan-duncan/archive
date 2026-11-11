@@ -244,8 +244,11 @@ void main() {
     test('as a Windows 8.3 short name', () {
       final long = Directory(p.join(dir.path, 'long_directory_name'))
         ..createSync();
+      // A quoted path in the command would reach cmd as \" and be echoed
+      // back unchanged, so the directory is given as the working directory
       final result = Process.runSync(
-          'cmd', ['/c', 'for %I in ("${long.path}") do @echo %~sI']);
+          'cmd', ['/c', 'for %I in (.) do @echo %~sI'],
+          workingDirectory: long.path);
       final short = (result.stdout as String).trim();
       if (result.exitCode != 0 || short.isEmpty || short == long.path) {
         markTestSkipped('the volume has no 8.3 names');

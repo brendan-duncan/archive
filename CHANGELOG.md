@@ -1,3 +1,40 @@
+# 4.6.1
+
+* Fixed `extractFileToDisk`, `extractArchiveToDisk` and `extractArchiveToDiskSync` writing nothing, without an error,
+  when the output path is spelled differently from its real path: a Windows 8.3 short name, such as `RUNNER~1` in
+  `%TEMP%` on GitHub runners, or a different letter case on a case-insensitive file system. Every entry was taken for
+  one outside the output directory (#439).
+* `extractFileToDisk` no longer calls `callback` for a zip or tar entry that is not written, such as one whose path
+  points outside the output directory, or a zip link that cannot be read, so a caller counting the calls may see fewer
+  than the entries.
+* Fixed `InputFileStream.readUint16`, `readUint24`, `readUint32` and `readUint64` reading past the end of a subset
+  into the bytes after it, and moving the position past the end, when fewer bytes were left than the value needs.
+  They return 0 and stop at the end, as at the end of the file. This affected truncated zip and tar headers.
+* Fixed `FileBuffer.readBytes` returning bytes of an earlier read for a range that runs past the end of the file. It
+  returns only the bytes the file has. It and the 8 to 64-bit reads of `FileBuffer` also did this when the file is
+  shorter than its handle's `length`, for instance a file truncated while open.
+* Fixed `LzmaDecoder.decodeUncompressed` leaving zeroes in the dictionary for the missing bytes of a stored chunk that
+  is cut short, which a later chunk could copy. It throws `ArchiveException` for a short or negative length and
+  leaves the decoder as it was. `XZDecoder` still returns the bytes before the cut of such a chunk.
+* Fixed `ZipDecoder` finding no entries in a zip whose comment holds the end of central directory signature. A
+  candidate whose comment length reaches the end of the file is preferred.
+* `ZipDecoder` searches for the end of central directory only in the last 65535 + 4096 + 22 bytes of the input,
+  instead of the whole file, so a corrupt or non-zip file is no longer read to its start. A zip followed by more
+  than 69631 bytes, less its comment, is no longer found.
+* `TarFileEncoder.tarDirectory` compresses `.tar.gz` and `.tar.zst` as the tar is written, instead of writing a whole
+  uncompressed tar to the system temp directory first. A `.tar.zst` frame no longer records its content size, which
+  is not known while streaming. A failed `.tar.gz` or `.tar.zst` is deleted rather than left partly written.
+* Fixed `TarFileEncoder` adding the archive it is writing to itself when the output is inside the directory being
+  added, also through a linked directory or a hard link. `addFile` closes the input file when reading its
+  metadata fails, and `close` closes the output when finishing the tar fails.
+* `TarFileEncoder.addDirectory` without a `filter` adds entries as the directory is listed, instead of listing the
+  whole tree first.
+* `ZipFileEncoder.zipDirectory` deletes the zip when adding an entry fails, as `TarFileEncoder.tarDirectory` does. When
+  `filter` or `onProgress` throws, the zip of the entries added before it is kept, as with `ZipFileOperation.cancel`.
+  `addDirectory` without callbacks adds entries as the directory is listed, instead of listing the whole tree first.
+* Fixed `ZipFileEncoder.addFileSync` leaving its input file open, and `addFile` leaving it open when the entry fails.
+  `close` and `closeSync` close the output when finishing the zip fails.
+
 # 4.6.0
 
 * *BREAKING CHANGE*: All decoders (`XZDecoder`, `TarDecoder`, `ZipDecoder`, `GZipDecoder`, `ZLibDecoder`,
@@ -70,8 +107,6 @@
   the last one. It keeps the last one, as 3.x did.
 * *BREAKING CHANGE*: `extractFileToDisk` calls `callback` for a zip entry after the entry is written, as it does for
   tar. It used to call it for every zip entry while the central directory was read, before any file was written.
-  For zip and tar it is no longer called for an entry that is not written, such as one whose path points outside the
-  output directory, or a zip link that cannot be read, so a caller counting the calls may see fewer than the entries.
 * Fixed `extractFileToDisk` extracting junk entries from a gzip, bzip2, xz or zstd file that does not hold a tar, also
   when its name ends with `.tar.gz` or a similar extension. It throws `ArgumentError` for such a file.
 * Fixed `BZip2Decoder` returning only the first stream of concatenated bzip2 files, as `pbzip2` writes them, without
@@ -224,37 +259,6 @@
 * Added `ZipDirectory.headers`, which reads the central directory one entry at a time as it is iterated, so a
   caller that walks a large archive holds one header at a time. `ZipDirectory.read` collects it into `fileHeaders`
   as before. With `files: false` the headers keep no reference to the stream, for a caller that reads entries itself.
-* Fixed `InputFileStream.readUint16`, `readUint24`, `readUint32` and `readUint64` reading past the end of a subset
-  into the bytes after it, and moving the position past the end, when fewer bytes were left than the value needs.
-  They return 0 and stop at the end, as at the end of the file. This affected truncated zip and tar headers.
-* Fixed `FileBuffer.readBytes` returning bytes of an earlier read for a range that runs past the end of the file. It
-  returns only the bytes the file has. It and the 8 to 64-bit reads of `FileBuffer` also did this when the file is
-  shorter than its handle's `length`, for instance a file truncated while open.
-* Fixed `LzmaDecoder.decodeUncompressed` leaving zeroes in the dictionary for the missing bytes of a stored chunk that
-  is cut short, which a later chunk could copy. It throws `ArchiveException` for a short or negative length and
-  leaves the decoder as it was. `XZDecoder` still returns the bytes before the cut of such a chunk.
-* Fixed `ZipDecoder` finding no entries in a zip whose comment holds the end of central directory signature. A
-  candidate whose comment length reaches the end of the file is preferred.
-* `ZipDecoder` searches for the end of central directory only in the last 65535 + 4096 + 22 bytes of the input,
-  instead of the whole file, so a corrupt or non-zip file is no longer read to its start. A zip followed by more
-  than 69631 bytes, less its comment, is no longer found.
-* `TarFileEncoder.tarDirectory` compresses `.tar.gz` and `.tar.zst` as the tar is written, instead of writing a whole
-  uncompressed tar to the system temp directory first. A `.tar.zst` frame no longer records its content size, which
-  is not known while streaming. A failed `.tar.gz` or `.tar.zst` is deleted rather than left partly written.
-* Fixed `TarFileEncoder` adding the archive it is writing to itself when the output is inside the directory being
-  added, also through a linked directory or a hard link. `addFile` closes the input file when reading its
-  metadata fails, and `close` closes the output when finishing the tar fails.
-* `TarFileEncoder.addDirectory` without a `filter` adds entries as the directory is listed, instead of listing the
-  whole tree first.
-* `ZipFileEncoder.zipDirectory` deletes the zip when adding an entry fails, as `TarFileEncoder.tarDirectory` does. When
-  `filter` or `onProgress` throws, the zip of the entries added before it is kept, as with `ZipFileOperation.cancel`.
-  `addDirectory` without callbacks adds entries as the directory is listed, instead of listing the whole tree first.
-* Fixed `ZipFileEncoder.addFileSync` leaving its input file open, and `addFile` leaving it open when the entry fails.
-  `close` and `closeSync` close the output when finishing the zip fails.
-* Fixed `extractFileToDisk`, `extractArchiveToDisk` and `extractArchiveToDiskSync` writing nothing, without an error,
-  when the output path is spelled differently from its real path: a Windows 8.3 short name, such as `RUNNER~1` in
-  `%TEMP%` on GitHub runners, or a different letter case on a case-insensitive file system. Every entry was taken for
-  one outside the output directory (#439).
 
 # 4.5.2
 
