@@ -655,18 +655,21 @@ class XZStreamDecoder {
       if (control == 0) {
         decoder.reset(resetDictionary: true);
         return true;
-      } else if (control == 1) {
-        decoder.reset(resetDictionary: true);
+      } else if (control == 1 || control == 2) {
+        // uncompressed data, after a dictionary reset for 1
+        if (control == 1) {
+          decoder.reset(resetDictionary: true);
+        }
         final length = (input.readByte() << 8 | input.readByte()) + 1;
-        output.writeBytes(
-            decoder.decodeUncompressed(input.readBytes(length), length));
+        // A cut chunk still hands over the bytes it has, as xz does, so the
+        // output of a truncated file keeps everything up to the cut
+        final got = input.length < length ? input.length : length;
+        output
+            .writeBytes(decoder.decodeUncompressed(input.readBytes(got), got));
         decoder.trimDictionary(dictionarySize);
-      } else if (control == 2) {
-        // uncompressed data
-        final length = (input.readByte() << 8 | input.readByte()) + 1;
-        output.writeBytes(
-            decoder.decodeUncompressed(input.readBytes(length), length));
-        decoder.trimDictionary(dictionarySize);
+        if (got < length) {
+          return _fail('Truncated LZMA2 chunk');
+        }
       } else {
         return _fail('Unknown LZMA2 control code $control');
       }

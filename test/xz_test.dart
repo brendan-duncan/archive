@@ -37,6 +37,26 @@ void main() {
       expect(data, equals(utf8.encode('hello\n')));
     });
 
+    test('a file cut inside a stored chunk keeps the bytes before the cut',
+        testOn: 'vm', () {
+      // 350 bytes of compressed chunk, then a stored chunk of 200 whose data
+      // starts at 288, so a cut at 400 leaves 112 of it
+      final bytes = File('test/_data/xz/lzma2_copy_keeps_state.xz')
+          .readAsBytesSync()
+          .sublist(0, 400);
+      final expected = List.filled(
+              20, 'the quick brown fox jumps over the lazy dog 0123456789\n')
+          .join()
+          .codeUnits
+          .sublist(0, 462);
+      expect(XZDecoder().decodeBytes(bytes), expected);
+      final output = OutputMemoryStream();
+      expect(XZDecoder().decodeStream(InputMemoryStream(bytes), output), false);
+      expect(output.getBytes(), expected);
+      expect(() => XZDecoder().decodeBytes(bytes, throwOnError: true),
+          throwsA(isA<ArchiveException>()));
+    });
+
     test('decode crc32', testOn: 'vm', () {
       // Uses a CRC-32 checksum.
       final file = File(p.join('test/_data/xz/crc32.xz'));

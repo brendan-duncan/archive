@@ -228,6 +228,9 @@
 * Fixed `FileBuffer.readBytes` returning bytes of an earlier read for a range that runs past the end of the file. It
   returns only the bytes the file has. It and the 8 to 64-bit reads of `FileBuffer` also did this when the file is
   shorter than its handle's `length`, for instance a file truncated while open.
+* Fixed `LzmaDecoder.decodeUncompressed` leaving zeroes in the dictionary for the missing bytes of a stored chunk that
+  is cut short, which a later chunk could copy. It throws `ArchiveException` for a short or negative length and
+  leaves the decoder as it was. `XZDecoder` still returns the bytes before the cut of such a chunk.
 
 # 4.5.2
 
