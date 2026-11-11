@@ -187,7 +187,10 @@ class InputFileStream extends InputStream {
   /// Read a 16-bit word from the stream.
   @override
   int readUint16() {
-    if (isEOS) {
+    // A truncated scalar must not advance past the logical stream boundary:
+    // malformed archive headers can finish with fewer than 2 bytes.
+    if (_fileSize - _position < 2) {
+      _position = _fileSize;
       return 0;
     }
     if (byteOrder != _file.byteOrder) {
@@ -201,7 +204,10 @@ class InputFileStream extends InputStream {
   /// Read a 24-bit word from the stream.
   @override
   int readUint24() {
-    if (isEOS) {
+    // A truncated scalar must not advance past the logical stream boundary:
+    // malformed archive headers can finish with fewer than 3 bytes.
+    if (_fileSize - _position < 3) {
+      _position = _fileSize;
       return 0;
     }
     if (byteOrder != _file.byteOrder) {
@@ -215,7 +221,10 @@ class InputFileStream extends InputStream {
   /// Read a 32-bit word from the stream.
   @override
   int readUint32() {
-    if (isEOS) {
+    // A truncated scalar must not advance past the logical stream boundary:
+    // malformed archive headers can finish with fewer than 4 bytes.
+    if (_fileSize - _position < 4) {
+      _position = _fileSize;
       return 0;
     }
     if (byteOrder != _file.byteOrder) {
@@ -229,7 +238,10 @@ class InputFileStream extends InputStream {
   /// Read a 64-bit word form the stream.
   @override
   int readUint64() {
-    if (isEOS) {
+    // A truncated scalar must not advance past the logical stream boundary:
+    // malformed archive headers can finish with fewer than 8 bytes.
+    if (_fileSize - _position < 8) {
+      _position = _fileSize;
       return 0;
     }
     if (byteOrder != _file.byteOrder) {

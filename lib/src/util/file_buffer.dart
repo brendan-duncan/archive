@@ -264,24 +264,30 @@ class FileBuffer {
   /// Read [count] bytes starting at the given [position] within the file.
   Uint8List readBytes(int position, int count,
       [@Deprecated('Ignored') int? fileSize]) {
+    if (position < 0) {
+      throw RangeError.range(position, 0, _fileSize, 'position');
+    }
+    // Clamp both paths so a short tail cannot expose stale buffered bytes.
+    if (position >= _fileSize || count <= 0) {
+      return Uint8List(0);
+    }
+    final available = _fileSize - position;
+    if (count > available) {
+      count = available;
+    }
     if (count > buffer.length) {
-      final available = position >= _fileSize ? 0 : _fileSize - position;
-      if (count > available) {
-        count = available;
-      }
       final bytes = Uint8List(count);
-      _readIntoFile(position, bytes, 0, count);
-      return bytes;
+      final got = _readIntoFile(position, bytes, 0, count);
+      return got == count ? bytes : Uint8List.sublistView(bytes, 0, got);
     }
 
     if (position < _position ||
         (position + count) > (_position + _bufferLength)) {
       _readBuffer(position, count);
     }
-
     final start = position - _position;
-    final bytes = _buffer!.sublist(start, start + count);
-    return bytes;
+    final buffered = min(count, _bufferLength - start);
+    return _buffer!.sublist(start, start + buffered);
   }
 
   void _readBuffer(int position, [int need = 0]) {
