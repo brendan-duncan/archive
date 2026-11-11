@@ -129,17 +129,18 @@ class TarFileEncoder {
       }
     }
 
-    // Only filters need a preliminary count for progress fractions.
-    var numFiles = 0;
-    if (filter != null) {
-      await for (final _ in files()) {
-        numFiles++;
-      }
-    }
+    // A filter is given a progress fraction, which needs the count up front,
+    // so the list is kept in that case, as it always was. Walking the tree
+    // twice instead would double the directory reads, and a file added or
+    // removed between the walks would put the fraction past 1 or short of it.
+    // Without a filter the entries are handled as they are listed.
+    final listed = filter != null ? await files().toList() : null;
+    final numFiles = listed?.length ?? 0;
 
     final dirName = path.basename(dir.path);
     var fileCount = 0;
-    await for (final file in files()) {
+    await for (final file
+        in listed != null ? Stream.fromIterable(listed) : files()) {
       final progress = numFiles == 0 ? 0.0 : ++fileCount / numFiles;
       if (filter != null) {
         final operation = filter(file, progress);

@@ -238,6 +238,14 @@
 * `ZipDecoder` searches for the end of central directory only in the last 65535 + 4096 + 22 bytes of the input,
   instead of the whole file, so a corrupt or non-zip file is no longer read to its start. A zip followed by more
   than 69631 bytes, less its comment, is no longer found.
+* `TarFileEncoder.tarDirectory` compresses `.tar.gz` and `.tar.zst` as the tar is written, instead of writing a whole
+  uncompressed tar to the system temp directory first. A `.tar.zst` frame no longer records its content size, which
+  is not known while streaming. A failed `.tar.gz` or `.tar.zst` is deleted rather than left partly written.
+* Fixed `TarFileEncoder` adding the archive it is writing to itself when the output is inside the directory being
+  added, also through a linked directory or a hard link. `addFile` closes the input file when reading its
+  metadata fails, and `close` closes the output when finishing the tar fails.
+* `TarFileEncoder.addDirectory` without a `filter` adds entries as the directory is listed, instead of listing the
+  whole tree first.
 
 # 4.5.2
 
