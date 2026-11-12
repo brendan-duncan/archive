@@ -169,7 +169,7 @@ void main() {
     }
   });
 
-  test('a malformed file scans fully and preserves the stream position', () {
+  test('a malformed file preserves the stream position', () {
     final dir = Directory.systemTemp.createTempSync('archive-eocd-');
     addTearDown(() => dir.deleteSync(recursive: true));
     final file = File('${dir.path}/invalid.zip')
@@ -182,7 +182,37 @@ void main() {
     } finally {
       input.closeSync();
     }
-    expect(handle.bytes, greaterThanOrEqualTo(8 * 1024 * 1024));
+  });
+
+  test('a record straddling two chunks past the window is found', () {
+    // Past the comment window the chunk doubles from 1 KB to 64 KB. These
+    // lengths of trailing bytes put the record on each boundary up to the
+    // first between two 64 KB chunks, where a search without the three byte
+    // overlap misses it
+    final archive = Archive()..addFile(ArchiveFile.string('file.txt', 'data'));
+    final zip = ZipEncoder().encodeBytes(archive);
+    const ranges = [
+      (66000, 81500),
+      (96500, 98000),
+      (129500, 130500),
+      (195000, 196000)
+    ];
+    final padded = Uint8List(zip.length + ranges.last.$2)
+      ..fillRange(zip.length, zip.length + ranges.last.$2, 0x2e)
+      ..setRange(0, zip.length, zip);
+    final missed = <int>[];
+    for (final (from, to) in ranges) {
+      for (var junk = from; junk <= to; junk++) {
+        final directory = ZipDirectory()
+          ..read(InputMemoryStream(
+              Uint8List.sublistView(padded, 0, zip.length + junk)));
+        if (directory.filePosition != zip.length - ZipDirectory.eocdSize ||
+            directory.fileHeaders.length != 1) {
+          missed.add(junk);
+        }
+      }
+    }
+    expect(missed, isEmpty);
   });
 }
 

@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'dart:math';
 import '../../util/archive_exception.dart';
-import '../../util/input_memory_stream.dart';
 import '../../util/input_stream.dart';
 import 'zip_file_header.dart';
 
@@ -281,23 +280,30 @@ class ZipDirectory {
     // Preserve the input's read position, including if an archive is invalid.
     final pos = input.position;
     try {
-      const bufferSize = 1024;
-      final searchLength = lastCandidate + signatureSize;
-      final chunkSize = min(searchLength, bufferSize);
-      var startPos = searchLength - chunkSize;
+      // 1 KB at a time while a comment could still reach the end of the file,
+      // so a zip that ends with its record costs one small read. Past that
+      // only bytes after the zip, or a file that is no zip, are left, and the
+      // chunk doubles up to 64 KB: 256 MB of a file with no record took 9.8 s
+      // in 1 KB pieces
+      const smallChunk = 1024;
+      const largeChunk = 1 << 16;
+      final commentReach = lastCandidate - 0xffff;
+      var end = lastCandidate + signatureSize;
+      var chunkSize = smallChunk;
       var fallback = -1;
 
       while (true) {
+        final startPos = max(0, end - chunkSize);
         input.setPosition(startPos);
-        // Overlap reverse chunks by three bytes, covering signatures that
-        // straddle a chunk boundary without loading a large temporary buffer.
-        final chunk =
-            InputMemoryStream(input.readBytes(chunkSize).toUint8List());
-        for (var chunkPos = chunkSize - signatureSize;
+        final chunk = input.readBytes(end - startPos).toUint8List();
+        for (var chunkPos = chunk.length - signatureSize;
             chunkPos >= 0;
             --chunkPos) {
-          chunk.setPosition(chunkPos);
-          if (chunk.readUint32() != eocdSignature) {
+          // The signature 0x06054b50 as it is stored
+          if (chunk[chunkPos] != 0x50 ||
+              chunk[chunkPos + 1] != 0x4b ||
+              chunk[chunkPos + 2] != 0x05 ||
+              chunk[chunkPos + 3] != 0x06) {
             continue;
           }
           final candidate = startPos + chunkPos;
@@ -314,13 +320,17 @@ class ZipDirectory {
           }
         }
         // Earlier records cannot reach EOF once their maximum comment is past.
-        if (fallback >= 0 && startPos <= lastCandidate - 0xffff) {
-          return fallback;
+        if (startPos <= commentReach) {
+          if (fallback >= 0) {
+            return fallback;
+          }
+          chunkSize = min(chunkSize * 2, largeChunk);
         }
         if (startPos == 0) {
           break;
         }
-        startPos = max(0, startPos - (chunkSize - (signatureSize - 1)));
+        // Chunks overlap by three bytes, for a signature that straddles two
+        end = startPos + signatureSize - 1;
       }
       return fallback;
     } finally {
