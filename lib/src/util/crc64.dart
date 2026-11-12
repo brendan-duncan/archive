@@ -12,9 +12,16 @@
 // that have no dart:html, such as dart2js targeting Node. Those ended up with
 // the 64 bit table and failed to compile at all, on literals like
 // 0xb32e4cbe03a75f6f that JavaScript cannot represent.
+//
+// dart2wasm in Dart 3.14 does not report dart:isolate, and an import cannot
+// ask for dart.tool.dart2wasm. dart:js_interop without dart:js_util is wasm:
+// dart2js has both.
 import 'dart:typed_data';
 
-import '_crc64_html.dart' if (dart.library.isolate) '_crc64_io.dart';
+import '_crc64_html.dart'
+    if (dart.library.isolate) '_crc64_io.dart'
+    if (dart.library.js_util) '_crc64_html.dart'
+    if (dart.library.js_interop) '_crc64_io.dart';
 
 /// Throws UnsupportedError on dart2js, where int holds 53 bits. Use [Crc64]
 /// instead, which holds CRC as two 32-bit halves and returns 8 bytes, so it

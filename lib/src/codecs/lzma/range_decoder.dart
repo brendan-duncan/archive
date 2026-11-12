@@ -15,6 +15,12 @@
 // 12.7 ms on the VM, 17.0 ms against 19.0 ms on wasm, and on dart2js the
 // native implementation does not merely run slowly, it throws. The branching
 // implementation is therefore the default, because it is correct anywhere.
+//
+// dart2wasm in Dart 3.14 does not report dart:isolate, which put wasm on
+// the JavaScript path again, and an import cannot ask for dart.tool.dart2wasm.
+// dart:js_interop without dart:js_util is wasm: dart2js has both.
 export 'range_decoder_table.dart';
 export 'range_decoder_web.dart'
-    if (dart.library.isolate) 'range_decoder_native.dart';
+    if (dart.library.isolate) 'range_decoder_native.dart'
+    if (dart.library.js_util) 'range_decoder_web.dart'
+    if (dart.library.js_interop) 'range_decoder_native.dart';

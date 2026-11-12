@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:archive/src/codecs/zstd/zstd_constants.dart';
 import 'package:archive/src/codecs/zstd/zstd_dictionary.dart';
+import 'package:archive/src/codecs/zstd/zstd_web.dart';
 import 'package:archive/src/codecs/zstd_decoder.dart';
 import 'package:archive/src/codecs/zstd_encoder.dart';
 import 'package:archive/src/util/archive_exception.dart';
@@ -378,7 +379,7 @@ void main() {
   });
 
   test('highest bit works for every exact integer width', () {
-    const native = bool.fromEnvironment('dart.library.isolate');
+    const native = zstdUse64Bit;
     final maximumBit = native ? 62 : 52;
     var power = 1;
     for (var bit = 0; bit <= maximumBit; bit++) {

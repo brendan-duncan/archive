@@ -1,5 +1,7 @@
 import 'dart:typed_data';
 
+import 'zstd_web.dart';
+
 const zstdMagic = 0xfd2fb528;
 
 const zstdSkippableMagicMin = 0x184d2a50;
@@ -228,7 +230,7 @@ const List<int> _deBruijnSlots = [
 /// and 9% at level 12
 @pragma('vm:prefer-inline')
 int zstdHighestBitFast(int value) {
-  if (!const bool.fromEnvironment('dart.library.isolate')) {
+  if (!zstdUse64Bit) {
     return zstdHighestBit(value);
   }
   var v = value;

@@ -196,7 +196,8 @@ class AesCtr {
 // dart2js masks a shift count to 5 bits, so the VM and dart2wasm take a byte
 // with two shifts and dart2js with a mask. A second file for the web is not
 // needed: the compiler folds this const and drops the unused side
-const _use64 = bool.fromEnvironment('dart.library.isolate');
+const _use64 = bool.fromEnvironment('dart.library.isolate') ||
+    bool.fromEnvironment('dart.tool.dart2wasm');
 
 @pragma('vm:prefer-inline')
 int _byte1(int x) => _use64 ? (x << 40) >>> 56 : (x >>> 16) & 0xff;

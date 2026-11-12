@@ -1,3 +1,7 @@
+# 4.7.1
+
+* Fixed zstd decoding and XXH64 on dart2wasm, which returned no data or threw since Dart 3.14.
+
 # 4.7.0
 
 * Fixed `extractFileToDisk`, `extractArchiveToDisk` and `extractArchiveToDiskSync` writing nothing, without an error,
