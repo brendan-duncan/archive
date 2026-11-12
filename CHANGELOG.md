@@ -1,13 +1,3 @@
-# 4.7.1
-
-* Fixed zstd decoding and XXH64 on dart2wasm, which returned no data or threw on Dart 3.14.
-* dart2wasm uses the 64-bit zstd, xz, CRC-64 and AES code again: xz decode is about 1.4x faster.
-* `XZEncoder.encodeBytes` is about 18x faster for inputs under 32 KB.
-* `BZip2Encoder` sizes its buffers to a known input: small inputs are 1.25x faster, 4x on wasm.
-* `BZip2Encoder.encodeStream` reads in 64 KB pieces: about 14% faster on dart2js.
-* `ZstdEncoder.encodeBytes` is about 1.3x faster for inputs under 32 KB.
-* Pure-Dart `Deflate` is 10-25% faster on dart2js and wasm.
-
 # 4.7.0
 
 * Fixed `extractFileToDisk`, `extractArchiveToDisk` and `extractArchiveToDiskSync` writing nothing, without an error,
@@ -55,6 +45,13 @@
   `GZipEncoder` and `ZipEncoder` pass it.
 * On the web, `ZLibDecoder.decodeBytes` inflates straight into its result instead of into a second buffer that was
   then copied.
+* Fixed zstd decoding and XXH64 on dart2wasm, which returned no data or threw on Dart 3.14.
+* dart2wasm uses the 64-bit zstd, xz, CRC-64 and AES code again: xz decode is about 1.4x faster.
+* `XZEncoder.encodeBytes` is about 18x faster for inputs under 32 KB.
+* `BZip2Encoder` sizes its buffers to a known input: small inputs are 1.25x faster, 4x on wasm.
+* `BZip2Encoder.encodeStream` reads in 64 KB pieces: about 14% faster on dart2js.
+* `ZstdEncoder.encodeBytes` is about 1.3x faster for inputs under 32 KB.
+* Pure-Dart `Deflate` is 10-25% faster on dart2js and wasm.
 
 # 4.6.0
 
