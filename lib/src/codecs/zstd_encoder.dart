@@ -51,7 +51,11 @@ class ZstdEncoder {
       bool checksum = false,
       ZstdMultithreadOptions<Uint8List>? multithread}) {
     if (multithread == null) {
-      final output = OutputMemoryStream();
+      // A frame is at most a few bytes longer than its content
+      final output = OutputMemoryStream(
+          size: data.length < OutputMemoryStream.defaultBufferSize
+              ? data.length + 64
+              : null);
       encodeStream(InputMemoryStream(data), output,
           level: level, checksum: checksum);
       return output.getBytes();

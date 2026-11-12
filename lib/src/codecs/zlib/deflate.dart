@@ -517,7 +517,9 @@ class Deflate {
     _putByte(_rshift(w, 8));
   }
 
-  void _sendCode(int c, List<int> tree) {
+  // Typed lists here and for the constant tables: a List<int> argument is type
+  // checked on every call on dart2js, 12% of the time at level 1
+  void _sendCode(int c, Uint16List tree) {
     _sendBits(tree[c * 2] & 0xffff, tree[c * 2 + 1] & 0xffff);
   }
 
@@ -605,7 +607,7 @@ class Deflate {
   }
 
   // Send the block data compressed using the given Huffman trees
-  void _compressBlock(List<int> ltree, List<int> dtree) {
+  void _compressBlock(Uint16List ltree, Uint16List dtree) {
     int dist; // distance of matched string
     int lc; // match length or unmatched char (if dist == 0)
     var lx = 0; // running index in l_buf
@@ -1169,10 +1171,14 @@ class Deflate {
     // we prevent matches with the string of window index 0.
 
     final wmask = _windowMask;
+    // Locals, since wasm reloads a late field on every use: level 6 over 16 MB
+    // took 1650 ms there, not 1229 ms
+    final window = _window;
+    final prev = _prev;
 
     final strend = _strStart + maxMatch;
-    var scanEnd1 = _window[scan + bestLen - 1];
-    var scanEnd = _window[scan + bestLen];
+    var scanEnd1 = window[scan + bestLen - 1];
+    var scanEnd = window[scan + bestLen];
 
     // The code is optimized for HASH_BITS >= 8 and MAX_MATCH-2 multiple of 16.
     // It is easy to get rid of this optimization if necessary.
@@ -1193,10 +1199,10 @@ class Deflate {
 
       // Skip to next match if the match length cannot increase
       // or if the match length is less than 2:
-      if (_window[match + bestLen] != scanEnd ||
-          _window[match + bestLen - 1] != scanEnd1 ||
-          _window[match] != _window[scan] ||
-          _window[++match] != _window[scan + 1]) {
+      if (window[match + bestLen] != scanEnd ||
+          window[match + bestLen - 1] != scanEnd1 ||
+          window[match] != window[scan] ||
+          window[++match] != window[scan + 1]) {
         continue;
       }
 
@@ -1210,14 +1216,14 @@ class Deflate {
 
       // We check for insufficient lookahead only every 8th comparison;
       // the 256th check will be made at strstart+258.
-      do {} while (_window[++scan] == _window[++match] &&
-          _window[++scan] == _window[++match] &&
-          _window[++scan] == _window[++match] &&
-          _window[++scan] == _window[++match] &&
-          _window[++scan] == _window[++match] &&
-          _window[++scan] == _window[++match] &&
-          _window[++scan] == _window[++match] &&
-          _window[++scan] == _window[++match] &&
+      do {} while (window[++scan] == window[++match] &&
+          window[++scan] == window[++match] &&
+          window[++scan] == window[++match] &&
+          window[++scan] == window[++match] &&
+          window[++scan] == window[++match] &&
+          window[++scan] == window[++match] &&
+          window[++scan] == window[++match] &&
+          window[++scan] == window[++match] &&
           scan < strend);
 
       len = maxMatch - (strend - scan);
@@ -1229,10 +1235,10 @@ class Deflate {
         if (len >= niceMatch) {
           break;
         }
-        scanEnd1 = _window[scan + bestLen - 1];
-        scanEnd = _window[scan + bestLen];
+        scanEnd1 = window[scan + bestLen - 1];
+        scanEnd = window[scan + bestLen];
       }
-    } while ((curMatch = _prev[curMatch & wmask] & 0xffff) > limit &&
+    } while ((curMatch = prev[curMatch & wmask] & 0xffff) > limit &&
         --chainLength != 0);
 
     if (bestLen <= _lookAhead) {
@@ -1626,7 +1632,7 @@ class _HuffmanTree {
   //static const REPZ_11_138 = 18;
 
   /// extra bits for each length code
-  static const List<int> extraLBits = [
+  static final Uint8List extraLBits = Uint8List.fromList(const [
     0,
     0,
     0,
@@ -1656,10 +1662,10 @@ class _HuffmanTree {
     5,
     5,
     0
-  ];
+  ]);
 
   /// extra bits for each distance code
-  static const List<int> extraDBits = [
+  static final Uint8List extraDBits = Uint8List.fromList(const [
     0,
     0,
     0,
@@ -1690,52 +1696,14 @@ class _HuffmanTree {
     12,
     13,
     13
-  ];
+  ]);
 
   /// extra bits for each bit length code
-  static const List<int> extraBLBits = [
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    2,
-    3,
-    7
-  ];
+  static final Uint8List extraBLBits = Uint8List.fromList(
+      const [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 3, 7]);
 
-  static const List<int> blOrder = [
-    16,
-    17,
-    18,
-    0,
-    8,
-    7,
-    9,
-    6,
-    10,
-    5,
-    11,
-    4,
-    12,
-    3,
-    13,
-    2,
-    14,
-    1,
-    15
-  ];
+  static final Uint8List blOrder = Uint8List.fromList(
+      const [16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15]);
 
   /// The lengths of the bit length codes are sent in order of decreasing
   /// probability, to avoid transmitting the lengths for unused bit
@@ -1745,7 +1713,7 @@ class _HuffmanTree {
   /// see definition of array dist_code below
   //static const DIST_CODE_LEN = 512;
 
-  static const List<int> _distCode = [
+  static final Uint8List _distCode = Uint8List.fromList(const [
     0,
     1,
     2,
@@ -2258,9 +2226,9 @@ class _HuffmanTree {
     29,
     29,
     29
-  ];
+  ]);
 
-  static const List<int> lengthCode = [
+  static final Uint8List lengthCode = Uint8List.fromList(const [
     0,
     1,
     2,
@@ -2517,9 +2485,9 @@ class _HuffmanTree {
     27,
     27,
     28
-  ];
+  ]);
 
-  static const List<int> baseLength = [
+  static final Uint16List baseLength = Uint16List.fromList(const [
     0,
     1,
     2,
@@ -2549,9 +2517,9 @@ class _HuffmanTree {
     192,
     224,
     0
-  ];
+  ]);
 
-  static const List<int> baseDist = [
+  static final Uint16List baseDist = Uint16List.fromList(const [
     0,
     1,
     2,
@@ -2582,7 +2550,7 @@ class _HuffmanTree {
     12288,
     16384,
     24576
-  ];
+  ]);
 
   /// the dynamic tree
   late Uint16List dynamicTree;
@@ -2835,7 +2803,7 @@ class _StaticTree {
   // Bit length codes must not exceed MAX_BL_BITS bits
   static const maxBLBits = 7;
 
-  static const List<int> staticLTree = [
+  static final Uint16List staticLTree = Uint16List.fromList(const [
     12,
     8,
     140,
@@ -3412,9 +3380,9 @@ class _StaticTree {
     8,
     227,
     8
-  ];
+  ]);
 
-  static const List<int> staticDTree = [
+  static final Uint16List staticDTree = Uint16List.fromList(const [
     0,
     5,
     16,
@@ -3475,7 +3443,7 @@ class _StaticTree {
     5,
     23,
     5
-  ];
+  ]);
 
   static final staticLDesc = _StaticTree(
       staticLTree, _HuffmanTree.extraLBits, literals + 1, lCodes, maxBits);
@@ -3486,8 +3454,8 @@ class _StaticTree {
   static final staticBlDesc =
       _StaticTree(null, _HuffmanTree.extraBLBits, 0, blCodes, maxBLBits);
 
-  List<int>? staticTree; // static tree or null
-  List<int> extraBits; // extra bits for each code or null
+  Uint16List? staticTree; // static tree or null
+  Uint8List extraBits; // extra bits for each code or null
   int extraBase; // base index for extra_bits
   int numElements; // max number of elements in the tree
   int maxLength; // max bit length for the codes

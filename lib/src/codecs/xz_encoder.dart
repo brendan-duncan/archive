@@ -50,7 +50,12 @@ int xzDictionarySizeValue(int dictionarySize) {
 class XZEncoder {
   Uint8List encodeBytes(List<int> bytes, {XZCheck check = XZCheck.crc64}) {
     final input = InputMemoryStream(bytes);
-    final output = OutputMemoryStream();
+    // The default buffer is 32 KB, and so were the six small ones below: 2000
+    // inputs of 1 KB took 42 ms to store, not 2 ms
+    final output = OutputMemoryStream(
+        size: bytes.length < OutputMemoryStream.defaultBufferSize
+            ? bytes.length + 96
+            : null);
     encodeStream(input, output, check: check);
     return output.getBytes();
   }
@@ -108,7 +113,7 @@ class XZEncoder {
     // '\xfd7zXZ\x00'
     output.writeBytes([253, 55, 122, 88, 90, 0]);
 
-    final header = OutputMemoryStream();
+    final header = OutputMemoryStream(size: 64);
     header.writeByte(0); // Unused flags.
     header.writeByte(flags);
 
@@ -127,7 +132,7 @@ class XZEncoder {
     final compressedLength = inputLength + chunks * 3 + 1;
 
     // Optionally write the compressed and uncompressed lengths.
-    final blockLengths = OutputMemoryStream();
+    final blockLengths = OutputMemoryStream(size: 24);
     if (hasCompressedLength) {
       _writeMultibyteInteger(blockLengths, compressedLength);
     }
@@ -155,7 +160,7 @@ class XZEncoder {
     if (hasUncompressedLength) {
       flags |= 0x80;
     }
-    final header = OutputMemoryStream();
+    final header = OutputMemoryStream(size: 64);
     header.writeByte((headerLength ~/ 4) - 1);
     header.writeByte(flags);
     header.writeBytes(blockLengths.getBytes());
@@ -233,7 +238,7 @@ class XZEncoder {
     final id = 0x21;
     final propertiesLength = 1;
 
-    final filter = OutputMemoryStream();
+    final filter = OutputMemoryStream(size: 16);
     _writeMultibyteInteger(filter, id);
     _writeMultibyteInteger(filter, propertiesLength);
     filter.writeByte(xzDictionarySizeValue(dictionarySize));
@@ -268,7 +273,7 @@ class XZEncoder {
   // Write the XZ stream index for [records] to [output].
   void _writeStreamIndex(OutputStream output,
       {required List<_XZBlockSize> records}) {
-    final index = OutputMemoryStream();
+    final index = OutputMemoryStream(size: 64);
 
     // Index indicator.
     index.writeByte(0);
@@ -287,7 +292,7 @@ class XZEncoder {
   // Write an XZ stream footer to [output].
   void _writeStreamFooter(OutputStream output,
       {required int indexSize, required int flags}) {
-    final footer = OutputMemoryStream();
+    final footer = OutputMemoryStream(size: 16);
     footer.writeUint32((indexSize ~/ 4) - 1);
     footer.writeByte(0); // Unused flags.
     footer.writeByte(flags);

@@ -5,6 +5,30 @@ import 'package:archive/archive.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
+/// Not an [InputMemoryStream] to the encoder, so it cannot size its arrays
+class _Unsized extends InputStream {
+  final InputMemoryStream _inner;
+
+  _Unsized(Uint8List data)
+      : _inner = InputMemoryStream(data),
+        super(byteOrder: ByteOrder.bigEndian);
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+
+  @override
+  bool get isEOS => _inner.isEOS;
+
+  @override
+  int get length => _inner.length;
+
+  @override
+  int readByte() => _inner.readByte();
+
+  @override
+  InputStream readBytes(int count) => _inner.readBytes(count);
+}
+
 void main() {
   test('ignores selectors past the most a block can use', () {
     // Some encoders write more than the 18002 selectors a block can use.
@@ -112,6 +136,27 @@ void main() {
     expect(d2.length, equals(file.length));
     for (var i = 0, len = d2.length; i < len; ++i) {
       expect(d2[i], equals(file[i]));
+    }
+  });
+
+  test('arrays sized to a known input hold runs that grow by a quarter', () {
+    // Runs of four are the most that run length coding lengthens a block, and
+    // a stream of unknown length takes the full sized arrays
+    for (final size in [0, 1, 3, 4, 5, 1000, 9999, 10000, 80000, 250000]) {
+      for (final run in [1, 4, 300]) {
+        final data = Uint8List.fromList(
+            List.generate(size, (i) => (i ~/ run * 7) & 0xff));
+        for (final blockSize in [1, 9]) {
+          final sized =
+              BZip2Encoder().encodeBytes(data, blockSize100k: blockSize);
+          final unsized = OutputMemoryStream(byteOrder: ByteOrder.bigEndian);
+          BZip2Encoder()
+              .encodeStream(_Unsized(data), unsized, blockSize100k: blockSize);
+          expect(sized, unsized.getBytes(), reason: '$size $run $blockSize');
+          expect(BZip2Decoder().decodeBytes(sized, verify: true), data,
+              reason: '$size $run $blockSize');
+        }
+      }
     }
   });
 
