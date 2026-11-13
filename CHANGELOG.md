@@ -1,3 +1,8 @@
+# 4.7.1
+
+* Fixed 4.7.0 failing to compile with dart2js when `--no-deprecated-js-interop` is passed, as in
+  `flutter build web --no-deprecated-js-interop`, with or without `--wasm` (#442, #443).
+
 # 4.7.0
 
 * Fixed `extractFileToDisk`, `extractArchiveToDisk` and `extractArchiveToDiskSync` writing nothing, without an error,
