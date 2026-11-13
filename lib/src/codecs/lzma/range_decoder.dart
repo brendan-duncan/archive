@@ -18,9 +18,11 @@
 //
 // dart2wasm in Dart 3.14 does not report dart:isolate, which put wasm on
 // the JavaScript path again, and an import cannot ask for dart.tool.dart2wasm.
-// dart:js_interop without dart:js_util is wasm: dart2js has both.
+// dart:nativewrappers is reported by the VM and by wasm and by no JavaScript
+// backend, so it selects wasm (dart:ffi does not: wasm does not report it).
+// Asking for dart:js_interop without dart:js_util does not work either: with
+// --no-deprecated-js-interop dart2js reports dart:js_util as missing too.
 export 'range_decoder_table.dart';
 export 'range_decoder_web.dart'
     if (dart.library.isolate) 'range_decoder_native.dart'
-    if (dart.library.js_util) 'range_decoder_web.dart'
-    if (dart.library.js_interop) 'range_decoder_native.dart';
+    if (dart.library.nativewrappers) 'range_decoder_native.dart';

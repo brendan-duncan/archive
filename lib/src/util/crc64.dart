@@ -14,14 +14,16 @@
 // 0xb32e4cbe03a75f6f that JavaScript cannot represent.
 //
 // dart2wasm in Dart 3.14 does not report dart:isolate, and an import cannot
-// ask for dart.tool.dart2wasm. dart:js_interop without dart:js_util is wasm:
-// dart2js has both.
+// ask for dart.tool.dart2wasm. dart:nativewrappers is reported by the VM and by
+// wasm and by no JavaScript backend, so it selects wasm (dart:ffi does not:
+// wasm does not report it). Asking for dart:js_interop without dart:js_util
+// does not work either: with --no-deprecated-js-interop dart2js reports
+// dart:js_util as missing too.
 import 'dart:typed_data';
 
 import '_crc64_html.dart'
     if (dart.library.isolate) '_crc64_io.dart'
-    if (dart.library.js_util) '_crc64_html.dart'
-    if (dart.library.js_interop) '_crc64_io.dart';
+    if (dart.library.nativewrappers) '_crc64_io.dart';
 
 /// Throws UnsupportedError on dart2js, where int holds 53 bits. Use [Crc64]
 /// instead, which holds CRC as two 32-bit halves and returns 8 bytes, so it
